@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = REPO_ROOT / "storage" / "cdnlite.sqlite"
+DB_PATH = Path("/tmp/cdnlite-test-edge-auth.sqlite")
 TEST_ENV = {
     "DB_DRIVER": "sqlite",
     "DB_DATABASE": str(DB_PATH),

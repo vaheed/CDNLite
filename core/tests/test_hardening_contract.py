@@ -5,7 +5,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CORE_DIR = REPO_ROOT / "core"
-DB_PATH = REPO_ROOT / "storage" / "cdnlite.sqlite"
+DB_PATH = Path("/tmp/cdnlite-test-hardening.sqlite")
 ARTISAN = CORE_DIR / "artisan"
 TEST_ENV = {
     "DB_DRIVER": "sqlite",

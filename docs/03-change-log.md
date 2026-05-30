@@ -61,7 +61,7 @@
 ### Persistence
 - Migrated core persistence to SQLite using PDO.
 - Added `core/database/schema.sql` and auto-migration bootstrap.
-- Added persistent DB path `core/storage/cdnlite.sqlite`.
+- Added SQLite persistence for early baseline runtime (later replaced by PostgreSQL-default runtime).
 
 ### CLI implementation
 - Added executable CLI runner `core/artisan`.

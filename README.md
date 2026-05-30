@@ -4,7 +4,6 @@ This repository contains a runnable end-to-end CDN baseline:
 - `core/public_index.php`: core API
 - `core/app/Modules/*`: modular core implementation
 - `core/artisan`: CLI command runner
-- `storage/cdnlite.sqlite`: persistent SQLite database
 - `edge/openresty`: OpenResty + Lua host routing and proxying
 - `edge/agent`: register/heartbeat/config pull/metrics push loops
 - `docker-compose.yml`: one-command local deployment

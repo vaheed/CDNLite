@@ -16,7 +16,7 @@ class Database
 
         $driver = getenv('DB_DRIVER') ?: getenv('DB_CONNECTION') ?: 'pgsql';
         if ($driver === 'sqlite') {
-            $dbPath = getenv('DB_DATABASE') ?: (__DIR__ . '/../../../storage/cdnlite.sqlite');
+            $dbPath = getenv('DB_DATABASE') ?: '/tmp/cdnlite-test.sqlite';
             $dir = dirname($dbPath);
             if (!is_dir($dir)) {
                 mkdir($dir, 0777, true);
