@@ -3,66 +3,66 @@
 This roadmap is organized as implementation phases with clear start criteria, delivery targets, and exit gates.
 
 ## Phase 0: Foundation and Baseline
-Status: In progress
+Status: Done
 
 Goals:
 - Keep architecture modular and API/CLI-first
 - Maintain documentation and runtime stage discipline
 
 Implementation items:
-- Baseline architecture docs and agent governance
-- Runtime stack bootstrapping and local compose flow
-- DB schema baseline and migration bootstrap
+- [x] Baseline architecture docs and agent governance
+- [x] Runtime stack bootstrapping and local compose flow
+- [x] DB schema baseline and migration bootstrap
 
 Exit gate:
 - Repo can be booted, linted, and tested by a new contributor using documented steps.
 
 ## Phase 1: Core v1 Functional Platform
-Status: In progress
+Status: Done
 
 Goals:
 - Complete operational core modules for site onboarding and traffic control
 
 Implementation items:
-- `Sites`: create/list/update/delete + proxy toggle
-- `Dns`: add/list/delete records (adapter-ready)
-- `Edge`: register, heartbeat, node list, token management
-- `Proxy`: config snapshot generation + versioning
-- `Collector`: usage ingest + summary query
-- CLI parity for critical operations
+- [x] `Sites`: create/list/update/delete + proxy toggle
+- [x] `Dns`: add/list/delete records (adapter-ready)
+- [x] `Edge`: register, heartbeat, node list, token management
+- [x] `Proxy`: config snapshot generation + versioning
+- [x] `Collector`: usage ingest + summary query
+- [x] CLI parity for critical operations
 
 Exit gate:
 - All core operations available through both API and CLI.
 
 ## Phase 2: Edge Runtime v1
-Status: In progress
+Status: Done
 
 Goals:
 - Run edge data plane and agent control loop reliably in one deployment
 
 Implementation items:
-- OpenResty + Lua routing pipeline
-- Host-based routing and proxy handoff
-- Metrics capture and forwarding
-- Agent loop: register, heartbeat, pull config, push metrics
-- Last-known-good config behavior
+- [x] OpenResty + Lua routing pipeline
+- [x] Host-based routing and proxy handoff
+- [x] Metrics capture and forwarding
+- [x] Agent loop: register, heartbeat, pull config, push metrics
+- [x] Last-known-good config behavior
 
 Exit gate:
 - E2E flow proves edge can serve enabled sites and fail safely when disabled/origin fails.
 
 ## Phase 3: Hardening and Production Safety
-Status: In progress
+Status: Done (baseline)
 
 Goals:
 - Improve reliability, replay safety, and deterministic behavior
 
 Implementation items:
-- Idempotency for usage ingest and config polling
-- Edge token auth with replay-protection headers
-- Token rotation command flow
-- Deterministic config snapshots and no-op version reuse
-- Usage aggregation rebuild/query support (`minute|hour|day`)
-- Branded edge error/status page for upstream failures
+- [x] Idempotency for usage ingest and config polling
+- [x] Edge token auth with replay-protection headers
+- [x] Token rotation command flow
+- [x] Deterministic config snapshots and no-op version reuse
+- [x] Usage aggregation rebuild/query support (`minute|hour|day`)
+- [x] Branded edge error/status page for upstream failures
 
 Exit gate:
 - Contract tests and E2E checks cover failure and retry paths.
@@ -133,3 +133,20 @@ Implementation items:
 
 Exit gate:
 - Throughput and latency targets are met under load tests tied to real usage patterns.
+
+## Production Start Gate (Current Step)
+Status: Ready to start production hardening work
+
+What is already ready:
+- [x] Core + Edge + Agent runtime architecture is in place
+- [x] PostgreSQL default runtime path exists
+- [x] CI pipeline includes lint, unit test, smoke, e2e, and image build/push
+- [x] Security baseline exists for edge control-plane auth and replay protection
+
+Next immediate work (recommended order):
+1. Start Phase 4 scaffolding (Redirects, Cache Rules, WAF hooks, Rate Limiting hooks) behind feature flags.
+2. Start Phase 5 safety automation (architecture lint, release checklist, migration review template).
+3. Add stronger production checks:
+   - health/readiness for Postgres dependency
+   - backup/restore runbook for Postgres
+   - alerting and log retention policy

@@ -117,8 +117,8 @@ jobs:
           file: ./core/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-core:sha-${{ github.sha }}
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-core:latest
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:sha-${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:latest
 
       - name: Build and push edge image
         uses: docker/build-push-action@v6
@@ -127,8 +127,8 @@ jobs:
           file: ./edge/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-edge:sha-${{ github.sha }}
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-edge:latest
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:sha-${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:latest
 
       - name: Build and push edge-agent image
         uses: docker/build-push-action@v6
@@ -137,5 +137,5 @@ jobs:
           file: ./edge/agent/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-edge-agent:sha-${{ github.sha }}
-            ghcr.io/${{ env.OWNER_LC }}/cdnt-edge-agent:latest
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge-agent:sha-${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge-agent:latest

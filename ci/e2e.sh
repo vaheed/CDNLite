@@ -19,7 +19,7 @@ dns_list=$(curl -fsS http://localhost:8080/api/v1/sites/1/dns/records)
 echo "$dns_list" | grep -q '1.1.1.1'
 
 # Edge proxy request succeeds when enabled
-code=$(curl -s -o /tmp/e2e_enabled.txt -w '%{http_code}' http://localhost:8081/api/v1/sites -H 'Host: demo.local')
+code=$(curl -s -o /tmp/e2e_enabled.txt -w '%{http_code}' http://localhost:8081/api/v1/sites -H 'Host: demo2.local')
 if [[ "$code" -lt 200 || "$code" -ge 400 ]]; then
   echo "e2e: expected successful proxy status, got $code"
   exit 1
@@ -27,7 +27,7 @@ fi
 
 # Disable proxy and verify edge no longer routes this host
 curl -fsS -X POST http://localhost:8080/api/v1/sites/1/proxy/disable >/dev/null
-code_disabled=$(curl -s -o /tmp/e2e_disabled.txt -w '%{http_code}' http://localhost:8081/api/v1/sites -H 'Host: demo.local')
+code_disabled=$(curl -s -o /tmp/e2e_disabled.txt -w '%{http_code}' http://localhost:8081/api/v1/sites -H 'Host: demo2.local')
 if [[ "$code_disabled" -ne 502 ]]; then
   echo "e2e: expected 502 when proxy disabled, got $code_disabled"
   exit 1

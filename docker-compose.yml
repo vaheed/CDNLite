@@ -36,9 +36,6 @@ services:
       - core
     volumes:
       - ./edge/config:/var/lib/cdnlite
-
-volumes:
-  pgdata:
       - ./edge/logs:/var/log/openresty
     ports:
       - "8081:8081"
@@ -64,3 +61,6 @@ volumes:
       METRIC_PATH: /var/lib/cdnlite/metrics.ndjson
     volumes:
       - ./edge/config:/var/lib/cdnlite
+
+volumes:
+  pgdata:
