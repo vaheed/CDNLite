@@ -1,48 +1,53 @@
-# Lite CDN Architecture and Principles
+# Architecture and Principles
 
-## Scope
-This project implements a lightweight CDN core with:
-- Site/domain management
-- PowerDNS record management
-- Proxy mode toggle (proxied vs DNS-only)
-- Edge node registration + heartbeat
-- Edge config snapshot generation
-- OpenResty/Lua proxy routing
-- Usage metric ingestion + query
+## Purpose
+CDNLite provides a compact CDN control/data-plane split with operational simplicity as the primary design goal.
 
-Out of scope for v1:
-- WAF, redirects, cache rules, rate limiting, bot protection, billing/invoicing
+## Core Principles
+- Keep modules explicit and readable.
+- Keep API-first and CLI-first workflows for all key operations.
+- Keep controllers thin and business logic in services.
+- Keep edge fail-safe with last-known-good config behavior.
+- Avoid heavyweight distributed patterns in v1.
 
-## Design principles
-- Database is source of truth
-- API-first and CLI-first for all core operations
-- Thin controllers; business logic in services
-- Small modules inside one Laravel app (no microservices)
-- Edge pulls versioned config snapshots and keeps last-known-good locally
-- Keep operations simple for a small team
+## High-Level Architecture
+- Control Plane (`core/`):
+  - API endpoints for sites, DNS, edge registration/heartbeat/config, collector usage
+  - CLI commands for all core operational paths
+  - PostgreSQL as system-of-record
+- Data Plane (`edge/openresty/`):
+  - OpenResty Lua routing/proxy logic
+  - local config load and host routing
+  - metrics emission per request
+- Edge Agent (`edge/agent/`):
+  - register
+  - heartbeat
+  - pull config
+  - push metrics
 
-## High-level components
-1. Laravel Core
-- Auth + users (existing billing system assumed external)
-- Modules: Sites, Dns, Edge, Proxy, Collector, Core
-- PowerDNS client only inside core
-- Config snapshot builder
+## Module Boundaries
+Under `core/app/Modules/`:
+- `Sites`
+- `Dns`
+- `Edge`
+- `Proxy`
+- `Collector`
 
-2. Edge Node
-- OpenResty for request handling
-- Lua modules for routing, config loading, proxying, metrics
-- Lightweight agent for register/heartbeat/config pull/metrics push
-- Local persisted config cache
+## Runtime Request Flow
+1. Client request arrives at edge.
+2. Edge loads local config and matches `Host`.
+3. If host exists and proxy enabled, edge forwards to origin.
+4. If host not routable/upstream fails, edge returns status/error page.
+5. Edge metrics are appended locally and pushed by agent to core collector.
 
-3. PowerDNS
-- Authoritative DNS management via API
+## Control-Plane Flow
+1. Edge authenticates with token + replay-protection headers.
+2. Edge registers and heartbeats.
+3. Edge polls config snapshots with optional `if_version`.
+4. Core returns deterministic snapshot payload or not-modified response.
 
-## Data flow
-1. User adds site + origin in Core.
-2. Core creates/updates DNS zone/records in PowerDNS.
-3. If `proxied=true`, DNS points to edge pool IPs; else points to origin.
-4. Edge agent registers node and heartbeats periodically.
-5. Edge agent pulls config snapshot version N.
-6. OpenResty routes requests using local snapshot and proxies to origin.
-7. Edge reports aggregated usage metrics to collector API.
-8. Core exposes usage via API and Artisan commands.
+## Non-Goals (Current Scope)
+- Kubernetes orchestration
+- Multi-service decomposition
+- Kafka/event bus
+- Full WAF/cache-rule/rate-limit engine (phase 4+)

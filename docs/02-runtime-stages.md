@@ -18,19 +18,15 @@ sh -n edge/agent/push_metrics.sh
 sh -n edge/agent/run.sh
 rg -n "WIP_MARKER" -S core edge ci
 ```
-Expected:
-- All checks pass with zero syntax errors and zero marker matches.
 
-## Stage 2: Unit Test
+## Stage 2: Contract Tests
 Purpose:
-- Validate core contract-level assumptions quickly.
+- Validate core behavior contracts against PostgreSQL-backed runtime assumptions.
 
 Command:
 ```bash
 pytest -q core/tests
 ```
-Expected:
-- Test job exits with status `0`.
 
 ## Stage 3: Smoke Runtime
 Purpose:
@@ -42,12 +38,10 @@ docker compose up -d --build
 ./ci/smoke.sh
 docker compose down -v
 ```
-Expected:
-- Core and edge health checks return success.
 
 ## Stage 4: E2E Runtime
 Purpose:
-- Validate real traffic and control-plane behavior.
+- Validate traffic path and control-plane behavior.
 
 Commands:
 ```bash
@@ -55,19 +49,19 @@ docker compose up -d --build
 ./ci/e2e.sh
 docker compose down -v
 ```
-Covers:
+
+Coverage:
 - site create
 - dns create/list
-- proxy enable/disable behavior at edge
-- branded edge HTML error page on upstream failure path
-- edge registration/heartbeat visibility
-- usage ingestion visibility
-- usage aggregate rebuild and bucketed summary (`minute|hour|day`)
-- idempotent usage ingest retries (`idempotency_key`)
-- config sync no-change polling (`if_version`)
-- edge auth headers and replay rejection (`X-CDNLITE-Timestamp`, `X-CDNLITE-Nonce`)
+- proxy enable/disable behavior
+- edge register/heartbeat visibility
+- usage ingest visibility
+- idempotent usage retries
+- config sync no-change polling
+- auth headers and replay rejection behavior
+- edge HTML error page path
 
-## Stage 5: Build Images
+## Stage 5: Image Build
 Purpose:
 - Build deployable images for core, edge, edge-agent.
 
@@ -77,20 +71,10 @@ docker build -t cdnlite-core -f core/Dockerfile core
 docker build -t cdnlite-edge -f edge/Dockerfile edge
 docker build -t cdnlite-edge-agent -f edge/agent/Dockerfile edge
 ```
-Expected:
-- All images build successfully.
 
-## Stage 6: Push Images (GitHub)
+## Stage 6: Publish Images
 Purpose:
 - Publish images to GHCR on push.
 
-CI job:
-- `.github/workflows/ci.yml` -> `build_and_push`
-
-Tags:
-- `ghcr.io/<owner>/cdnlite-core:sha-<sha>`
-- `ghcr.io/<owner>/cdnlite-core:latest`
-- `ghcr.io/<owner>/cdnlite-edge:sha-<sha>`
-- `ghcr.io/<owner>/cdnlite-edge:latest`
-- `ghcr.io/<owner>/cdnlite-edge-agent:sha-<sha>`
-- `ghcr.io/<owner>/cdnlite-edge-agent:latest`
+CI workflow:
+- `.github/workflows/ci.yml`

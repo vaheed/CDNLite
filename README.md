@@ -1,23 +1,31 @@
 # CDNLite
 
-This repository contains a runnable end-to-end CDN baseline:
-- `core/public_index.php`: core API
-- `core/app/Modules/*`: modular core implementation
-- `core/artisan`: CLI command runner
-- `edge/openresty`: OpenResty + Lua host routing and proxying
-- `edge/agent`: register/heartbeat/config pull/metrics push loops
-- `docker-compose.yml`: one-command local deployment
-- PostgreSQL-backed core storage in runtime
+CDNLite is a lightweight modular CDN platform designed for small teams that want a clear, operable stack without heavyweight distributed infrastructure.
 
-## Runtime files
-- Runtime stages: [docs/02-runtime-stages.md](docs/02-runtime-stages.md)
-- Change log: [docs/03-change-log.md](docs/03-change-log.md)
-- Root agent policy: [AGENTS.md](AGENTS.md)
-- Core agent policy: [core/AGENTS.md](core/AGENTS.md)
-- Edge agent policy: [edge/AGENTS.md](edge/AGENTS.md)
+## What This Project Includes
+- `core/`: API + CLI control plane (PHP, PostgreSQL)
+- `edge/openresty/`: OpenResty + Lua edge data plane
+- `edge/agent/`: edge control-loop scripts (register, heartbeat, config sync, metrics push)
+- `docker-compose.yml`: local/runtime stack for core + edge + edge-agent + postgres
+- `ci/`: smoke and e2e validation scripts
+- `docs/`: full technical and operational documentation
 
-## Run
+## Key Capabilities
+- Site CRUD and proxy enable/disable
+- DNS record management per site
+- Edge node token registration, node register/heartbeat, and config sync
+- Deterministic config snapshot versioning
+- Usage ingest with idempotency support
+- Usage summary and aggregate rebuild (`minute`, `hour`, `day`)
+- Edge auth + replay protection for control-plane endpoints
+- Modern edge error/status page for upstream failures
 
+## Quick Start
+
+### Prerequisites
+- Docker + Docker Compose
+
+### Run Locally
 ```bash
 docker compose up --build
 ```
@@ -27,72 +35,55 @@ Services:
 - Edge Proxy: `http://localhost:8081`
 - PostgreSQL: `localhost:5432`
 
-## API quick test
-
+### Health Check
 ```bash
-curl -s http://localhost:8080/health
+curl -fsS http://localhost:8080/health
+curl -fsS http://localhost:8081/health
+```
+
+## API Quick Test
+```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
   -H 'Content-Type: application/json' \
   -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
-curl -i http://localhost:8081/api/v1/sites -H 'Host: demo.local'
+
+curl -s -X POST http://localhost:8080/api/v1/sites/1/dns/records \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true}'
+
+curl -i http://localhost:8081/api/v1/sites -H 'Host: demo2.local'
 ```
 
-## CLI examples
-
+## CLI Quick Test
 ```bash
 php core/artisan cdn:site:create --name=demo --domain=demo.local --origin_host=core --origin_port=8080
 php core/artisan cdn:site:list
 php core/artisan cdn:dns:add-record --site_id=1 --type=A --name=@ --content=1.1.1.1 --proxied=1
 php core/artisan cdn:dns:list-records --site_id=1
 php core/artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
-php core/artisan cdn:edge:rotate-token --edge_id=edge-local-1
 php core/artisan cdn:edge:sync-config
-php core/artisan cdn:edge:sync-config --if_version=3
-php core/artisan cdn:usage:ingest --site_id=1 --edge_node_id=edge-local-1 --requests_count=50 --bytes_in=1200 --bytes_out=4800 --status=200 --idempotency_key=usage-batch-1
 php core/artisan cdn:usage:summary
-php core/artisan cdn:usage:recalculate
-php core/artisan cdn:usage:summary --bucket=hour
 ```
 
-## Implemented v1 endpoints
-
-- `POST /api/v1/sites`
-- `GET /api/v1/sites`
-- `PATCH /api/v1/sites/{id}`
-- `DELETE /api/v1/sites/{id}`
-- `POST /api/v1/sites/{id}/proxy/enable`
-- `POST /api/v1/sites/{id}/proxy/disable`
-- `POST /api/v1/sites/{id}/dns/records`
-- `GET /api/v1/sites/{id}/dns/records`
-- `DELETE /api/v1/sites/{id}/dns/records/{recordId}`
-- `POST /api/v1/edge/register`
-- `POST /api/v1/edge/heartbeat`
-- `GET /api/v1/edge/nodes`
-- `GET /api/v1/edge/config`
-- `GET /api/v1/edge/config?if_version=<n>`
-- `POST /api/v1/collector/usage` (supports optional `idempotency_key`)
-- `GET /api/v1/usage/summary`
-- `GET /api/v1/usage/summary?bucket=minute|hour|day`
-- `POST /api/v1/usage/recalculate`
-
-## Edge auth headers
-
-The following edge endpoints require token auth plus replay-protection headers:
-- `POST /api/v1/edge/register`
-- `POST /api/v1/edge/heartbeat`
-- `GET /api/v1/edge/config`
-- `POST /api/v1/collector/usage`
-
-Required headers:
+## Edge Auth Requirements
+Required on edge control and ingest endpoints:
 - `Authorization: Bearer <edge-token>`
 - `X-CDNLITE-Edge-Id: <edge-id>`
 - `X-CDNLITE-Timestamp: <unix-seconds>`
-- `X-CDNLITE-Nonce: <unique-per-request>`
+- `X-CDNLITE-Nonce: <unique nonce>`
+- `X-CDNLITE-Signature: <hmac signature>`
 
-## Edge error page
+## Documentation Map
+- [Architecture and Principles](docs/00-architecture-and-principles.md)
+- [Core Design](docs/01-core-design.md)
+- [Runtime Stages](docs/02-runtime-stages.md)
+- [Change Log](docs/03-change-log.md)
+- [API Reference](docs/04-api-reference.md)
+- [CLI Reference](docs/05-cli-reference.md)
+- [Deployment Guide](docs/06-deployment-guide.md)
+- [Operations Runbook](docs/07-operations-runbook.md)
+- [Security Model](docs/08-security-model.md)
+- [Troubleshooting](docs/09-troubleshooting.md)
 
-When a request cannot be completed by edge or origin, OpenResty renders a built-in HTML status page with:
-- Error code and human-readable reason
-- Flow status: Browser -> CDN Edge -> Origin
-- Request diagnostics: request ID, edge location, timestamp, client IP, hostname
-- Visitor and website-owner troubleshooting guidance
+## Current Delivery State
+Roadmap and implementation state live in [ROADMAP.md](ROADMAP.md).

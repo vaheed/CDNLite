@@ -2,6 +2,18 @@
 
 ## 2026-05-31
 
+### Documentation Refresh
+- Rewrote root README into a full standard project README.
+- Reworked architecture/core design docs to match current implementation.
+- Added complete documentation set:
+  - `docs/04-api-reference.md`
+  - `docs/05-cli-reference.md`
+  - `docs/06-deployment-guide.md`
+  - `docs/07-operations-runbook.md`
+  - `docs/08-security-model.md`
+  - `docs/09-troubleshooting.md`
+- Updated runtime-stage documentation for PostgreSQL-only baseline.
+
 ### Core runtime database
 - Switched core runtime default database driver to PostgreSQL via environment-based connection config.
 - Consolidated schema bootstrap to PostgreSQL in `core/database/schema.sql`.
