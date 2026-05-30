@@ -63,6 +63,7 @@ Covers:
 - usage ingestion visibility
 - idempotent usage ingest retries (`idempotency_key`)
 - config sync no-change polling (`if_version`)
+- edge auth headers and replay rejection (`X-CDNT-Timestamp`, `X-CDNT-Nonce`)
 
 ## Stage 5: Build Images
 Purpose:

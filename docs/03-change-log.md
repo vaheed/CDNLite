@@ -74,3 +74,7 @@
 - Added deterministic config snapshot storage (`config_snapshots`) so config version only increments when snapshot content changes.
 - Added `if_version` support to edge config sync (`GET /api/v1/edge/config` and `cdn:edge:sync-config`) for no-change polling.
 - Added contract tests for ingest dedupe and config snapshot version reuse.
+- Added edge token authentication and replay protection on edge control and usage ingest endpoints.
+- Added nonce storage table (`edge_request_nonces`) with duplicate nonce rejection per edge.
+- Added edge token rotation CLI command (`cdn:edge:rotate-token`).
+- Updated edge agent scripts to send auth and replay-protection headers on every control-plane call.

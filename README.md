@@ -44,6 +44,7 @@ php core/artisan cdn:site:list
 php core/artisan cdn:dns:add-record --site_id=1 --type=A --name=@ --content=1.1.1.1 --proxied=1
 php core/artisan cdn:dns:list-records --site_id=1
 php core/artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
+php core/artisan cdn:edge:rotate-token --edge_id=edge-local-1
 php core/artisan cdn:edge:sync-config
 php core/artisan cdn:edge:sync-config --if_version=3
 php core/artisan cdn:usage:ingest --site_id=1 --edge_node_id=edge-local-1 --requests_count=50 --bytes_in=1200 --bytes_out=4800 --status=200 --idempotency_key=usage-batch-1
@@ -68,3 +69,17 @@ php core/artisan cdn:usage:summary
 - `GET /api/v1/edge/config?if_version=<n>`
 - `POST /api/v1/collector/usage` (supports optional `idempotency_key`)
 - `GET /api/v1/usage/summary`
+
+## Edge auth headers
+
+The following edge endpoints require token auth plus replay-protection headers:
+- `POST /api/v1/edge/register`
+- `POST /api/v1/edge/heartbeat`
+- `GET /api/v1/edge/config`
+- `POST /api/v1/collector/usage`
+
+Required headers:
+- `Authorization: Bearer <edge-token>`
+- `X-CDNT-Edge-Id: <edge-id>`
+- `X-CDNT-Timestamp: <unix-seconds>`
+- `X-CDNT-Nonce: <unique-per-request>`

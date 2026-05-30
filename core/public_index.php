@@ -7,6 +7,7 @@ use App\Modules\Collector\Services\CollectorService;
 use App\Modules\Dns\Http\Controllers\DnsController;
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
+use App\Modules\Edge\Services\EdgeAuthService;
 use App\Modules\Edge\Services\EdgeService;
 use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Sites\Http\Controllers\SiteController;
@@ -21,6 +22,30 @@ function respond(array $payload, int $defaultStatus = 200): void
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
+}
+
+function headerValue(string $name): ?string
+{
+    $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+    if (isset($_SERVER[$key]) && is_string($_SERVER[$key])) {
+        return trim($_SERVER[$key]);
+    }
+
+    if ($name === 'Authorization' && isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        return trim((string) $_SERVER['REDIRECT_HTTP_AUTHORIZATION']);
+    }
+
+    return null;
+}
+
+function bearerToken(): string
+{
+    $raw = headerValue('Authorization') ?? '';
+    if (str_starts_with($raw, 'Bearer ')) {
+        return trim(substr($raw, 7));
+    }
+
+    return '';
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -38,6 +63,7 @@ $dnsController = new DnsController($dnsService);
 $edgeController = new EdgeController(new EdgeService());
 $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
+$edgeAuth = new EdgeAuthService();
 
 if ($method === 'GET' && $path === '/health') {
     respond(['ok' => true, 'time' => time()]);
@@ -96,19 +122,65 @@ if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
 }
 
 if ($method === 'POST' && $path === '/api/v1/edge/register') {
+    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
+        respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
+    }
+    $auth = $edgeAuth->authenticate(
+        $edgeIdHeader,
+        bearerToken(),
+        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNT-Nonce') ?? '')
+    );
+    if (($auth['ok'] ?? false) !== true) {
+        respond(['error' => (string) $auth['error']], (int) $auth['status']);
+    }
     respond($edgeController->register($body));
 }
 
 if ($method === 'POST' && $path === '/api/v1/edge/heartbeat') {
+    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
+        respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
+    }
+    $auth = $edgeAuth->authenticate(
+        $edgeIdHeader,
+        bearerToken(),
+        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNT-Nonce') ?? '')
+    );
+    if (($auth['ok'] ?? false) !== true) {
+        respond(['error' => (string) $auth['error']], (int) $auth['status']);
+    }
     respond($edgeController->heartbeat($body));
 }
 
 if ($method === 'GET' && $path === '/api/v1/edge/config') {
+    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $auth = $edgeAuth->authenticate(
+        $edgeIdHeader,
+        bearerToken(),
+        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNT-Nonce') ?? '')
+    );
+    if (($auth['ok'] ?? false) !== true) {
+        respond(['error' => (string) $auth['error']], (int) $auth['status']);
+    }
     $ifVersion = isset($_GET['if_version']) ? (int) $_GET['if_version'] : null;
     respond($configService->buildSnapshotForVersion($ifVersion));
 }
 
 if ($method === 'POST' && $path === '/api/v1/collector/usage') {
+    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $auth = $edgeAuth->authenticate(
+        $edgeIdHeader,
+        bearerToken(),
+        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNT-Nonce') ?? '')
+    );
+    if (($auth['ok'] ?? false) !== true) {
+        respond(['error' => (string) $auth['error']], (int) $auth['status']);
+    }
     respond($collectorController->ingest($body));
 }
 

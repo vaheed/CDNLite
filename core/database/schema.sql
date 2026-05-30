@@ -47,6 +47,15 @@ CREATE TABLE IF NOT EXISTS edge_tokens (
   updated_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS edge_request_nonces (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  edge_id TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  UNIQUE(edge_id, nonce)
+);
+
 CREATE TABLE IF NOT EXISTS usage_rollups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ts INTEGER NOT NULL,

@@ -7,6 +7,7 @@ Applies to all files under `core/`.
 - Every core change must preserve API contract in `core/public_index.php`.
 - Every core change must preserve CLI contract in `core/artisan`.
 - Every schema change must be reflected in `core/database/schema.sql`.
+- Edge control-plane and usage ingest endpoints must enforce edge auth and replay-protection headers.
 
 ## Documentation requirements
 - If endpoint behavior changes, update root `README.md` endpoint section.
