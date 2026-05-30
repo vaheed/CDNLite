@@ -4,16 +4,35 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = Path("/tmp/cdnlite-test-edge-auth.sqlite")
 TEST_ENV = {
-    "DB_DRIVER": "sqlite",
-    "DB_DATABASE": str(DB_PATH),
+    "DB_HOST": os.getenv("DB_HOST", "127.0.0.1"),
+    "DB_PORT": os.getenv("DB_PORT", "5432"),
+    "DB_DATABASE": os.getenv("DB_DATABASE", "cdnlite"),
+    "DB_USERNAME": os.getenv("DB_USERNAME", "cdnlite"),
+    "DB_PASSWORD": os.getenv("DB_PASSWORD", "cdnlite"),
 }
 
 
 def reset_db() -> None:
-    if DB_PATH.exists():
-        DB_PATH.unlink()
+    script = r'''
+$host = getenv('DB_HOST') ?: '127.0.0.1';
+$port = (int) (getenv('DB_PORT') ?: 5432);
+$database = getenv('DB_DATABASE') ?: 'cdnlite';
+$username = getenv('DB_USERNAME') ?: 'cdnlite';
+$password = getenv('DB_PASSWORD') ?: 'cdnlite';
+$pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->exec("TRUNCATE TABLE usage_aggregates, usage_ingest_keys, usage_rollups, edge_request_nonces, edge_tokens, edge_nodes, dns_records, sites, config_snapshots, config_state RESTART IDENTITY CASCADE");
+$pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
+'''
+    subprocess.run(
+        ["php", "-r", script],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, **TEST_ENV},
+    )
 
 
 def run_php(script: str) -> dict:

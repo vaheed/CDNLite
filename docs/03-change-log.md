@@ -4,9 +4,9 @@
 
 ### Core runtime database
 - Switched core runtime default database driver to PostgreSQL via environment-based connection config.
-- Added PostgreSQL schema bootstrap file (`core/database/schema.pgsql.sql`).
+- Consolidated schema bootstrap to PostgreSQL in `core/database/schema.sql`.
 - Updated Docker runtime to include `pdo_pgsql` and wired `postgres` service into `docker-compose.yml`.
-- Kept SQLite support for local test execution and updated tests to explicitly set SQLite driver.
+- Removed SQLite compatibility paths from runtime and tests.
 
 ### Edge runtime UX
 - Added modern branded OpenResty error/status page renderer for 5xx proxy failures.

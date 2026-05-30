@@ -1,6 +1,6 @@
 FROM php:8.3-cli-alpine
 
-RUN docker-php-ext-install pdo pdo_pgsql pdo_sqlite
+RUN docker-php-ext-install pdo pdo_pgsql
 
 WORKDIR /app
 COPY . /app

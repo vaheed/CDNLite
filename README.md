@@ -7,7 +7,7 @@ This repository contains a runnable end-to-end CDN baseline:
 - `edge/openresty`: OpenResty + Lua host routing and proxying
 - `edge/agent`: register/heartbeat/config pull/metrics push loops
 - `docker-compose.yml`: one-command local deployment
-- PostgreSQL-backed core storage in runtime (SQLite remains available for tests/dev overrides)
+- PostgreSQL-backed core storage in runtime
 
 ## Runtime files
 - Runtime stages: [docs/02-runtime-stages.md](docs/02-runtime-stages.md)
