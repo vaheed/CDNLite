@@ -11,7 +11,9 @@ class CdnEdgeSyncConfigCommand
 {
     public function __invoke(array $argv): int
     {
-        $snapshot = (new ConfigService(new SiteService(), new DnsService()))->buildSnapshot();
+        $opts = CommandIO::parseOptions($argv);
+        $ifVersion = isset($opts['if_version']) ? (int) $opts['if_version'] : null;
+        $snapshot = (new ConfigService(new SiteService(), new DnsService()))->buildSnapshotForVersion($ifVersion);
         CommandIO::printJson($snapshot);
         return 0;
     }

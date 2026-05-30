@@ -4,5 +4,7 @@ edge/logs/*
 !edge/logs/.gitkeep
 core/storage/*.sqlite
 core/storage/*.sqlite-*
+storage/*.sqlite
+storage/*.sqlite-*
 __pycache__/
 *.pyc

@@ -59,9 +59,22 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS usage_ingest_keys (
+  idempotency_key TEXT PRIMARY KEY,
+  item_count INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS config_state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   version INTEGER NOT NULL
 );
 
 INSERT OR IGNORE INTO config_state (id, version) VALUES (1, 0);
+
+CREATE TABLE IF NOT EXISTS config_snapshots (
+  version INTEGER PRIMARY KEY,
+  content_hash TEXT NOT NULL UNIQUE,
+  payload_json TEXT NOT NULL,
+  generated_at INTEGER NOT NULL
+);

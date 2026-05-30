@@ -16,6 +16,7 @@ use App\Console\Commands\CdnSiteListCommand;
 use App\Console\Commands\CdnSiteUpdateCommand;
 use App\Console\Commands\CdnUsageRecalculateCommand;
 use App\Console\Commands\CdnUsageSummaryCommand;
+use App\Console\Commands\CdnUsageIngestCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:site:create', new CdnSiteCreateCommand());
@@ -30,5 +31,6 @@ $runner->register('cdn:edge:register-token', new CdnEdgeRegisterTokenCommand());
 $runner->register('cdn:edge:sync-config', new CdnEdgeSyncConfigCommand());
 $runner->register('cdn:usage:summary', new CdnUsageSummaryCommand());
 $runner->register('cdn:usage:recalculate', new CdnUsageRecalculateCommand());
+$runner->register('cdn:usage:ingest', new CdnUsageIngestCommand());
 
 exit($runner->run($argv));

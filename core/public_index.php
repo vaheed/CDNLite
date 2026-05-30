@@ -104,7 +104,8 @@ if ($method === 'POST' && $path === '/api/v1/edge/heartbeat') {
 }
 
 if ($method === 'GET' && $path === '/api/v1/edge/config') {
-    respond($configService->buildSnapshot());
+    $ifVersion = isset($_GET['if_version']) ? (int) $_GET['if_version'] : null;
+    respond($configService->buildSnapshotForVersion($ifVersion));
 }
 
 if ($method === 'POST' && $path === '/api/v1/collector/usage') {

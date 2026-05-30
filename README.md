@@ -1,10 +1,10 @@
-# CDNT Lite CDN
+# CDNLite
 
 This repository contains a runnable end-to-end CDN baseline:
 - `core/public_index.php`: core API
 - `core/app/Modules/*`: modular core implementation
 - `core/artisan`: CLI command runner
-- `core/storage/cdnt.sqlite`: persistent SQLite database
+- `storage/cdnt.sqlite`: persistent SQLite database
 - `edge/openresty`: OpenResty + Lua host routing and proxying
 - `edge/agent`: register/heartbeat/config pull/metrics push loops
 - `docker-compose.yml`: one-command local deployment
@@ -45,6 +45,8 @@ php core/artisan cdn:dns:add-record --site_id=1 --type=A --name=@ --content=1.1.
 php core/artisan cdn:dns:list-records --site_id=1
 php core/artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
 php core/artisan cdn:edge:sync-config
+php core/artisan cdn:edge:sync-config --if_version=3
+php core/artisan cdn:usage:ingest --site_id=1 --edge_node_id=edge-local-1 --requests_count=50 --bytes_in=1200 --bytes_out=4800 --status=200 --idempotency_key=usage-batch-1
 php core/artisan cdn:usage:summary
 ```
 
@@ -63,5 +65,6 @@ php core/artisan cdn:usage:summary
 - `POST /api/v1/edge/heartbeat`
 - `GET /api/v1/edge/nodes`
 - `GET /api/v1/edge/config`
-- `POST /api/v1/collector/usage`
+- `GET /api/v1/edge/config?if_version=<n>`
+- `POST /api/v1/collector/usage` (supports optional `idempotency_key`)
 - `GET /api/v1/usage/summary`

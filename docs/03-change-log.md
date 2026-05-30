@@ -67,3 +67,10 @@
 ### Documentation
 - Updated root README with API and CLI usage.
 - Added runtime stage documentation (`docs/02-runtime-stages.md`).
+
+### Hardening
+- Added usage ingest idempotency support via optional `idempotency_key` and persisted dedupe table (`usage_ingest_keys`).
+- Added CLI command `cdn:usage:ingest` for direct usage ingestion from terminal automation.
+- Added deterministic config snapshot storage (`config_snapshots`) so config version only increments when snapshot content changes.
+- Added `if_version` support to edge config sync (`GET /api/v1/edge/config` and `cdn:edge:sync-config`) for no-change polling.
+- Added contract tests for ingest dedupe and config snapshot version reuse.
