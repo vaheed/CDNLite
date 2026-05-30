@@ -1,0 +1,44 @@
+version: '3.9'
+services:
+  core:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-core:dev
+    ports:
+      - "8080:8080"
+
+  edge:
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-edge:dev
+    depends_on:
+      - core
+    volumes:
+      - ./edge/config:/var/lib/cdnt
+      - ./edge/logs:/var/log/openresty
+    ports:
+      - "8081:8081"
+    environment:
+      EDGE_ID: edge-local-1
+
+  edge-agent:
+    build:
+      context: ./edge
+      dockerfile: agent/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-edge-agent:dev
+    depends_on:
+      - core
+    environment:
+      CORE_URL: http://core:8080
+      EDGE_ID: edge-local-1
+      EDGE_HOSTNAME: edge-local-1
+      EDGE_PUBLIC_IP: 127.0.0.1
+      EDGE_REGION: local
+      EDGE_VERSION: v1
+      EDGE_TOKEN: edge-dev-token
+      EDGE_CONFIG_PATH: /var/lib/cdnt/config.json
+      METRIC_PATH: /var/lib/cdnt/metrics.ndjson
+    volumes:
+      - ./edge/config:/var/lib/cdnt

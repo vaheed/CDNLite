@@ -1,0 +1,34 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/app/Support/bootstrap.php';
+
+use App\Console\CommandRunner;
+use App\Console\Commands\CdnDnsAddRecordCommand;
+use App\Console\Commands\CdnDnsDeleteRecordCommand;
+use App\Console\Commands\CdnDnsListRecordsCommand;
+use App\Console\Commands\CdnEdgeListCommand;
+use App\Console\Commands\CdnEdgeRegisterTokenCommand;
+use App\Console\Commands\CdnEdgeSyncConfigCommand;
+use App\Console\Commands\CdnSiteCreateCommand;
+use App\Console\Commands\CdnSiteDeleteCommand;
+use App\Console\Commands\CdnSiteListCommand;
+use App\Console\Commands\CdnSiteUpdateCommand;
+use App\Console\Commands\CdnUsageRecalculateCommand;
+use App\Console\Commands\CdnUsageSummaryCommand;
+
+$runner = new CommandRunner();
+$runner->register('cdn:site:create', new CdnSiteCreateCommand());
+$runner->register('cdn:site:list', new CdnSiteListCommand());
+$runner->register('cdn:site:update', new CdnSiteUpdateCommand());
+$runner->register('cdn:site:delete', new CdnSiteDeleteCommand());
+$runner->register('cdn:dns:add-record', new CdnDnsAddRecordCommand());
+$runner->register('cdn:dns:list-records', new CdnDnsListRecordsCommand());
+$runner->register('cdn:dns:delete-record', new CdnDnsDeleteRecordCommand());
+$runner->register('cdn:edge:list', new CdnEdgeListCommand());
+$runner->register('cdn:edge:register-token', new CdnEdgeRegisterTokenCommand());
+$runner->register('cdn:edge:sync-config', new CdnEdgeSyncConfigCommand());
+$runner->register('cdn:usage:summary', new CdnUsageSummaryCommand());
+$runner->register('cdn:usage:recalculate', new CdnUsageRecalculateCommand());
+
+exit($runner->run($argv));

@@ -1,0 +1,8 @@
+edge/config/*
+!edge/config/.gitkeep
+edge/logs/*
+!edge/logs/.gitkeep
+core/storage/*.sqlite
+core/storage/*.sqlite-*
+__pycache__/
+*.pyc
