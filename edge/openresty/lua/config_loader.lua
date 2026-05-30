@@ -1,7 +1,7 @@
 local cjson = require('cjson.safe')
 
 local M = {}
-local CONFIG_FILE = '/var/lib/cdnt/config.json'
+local CONFIG_FILE = '/var/lib/cdnlite/config.json'
 
 local function read_file(path)
   local f = io.open(path, 'r')

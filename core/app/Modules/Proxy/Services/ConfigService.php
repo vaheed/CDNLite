@@ -30,7 +30,7 @@ class ConfigService
             $hosts[$site['domain']] = [
                 'site_id' => (int) $site['id'],
                 'upstream' => sprintf('%s://%s:%d', $site['origin_scheme'], $site['origin_host'], $site['origin_port']),
-                'headers' => ['X-CDNT-Site' => (string) $site['id']],
+                'headers' => ['X-CDNLITE-Site' => (string) $site['id']],
                 'dns_records' => $this->dns->listBySite((int) $site['id']),
             ];
         }

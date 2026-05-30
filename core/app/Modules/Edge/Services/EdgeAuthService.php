@@ -10,9 +10,18 @@ class EdgeAuthService
     private const MAX_CLOCK_SKEW_SECONDS = 120;
     private const NONCE_TTL_SECONDS = 300;
 
-    public function authenticate(string $edgeId, string $token, int $timestamp, string $nonce): array
+    public function authenticate(
+        string $edgeId,
+        string $token,
+        int $timestamp,
+        string $nonce,
+        string $method,
+        string $path,
+        string $bodyRaw,
+        string $signature
+    ): array
     {
-        if ($edgeId === '' || $token === '' || $nonce === '') {
+        if ($edgeId === '' || $token === '' || $nonce === '' || $signature === '') {
             return ['ok' => false, 'error' => 'edge_auth_required', 'status' => 401];
         }
 
@@ -23,6 +32,10 @@ class EdgeAuthService
         $hash = $this->tokenHashByEdgeId($edgeId);
         if ($hash === null || !password_verify($token, $hash)) {
             return ['ok' => false, 'error' => 'edge_auth_invalid_token', 'status' => 401];
+        }
+
+        if (!$this->isValidSignature($token, $method, $path, $timestamp, $nonce, $bodyRaw, $signature)) {
+            return ['ok' => false, 'error' => 'edge_auth_invalid_signature', 'status' => 401];
         }
 
         $this->cleanupExpiredNonces();
@@ -47,6 +60,25 @@ class EdgeAuthService
         }
 
         return ['ok' => true];
+    }
+
+    private function isValidSignature(
+        string $token,
+        string $method,
+        string $path,
+        int $timestamp,
+        string $nonce,
+        string $bodyRaw,
+        string $signature
+    ): bool {
+        $bodyHash = hash('sha256', $bodyRaw);
+        $canonical = strtoupper($method) . "\n"
+            . $path . "\n"
+            . $timestamp . "\n"
+            . $nonce . "\n"
+            . $bodyHash;
+        $expected = hash_hmac('sha256', $canonical, hash('sha256', $token));
+        return hash_equals($expected, strtolower($signature));
     }
 
     private function tokenHashByEdgeId(string $edgeId): ?string

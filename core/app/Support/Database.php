@@ -14,7 +14,7 @@ class Database
             return self::$pdo;
         }
 
-        $dbPath = __DIR__ . '/../../../storage/cdnt.sqlite';
+        $dbPath = __DIR__ . '/../../../storage/cdnlite.sqlite';
         $dir = dirname($dbPath);
         if (!is_dir($dir)) {
             mkdir($dir, 0777, true);

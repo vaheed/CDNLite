@@ -4,7 +4,7 @@ services:
     build:
       context: ./core
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-core:dev
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     ports:
       - "8080:8080"
 
@@ -12,11 +12,11 @@ services:
     build:
       context: ./edge
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-edge:dev
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge:dev
     depends_on:
       - core
     volumes:
-      - ./edge/config:/var/lib/cdnt
+      - ./edge/config:/var/lib/cdnlite
       - ./edge/logs:/var/log/openresty
     ports:
       - "8081:8081"
@@ -27,7 +27,7 @@ services:
     build:
       context: ./edge
       dockerfile: agent/Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnt-edge-agent:dev
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge-agent:dev
     depends_on:
       - core
     environment:
@@ -38,7 +38,7 @@ services:
       EDGE_REGION: local
       EDGE_VERSION: v1
       EDGE_TOKEN: edge-dev-token
-      EDGE_CONFIG_PATH: /var/lib/cdnt/config.json
-      METRIC_PATH: /var/lib/cdnt/metrics.ndjson
+      EDGE_CONFIG_PATH: /var/lib/cdnlite/config.json
+      METRIC_PATH: /var/lib/cdnlite/metrics.ndjson
     volumes:
-      - ./edge/config:/var/lib/cdnt
+      - ./edge/config:/var/lib/cdnlite

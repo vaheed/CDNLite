@@ -48,6 +48,11 @@ function bearerToken(): string
     return '';
 }
 
+function edgeSignature(): string
+{
+    return (string) (headerValue('X-CDNLITE-Signature') ?? '');
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $bodyRaw = file_get_contents('php://input');
@@ -122,15 +127,19 @@ if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
 }
 
 if ($method === 'POST' && $path === '/api/v1/edge/register') {
-    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
     if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
         respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
     }
     $auth = $edgeAuth->authenticate(
         $edgeIdHeader,
         bearerToken(),
-        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNT-Nonce') ?? '')
+        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
+        $method,
+        $path,
+        $bodyRaw ?: '',
+        edgeSignature()
     );
     if (($auth['ok'] ?? false) !== true) {
         respond(['error' => (string) $auth['error']], (int) $auth['status']);
@@ -139,15 +148,19 @@ if ($method === 'POST' && $path === '/api/v1/edge/register') {
 }
 
 if ($method === 'POST' && $path === '/api/v1/edge/heartbeat') {
-    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
     if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
         respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
     }
     $auth = $edgeAuth->authenticate(
         $edgeIdHeader,
         bearerToken(),
-        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNT-Nonce') ?? '')
+        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
+        $method,
+        $path,
+        $bodyRaw ?: '',
+        edgeSignature()
     );
     if (($auth['ok'] ?? false) !== true) {
         respond(['error' => (string) $auth['error']], (int) $auth['status']);
@@ -156,12 +169,16 @@ if ($method === 'POST' && $path === '/api/v1/edge/heartbeat') {
 }
 
 if ($method === 'GET' && $path === '/api/v1/edge/config') {
-    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
     $auth = $edgeAuth->authenticate(
         $edgeIdHeader,
         bearerToken(),
-        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNT-Nonce') ?? '')
+        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
+        $method,
+        $path,
+        '',
+        edgeSignature()
     );
     if (($auth['ok'] ?? false) !== true) {
         respond(['error' => (string) $auth['error']], (int) $auth['status']);
@@ -171,12 +188,16 @@ if ($method === 'GET' && $path === '/api/v1/edge/config') {
 }
 
 if ($method === 'POST' && $path === '/api/v1/collector/usage') {
-    $edgeIdHeader = headerValue('X-CDNT-Edge-Id') ?? '';
+    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
     $auth = $edgeAuth->authenticate(
         $edgeIdHeader,
         bearerToken(),
-        (int) (headerValue('X-CDNT-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNT-Nonce') ?? '')
+        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
+        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
+        $method,
+        $path,
+        $bodyRaw ?: '',
+        edgeSignature()
     );
     if (($auth['ok'] ?? false) !== true) {
         respond(['error' => (string) $auth['error']], (int) $auth['status']);

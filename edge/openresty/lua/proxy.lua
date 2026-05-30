@@ -7,8 +7,8 @@ function M.forward(site)
   end
 
   ngx.var.target_upstream = upstream
-  ngx.header['X-CDNT-Edge'] = 'openresty'
-  ngx.header['X-CDNT-Site'] = tostring(site.site_id)
+  ngx.header['X-CDNLITE-Edge'] = 'openresty'
+  ngx.header['X-CDNLITE-Site'] = tostring(site.site_id)
   return true
 end
 

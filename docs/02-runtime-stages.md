@@ -63,7 +63,7 @@ Covers:
 - usage ingestion visibility
 - idempotent usage ingest retries (`idempotency_key`)
 - config sync no-change polling (`if_version`)
-- edge auth headers and replay rejection (`X-CDNT-Timestamp`, `X-CDNT-Nonce`)
+- edge auth headers and replay rejection (`X-CDNLITE-Timestamp`, `X-CDNLITE-Nonce`)
 
 ## Stage 5: Build Images
 Purpose:
@@ -71,9 +71,9 @@ Purpose:
 
 Commands:
 ```bash
-docker build -t cdnt-core -f core/Dockerfile core
-docker build -t cdnt-edge -f edge/Dockerfile edge
-docker build -t cdnt-edge-agent -f edge/agent/Dockerfile edge
+docker build -t cdnlite-core -f core/Dockerfile core
+docker build -t cdnlite-edge -f edge/Dockerfile edge
+docker build -t cdnlite-edge-agent -f edge/agent/Dockerfile edge
 ```
 Expected:
 - All images build successfully.
@@ -86,9 +86,9 @@ CI job:
 - `.github/workflows/ci.yml` -> `build_and_push`
 
 Tags:
-- `ghcr.io/<owner>/cdnt-core:sha-<sha>`
-- `ghcr.io/<owner>/cdnt-core:latest`
-- `ghcr.io/<owner>/cdnt-edge:sha-<sha>`
-- `ghcr.io/<owner>/cdnt-edge:latest`
-- `ghcr.io/<owner>/cdnt-edge-agent:sha-<sha>`
-- `ghcr.io/<owner>/cdnt-edge-agent:latest`
+- `ghcr.io/<owner>/cdnlite-core:sha-<sha>`
+- `ghcr.io/<owner>/cdnlite-core:latest`
+- `ghcr.io/<owner>/cdnlite-edge:sha-<sha>`
+- `ghcr.io/<owner>/cdnlite-edge:latest`
+- `ghcr.io/<owner>/cdnlite-edge-agent:sha-<sha>`
+- `ghcr.io/<owner>/cdnlite-edge-agent:latest`

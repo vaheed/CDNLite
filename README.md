@@ -4,7 +4,7 @@ This repository contains a runnable end-to-end CDN baseline:
 - `core/public_index.php`: core API
 - `core/app/Modules/*`: modular core implementation
 - `core/artisan`: CLI command runner
-- `storage/cdnt.sqlite`: persistent SQLite database
+- `storage/cdnlite.sqlite`: persistent SQLite database
 - `edge/openresty`: OpenResty + Lua host routing and proxying
 - `edge/agent`: register/heartbeat/config pull/metrics push loops
 - `docker-compose.yml`: one-command local deployment
@@ -80,6 +80,6 @@ The following edge endpoints require token auth plus replay-protection headers:
 
 Required headers:
 - `Authorization: Bearer <edge-token>`
-- `X-CDNT-Edge-Id: <edge-id>`
-- `X-CDNT-Timestamp: <unix-seconds>`
-- `X-CDNT-Nonce: <unique-per-request>`
+- `X-CDNLITE-Edge-Id: <edge-id>`
+- `X-CDNLITE-Timestamp: <unix-seconds>`
+- `X-CDNLITE-Nonce: <unique-per-request>`

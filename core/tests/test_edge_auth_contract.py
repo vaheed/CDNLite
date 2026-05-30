@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DB_PATH = REPO_ROOT / "storage" / "cdnt.sqlite"
+DB_PATH = REPO_ROOT / "storage" / "cdnlite.sqlite"
 
 
 def reset_db() -> None:
@@ -32,9 +32,17 @@ $edge = new App\Modules\Edge\Services\EdgeService();
 $auth = new App\Modules\Edge\Services\EdgeAuthService();
 $edge->registerToken('edge-auth-1', 'edge-token-1');
 
-$missing = $auth->authenticate('', '', time(), '');
-$first = $auth->authenticate('edge-auth-1', 'edge-token-1', time(), 'nonce-1');
-$replay = $auth->authenticate('edge-auth-1', 'edge-token-1', time(), 'nonce-1');
+$method = 'POST';
+$path = '/api/v1/edge/heartbeat';
+$body = '{"edge_id":"edge-auth-1"}';
+$ts = time();
+$nonce = 'nonce-1';
+$canonical = $method . "\n" . $path . "\n" . $ts . "\n" . $nonce . "\n" . hash('sha256', $body);
+$signature = hash_hmac('sha256', $canonical, hash('sha256', 'edge-token-1'));
+
+$missing = $auth->authenticate('', '', $ts, '', $method, $path, $body, '');
+$first = $auth->authenticate('edge-auth-1', 'edge-token-1', $ts, $nonce, $method, $path, $body, $signature);
+$replay = $auth->authenticate('edge-auth-1', 'edge-token-1', $ts, $nonce, $method, $path, $body, $signature);
 
 echo json_encode([
   'missing' => $missing,

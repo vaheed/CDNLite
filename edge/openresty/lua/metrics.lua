@@ -4,14 +4,14 @@ local M = {}
 local function append_metric(row)
   local line = cjson.encode(row)
   if not line then return end
-  local f = io.open('/var/lib/cdnt/metrics.ndjson', 'a')
+  local f = io.open('/var/lib/cdnlite/metrics.ndjson', 'a')
   if not f then return end
   f:write(line .. '\n')
   f:close()
 end
 
 function M.on_header()
-  ngx.header['X-CDNT'] = '1'
+  ngx.header['X-CDNLITE'] = '1'
 end
 
 function M.on_log()
