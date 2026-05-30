@@ -74,6 +74,10 @@ Required on edge control and ingest endpoints:
 - `X-CDNLITE-Signature: <hmac signature>`
 
 ## Documentation Map
+- [Agent Governance](docs/AGENTS.md)
+- [Development Guide](docs/DEVELOPMENT.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Skills Guide](docs/SKILLS.md)
 - [Architecture and Principles](docs/00-architecture-and-principles.md)
 - [Core Design](docs/01-core-design.md)
 - [Runtime Stages](docs/02-runtime-stages.md)
@@ -86,4 +90,4 @@ Required on edge control and ingest endpoints:
 - [Troubleshooting](docs/09-troubleshooting.md)
 
 ## Current Delivery State
-Roadmap and implementation state live in [ROADMAP.md](ROADMAP.md).
+Roadmap and implementation state live in [docs/ROADMAP.md](docs/ROADMAP.md).
