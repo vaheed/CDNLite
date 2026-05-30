@@ -6,10 +6,10 @@ php core/artisan <command> [--options]
 ```
 
 ## Sites
-- `cdn:site:create --name= --domain= --origin_host= --origin_port=`
+- `cdn:site:create --name= --domain= --origin_host= --origin_port= [--geo_origins_json='{"US":{"scheme":"http","host":"us-origin","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}']`
 - `cdn:site:list`
-- `cdn:site:update --site_id=... [--name=...] [--domain=...] ...`
-- `cdn:site:delete --site_id=...`
+- `cdn:site:update --id=... [--name=...] [--domain=...] [--geo_origins_json='{"DE":{"scheme":"http","host":"de-origin","port":8080}}'] ...`
+- `cdn:site:delete --id=...`
 
 ## DNS
 - `cdn:dns:add-record --site_id= --type= --name= --content= [--ttl=300] [--proxied=1]`
@@ -32,6 +32,7 @@ Commands return JSON payloads to STDOUT.
 
 ## Notes
 - Use CLI for automation-friendly workflows.
+- If `POWERDNS_ENABLED=1`, `cdn:dns:add-record` and `cdn:dns:delete-record` also sync changes to PowerDNS.
 - Command list:
 ```bash
 php core/artisan list

@@ -23,11 +23,21 @@ class CdnSiteCreateCommand
             'origin_host' => $opts['origin_host'],
             'origin_port' => (int) ($opts['origin_port'] ?? 8080),
             'origin_scheme' => $opts['origin_scheme'] ?? 'http',
+            'geo_origins' => $this->parseGeoOrigins($opts['geo_origins_json'] ?? null),
             'proxy_enabled' => ($opts['proxy_enabled'] ?? '1') !== '0',
             'user_id' => (int) ($opts['user_id'] ?? 1),
         ]);
 
         CommandIO::printJson(['data' => $site]);
         return 0;
+    }
+
+    private function parseGeoOrigins(?string $json): ?array
+    {
+        if ($json === null || trim($json) === '') {
+            return null;
+        }
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : null;
     }
 }

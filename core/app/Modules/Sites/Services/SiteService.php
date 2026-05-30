@@ -17,8 +17,8 @@ class SiteService
     {
         $now = time();
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO sites (user_id, name, domain, origin_scheme, origin_host, origin_port, proxy_enabled, status, created_at, updated_at)
-             VALUES (:user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :proxy_enabled, :status, :created_at, :updated_at)'
+            'INSERT INTO sites (user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
+             VALUES (:user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
         );
         $stmt->execute([
             ':user_id' => (int) ($input['user_id'] ?? 1),
@@ -27,6 +27,7 @@ class SiteService
             ':origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
             ':origin_host' => (string) $input['origin_host'],
             ':origin_port' => (int) ($input['origin_port'] ?? 8080),
+            ':geo_origins_json' => $this->encodeGeoOrigins($input['geo_origins'] ?? null),
             ':proxy_enabled' => (int) ((bool) ($input['proxy_enabled'] ?? true)),
             ':status' => 'active',
             ':created_at' => $now,
@@ -49,6 +50,7 @@ class SiteService
             'origin_scheme' => $existing['origin_scheme'],
             'origin_host' => $existing['origin_host'],
             'origin_port' => $existing['origin_port'],
+            'geo_origins_json' => $this->encodeGeoOrigins($existing['geo_origins']),
             'proxy_enabled' => (int) $existing['proxy_enabled'],
             'status' => $existing['status'],
         ];
@@ -61,6 +63,9 @@ class SiteService
         if (isset($input['origin_port'])) {
             $patch['origin_port'] = (int) $input['origin_port'];
         }
+        if (array_key_exists('geo_origins', $input)) {
+            $patch['geo_origins_json'] = $this->encodeGeoOrigins($input['geo_origins']);
+        }
         if (isset($input['proxy_enabled'])) {
             $patch['proxy_enabled'] = (int) ((bool) $input['proxy_enabled']);
         }
@@ -72,6 +77,7 @@ class SiteService
                 origin_scheme = :origin_scheme,
                 origin_host = :origin_host,
                 origin_port = :origin_port,
+                geo_origins_json = :geo_origins_json,
                 proxy_enabled = :proxy_enabled,
                 status = :status,
                 updated_at = :updated_at
@@ -84,6 +90,7 @@ class SiteService
             ':origin_scheme' => $patch['origin_scheme'],
             ':origin_host' => $patch['origin_host'],
             ':origin_port' => $patch['origin_port'],
+            ':geo_origins_json' => $patch['geo_origins_json'],
             ':proxy_enabled' => $patch['proxy_enabled'],
             ':status' => $patch['status'],
             ':updated_at' => time(),
@@ -117,9 +124,32 @@ class SiteService
         $row['id'] = (int) $row['id'];
         $row['user_id'] = (int) $row['user_id'];
         $row['origin_port'] = (int) $row['origin_port'];
+        $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
+        unset($row['geo_origins_json']);
         $row['proxy_enabled'] = ((int) $row['proxy_enabled']) === 1;
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;
+    }
+
+    private function decodeGeoOrigins(?string $json): array
+    {
+        if ($json === null || trim($json) === '') {
+            return [];
+        }
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function encodeGeoOrigins(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (!is_array($value) || $value === []) {
+            return null;
+        }
+        $json = json_encode($value, JSON_UNESCAPED_SLASHES);
+        return $json === false ? null : $json;
     }
 }

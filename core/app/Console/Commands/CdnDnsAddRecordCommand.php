@@ -22,14 +22,19 @@ class CdnDnsAddRecordCommand
             return 1;
         }
 
-        $row = (new DnsService())->create($siteId, [
-            'type' => $opts['type'],
-            'name' => $opts['name'],
-            'content' => $opts['content'],
-            'ttl' => (int) ($opts['ttl'] ?? 300),
-            'priority' => isset($opts['priority']) ? (int) $opts['priority'] : null,
-            'proxied' => ($opts['proxied'] ?? '0') !== '0',
-        ]);
+        try {
+            $row = (new DnsService())->create($siteId, [
+                'type' => $opts['type'],
+                'name' => $opts['name'],
+                'content' => $opts['content'],
+                'ttl' => (int) ($opts['ttl'] ?? 300),
+                'priority' => isset($opts['priority']) ? (int) $opts['priority'] : null,
+                'proxied' => ($opts['proxied'] ?? '0') !== '0',
+            ]);
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . PHP_EOL);
+            return 1;
+        }
         CommandIO::printJson(['data' => $row]);
         return 0;
     }

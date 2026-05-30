@@ -30,6 +30,7 @@ class ConfigService
             $hosts[$site['domain']] = [
                 'site_id' => (int) $site['id'],
                 'upstream' => sprintf('%s://%s:%d', $site['origin_scheme'], $site['origin_host'], $site['origin_port']),
+                'geo_upstreams' => $this->buildGeoUpstreams($site['geo_origins'] ?? []),
                 'headers' => ['X-CDNLITE-Site' => (string) $site['id']],
                 'dns_records' => $this->dns->listBySite((int) $site['id']),
             ];
@@ -107,5 +108,24 @@ class ConfigService
             ':payload_json' => json_encode($payload, JSON_UNESCAPED_SLASHES),
             ':generated_at' => (int) $payload['generated_at'],
         ]);
+    }
+
+    private function buildGeoUpstreams(array $geoOrigins): array
+    {
+        $out = [];
+        foreach ($geoOrigins as $key => $origin) {
+            if (!is_string($key) || !is_array($origin)) {
+                continue;
+            }
+            $scheme = isset($origin['scheme']) ? (string) $origin['scheme'] : 'http';
+            $host = isset($origin['host']) ? (string) $origin['host'] : '';
+            $port = isset($origin['port']) ? (int) $origin['port'] : 0;
+            if ($host === '' || $port <= 0) {
+                continue;
+            }
+            $out[strtoupper(trim($key))] = sprintf('%s://%s:%d', $scheme, $host, $port);
+        }
+        ksort($out);
+        return $out;
     }
 }

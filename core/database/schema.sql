@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS sites (
   origin_scheme TEXT NOT NULL,
   origin_host TEXT NOT NULL,
   origin_port INTEGER NOT NULL,
+  geo_origins_json TEXT NULL,
   proxy_enabled BOOLEAN NOT NULL,
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,

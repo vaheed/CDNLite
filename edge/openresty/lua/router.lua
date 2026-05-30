@@ -8,6 +8,27 @@ local function normalize_host(host)
   return string.lower(host:gsub(':%d+$', ''))
 end
 
+local function request_country()
+  local country = ngx.var.http_x_cdnlite_country or ngx.var.http_cf_ipcountry or ''
+  country = string.upper(country)
+  if country == '' then
+    return 'DEFAULT'
+  end
+  return country
+end
+
+local function pick_upstream(site)
+  local geo = site.geo_upstreams or {}
+  local country = request_country()
+  if geo[country] then
+    return geo[country]
+  end
+  if geo['DEFAULT'] then
+    return geo['DEFAULT']
+  end
+  return site.upstream
+end
+
 function M.handle()
   local cfg = loader.load()
   local host = normalize_host(ngx.var.host)
@@ -21,7 +42,7 @@ function M.handle()
   end
 
   ngx.ctx.site_id = site.site_id
-  ngx.ctx.upstream = site.upstream
+  ngx.ctx.upstream = pick_upstream(site)
   return proxy.forward(site)
 end
 

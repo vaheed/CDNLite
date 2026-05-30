@@ -17,13 +17,18 @@ Example create:
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
   -H 'Content-Type: application/json' \
-  -d '{"name":"demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
+  -d '{"name":"demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true,"geo_origins":{"US":{"scheme":"http","host":"us-origin","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}}'
 ```
+
+`geo_origins` is optional. When present, keys are country codes (for example `US`, `DE`, `IR`) plus optional `DEFAULT`.
 
 ## DNS
 - `POST /api/v1/sites/{id}/dns/records`
 - `GET /api/v1/sites/{id}/dns/records`
 - `DELETE /api/v1/sites/{id}/dns/records/{recordId}`
+
+PowerDNS sync:
+- If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
 
 ## Edge
 - `POST /api/v1/edge/register`

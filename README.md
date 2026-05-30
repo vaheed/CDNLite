@@ -27,6 +27,7 @@ CDNLite is a lightweight modular CDN platform designed for small teams that want
 
 ### Run Locally
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -34,6 +35,10 @@ Services:
 - Core API: `http://localhost:8080`
 - Edge Proxy: `http://localhost:8081`
 - PostgreSQL: `localhost:5432`
+
+Environment config:
+- `.env.example` contains all supported runtime variables for local/dev startup.
+- PowerDNS sync is optional and disabled by default. Set `POWERDNS_ENABLED=1` and provide PowerDNS API variables to enable external DNS sync.
 
 ### Health Check
 ```bash
@@ -45,7 +50,7 @@ curl -fsS http://localhost:8081/health
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
   -H 'Content-Type: application/json' \
-  -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
+  -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true,"geo_origins":{"IR":{"scheme":"http","host":"core-ir","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}}'
 
 curl -s -X POST http://localhost:8080/api/v1/sites/1/dns/records \
   -H 'Content-Type: application/json' \

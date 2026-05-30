@@ -24,7 +24,15 @@ class DnsController
             }
         }
 
-        return ['data' => $this->service->create($siteId, $input)];
+        try {
+            return ['data' => $this->service->create($siteId, $input)];
+        } catch (\RuntimeException $e) {
+            $message = $e->getMessage();
+            if ($message === 'site_not_found') {
+                return ['error' => 'site_not_found', 'status' => 404];
+            }
+            return ['error' => $message, 'status' => 502];
+        }
     }
 
     public function delete(int $siteId, int $recordId): array

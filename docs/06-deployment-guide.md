@@ -17,6 +17,11 @@ Reference file:
 - `DB_DATABASE`
 - `DB_USERNAME`
 - `DB_PASSWORD`
+- `POWERDNS_ENABLED`
+- `POWERDNS_STRICT`
+- `POWERDNS_API_URL`
+- `POWERDNS_API_KEY`
+- `POWERDNS_SERVER_ID`
 
 ### Edge-Agent
 - `CORE_URL`
@@ -31,8 +36,13 @@ Reference file:
 
 ## Local Bring-Up
 ```bash
+cp .env.example .env
 docker compose up -d --build
 ```
+
+Notes:
+- Docker Compose automatically loads variables from `.env`.
+- DNS record lifecycle is always persisted in `core` (PostgreSQL-backed). If `POWERDNS_ENABLED=1`, create/delete operations are also synced to PowerDNS.
 
 ## Verification
 ```bash

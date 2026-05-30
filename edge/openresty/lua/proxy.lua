@@ -1,7 +1,7 @@
 local M = {}
 
 function M.forward(site)
-  local upstream = site.upstream
+  local upstream = ngx.ctx.upstream or site.upstream
   if not upstream then
     return false, 'missing_upstream'
   end

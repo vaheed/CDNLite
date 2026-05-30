@@ -35,5 +35,23 @@ class Database
         if ($schema !== false) {
             $pdo->exec($schema);
         }
+
+        self::ensureColumn($pdo, 'sites', 'geo_origins_json', 'TEXT NULL');
+    }
+
+    private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
+    {
+        $stmt = $pdo->prepare(
+            'SELECT 1 FROM information_schema.columns WHERE table_name = :table_name AND column_name = :column_name LIMIT 1'
+        );
+        $stmt->execute([
+            ':table_name' => $table,
+            ':column_name' => $column,
+        ]);
+        if ($stmt->fetch() !== false) {
+            return;
+        }
+
+        $pdo->exec(sprintf('ALTER TABLE %s ADD COLUMN %s %s', $table, $column, $definition));
     }
 }

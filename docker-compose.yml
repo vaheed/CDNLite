@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: cdnlite
-      POSTGRES_USER: cdnlite
-      POSTGRES_PASSWORD: cdnlite
+      POSTGRES_DB: ${POSTGRES_DB:-cdnlite}
+      POSTGRES_USER: ${POSTGRES_USER:-cdnlite}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cdnlite}
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
@@ -18,11 +18,16 @@ services:
     depends_on:
       - postgres
     environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: cdnlite
-      DB_USERNAME: cdnlite
-      DB_PASSWORD: cdnlite
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-cdnlite}
+      DB_USERNAME: ${DB_USERNAME:-cdnlite}
+      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+      POWERDNS_ENABLED: ${POWERDNS_ENABLED:-0}
+      POWERDNS_STRICT: ${POWERDNS_STRICT:-0}
+      POWERDNS_API_URL: ${POWERDNS_API_URL:-}
+      POWERDNS_API_KEY: ${POWERDNS_API_KEY:-}
+      POWERDNS_SERVER_ID: ${POWERDNS_SERVER_ID:-localhost}
     ports:
       - "8080:8080"
 
@@ -39,7 +44,8 @@ services:
     ports:
       - "8081:8081"
     environment:
-      EDGE_ID: edge-local-1
+      EDGE_ID: ${EDGE_ID:-edge-local-1}
+      EDGE_REGION: ${EDGE_REGION:-local}
 
   edge-agent:
     build:
@@ -49,15 +55,15 @@ services:
     depends_on:
       - core
     environment:
-      CORE_URL: http://core:8080
-      EDGE_ID: edge-local-1
-      EDGE_HOSTNAME: edge-local-1
-      EDGE_PUBLIC_IP: 127.0.0.1
-      EDGE_REGION: local
-      EDGE_VERSION: v1
-      EDGE_TOKEN: edge-dev-token
-      EDGE_CONFIG_PATH: /var/lib/cdnlite/config.json
-      METRIC_PATH: /var/lib/cdnlite/metrics.ndjson
+      CORE_URL: ${CORE_URL:-http://core:8080}
+      EDGE_ID: ${EDGE_ID:-edge-local-1}
+      EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge-local-1}
+      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-127.0.0.1}
+      EDGE_REGION: ${EDGE_REGION:-local}
+      EDGE_VERSION: ${EDGE_VERSION:-v1}
+      EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
+      EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}
+      METRIC_PATH: ${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}
     volumes:
       - ./edge/config:/var/lib/cdnlite
 
