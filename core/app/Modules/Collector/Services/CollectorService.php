@@ -6,6 +6,13 @@ use App\Support\Database;
 
 class CollectorService
 {
+    /** @var array<string,int> */
+    private array $bucketSeconds = [
+        'minute' => 60,
+        'hour' => 3600,
+        'day' => 86400,
+    ];
+
     public function ingest(array $items, ?string $idempotencyKey = null): array
     {
         $pdo = Database::pdo();
@@ -71,9 +78,49 @@ class CollectorService
         ];
     }
 
-    public function summary(?int $siteId = null): array
+    public function summary(?int $siteId = null, ?string $bucket = null): array
     {
         $pdo = Database::pdo();
+        if ($bucket !== null) {
+            if (!isset($this->bucketSeconds[$bucket])) {
+                return [
+                    'requests_count' => 0,
+                    'bytes_in' => 0,
+                    'bytes_out' => 0,
+                    'records' => 0,
+                ];
+            }
+            if ($siteId !== null) {
+                $stmt = $pdo->prepare(
+                    'SELECT COALESCE(SUM(requests_count),0) requests_count,
+                            COALESCE(SUM(bytes_in),0) bytes_in,
+                            COALESCE(SUM(bytes_out),0) bytes_out,
+                            COUNT(*) records
+                    FROM usage_aggregates
+                    WHERE bucket = :bucket AND site_id = :site_id'
+                );
+                $stmt->execute([':bucket' => $bucket, ':site_id' => $siteId]);
+            } else {
+                $stmt = $pdo->prepare(
+                    'SELECT COALESCE(SUM(requests_count),0) requests_count,
+                            COALESCE(SUM(bytes_in),0) bytes_in,
+                            COALESCE(SUM(bytes_out),0) bytes_out,
+                            COUNT(*) records
+                    FROM usage_aggregates
+                    WHERE bucket = :bucket'
+                );
+                $stmt->execute([':bucket' => $bucket]);
+            }
+            $row = (array) $stmt->fetch();
+            return [
+                'bucket' => $bucket,
+                'requests_count' => (int) $row['requests_count'],
+                'bytes_in' => (int) $row['bytes_in'],
+                'bytes_out' => (int) $row['bytes_out'],
+                'records' => (int) $row['records'],
+            ];
+        }
+
         if ($siteId !== null) {
             $stmt = $pdo->prepare(
                 'SELECT COALESCE(SUM(requests_count),0) requests_count,
@@ -100,5 +147,62 @@ class CollectorService
             'bytes_out' => (int) $row['bytes_out'],
             'records' => (int) $row['records'],
         ];
+    }
+
+    public function rebuildAggregates(?int $siteId = null): array
+    {
+        $pdo = Database::pdo();
+        $now = time();
+        $pdo->beginTransaction();
+        try {
+            if ($siteId !== null) {
+                $deleteStmt = $pdo->prepare('DELETE FROM usage_aggregates WHERE site_id = :site_id');
+                $deleteStmt->execute([':site_id' => $siteId]);
+            } else {
+                $pdo->exec('DELETE FROM usage_aggregates');
+            }
+
+            $inserted = [];
+            foreach ($this->bucketSeconds as $bucket => $seconds) {
+                $where = $siteId !== null ? 'WHERE site_id = :site_id' : '';
+                $sql = sprintf(
+                    'INSERT INTO usage_aggregates
+                    (bucket, bucket_ts, site_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+                    SELECT :bucket,
+                           (ts / %d) * %d AS bucket_ts,
+                           site_id,
+                           edge_node_id,
+                           status,
+                           COALESCE(SUM(requests_count),0) AS requests_count,
+                           COALESCE(SUM(bytes_in),0) AS bytes_in,
+                           COALESCE(SUM(bytes_out),0) AS bytes_out,
+                           :now,
+                           :now
+                    FROM usage_rollups
+                    %s
+                    GROUP BY bucket_ts, site_id, edge_node_id, status',
+                    $seconds,
+                    $seconds,
+                    $where
+                );
+                $stmt = $pdo->prepare($sql);
+                $params = [':bucket' => $bucket, ':now' => $now];
+                if ($siteId !== null) {
+                    $params[':site_id'] = $siteId;
+                }
+                $stmt->execute($params);
+                $inserted[$bucket] = $stmt->rowCount();
+            }
+
+            $pdo->commit();
+            return [
+                'ok' => true,
+                'site_id' => $siteId,
+                'inserted' => $inserted,
+            ];
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
     }
 }

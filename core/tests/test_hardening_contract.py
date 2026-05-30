@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -6,11 +7,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CORE_DIR = REPO_ROOT / "core"
 DB_PATH = REPO_ROOT / "storage" / "cdnlite.sqlite"
 ARTISAN = CORE_DIR / "artisan"
+TEST_ENV = {
+    "DB_DRIVER": "sqlite",
+    "DB_DATABASE": str(DB_PATH),
+}
 
 
 def run_artisan(*args: str) -> dict:
     cmd = ["php", str(ARTISAN), *args]
-    proc = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, check=True)
+    env = {**os.environ, **TEST_ENV}
+    proc = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, check=True, env=env)
     return json.loads(proc.stdout)
 
 
@@ -81,3 +87,63 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     assert second["reused"] is True
     assert not_modified["version"] == first["version"]
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
+
+
+def test_usage_recalculate_materializes_minute_hour_day_aggregates():
+    reset_db()
+
+    run_artisan(
+        "cdn:site:create",
+        "--name=agg-demo",
+        "--domain=agg-demo.local",
+        "--origin_host=origin.local",
+        "--origin_port=8080",
+    )
+
+    run_artisan(
+        "cdn:usage:ingest",
+        "--site_id=1",
+        "--edge_node_id=edge-1",
+        "--requests_count=10",
+        "--bytes_in=100",
+        "--bytes_out=500",
+        "--status=200",
+        "--ts=60",
+    )
+    run_artisan(
+        "cdn:usage:ingest",
+        "--site_id=1",
+        "--edge_node_id=edge-1",
+        "--requests_count=5",
+        "--bytes_in=40",
+        "--bytes_out=140",
+        "--status=200",
+        "--ts=70",
+    )
+    run_artisan(
+        "cdn:usage:ingest",
+        "--site_id=1",
+        "--edge_node_id=edge-1",
+        "--requests_count=7",
+        "--bytes_in=70",
+        "--bytes_out=280",
+        "--status=200",
+        "--ts=125",
+    )
+
+    recalc = run_artisan("cdn:usage:recalculate")
+    minute = run_artisan("cdn:usage:summary", "--bucket=minute")
+    hour = run_artisan("cdn:usage:summary", "--bucket=hour")
+    day = run_artisan("cdn:usage:summary", "--bucket=day")
+
+    assert recalc["ok"] is True
+    assert recalc["inserted"]["minute"] == 2
+    assert recalc["inserted"]["hour"] == 1
+    assert recalc["inserted"]["day"] == 1
+
+    assert minute["data"]["requests_count"] == 22
+    assert minute["data"]["records"] == 2
+    assert hour["data"]["requests_count"] == 22
+    assert hour["data"]["records"] == 1
+    assert day["data"]["requests_count"] == 22
+    assert day["data"]["records"] == 1

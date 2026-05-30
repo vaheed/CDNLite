@@ -1,9 +1,14 @@
 import json
+import os
 import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = REPO_ROOT / "storage" / "cdnlite.sqlite"
+TEST_ENV = {
+    "DB_DRIVER": "sqlite",
+    "DB_DATABASE": str(DB_PATH),
+}
 
 
 def reset_db() -> None:
@@ -18,6 +23,7 @@ def run_php(script: str) -> dict:
         capture_output=True,
         text=True,
         check=True,
+        env={**os.environ, **TEST_ENV},
     )
     return json.loads(proc.stdout)
 

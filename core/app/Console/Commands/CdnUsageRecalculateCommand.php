@@ -9,10 +9,16 @@ class CdnUsageRecalculateCommand
 {
     public function __invoke(array $argv): int
     {
-        // Current storage model is append-only usage rows.
-        // Recalculate is equivalent to deterministic summary recomputation.
-        $summary = (new CollectorService())->summary(null);
-        CommandIO::printJson(['ok' => true, 'summary' => $summary]);
+        $opts = CommandIO::parseOptions($argv);
+        $siteId = isset($opts['site_id']) ? (int) $opts['site_id'] : null;
+        $result = (new CollectorService())->rebuildAggregates($siteId);
+        $result['summary'] = (new CollectorService())->summary($siteId);
+        $result['aggregates'] = [
+            'minute' => (new CollectorService())->summary($siteId, 'minute'),
+            'hour' => (new CollectorService())->summary($siteId, 'hour'),
+            'day' => (new CollectorService())->summary($siteId, 'day'),
+        ];
+        CommandIO::printJson($result);
         return 0;
     }
 }

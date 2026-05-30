@@ -11,7 +11,8 @@ class CdnUsageSummaryCommand
     {
         $opts = CommandIO::parseOptions($argv);
         $siteId = isset($opts['site_id']) ? (int) $opts['site_id'] : null;
-        CommandIO::printJson(['data' => (new CollectorService())->summary($siteId)]);
+        $bucket = isset($opts['bucket']) ? (string) $opts['bucket'] : null;
+        CommandIO::printJson(['data' => (new CollectorService())->summary($siteId, $bucket)]);
         return 0;
     }
 }

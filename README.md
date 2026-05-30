@@ -8,6 +8,7 @@ This repository contains a runnable end-to-end CDN baseline:
 - `edge/openresty`: OpenResty + Lua host routing and proxying
 - `edge/agent`: register/heartbeat/config pull/metrics push loops
 - `docker-compose.yml`: one-command local deployment
+- PostgreSQL-backed core storage in runtime (SQLite remains available for tests/dev overrides)
 
 ## Runtime files
 - Runtime stages: [docs/02-runtime-stages.md](docs/02-runtime-stages.md)
@@ -25,6 +26,7 @@ docker compose up --build
 Services:
 - Core API: `http://localhost:8080`
 - Edge Proxy: `http://localhost:8081`
+- PostgreSQL: `localhost:5432`
 
 ## API quick test
 
@@ -49,6 +51,8 @@ php core/artisan cdn:edge:sync-config
 php core/artisan cdn:edge:sync-config --if_version=3
 php core/artisan cdn:usage:ingest --site_id=1 --edge_node_id=edge-local-1 --requests_count=50 --bytes_in=1200 --bytes_out=4800 --status=200 --idempotency_key=usage-batch-1
 php core/artisan cdn:usage:summary
+php core/artisan cdn:usage:recalculate
+php core/artisan cdn:usage:summary --bucket=hour
 ```
 
 ## Implemented v1 endpoints
@@ -69,6 +73,8 @@ php core/artisan cdn:usage:summary
 - `GET /api/v1/edge/config?if_version=<n>`
 - `POST /api/v1/collector/usage` (supports optional `idempotency_key`)
 - `GET /api/v1/usage/summary`
+- `GET /api/v1/usage/summary?bucket=minute|hour|day`
+- `POST /api/v1/usage/recalculate`
 
 ## Edge auth headers
 
@@ -83,3 +89,11 @@ Required headers:
 - `X-CDNLITE-Edge-Id: <edge-id>`
 - `X-CDNLITE-Timestamp: <unix-seconds>`
 - `X-CDNLITE-Nonce: <unique-per-request>`
+
+## Edge error page
+
+When a request cannot be completed by edge or origin, OpenResty renders a built-in HTML status page with:
+- Error code and human-readable reason
+- Flow status: Browser -> CDN Edge -> Origin
+- Request diagnostics: request ID, edge location, timestamp, client IP, hostname
+- Visitor and website-owner troubleshooting guidance

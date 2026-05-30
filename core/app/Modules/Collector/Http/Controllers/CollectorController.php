@@ -6,6 +6,13 @@ use App\Modules\Collector\Services\CollectorService;
 
 class CollectorController
 {
+    /** @var array<string,bool> */
+    private array $allowedBuckets = [
+        'minute' => true,
+        'hour' => true,
+        'day' => true,
+    ];
+
     public function __construct(private CollectorService $service)
     {
     }
@@ -28,8 +35,27 @@ class CollectorController
         return $this->service->ingest($items, $idempotencyKey);
     }
 
-    public function summary(?int $siteId): array
+    public function summary(?int $siteId, ?string $bucket): array
     {
-        return ['data' => $this->service->summary($siteId)];
+        if ($bucket !== null && !isset($this->allowedBuckets[$bucket])) {
+            return ['error' => 'bucket_must_be_one_of_minute_hour_day', 'status' => 422];
+        }
+        return ['data' => $this->service->summary($siteId, $bucket)];
+    }
+
+    public function recalculate(array $input): array
+    {
+        $siteId = null;
+        if (isset($input['site_id'])) {
+            if (!is_int($input['site_id']) && !is_numeric($input['site_id'])) {
+                return ['error' => 'site_id_must_be_integer', 'status' => 422];
+            }
+            $siteId = (int) $input['site_id'];
+            if ($siteId < 1) {
+                return ['error' => 'site_id_must_be_positive', 'status' => 422];
+            }
+        }
+
+        return $this->service->rebuildAggregates($siteId);
     }
 }

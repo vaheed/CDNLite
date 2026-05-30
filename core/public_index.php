@@ -207,7 +207,12 @@ if ($method === 'POST' && $path === '/api/v1/collector/usage') {
 
 if ($method === 'GET' && $path === '/api/v1/usage/summary') {
     $siteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : null;
-    respond($collectorController->summary($siteId));
+    $bucket = isset($_GET['bucket']) ? (string) $_GET['bucket'] : null;
+    respond($collectorController->summary($siteId, $bucket));
+}
+
+if ($method === 'POST' && $path === '/api/v1/usage/recalculate') {
+    respond($collectorController->recalculate($body));
 }
 
 respond(['error' => 'not_found'], 404);

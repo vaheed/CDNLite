@@ -59,8 +59,10 @@ Covers:
 - site create
 - dns create/list
 - proxy enable/disable behavior at edge
+- branded edge HTML error page on upstream failure path
 - edge registration/heartbeat visibility
 - usage ingestion visibility
+- usage aggregate rebuild and bucketed summary (`minute|hour|day`)
 - idempotent usage ingest retries (`idempotency_key`)
 - config sync no-change polling (`if_version`)
 - edge auth headers and replay rejection (`X-CDNLITE-Timestamp`, `X-CDNLITE-Nonce`)

@@ -1,5 +1,33 @@
 # Change Log
 
+## 2026-05-31
+
+### Core runtime database
+- Switched core runtime default database driver to PostgreSQL via environment-based connection config.
+- Added PostgreSQL schema bootstrap file (`core/database/schema.pgsql.sql`).
+- Updated Docker runtime to include `pdo_pgsql` and wired `postgres` service into `docker-compose.yml`.
+- Kept SQLite support for local test execution and updated tests to explicitly set SQLite driver.
+
+### Edge runtime UX
+- Added modern branded OpenResty error/status page renderer for 5xx proxy failures.
+- Added dynamic diagnostics on edge error pages:
+  - request ID
+  - edge location
+  - timestamp
+  - client IP
+  - hostname
+- Added OpenResty build-time module check to ensure Lua cjson availability.
+
+### Collector hardening
+- Added materialized usage aggregates table (`usage_aggregates`) for `minute`, `hour`, and `day` buckets.
+- Added deterministic aggregate rebuild flow in Collector service and exposed it via:
+  - API: `POST /api/v1/usage/recalculate`
+  - CLI: `cdn:usage:recalculate` (supports optional `--site_id`)
+- Extended usage summary query to support aggregate buckets:
+  - API: `GET /api/v1/usage/summary?bucket=minute|hour|day`
+  - CLI: `cdn:usage:summary --bucket=<minute|hour|day>`
+- Added contract test coverage validating aggregate rebuild and bucketed summaries.
+
 ## 2026-05-30
 
 ### Architecture and process
