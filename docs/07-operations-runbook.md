@@ -19,6 +19,19 @@ php core/artisan cdn:usage:recalculate
 3. Check edge logs and `/var/lib/cdnlite/config.json`.
 4. Validate origin reachability from edge container.
 
+## Incident: Proxied DNS Not Updating After Edge IP Change
+1. Confirm edge node `public_ip` and `status=online` via `GET /api/v1/edge/nodes`.
+2. Confirm target DNS record is `type=A` and `proxied=true`.
+3. Check core logs for refresh events/errors:
+```bash
+docker compose logs -f core
+```
+4. Verify PowerDNS zone rrsets directly:
+```bash
+docker compose exec -T core sh -lc 'curl -sk -H "X-API-Key: $POWERDNS_API_KEY" "$POWERDNS_API_URL/api/v1/servers/$POWERDNS_SERVER_ID/zones/<zone>."'
+```
+5. If strict mode is enabled (`POWERDNS_STRICT=1`), resolve upstream PowerDNS errors before retrying edge register/heartbeat.
+
 ## Incident: Edge Auth Failures
 1. Validate token exists for edge id.
 2. Validate timestamp skew on edge node.

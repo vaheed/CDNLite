@@ -61,7 +61,16 @@ docker compose logs -f
 ```bash
 docker compose logs -f core
 ```
-- Ensure the target zone already exists in PowerDNS (`demo.local.` for `demo.local`), because CDNLite patches existing zones and does not auto-create zones.
+- Zone existence is automatic on site create when `POWERDNS_ENABLED=1`.
+- For geolocation/LUA rules, use `type=LUA` with content like `A ";if country(...) then ... end"`.
+
+## Proxied A Record Uses Wrong IP
+- For `proxied=true` and `type=A`, CDNLite publishes online edge `public_ip` values (not the request `content` value).
+- Ensure edge node public IPs are correct:
+```bash
+curl -s http://localhost:8080/api/v1/edge/nodes
+```
+- Trigger automatic refresh by edge register/heartbeat update and re-check zone in PowerDNS.
 
 ## CI Test Failures
 - Ensure PHP has `pdo_pgsql` extension in test environment.

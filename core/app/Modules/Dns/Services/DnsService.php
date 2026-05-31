@@ -83,6 +83,27 @@ class DnsService
         return $deleted;
     }
 
+    public function refreshAllProxiedARecords(): void
+    {
+        if (!$this->powerDns->isEnabled()) {
+            return;
+        }
+
+        $stmt = Database::pdo()->query(
+            'SELECT d.*, s.domain FROM dns_records d
+             JOIN sites s ON s.id = d.site_id
+             WHERE d.proxied = true AND upper(d.type) = \'A\''
+        );
+        $rows = $stmt->fetchAll();
+        $edgeIps = $this->activeEdgePublicIps();
+
+        foreach ($rows as $row) {
+            $record = $this->castRow((array) $row);
+            $site = ['id' => (string) $record['site_id'], 'domain' => (string) $row['domain']];
+            $this->syncProxiedARecord($site, $record, $edgeIps);
+        }
+    }
+
     private function syncPowerDnsCreate(array $site, array $record): void
     {
         if (!$this->powerDns->isEnabled()) {
@@ -93,22 +114,7 @@ class DnsService
         $result = null;
         if ($record['proxied'] === true && $type === 'A') {
             $edgeIps = $this->activeEdgePublicIps();
-            if ($edgeIps !== []) {
-                $result = $this->powerDns->syncReplaceMany(
-                    (string) $site['domain'],
-                    (string) $record['name'],
-                    $type,
-                    (int) $record['ttl'],
-                    $edgeIps
-                );
-            } else {
-                Logger::warn('proxied_record_no_active_edges_fallback_to_content', [
-                    'site_id' => (string) $site['id'],
-                    'domain' => (string) $site['domain'],
-                    'record_name' => (string) $record['name'],
-                    'record_type' => $type,
-                ]);
-            }
+            $result = $this->syncProxiedARecord($site, $record, $edgeIps);
         }
         if (!is_array($result)) {
             $result = $this->powerDns->syncReplace(
@@ -195,5 +201,33 @@ class DnsService
             $ips[] = $ip;
         }
         return $ips;
+    }
+
+    private function syncProxiedARecord(array $site, array $record, array $edgeIps): ?array
+    {
+        if ($edgeIps !== []) {
+            return $this->powerDns->syncReplaceMany(
+                (string) $site['domain'],
+                (string) $record['name'],
+                'A',
+                (int) $record['ttl'],
+                $edgeIps
+            );
+        }
+
+        Logger::warn('proxied_record_no_active_edges_fallback_to_content', [
+            'site_id' => (string) $site['id'],
+            'domain' => (string) $site['domain'],
+            'record_name' => (string) $record['name'],
+            'record_type' => 'A',
+        ]);
+
+        return $this->powerDns->syncReplace(
+            (string) $site['domain'],
+            (string) $record['name'],
+            'A',
+            (int) $record['ttl'],
+            (string) $record['content']
+        );
     }
 }

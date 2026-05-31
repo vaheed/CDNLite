@@ -2,6 +2,32 @@
 
 ## 2026-05-31
 
+### Runtime and API behavior updates
+- Added structured core logging to stderr with env controls:
+  - `APP_LOG_ENABLED`
+  - `APP_LOG_LEVEL`
+  - `APP_DEBUG`
+- Added explicit malformed JSON handling:
+  - `400 invalid_json`
+  - `400 invalid_json_object_expected`
+- Migrated runtime IDs to UUID-style strings for new records:
+  - `sites.id`
+  - `dns_records.id`
+  - `sites.user_id`
+  - all API/CLI handlers updated to accept string UUID identifiers
+- Added automatic legacy migration for integer-based IDs/user_id to text/UUID-compatible storage.
+
+### PowerDNS integration updates
+- Added PowerDNS zone auto-create on site create (`POWERDNS_ENABLED=1`).
+- Added PowerDNS success-status normalization for all 2xx responses.
+- Added detailed PowerDNS failure logs including upstream status/response.
+- Added proxied A-record behavior:
+  - If `proxied=true` and `type=A`, publish online edge `public_ip` set to PowerDNS rrset.
+  - On edge register/heartbeat updates, auto-refresh all proxied A rrsets without user DNS calls.
+- Added support env vars:
+  - `POWERDNS_ZONE_KIND`
+  - `POWERDNS_ZONE_NAMESERVERS`
+
 ### Documentation Refresh
 - Rewrote root README into a full standard project README.
 - Reworked architecture/core design docs to match current implementation.

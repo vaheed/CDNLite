@@ -11,6 +11,7 @@
 - Edge identity and control-plane auth
 - Config snapshot build/version lifecycle
 - Usage ingest, summary, and aggregate rebuild
+- PowerDNS synchronization (zone auto-create, DNS sync, proxied edge-IP publishing)
 
 ## Data Model (Implemented)
 - `sites`
@@ -47,6 +48,7 @@ See full reference in `docs/05-cli-reference.md`.
 - Validation returns `422` with explicit error code.
 - Missing resources return `404`.
 - Edge auth/replay failures return auth-specific errors (`401`, `409`).
+- Upstream PowerDNS sync failures return `502` with `powerdns_api_error` (strict-mode behavior applies).
 
 ## Extensibility Direction
 Future extension modules (phase 4):
