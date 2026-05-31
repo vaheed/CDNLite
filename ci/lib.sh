@@ -51,6 +51,10 @@ retry() {
   done
 }
 
+wait_for_postgres() {
+  retry 60 2 docker compose exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U cdnlite -d cdnlite >/dev/null
+}
+
 http_request() {
   local method="$1"
   local url="$2"

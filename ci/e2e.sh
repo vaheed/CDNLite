@@ -20,6 +20,20 @@ DNS_IDS=()
 
 init_report
 
+on_error() {
+  local rc=$?
+  echo "e2e: error rc=$rc, printing diagnostics"
+  docker compose ps || true
+  docker compose logs --no-color || true
+  for svc in core edge edge-agent postgres powerdns; do
+    if compose_has_service "$svc"; then
+      echo "----- ${svc} (tail 200) -----"
+      docker compose logs --no-color --tail=200 "$svc" || true
+    fi
+  done
+}
+trap 'on_error' ERR
+
 cleanup() {
   if [[ -n "$SITE_ID" ]]; then
     for rid in "${DNS_IDS[@]}"; do
@@ -125,6 +139,7 @@ edge_wait_success_status() {
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
+wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core and edge health passed"
 

@@ -29,6 +29,7 @@ record_step PASS "core-health" "core health endpoint reachable"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 record_step PASS "edge-health" "edge health endpoint reachable"
 
+wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-connectivity" "postgres reachable"
 
