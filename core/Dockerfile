@@ -1,6 +1,8 @@
 FROM php:8.3-cli-alpine
 
-RUN docker-php-ext-install pdo pdo_pgsql
+RUN apk add --no-cache postgresql-dev \
+  && docker-php-ext-install pdo pdo_pgsql \
+  && apk del postgresql-dev
 
 WORKDIR /app
 COPY . /app
