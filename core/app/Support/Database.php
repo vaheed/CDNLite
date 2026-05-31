@@ -36,8 +36,58 @@ class Database
             $pdo->exec($schema);
         }
 
+        self::migrateLegacyIntegerIdsToText($pdo);
         self::ensureColumn($pdo, 'sites', 'geo_origins_json', 'TEXT NULL');
         self::ensureUniqueIndex($pdo, 'sites', 'idx_sites_domain_unique', 'domain');
+    }
+
+    private static function migrateLegacyIntegerIdsToText(PDO $pdo): void
+    {
+        $siteIdType = self::columnType($pdo, 'sites', 'id');
+        if ($siteIdType !== 'bigint' && $siteIdType !== 'integer') {
+            return;
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $pdo->exec('ALTER TABLE dns_records DROP CONSTRAINT IF EXISTS dns_records_site_id_fkey');
+            $pdo->exec('ALTER TABLE usage_rollups DROP CONSTRAINT IF EXISTS usage_rollups_site_id_fkey');
+            $pdo->exec('ALTER TABLE usage_aggregates DROP CONSTRAINT IF EXISTS usage_aggregates_site_id_fkey');
+
+            $pdo->exec('ALTER TABLE sites ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE dns_records ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE dns_records ALTER COLUMN site_id TYPE TEXT USING site_id::text');
+            $pdo->exec('ALTER TABLE edge_nodes ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE edge_request_nonces ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE usage_rollups ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE usage_rollups ALTER COLUMN site_id TYPE TEXT USING site_id::text');
+            $pdo->exec('ALTER TABLE usage_aggregates ALTER COLUMN id TYPE TEXT USING id::text');
+            $pdo->exec('ALTER TABLE usage_aggregates ALTER COLUMN site_id TYPE TEXT USING site_id::text');
+
+            $pdo->exec('ALTER TABLE dns_records ADD CONSTRAINT dns_records_site_id_fkey FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE');
+            $pdo->exec('ALTER TABLE usage_rollups ADD CONSTRAINT usage_rollups_site_id_fkey FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE');
+            $pdo->exec('ALTER TABLE usage_aggregates ADD CONSTRAINT usage_aggregates_site_id_fkey FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE');
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    private static function columnType(PDO $pdo, string $table, string $column): ?string
+    {
+        $stmt = $pdo->prepare(
+            'SELECT data_type FROM information_schema.columns WHERE table_name = :table_name AND column_name = :column_name LIMIT 1'
+        );
+        $stmt->execute([
+            ':table_name' => $table,
+            ':column_name' => $column,
+        ]);
+        $row = $stmt->fetch();
+        if ($row === false) {
+            return null;
+        }
+        return strtolower((string) $row['data_type']);
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
