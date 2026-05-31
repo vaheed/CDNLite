@@ -53,7 +53,8 @@ class EdgeAuthService
                 ':expires_at' => $now + self::NONCE_TTL_SECONDS,
             ]);
         } catch (PDOException $e) {
-            if ($e->getCode() === '23000') {
+            $sqlState = (string) $e->getCode();
+            if ($sqlState === '23000' || $sqlState === '23505') {
                 return ['ok' => false, 'error' => 'edge_auth_replay_detected', 'status' => 409];
             }
             throw $e;
