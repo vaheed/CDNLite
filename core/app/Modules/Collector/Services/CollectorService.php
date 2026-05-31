@@ -170,9 +170,9 @@ class CollectorService
                 $sql = sprintf(
                     'INSERT INTO usage_aggregates
                     (id, bucket, bucket_ts, site_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT md5((:bucket || \':\' || ((ts / %1$d) * %1$d) || \':\' || site_id || \':\' || edge_node_id || \':\' || status)::text),
+                    SELECT md5((:bucket || \':\' || ((ts / %d) * %d) || \':\' || site_id || \':\' || edge_node_id || \':\' || status)::text),
                            :bucket,
-                           (ts / %1$d) * %1$d AS bucket_ts,
+                           (ts / %d) * %d AS bucket_ts,
                            site_id,
                            edge_node_id,
                            status,
@@ -184,6 +184,9 @@ class CollectorService
                     FROM usage_rollups
                     %s
                     GROUP BY bucket_ts, site_id, edge_node_id, status',
+                    $seconds,
+                    $seconds,
+                    $seconds,
                     $seconds,
                     $where
                 );

@@ -95,12 +95,11 @@ class DnsService
              WHERE d.proxied = true AND upper(d.type) = \'A\''
         );
         $rows = $stmt->fetchAll();
-        $edgeIps = $this->activeEdgePublicIps();
 
         foreach ($rows as $row) {
             $record = $this->castRow((array) $row);
             $site = ['id' => (string) $record['site_id'], 'domain' => (string) $row['domain']];
-            $this->syncProxiedARecord($site, $record, $edgeIps);
+            $this->syncProxiedARecord($site, $record);
         }
     }
 
@@ -113,8 +112,7 @@ class DnsService
         $type = strtoupper((string) $record['type']);
         $result = null;
         if ($record['proxied'] === true && $type === 'A') {
-            $edgeIps = $this->activeEdgePublicIps();
-            $result = $this->syncProxiedARecord($site, $record, $edgeIps);
+            $result = $this->syncProxiedARecord($site, $record);
         }
         if (!is_array($result)) {
             $result = $this->powerDns->syncReplace(
@@ -148,10 +146,15 @@ class DnsService
             return;
         }
 
+        $deleteType = (string) $record['type'];
+        if ($record['proxied'] === true && strtoupper((string) $record['type']) === 'A') {
+            $deleteType = 'LUA';
+        }
+
         $result = $this->powerDns->syncDelete(
             (string) $site['domain'],
             (string) $record['name'],
-            (string) $record['type']
+            $deleteType
         );
 
         if (($result['ok'] ?? false) !== true) {
@@ -182,30 +185,53 @@ class DnsService
         return $row;
     }
 
-    private function activeEdgePublicIps(): array
+    private function activeEdgeNodes(): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT public_ip FROM edge_nodes WHERE status = :status AND public_ip <> :empty GROUP BY public_ip ORDER BY public_ip ASC'
+            'SELECT public_ip, region FROM edge_nodes WHERE status = :status AND public_ip <> :empty ORDER BY public_ip ASC'
         );
         $stmt->execute([
             ':status' => 'online',
             ':empty' => '',
         ]);
         $rows = $stmt->fetchAll();
-        $ips = [];
+        $nodes = [];
+        $seen = [];
         foreach ($rows as $row) {
             $ip = trim((string) ($row['public_ip'] ?? ''));
             if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
                 continue;
             }
-            $ips[] = $ip;
+            $region = strtoupper(trim((string) ($row['region'] ?? '')));
+            $key = $ip . '|' . $region;
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $nodes[] = [
+                'ip' => $ip,
+                'region' => $region,
+            ];
         }
-        return $ips;
+        return $nodes;
     }
 
-    private function syncProxiedARecord(array $site, array $record, array $edgeIps): ?array
+    private function syncProxiedARecord(array $site, array $record): ?array
     {
-        if ($edgeIps !== []) {
+        $edgeNodes = $this->activeEdgeNodes();
+        if ($edgeNodes !== []) {
+            $lua = $this->buildGeoLuaARecord($edgeNodes);
+            if ($lua !== null) {
+                return $this->powerDns->syncReplace(
+                    (string) $site['domain'],
+                    (string) $record['name'],
+                    'LUA',
+                    (int) $record['ttl'],
+                    $lua
+                );
+            }
+
+            $edgeIps = array_values(array_unique(array_map(static fn(array $n): string => (string) $n['ip'], $edgeNodes)));
             return $this->powerDns->syncReplaceMany(
                 (string) $site['domain'],
                 (string) $record['name'],
@@ -229,5 +255,52 @@ class DnsService
             (int) $record['ttl'],
             (string) $record['content']
         );
+    }
+
+    private function buildGeoLuaARecord(array $edgeNodes): ?string
+    {
+        $regionIp = [];
+        foreach ($edgeNodes as $node) {
+            $region = (string) ($node['region'] ?? '');
+            $ip = (string) ($node['ip'] ?? '');
+            if ($region === '' || $ip === '' || isset($regionIp[$region])) {
+                continue;
+            }
+            $regionIp[$region] = $ip;
+        }
+
+        $euIp = $regionIp['EU'] ?? null;
+        $irIp = $regionIp['IR'] ?? null;
+        $usIp = $regionIp['US'] ?? null;
+        $fallback = $euIp ?? $usIp ?? $irIp;
+        if ($fallback === null) {
+            return null;
+        }
+
+        $branches = [];
+        if ($euIp !== null) {
+            $branches[] = ["country({'NL','DE','FR','GB'})", $euIp];
+        }
+        if ($irIp !== null) {
+            $branches[] = ["country({'IR'})", $irIp];
+        }
+        if ($usIp !== null) {
+            $branches[] = ["country({'US','CA'})", $usIp];
+        }
+        if ($branches === []) {
+            return null;
+        }
+
+        $parts = [];
+        foreach ($branches as $idx => $branch) {
+            [$cond, $ip] = $branch;
+            if ($idx === 0) {
+                $parts[] = "if {$cond} then return '{$ip}'";
+                continue;
+            }
+            $parts[] = "elseif {$cond} then return '{$ip}'";
+        }
+        $parts[] = "else return '{$fallback}' end";
+        return 'A ";' . implode(' ', $parts) . '"';
     }
 }
