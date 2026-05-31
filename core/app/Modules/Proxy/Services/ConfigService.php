@@ -37,12 +37,9 @@ class ConfigService
         }
 
         ksort($hosts);
-        $generatedAt = time();
-        $basePayload = [
-            'generated_at' => $generatedAt,
-            'hosts' => $hosts,
-        ];
-        $contentHash = hash('sha256', json_encode($basePayload, JSON_UNESCAPED_SLASHES));
+        // Keep hash deterministic for unchanged config content.
+        // `generated_at` is intentionally excluded so no-op syncs reuse version.
+        $contentHash = hash('sha256', json_encode(['hosts' => $hosts], JSON_UNESCAPED_SLASHES));
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
