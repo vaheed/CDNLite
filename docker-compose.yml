@@ -8,7 +8,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
 
   core:
     build:
@@ -29,7 +29,7 @@ services:
       POWERDNS_API_KEY: ${POWERDNS_API_KEY:-}
       POWERDNS_SERVER_ID: ${POWERDNS_SERVER_ID:-localhost}
     ports:
-      - "8080:8080"
+      - "${CORE_HOST_PORT:-8080}:8080"
 
   edge:
     build:
@@ -42,7 +42,7 @@ services:
       - ./edge/config:/var/lib/cdnlite
       - ./edge/logs:/var/log/openresty
     ports:
-      - "8081:8081"
+      - "${EDGE_HOST_PORT:-8081}:8081"
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_REGION: ${EDGE_REGION:-local}

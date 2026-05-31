@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+set -o errtrace
 
 source "$(dirname "$0")/lib.sh"
 
@@ -22,7 +23,9 @@ init_report
 
 on_error() {
   local rc=$?
-  echo "e2e: error rc=$rc, printing diagnostics"
+  local line="${1:-unknown}"
+  local cmd="${2:-unknown}"
+  echo "e2e: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
   docker compose ps || true
   docker compose logs --no-color || true
   for svc in core edge edge-agent postgres powerdns; do
@@ -32,7 +35,7 @@ on_error() {
     fi
   done
 }
-trap 'on_error' ERR
+trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 cleanup() {
   if [[ -n "$SITE_ID" ]]; then
@@ -88,8 +91,9 @@ edge_api() {
   local method="$1"
   local path="$2"
   local body="${3:-}"
+  local canonical_path="${path%%\?*}"
   local hdrs
-  hdrs="$(edge_auth_headers_json "$method" "$path" "$body")"
+  hdrs="$(edge_auth_headers_json "$method" "$canonical_path" "$body")"
   local tmp
   tmp="$(mktemp)"
   local code
@@ -137,6 +141,16 @@ edge_wait_success_status() {
   retry 40 1 edge_status_is_success "$host"
 }
 
+edge_config_has_host() {
+  local host="$1"
+  docker compose exec -T edge-agent sh -lc "grep -Fq \"$host\" \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
+}
+
+edge_wait_config_host() {
+  local host="$1"
+  retry 40 1 edge_config_has_host "$host"
+}
+
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 wait_for_postgres
@@ -182,6 +196,7 @@ record_step PASS "site-validation-unknown" "unknown site 404"
 
 # Force and verify config propagation to edge before route assertions.
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+edge_wait_config_host "${TEST_DOMAIN}"
 
 # DNS lifecycle
 create_dns() {
@@ -239,6 +254,7 @@ record_step PASS "edge-proxy-enabled" "status=${ok_code}"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/disable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy disable failed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
 proxy_db="$(db_query "SELECT proxy_enabled::int FROM sites WHERE id=${SITE_ID};")"
 assert_eq "$proxy_db" "0" "proxy_enabled should be false"
 record_step PASS "proxy-disable" "proxy disabled in db"
@@ -251,6 +267,7 @@ record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/enable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy enable failed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
 edge_wait_success_status "${TEST_DOMAIN}"
 enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "proxy-reenable" "status=${enabled_code}"
@@ -352,6 +369,7 @@ done
 api_delete "${CORE_URL}/api/v1/sites/${SITE_ID}"
 assert_http_status "$HTTP_CODE" "200" "site delete failed"
 record_step PASS "site-delete" "site removed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
 
 remaining_site="$(db_query "SELECT COUNT(*) FROM sites WHERE id=${SITE_ID};")"
 assert_eq "$remaining_site" "0" "site row should be removed"

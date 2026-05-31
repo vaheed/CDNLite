@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+set -o errtrace
 
 source "$(dirname "$0")/lib.sh"
 
@@ -14,7 +15,9 @@ trap 'collect_diagnostics; write_reports' EXIT
 
 on_error() {
   local rc=$?
-  echo "smoke: error rc=$rc, printing diagnostics"
+  local line="${1:-unknown}"
+  local cmd="${2:-unknown}"
+  echo "smoke: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
   docker compose ps || true
   docker compose logs --no-color || true
   for svc in core edge edge-agent postgres; do
@@ -22,7 +25,7 @@ on_error() {
     docker compose logs --no-color --tail=200 "$svc" || true
   done
 }
-trap 'on_error' ERR
+trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 record_step PASS "core-health" "core health endpoint reachable"
