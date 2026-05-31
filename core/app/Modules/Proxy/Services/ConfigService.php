@@ -31,6 +31,7 @@ class ConfigService
                 'site_id' => (string) $site['id'],
                 'upstream' => sprintf('%s://%s:%d', $site['origin_scheme'], $site['origin_host'], $site['origin_port']),
                 'geo_upstreams' => $this->buildGeoUpstreams($site['geo_origins'] ?? []),
+                'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Site' => (string) $site['id']],
                 'dns_records' => $this->dns->listBySite((string) $site['id']),
             ];

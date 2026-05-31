@@ -11,6 +11,11 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 - Other paths run `router.handle()` in `access_by_lua_block`.
 - `proxy_pass` uses `$target_upstream` set by Lua.
 - `proxy_intercept_errors on` maps 500, 502, 503, and 504 to the custom error page.
+- `proxy_cache_path` stores cached objects under `/var/cache/cdnlite` in the `cdnlite_cache` zone.
+- `proxy_cache_key` includes scheme, host, request URI, `Accept-Encoding`, `X-CDNLITE-Country`, and `CF-IPCountry`.
+- GET and HEAD responses with status 200, 301, or 302 are cached for `CDNLITE_CACHE_DEFAULT_TTL` (`60s` by default).
+- Requests with `Authorization` or `Cache-Control: no-cache` / `no-store` bypass cache and are not stored.
+- Stale cached responses can be served for upstream errors, timeouts, and upstream 500, 502, 503, or 504 responses. `proxy_cache_lock` is enabled to reduce duplicate origin fetches on cache misses.
 - Access logs go to `/var/log/openresty/access.log`; error logs go to `/var/log/openresty/error.log`.
 
 ## Host-Based Routing
@@ -30,6 +35,7 @@ Nginx forwards:
 - `X-Forwarded-Proto: $scheme`
 
 Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, and `X-CDNLITE-Site` when proxying.
+Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HIT`, `BYPASS`, or `STALE`.
 
 ## Lua Modules
 
@@ -37,7 +43,7 @@ Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, and `X-CD
 |---|---|
 | `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; falls back to version 0 empty hosts. |
 | `router.lua` | Host lookup and geo upstream selection. |
-| `proxy.lua` | Sets `$target_upstream` and edge/site headers. |
+| `proxy.lua` | Sets `$target_upstream`, cache bypass variables, and edge/site headers. |
 | `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase. |
 | `error_page.lua` | Renders custom HTML error responses. |
 
@@ -47,4 +53,4 @@ Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, and `X-CD
 
 ## Upstream Failures
 
-If the origin is unreachable or returns an intercepted 5xx, the edge returns a custom HTML page with request ID, edge location, timestamp, client IP, and host. Unknown configured host failures are surfaced as 502.
+If the origin is unreachable or returns an intercepted 5xx, the edge serves a stale cached response when one is available. Without a cached response, it returns a custom HTML page with request ID, edge location, timestamp, client IP, and host. Unknown configured host failures are surfaced as 502.

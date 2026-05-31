@@ -28,9 +28,13 @@ flowchart TD
   E --> F{Host configured?}
   F -->|no| G[502 custom error]
   F -->|yes| H[Pick country or default upstream]
-  H --> I[Proxy to origin]
-  I --> J[Add X-CDNLITE header]
-  J --> K[Append metric]
+  H --> I{Cache HIT or usable STALE?}
+  I -->|yes| J[Serve cached response]
+  I -->|no| K[Proxy to origin]
+  K --> L[Store cacheable GET/HEAD response]
+  J --> M[Add X-CDNLITE headers]
+  L --> M
+  M --> N[Append metric]
 ```
 
 ## Edge Registration And Config Sync
@@ -73,7 +77,7 @@ sequenceDiagram
 |---|---|
 | Missing config | Edge loads version `0` with empty hosts. |
 | Unknown host | Edge returns 502 custom error page. |
-| Origin failure | Nginx maps 500/502/503/504 to custom HTML. |
+| Origin failure | Nginx serves a stale cached response when available; otherwise it maps 500/502/503/504 to custom HTML. |
 | Missing edge auth | Core returns `401` and `edge_auth_required`. |
 | Replay nonce | Core returns `409` and `edge_auth_replay_detected`. |
 | Invalid usage bucket | Core returns `422` and `bucket_must_be_one_of_minute_hour_day`. |
@@ -81,4 +85,4 @@ sequenceDiagram
 
 ## Limitations And Assumptions
 
-No dashboard, cache store, purge API, TLS automation, production scheduler, or user auth layer is implemented. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers.
+No dashboard, purge API, TLS automation, production scheduler, or user auth layer is implemented. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers. The cache layer has a clean site-level `cache_rules` snapshot placeholder, but advanced purge and rule management are intentionally not implemented yet.

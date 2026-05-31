@@ -151,6 +151,17 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+edge_cache_header_for_host() {
+  local host="$1"
+  local path="$2"
+  shift 2
+  local headers
+  headers="$(mktemp)"
+  curl -sS -o /tmp/e2e-edge-cache-body.txt -D "$headers" "${EDGE_URL}${path}" -H "Host: ${host}" "$@"
+  awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Cache:/ {gsub("\r","",$2); print $2}' "$headers" | tail -n 1
+  rm -f "$headers"
+}
+
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 wait_for_postgres
@@ -266,6 +277,27 @@ record_step PASS "edge-proxy-health" "health endpoint proxied"
 edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/api/v1/sites?via=edge")"
 assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missing test domain"
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
+
+cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
+first_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
+assert_eq "$first_cache" "MISS" "first cacheable GET should MISS"
+second_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
+assert_eq "$second_cache" "HIT" "second cacheable GET should HIT"
+bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Cache-Control: no-cache")"
+assert_eq "$bypass_cache" "BYPASS" "Cache-Control no-cache should bypass cache"
+
+stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
+stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
+assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"cdnlite-missing-origin","origin_port":8080}'
+assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+stale_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
+assert_eq "$stale_cache" "STALE" "origin failure should serve stale cache"
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"core","origin_port":8080}'
+assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
   -X POST "${EDGE_URL}/api/v1/sites" \

@@ -1,6 +1,8 @@
 FROM openresty/openresty:1.27.1.2-0-alpine
 
-RUN apk add --no-cache lua-cjson
+RUN apk add --no-cache lua-cjson \
+  && mkdir -p /var/cache/cdnlite /var/log/openresty \
+  && chown -R nobody:nobody /var/cache/cdnlite /var/log/openresty
 
 ENV LUA_PATH="/usr/local/openresty/lualib/?.lua;/usr/local/openresty/lualib/?/init.lua;/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/?/init.lua;/usr/share/lua/5.1/?.lua;/usr/share/lua/5.1/?/init.lua;;"
 ENV LUA_CPATH="/usr/local/openresty/lualib/?.so;/usr/local/lib/lua/5.1/?.so;/usr/lib/lua/5.1/?.so;;"
@@ -8,7 +10,10 @@ ENV LUA_CPATH="/usr/local/openresty/lualib/?.so;/usr/local/lib/lua/5.1/?.so;/usr
 RUN /usr/local/openresty/bin/openresty -V \
   && /usr/local/openresty/luajit/bin/luajit -e "assert(require('cjson.safe'))"
 
-COPY openresty/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY openresty/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf.template
 COPY openresty/lua /etc/openresty/lua
+RUN chmod +x /docker-entrypoint.sh
 EXPOSE 8081
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]

@@ -67,6 +67,7 @@ services:
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_REGION: ${EDGE_REGION:-local}
+      CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-60s}
 
   edge-agent:
     build:

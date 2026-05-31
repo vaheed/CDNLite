@@ -26,6 +26,7 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `EDGE_PUBLIC_IP` | `auto` | agent, edge DNS | No | `auto` lets the agent detect its public IPv4 address during register and heartbeat; set a concrete IPv4 to override. | Public data. |
 | `EDGE_REGION` | `local` | edge, agent | No | Region slug used for platform edge hostnames such as `ir.edge.example.com`. | Not secret. |
 | `EDGE_VERSION` | `v1` | agent | No | Registration version string. | Not secret. |
+| `CDNLITE_CACHE_DEFAULT_TTL` | `60s` | edge | No | Default NGINX proxy-cache TTL for 200, 301, and 302 responses. Supports NGINX time units such as `30s`, `5m`, or `1h`. | Not secret. |
 | `CORE_HOST_PORT` | `8080` | Compose | No | Host port for core. | Not secret. |
 | `EDGE_HOST_PORT` | `8081` | Compose | No | Host port for edge. | Not secret. |
 | `POSTGRES_HOST_PORT` | `5432` | Compose | No | Host port for PostgreSQL. | Do not expose publicly. |
@@ -70,3 +71,5 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `pgdata:/var/lib/postgresql/data` | PostgreSQL data. |
 | `./edge/config:/var/lib/cdnlite` | Edge config and metrics shared with agent. |
 | `./edge/logs:/var/log/openresty` | OpenResty logs. |
+
+The edge container also uses `/var/cache/cdnlite` inside the container for the OpenResty proxy cache.

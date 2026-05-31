@@ -27,7 +27,7 @@ PostgreSQL stores `sites`, `dns_records`, `edge_nodes`, `edge_tokens`, replay no
 
 ## Config Sync
 
-Core builds a snapshot from all proxy-enabled sites. Each host entry contains `site_id`, default upstream, optional geo upstreams, headers, and DNS records. Snapshots are versioned by deterministic content hash. Unchanged content reuses a previous version.
+Core builds a snapshot from all proxy-enabled sites. Each host entry contains `site_id`, default upstream, optional geo upstreams, a disabled `cache_rules` placeholder, headers, and DNS records. Snapshots are versioned by deterministic content hash. Unchanged content reuses a previous version.
 
 ## Usage Ingest
 

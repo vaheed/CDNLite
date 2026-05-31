@@ -18,6 +18,10 @@ A config snapshot is the JSON payload core returns from `GET /api/v1/edge/config
         "DEFAULT": "http://core:8080",
         "IR": "http://core:8080"
       },
+      "cache_rules": {
+        "enabled": false,
+        "rules": []
+      },
       "headers": {
         "X-CDNLITE-Site": "11111111-1111-4111-8111-111111111111"
       },
@@ -50,3 +54,5 @@ Core hashes the `hosts` content. If the content is unchanged, it reuses the exis
 ```
 
 `generated_at` is intentionally excluded from the content hash so no-op syncs do not create new versions.
+
+`cache_rules` is a backward-compatible placeholder for future site-level cache policy. It is emitted disabled by default, and current edge runtimes ignore unknown fields safely.
