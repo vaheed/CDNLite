@@ -127,9 +127,7 @@ assert_http_status "$HTTP_CODE" "422" "missing domain validation expected"
 record_step PASS "site-validation-missing-domain" "422 returned"
 
 api_post "${CORE_URL}/api/v1/sites" "{\"name\":\"dup\",\"domain\":\"${TEST_DOMAIN}\",\"origin_host\":\"core\"}"
-if [[ "$HTTP_CODE" != "422" && "$HTTP_CODE" != "500" ]]; then
-  fail "duplicate domain expected failure, got $HTTP_CODE"
-fi
+assert_http_status "$HTTP_CODE" "422" "duplicate domain should return 422"
 record_step PASS "site-validation-duplicate" "duplicate rejected with code=${HTTP_CODE}"
 
 api_patch "${CORE_URL}/api/v1/sites/99999999" '{"name":"nope"}'
