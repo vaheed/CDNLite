@@ -10,10 +10,10 @@ If you changed `CORE_HOST_PORT` in `.env` (for example `CORE_HOST_PORT=8085`), u
 ## Sites
 - `POST /api/v1/sites`
 - `GET /api/v1/sites`
-- `PATCH /api/v1/sites/{id}`
-- `DELETE /api/v1/sites/{id}`
-- `POST /api/v1/sites/{id}/proxy/enable`
-- `POST /api/v1/sites/{id}/proxy/disable`
+- `PATCH /api/v1/sites/{siteId}`
+- `DELETE /api/v1/sites/{siteId}`
+- `POST /api/v1/sites/{siteId}/proxy/enable`
+- `POST /api/v1/sites/{siteId}/proxy/disable`
 
 Example create:
 ```bash
@@ -25,9 +25,11 @@ curl -s -X POST http://localhost:8080/api/v1/sites \
 `geo_origins` is optional. When present, keys are country codes (for example `US`, `DE`, `IR`) plus optional `DEFAULT`.
 
 ## DNS
-- `POST /api/v1/sites/{id}/dns/records`
-- `GET /api/v1/sites/{id}/dns/records`
-- `DELETE /api/v1/sites/{id}/dns/records/{recordId}`
+- `POST /api/v1/sites/{siteId}/dns/records`
+- `GET /api/v1/sites/{siteId}/dns/records`
+- `DELETE /api/v1/sites/{siteId}/dns/records/{recordId}`
+
+`siteId` and `recordId` are UUID-style string identifiers for newly created records.
 
 PowerDNS sync:
 - If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
