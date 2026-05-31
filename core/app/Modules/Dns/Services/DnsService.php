@@ -89,13 +89,36 @@ class DnsService
             return;
         }
 
-        $result = $this->powerDns->syncReplace(
-            (string) $site['domain'],
-            (string) $record['name'],
-            (string) $record['type'],
-            (int) $record['ttl'],
-            (string) $record['content']
-        );
+        $type = strtoupper((string) $record['type']);
+        $result = null;
+        if ($record['proxied'] === true && $type === 'A') {
+            $edgeIps = $this->activeEdgePublicIps();
+            if ($edgeIps !== []) {
+                $result = $this->powerDns->syncReplaceMany(
+                    (string) $site['domain'],
+                    (string) $record['name'],
+                    $type,
+                    (int) $record['ttl'],
+                    $edgeIps
+                );
+            } else {
+                Logger::warn('proxied_record_no_active_edges_fallback_to_content', [
+                    'site_id' => (string) $site['id'],
+                    'domain' => (string) $site['domain'],
+                    'record_name' => (string) $record['name'],
+                    'record_type' => $type,
+                ]);
+            }
+        }
+        if (!is_array($result)) {
+            $result = $this->powerDns->syncReplace(
+                (string) $site['domain'],
+                (string) $record['name'],
+                $type,
+                (int) $record['ttl'],
+                (string) $record['content']
+            );
+        }
 
         if (($result['ok'] ?? false) !== true) {
             Logger::error('powerdns_sync_replace_failed', [
@@ -151,5 +174,26 @@ class DnsService
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;
+    }
+
+    private function activeEdgePublicIps(): array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT public_ip FROM edge_nodes WHERE status = :status AND public_ip <> :empty GROUP BY public_ip ORDER BY public_ip ASC'
+        );
+        $stmt->execute([
+            ':status' => 'online',
+            ':empty' => '',
+        ]);
+        $rows = $stmt->fetchAll();
+        $ips = [];
+        foreach ($rows as $row) {
+            $ip = trim((string) ($row['public_ip'] ?? ''));
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+                continue;
+            }
+            $ips[] = $ip;
+        }
+        return $ips;
     }
 }

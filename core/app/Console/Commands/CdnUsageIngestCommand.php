@@ -21,7 +21,7 @@ class CdnUsageIngestCommand
 
         $item = [
             'ts' => isset($opts['ts']) ? (int) $opts['ts'] : time(),
-            'site_id' => (int) $opts['site_id'],
+            'site_id' => (string) $opts['site_id'],
             'edge_node_id' => (string) $opts['edge_node_id'],
             'requests_count' => (int) $opts['requests_count'],
             'bytes_in' => (int) $opts['bytes_in'],

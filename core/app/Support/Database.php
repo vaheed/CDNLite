@@ -37,6 +37,7 @@ class Database
         }
 
         self::migrateLegacyIntegerIdsToText($pdo);
+        self::migrateSiteUserIdToUuidText($pdo);
         self::ensureColumn($pdo, 'sites', 'geo_origins_json', 'TEXT NULL');
         self::ensureUniqueIndex($pdo, 'sites', 'idx_sites_domain_unique', 'domain');
     }
@@ -88,6 +89,40 @@ class Database
             return null;
         }
         return strtolower((string) $row['data_type']);
+    }
+
+    private static function migrateSiteUserIdToUuidText(PDO $pdo): void
+    {
+        $userIdType = self::columnType($pdo, 'sites', 'user_id');
+        if ($userIdType === null) {
+            return;
+        }
+
+        if ($userIdType === 'bigint' || $userIdType === 'integer') {
+            $pdo->exec('ALTER TABLE sites ALTER COLUMN user_id TYPE TEXT USING user_id::text');
+        }
+
+        $stmt = $pdo->query('SELECT DISTINCT user_id FROM sites');
+        $rows = $stmt->fetchAll();
+        $update = $pdo->prepare('UPDATE sites SET user_id = :new_user_id WHERE user_id = :old_user_id');
+        foreach ($rows as $row) {
+            $old = (string) ($row['user_id'] ?? '');
+            if ($old === '' || self::isUuid($old)) {
+                continue;
+            }
+            $update->execute([
+                ':new_user_id' => Uuid::v4(),
+                ':old_user_id' => $old,
+            ]);
+        }
+    }
+
+    private static function isUuid(string $value): bool
+    {
+        return preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',
+            $value
+        ) === 1;
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void

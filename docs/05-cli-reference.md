@@ -33,6 +33,7 @@ Commands return JSON payloads to STDOUT.
 ## Notes
 - Use CLI for automation-friendly workflows.
 - If `POWERDNS_ENABLED=1`, `cdn:dns:add-record` and `cdn:dns:delete-record` also sync changes to PowerDNS.
+- `--id`, `--site_id`, and `--record_id` values are UUID-style strings.
 - Command list:
 ```bash
 php core/artisan list

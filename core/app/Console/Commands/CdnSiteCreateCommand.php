@@ -25,7 +25,7 @@ class CdnSiteCreateCommand
             'origin_scheme' => $opts['origin_scheme'] ?? 'http',
             'geo_origins' => $this->parseGeoOrigins($opts['geo_origins_json'] ?? null),
             'proxy_enabled' => ($opts['proxy_enabled'] ?? '1') !== '0',
-            'user_id' => (int) ($opts['user_id'] ?? 1),
+            'user_id' => isset($opts['user_id']) ? (string) $opts['user_id'] : null,
         ]);
 
         CommandIO::printJson(['data' => $site]);

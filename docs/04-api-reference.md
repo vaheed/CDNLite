@@ -24,17 +24,27 @@ curl -s -X POST http://localhost:8080/api/v1/sites \
 
 `geo_origins` is optional. When present, keys are country codes (for example `US`, `DE`, `IR`) plus optional `DEFAULT`.
 
+ID format:
+- `id` (site id): UUID string
+- `user_id`: UUID string
+
+Example success response:
+```json
+{"data":{"id":"20106ae3-352e-4d1e-aa76-235e54f81b53","user_id":"ee3a9b6e-4544-4758-bcc0-57f7e4edca76","name":"demo","domain":"demo.local","origin_scheme":"http","origin_host":"core","origin_port":8080,"proxy_enabled":true,"status":"active","created_at":1780245069,"updated_at":1780245069,"geo_origins":[]}}
+```
+
 ## DNS
 - `POST /api/v1/sites/{siteId}/dns/records`
 - `GET /api/v1/sites/{siteId}/dns/records`
 - `DELETE /api/v1/sites/{siteId}/dns/records/{recordId}`
 
-`siteId` and `recordId` are UUID-style string identifiers for newly created records.
+`siteId` and `recordId` are UUID-style string identifiers.
 
 PowerDNS sync:
 - If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
 - If `POWERDNS_ENABLED=1`, site create also attempts to create the matching PowerDNS zone automatically.
 - Zone creation uses `POWERDNS_ZONE_KIND` and `POWERDNS_ZONE_NAMESERVERS`.
+- For `proxied=true` with `type=A`, CDNLite automatically publishes all online edge `public_ip` values into PowerDNS for that rrset.
 
 ## Edge
 - `POST /api/v1/edge/register`
@@ -46,7 +56,7 @@ PowerDNS sync:
 ## Collector and Usage
 - `POST /api/v1/collector/usage`
 - `GET /api/v1/usage/summary`
-- `GET /api/v1/usage/summary?site_id=<id>`
+- `GET /api/v1/usage/summary?site_id=<site_uuid>`
 - `GET /api/v1/usage/summary?bucket=minute|hour|day`
 - `POST /api/v1/usage/recalculate`
 

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS sites (
   id TEXT PRIMARY KEY,
-  user_id BIGINT NOT NULL,
+  user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   domain TEXT NOT NULL UNIQUE,
   origin_scheme TEXT NOT NULL,

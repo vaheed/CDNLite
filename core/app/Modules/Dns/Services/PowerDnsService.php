@@ -34,6 +34,38 @@ class PowerDnsService
         return $this->patchZone($zoneId, $payload);
     }
 
+    public function syncReplaceMany(string $zoneDomain, string $name, string $type, int $ttl, array $contents): array
+    {
+        $fqdn = $this->toFqdn($name, $zoneDomain);
+        $zoneId = $this->zoneId($zoneDomain);
+
+        $records = [];
+        foreach ($contents as $content) {
+            if (!is_string($content) || trim($content) === '') {
+                continue;
+            }
+            $records[] = [
+                'content' => $this->normalizeContent($type, $content),
+                'disabled' => false,
+            ];
+        }
+        if ($records === []) {
+            return ['ok' => false, 'error' => 'powerdns_records_empty', 'status' => 0, 'response' => ''];
+        }
+
+        $payload = [
+            'rrsets' => [[
+                'name' => $fqdn,
+                'type' => strtoupper($type),
+                'ttl' => $ttl,
+                'changetype' => 'REPLACE',
+                'records' => $records,
+            ]],
+        ];
+
+        return $this->patchZone($zoneId, $payload);
+    }
+
     public function syncDelete(string $zoneDomain, string $name, string $type): array
     {
         $fqdn = $this->toFqdn($name, $zoneDomain);
@@ -71,7 +103,7 @@ class PowerDnsService
         ];
 
         $result = $this->request('POST', $this->zonesBaseUrl(), $payload);
-        if (($result['status'] ?? 0) === 201 || ($result['status'] ?? 0) === 204) {
+        if ($this->isSuccessStatus((int) ($result['status'] ?? 0))) {
             return ['ok' => true, 'created' => true];
         }
         return $result;
@@ -82,7 +114,7 @@ class PowerDnsService
         $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
         $result = $this->request('PATCH', $url, $payload);
         $status = (int) ($result['status'] ?? 0);
-        if ($status === 204) {
+        if ($this->isSuccessStatus($status)) {
             return ['ok' => true];
         }
         return $result;
@@ -93,7 +125,7 @@ class PowerDnsService
         $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
         $result = $this->request('GET', $url, null);
         $status = (int) ($result['status'] ?? 0);
-        if ($status === 200) {
+        if ($this->isSuccessStatus($status)) {
             return ['ok' => true];
         }
         return $result;
@@ -164,6 +196,11 @@ class PowerDnsService
             'status' => $status,
             'response' => is_string($response) ? $response : '',
         ];
+    }
+
+    private function isSuccessStatus(int $status): bool
+    {
+        return $status >= 200 && $status < 300;
     }
 
     private function httpStatus(array $headers): int

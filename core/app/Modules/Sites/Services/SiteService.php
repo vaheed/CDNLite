@@ -33,7 +33,7 @@ class SiteService
         );
         $stmt->execute([
             ':id' => $id,
-            ':user_id' => (int) ($input['user_id'] ?? 1),
+            ':user_id' => (string) ($input['user_id'] ?? Uuid::v4()),
             ':name' => (string) $input['name'],
             ':domain' => (string) $input['domain'],
             ':origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
@@ -148,7 +148,7 @@ class SiteService
     private function castRow(array $row): array
     {
         $row['id'] = (string) $row['id'];
-        $row['user_id'] = (int) $row['user_id'];
+        $row['user_id'] = (string) $row['user_id'];
         $row['origin_port'] = (int) $row['origin_port'];
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
         unset($row['geo_origins_json']);

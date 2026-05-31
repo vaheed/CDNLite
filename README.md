@@ -48,11 +48,12 @@ curl -fsS http://localhost:8081/health
 
 ## API Quick Test
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites \
+# Create site and capture UUID
+SITE_ID=$(curl -s -X POST http://localhost:8080/api/v1/sites \
   -H 'Content-Type: application/json' \
-  -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true,"geo_origins":{"IR":{"scheme":"http","host":"core-ir","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}}'
+  -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true,"geo_origins":{"IR":{"scheme":"http","host":"core-ir","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}}' | sed -n 's/.*"id":"\\([^"]*\\)".*/\\1/p')
 
-curl -s -X POST http://localhost:8080/api/v1/sites/1/dns/records \
+curl -s -X POST http://localhost:8080/api/v1/sites/$SITE_ID/dns/records \
   -H 'Content-Type: application/json' \
   -d '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true}'
 
@@ -63,8 +64,8 @@ curl -i http://localhost:8081/api/v1/sites -H 'Host: demo2.local'
 ```bash
 php core/artisan cdn:site:create --name=demo --domain=demo.local --origin_host=core --origin_port=8080
 php core/artisan cdn:site:list
-php core/artisan cdn:dns:add-record --site_id=1 --type=A --name=@ --content=1.1.1.1 --proxied=1
-php core/artisan cdn:dns:list-records --site_id=1
+php core/artisan cdn:dns:add-record --site_id=<site_uuid> --type=A --name=@ --content=1.1.1.1 --proxied=1
+php core/artisan cdn:dns:list-records --site_id=<site_uuid>
 php core/artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
 php core/artisan cdn:edge:sync-config
 php core/artisan cdn:usage:summary
