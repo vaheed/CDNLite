@@ -37,6 +37,7 @@ class Database
         }
 
         self::ensureColumn($pdo, 'sites', 'geo_origins_json', 'TEXT NULL');
+        self::ensureUniqueIndex($pdo, 'sites', 'idx_sites_domain_unique', 'domain');
     }
 
     private static function ensureColumn(PDO $pdo, string $table, string $column, string $definition): void
@@ -53,5 +54,19 @@ class Database
         }
 
         $pdo->exec(sprintf('ALTER TABLE %s ADD COLUMN %s %s', $table, $column, $definition));
+    }
+
+    private static function ensureUniqueIndex(PDO $pdo, string $table, string $indexName, string $column): void
+    {
+        $stmt = $pdo->prepare('SELECT 1 FROM pg_indexes WHERE tablename = :table_name AND indexname = :index_name LIMIT 1');
+        $stmt->execute([
+            ':table_name' => $table,
+            ':index_name' => $indexName,
+        ]);
+        if ($stmt->fetch() !== false) {
+            return;
+        }
+
+        $pdo->exec(sprintf('CREATE UNIQUE INDEX %s ON %s (%s)', $indexName, $table, $column));
     }
 }

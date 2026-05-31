@@ -119,6 +119,14 @@ class SiteService
         return $row ? $this->castRow($row) : null;
     }
 
+    public function findByDomain(string $domain): ?array
+    {
+        $stmt = Database::pdo()->prepare('SELECT * FROM sites WHERE lower(domain) = lower(:domain) LIMIT 1');
+        $stmt->execute([':domain' => $domain]);
+        $row = $stmt->fetch();
+        return $row ? $this->castRow($row) : null;
+    }
+
     private function castRow(array $row): array
     {
         $row['id'] = (int) $row['id'];

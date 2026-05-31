@@ -91,7 +91,7 @@ json_get() {
 
 db_query() {
   local sql="$1"
-  docker compose exec -T postgres psql -U cdnlite -d cdnlite -t -A -c "$sql"
+  docker compose exec -T postgres psql -h 127.0.0.1 -p 5432 -U cdnlite -d cdnlite -t -A -c "$sql"
 }
 
 compose_has_service() {

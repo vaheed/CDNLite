@@ -23,11 +23,22 @@ class SiteController
             }
         }
 
+        if ($this->service->findByDomain((string) $input['domain']) !== null) {
+            return ['error' => 'domain_already_exists', 'status' => 422];
+        }
+
         return ['data' => $this->service->create($input)];
     }
 
     public function update(int $siteId, array $input): ?array
     {
+        if (isset($input['domain'])) {
+            $existing = $this->service->findByDomain((string) $input['domain']);
+            if ($existing !== null && (int) $existing['id'] !== $siteId) {
+                return ['error' => 'domain_already_exists', 'status' => 422];
+            }
+        }
+
         $site = $this->service->update($siteId, $input);
         return $site ? ['data' => $site] : null;
     }
