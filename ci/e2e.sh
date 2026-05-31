@@ -146,9 +146,19 @@ edge_config_has_host() {
   docker compose exec -T edge-agent sh -lc "grep -Fq \"$host\" \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
 }
 
+edge_config_has_text() {
+  local text="$1"
+  docker compose exec -T edge-agent sh -lc "grep -Fq \"$text\" \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
+}
+
 edge_wait_config_host() {
   local host="$1"
   retry 40 1 edge_config_has_host "$host"
+}
+
+edge_wait_config_text() {
+  local text="$1"
+  retry 40 1 edge_config_has_text "$text"
 }
 
 edge_cache_header_for_host() {
@@ -289,14 +299,17 @@ assert_eq "$bypass_cache" "BYPASS" "Cache-Control no-cache should bypass cache"
 stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
+sleep 2
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"cdnlite-missing-origin","origin_port":8080}'
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+edge_wait_config_text "cdnlite-missing-origin"
 stale_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_cache" "STALE" "origin failure should serve stale cache"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"core","origin_port":8080}'
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+edge_wait_config_text "http://core:8080"
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
