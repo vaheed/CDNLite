@@ -12,6 +12,18 @@ export CORE_URL EDGE_URL POWERDNS_API_URL CI_ENV_NAME
 init_report
 trap 'collect_diagnostics; write_reports' EXIT
 
+on_error() {
+  local rc=$?
+  echo "smoke: error rc=$rc, printing diagnostics"
+  docker compose ps || true
+  docker compose logs --no-color || true
+  for svc in core edge edge-agent postgres; do
+    echo "----- ${svc} (tail 200) -----"
+    docker compose logs --no-color --tail=200 "$svc" || true
+  done
+}
+trap 'on_error' ERR
+
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 record_step PASS "core-health" "core health endpoint reachable"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
