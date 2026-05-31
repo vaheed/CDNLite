@@ -300,13 +300,15 @@ stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
-api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"cdnlite-missing-origin","origin_port":8080}'
+broken_origin_payload="$(jq -nc '{"origin_host":"cdnlite-missing-origin","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"cdnlite-missing-origin","port":8080},"IR":{"scheme":"http","host":"cdnlite-missing-origin","port":8080}}}')"
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
 edge_wait_config_text "cdnlite-missing-origin"
 stale_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_cache" "STALE" "origin failure should serve stale cache"
-api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_host":"core","origin_port":8080}'
+restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
 edge_wait_config_text "http://core:8080"

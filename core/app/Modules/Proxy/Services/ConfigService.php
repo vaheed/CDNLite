@@ -62,7 +62,23 @@ class ConfigService
             'generated_at' => time(),
             'hosts' => $hosts,
         ];
-        $this->storeSnapshot($version, $contentHash, $payload);
+        if (!$this->storeSnapshot($version, $contentHash, $payload)) {
+            $existing = $this->findByHash($contentHash);
+            if ($existing !== null) {
+                if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
+                    return ['not_modified' => true, 'version' => (int) $existing['version']];
+                }
+
+                return [
+                    'version' => (int) $existing['version'],
+                    'generated_at' => (int) $existing['generated_at'],
+                    'hosts' => $hosts,
+                    'reused' => true,
+                ];
+            }
+
+            throw new \RuntimeException('config_snapshot_store_failed');
+        }
 
         if ($ifVersion !== null && $ifVersion === $version) {
             return ['not_modified' => true, 'version' => $version];
@@ -94,11 +110,12 @@ class ConfigService
         return (array) $row;
     }
 
-    private function storeSnapshot(int $version, string $contentHash, array $payload): void
+    private function storeSnapshot(int $version, string $contentHash, array $payload): bool
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO config_snapshots (version, content_hash, payload_json, generated_at)
              VALUES (:version, :content_hash, :payload_json, :generated_at)'
+            . ' ON CONFLICT (content_hash) DO NOTHING'
         );
         $stmt->execute([
             ':version' => $version,
@@ -106,6 +123,7 @@ class ConfigService
             ':payload_json' => json_encode($payload, JSON_UNESCAPED_SLASHES),
             ':generated_at' => (int) $payload['generated_at'],
         ]);
+        return $stmt->rowCount() === 1;
     }
 
     private function buildGeoUpstreams(array $geoOrigins): array
