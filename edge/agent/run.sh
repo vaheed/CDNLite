@@ -1,8 +1,6 @@
 #!/bin/sh
 set -eu
 
-apk add --no-cache curl openssl coreutils >/dev/null
-
 touch "$EDGE_CONFIG_PATH"
 touch "$METRIC_PATH"
 
