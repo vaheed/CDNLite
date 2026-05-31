@@ -121,11 +121,11 @@ Both return the updated site. Unknown site returns `404 {"error":"site_not_found
 
 ## DNS Records
 
-DNS record fields: `id`, `site_id`, `type`, `name`, `content`, `ttl`, `priority`, `proxied`, `status`, `created_at`, `updated_at`.
+DNS record fields: `id`, `site_id`, `type`, `name`, `content`, `origin_type`, `origin_content`, `public_type`, `public_content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, `status`, `created_at`, `updated_at`.
 
 ### POST /api/v1/sites/{id}/dns/records
 
-Required: `type`, `name`, `content`. Optional: `ttl` default `300`, `priority`, `proxied` default `false`.
+Required: `type`, `name`, `content`. Optional: `ttl` default `300`, `priority`, `proxied` default `false`, `geo_policy_id`, `edge_target`.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records \
@@ -136,7 +136,7 @@ curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-11111
 Success `201`:
 
 ```json
-{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","ttl":300,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000000}}
+{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","origin_type":"A","origin_content":"127.0.0.1","public_type":"ALIAS","public_content":"geo.edge.vaheed.net.","ttl":300,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000000}}
 ```
 
 Errors: `type_required`, `name_required`, `content_required`, `site_not_found`, PowerDNS strict 502 errors.
@@ -155,7 +155,7 @@ Unknown site IDs return an empty `data` array because the list query filters by 
 
 ### PATCH /api/v1/sites/{id}/dns/records/{recordId}
 
-Patchable fields: `type`, `name`, `content`, `ttl`, `priority`, `proxied`, and `status`.
+Patchable fields: `type`, `name`, `content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, and `status`.
 
 ```bash
 curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
@@ -186,7 +186,7 @@ Unknown site or record: `404 {"error":"record_not_found"}`.
 ### GET /api/v1/edge/nodes
 
 ```json
-{"data":[{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}]}
+{"data":[{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","public_ipv4":"203.0.113.10","public_ipv6":"","region":"local","country":"","continent":"","version":"v1","status":"online","is_enabled":true,"health_status":"unknown","last_heartbeat":1710000000,"last_heartbeat_at":1710000000,"created_at":1710000000,"updated_at":1710000000}]}
 ```
 
 ### Signed Edge Headers
@@ -201,10 +201,10 @@ Unknown site or record: `404 {"error":"record_not_found"}`.
 
 ### POST /api/v1/edge/register
 
-Body: `edge_id` required; `hostname`, `public_ip`, `region`, and `version` optional. The edge agent sends a detected public IPv4 address automatically when `EDGE_PUBLIC_IP=auto`.
+Body: `edge_id` required; `hostname`, `public_ip`, `public_ipv4`, `public_ipv6`, `region`, `country`, `continent`, and `version` optional. The edge agent sends a detected public IPv4 address automatically when `EDGE_PUBLIC_IP=auto`.
 
 ```json
-{"data":{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}}
+{"data":{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","public_ipv4":"203.0.113.10","region":"local","version":"v1","status":"online","is_enabled":true,"last_heartbeat":1710000000,"last_heartbeat_at":1710000000,"created_at":1710000000,"updated_at":1710000000}}
 ```
 
 Header/body edge ID mismatch returns `401 {"error":"edge_auth_edge_id_mismatch"}`.
@@ -213,7 +213,7 @@ Header/body edge ID mismatch returns `401 {"error":"edge_auth_edge_id_mismatch"}
 
 Body: `{"edge_id":"edge-local-1"}` is sufficient. The edge agent sends `hostname`, detected `public_ip`, `region`, and `version` too.
 
-Success: `{"ok":true}`. When metadata fields are present and non-empty, core updates them on the existing edge row before refreshing proxied PowerDNS A records. Unknown registered node after successful auth returns `404 {"error":"edge_not_found"}`.
+Success: `{"ok":true}`. When metadata fields are present and non-empty, core updates them on the existing edge row before recomputing only the platform edge DNS zone. Unknown registered node after successful auth returns `404 {"error":"edge_not_found"}`.
 
 ### GET /api/v1/edge/config
 

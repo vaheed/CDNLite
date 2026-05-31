@@ -18,7 +18,7 @@ class CdnDnsUpdateRecordCommand
         }
 
         $patch = [];
-        foreach (['type', 'name', 'content', 'status'] as $field) {
+        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target'] as $field) {
             if (isset($opts[$field])) {
                 $patch[$field] = $opts[$field];
             }

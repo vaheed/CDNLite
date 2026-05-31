@@ -2,7 +2,7 @@
 
 CDNLite is a lightweight modular CDN platform with a PHP control plane, PostgreSQL database, OpenResty/Lua edge proxy, and shell-based edge agent.
 
-It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, and usage summaries. It is useful for first-time CDN learners, developers testing CDN workflows, operators running a small local stack, maintainers, and AI agents working in this repository.
+It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, and usage summaries. It is useful for first-time CDN learners, developers testing CDN workflows, operators running a small local stack, maintainers, and agents working in this repository.
 
 ## Key Features
 
@@ -10,7 +10,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Site-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
 - Host-based OpenResty edge proxy using a JSON config snapshot.
 - Edge agent registration, heartbeat, config pull, and metric push.
-- Automatic edge public IPv4 discovery for PowerDNS proxied A/LUA records.
+- Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
 - Docker Compose local stack and CI smoke/e2e scripts.

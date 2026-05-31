@@ -28,6 +28,8 @@ $tables = [
   'usage_rollups',
   'edge_request_nonces',
   'edge_tokens',
+  'geo_policies',
+  'edge_dns_state',
   'edge_nodes',
   'dns_records',
   'sites',

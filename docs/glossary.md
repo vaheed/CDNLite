@@ -8,8 +8,8 @@
 | Edge | OpenResty data plane in `edge/openresty/`. |
 | Edge agent | Shell loop in `edge/agent/` that signs calls to core. |
 | Site | A domain plus origin settings and proxy state. |
-| DNS record | Site-scoped record with type, name, content, TTL, optional priority, and proxied flag. |
-| Proxied | DNS flag stored by CDNLite; proxied A records get special PowerDNS edge-IP behavior when sync is enabled. |
+| DNS record | Site-scoped record with origin type/content, public type/content, TTL, optional priority, and proxied flag. |
+| Proxied | DNS flag stored by CDNLite; proxied records publish CNAME or ALIAS targets into the CDNLite-owned edge DNS zone. |
 | Origin | Upstream service the edge proxies to. |
 | Geo origin | Country-keyed origin override stored in `geo_origins`. |
 | Config snapshot | Versioned JSON payload mapping hostnames to upstream and DNS data. |

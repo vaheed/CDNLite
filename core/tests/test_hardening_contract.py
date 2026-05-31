@@ -37,6 +37,8 @@ $tables = [
   'usage_rollups',
   'edge_request_nonces',
   'edge_tokens',
+  'geo_policies',
+  'edge_dns_state',
   'edge_nodes',
   'dns_records',
   'sites',
@@ -165,9 +167,24 @@ def test_dns_record_update_command_patches_existing_record():
     assert updated["data"]["content"] == "127.0.0.2"
     assert updated["data"]["ttl"] == 120
     assert updated["data"]["proxied"] is True
+    assert updated["data"]["origin_type"] == "A"
+    assert updated["data"]["origin_content"] == "127.0.0.2"
+    assert updated["data"]["public_type"] == "ALIAS"
+    assert updated["data"]["public_content"] == "geo.edge.vaheed.net."
+
+    non_apex = run_artisan(
+        "cdn:dns:add-record",
+        f"--site_id={site_id}",
+        "--type=A",
+        "--name=www",
+        "--content=127.0.0.3",
+        "--proxied=1",
+    )
+    assert non_apex["data"]["public_type"] == "CNAME"
+    assert non_apex["data"]["public_content"] == "geo.edge.vaheed.net."
 
 
-def test_edge_heartbeat_updates_public_ip_for_powerdns_refresh():
+def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():
     reset_db()
 
     script = r'''
@@ -200,6 +217,7 @@ echo json_encode([
 
     assert out["ok"] is True
     assert out["node"]["public_ip"] == "198.51.100.11"
+    assert out["node"]["public_ipv4"] == "198.51.100.11"
     assert out["node"]["version"] == "v2"
 
 

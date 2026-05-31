@@ -2,17 +2,17 @@
 
 namespace App\Modules\Edge\Http\Controllers;
 
-use App\Modules\Dns\Services\DnsService;
+use App\Modules\Dns\Services\EdgeDnsService;
 use App\Modules\Edge\Services\EdgeService;
 use App\Support\Logger;
 
 class EdgeController
 {
-    private DnsService $dns;
+    private EdgeDnsService $edgeDns;
 
     public function __construct(private EdgeService $service)
     {
-        $this->dns = new DnsService();
+        $this->edgeDns = new EdgeDnsService();
     }
 
     public function list(): array
@@ -27,7 +27,7 @@ class EdgeController
         }
 
         $result = ['data' => $this->service->register($input)];
-        $this->refreshProxiedDnsRecords();
+        $this->syncEdgeDnsRecords();
         return $result;
     }
 
@@ -38,16 +38,16 @@ class EdgeController
             return ['error' => 'edge_not_found', 'status' => 404];
         }
 
-        $this->refreshProxiedDnsRecords();
+        $this->syncEdgeDnsRecords();
         return ['ok' => true];
     }
 
-    private function refreshProxiedDnsRecords(): void
+    private function syncEdgeDnsRecords(): void
     {
         try {
-            $this->dns->refreshAllProxiedARecords();
+            $this->edgeDns->sync();
         } catch (\RuntimeException $e) {
-            Logger::error('proxied_dns_refresh_failed', ['error' => $e->getMessage()]);
+            Logger::error('edge_dns_sync_failed', ['error' => $e->getMessage()]);
         }
     }
 }

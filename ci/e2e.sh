@@ -243,7 +243,7 @@ if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
   retry 20 1 curl -fsS "${POWERDNS_API_URL}/health" >/dev/null
   zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
   assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
-  assert_contains "$zone_json" "\"type\":\"AAAA\"" "pdns missing AAAA"
+  assert_contains "$zone_json" "\"type\":\"ALIAS\"" "pdns missing proxied ALIAS"
   record_step PASS "powerdns-sync-positive" "records present in pdns mock"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \

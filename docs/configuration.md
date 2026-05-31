@@ -23,8 +23,8 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `EDGE_ID` | `edge-local-1` | edge, agent | Yes | Edge identity. | Not secret. |
 | `EDGE_TOKEN` | `edge-dev-token` | agent | Yes | Bearer token and HMAC secret source. | Secret; rotate. |
 | `EDGE_HOSTNAME` | `edge-local-1` | agent | No | Registration hostname. | Not secret. |
-| `EDGE_PUBLIC_IP` | `auto` | agent, PowerDNS proxied A | No | `auto` lets the agent detect its public IPv4 address during register and heartbeat; set a concrete IPv4 to override. | Public data. |
-| `EDGE_REGION` | `local` | edge, agent | No | Region/country marker. Two-letter uppercase values can drive PowerDNS geo LUA. | Not secret. |
+| `EDGE_PUBLIC_IP` | `auto` | agent, edge DNS | No | `auto` lets the agent detect its public IPv4 address during register and heartbeat; set a concrete IPv4 to override. | Public data. |
+| `EDGE_REGION` | `local` | edge, agent | No | Region slug used for platform edge hostnames such as `ir.edge.example.com`. | Not secret. |
 | `EDGE_VERSION` | `v1` | agent | No | Registration version string. | Not secret. |
 | `CORE_HOST_PORT` | `8080` | Compose | No | Host port for core. | Not secret. |
 | `EDGE_HOST_PORT` | `8081` | Compose | No | Host port for edge. | Not secret. |
@@ -40,6 +40,25 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `POWERDNS_ZONE_KIND` | `NATIVE` | core | No | Zone kind: `NATIVE`, `MASTER`, or `SLAVE`. | Not secret. |
 | `POWERDNS_ZONE_NAMESERVERS` | `ns1.local.` in example | core | No | Comma-separated nameservers. | Public DNS data. |
 | `POWERDNS_DEFAULT_BASE_DOMAIN` | `local.` | core fallback | No | Used only when nameservers are unset. | Public DNS data. |
+| `CDNLITE_EDGE_BASE_DOMAIN` | `vaheed.net` | core | Yes for edge DNS | Platform-owned DNS base zone. Customer zones point into this zone. | Public DNS data. |
+| `CDNLITE_EDGE_ZONE_PREFIX` | `edge` | core | No | Prefix for edge hostnames below the base domain. | Public DNS data. |
+| `CDNLITE_EDGE_DEFAULT_TARGET` | `geo` | core | No | Default customer policy target label. | Public DNS data. |
+| `CDNLITE_EDGE_TTL` | `60` | core | No | TTL for platform edge records. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_MODE` | `ifportup` | core | No | Edge LUA health mode: `ifportup`, `ifurlup`, or `static`. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_PORT` | `80` | core | No | TCP/HTTP health port. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_URL` | `/cdn-health` | core | No | HTTP health path for `ifurlup`. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_TIMEOUT` | `1` | core | No | PowerDNS health timeout seconds. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_INTERVAL` | `10` | core | No | PowerDNS health interval seconds. | Not secret. |
+| `CDNLITE_EDGE_HEALTH_MIN_FAILURES` | `2` | core | No | Failures before an edge is considered down. | Not secret. |
+| `CDNLITE_EDGE_SELECTOR` | `pickclosest` | core | No | PowerDNS selector: `pickclosest`, `hashed`, `random`, or `all`. | Not secret. |
+| `CDNLITE_EDGE_BACKUP_SELECTOR` | `empty` | core | No | Backup selector used when health checks fail. | Not secret. |
+| `CDNLITE_EDGE_APEX_MODE` | `ALIAS` | core | No | Public record type for proxied apex records. | Not secret. |
+| `CDNLITE_GEO_DEFAULT_POLICY` | `auto` | core | No | Default geo policy mode. | Not secret. |
+| `CDNLITE_GEO_ENABLE_COUNTRY_RULES` | `true` | core | No | Enables country policy generation. | Not secret. |
+| `CDNLITE_GEO_ENABLE_CONTINENT_RULES` | `true` | core | No | Enables continent policy generation. | Not secret. |
+| `CDNLITE_GEO_ENABLE_REGION_RULES` | `true` | core | No | Enables region policy generation. | Not secret. |
+| `CDNLITE_NS1_IP`, `CDNLITE_NS2_IP` | empty | core | No | Optional A records for platform nameservers. | Public DNS data. |
+| `CDNLITE_BOOTSTRAP_EDGE_DNS` | `1` | core | No | Operational flag for bootstrapping edge DNS. | Not secret. |
 | `CORE_POWERDNS_API_URL` | CI only | CI override | No | Container URL for PowerDNS mock. | Not secret. |
 | `PDNS_API_KEY`, `PDNS_HOST`, `PDNS_PORT` | `test-key`, `0.0.0.0`, `8081` | CI mock | No | Mock PowerDNS settings. | Test-only. |
 | `CORE_URL`, `EDGE_URL`, `CI_ENV_NAME`, `REPORT_DIR`, `REPORT_MD`, `REPORT_JSON`, `REPORT_JUNIT` | script defaults | CI scripts | No | Test endpoints and report files. | Reports may contain diagnostics. |

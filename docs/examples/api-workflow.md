@@ -51,7 +51,7 @@ curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/
 ```
 
 ```json
-{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"proxied":true}]}
+{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","origin_type":"A","origin_content":"127.0.0.2","public_type":"ALIAS","public_content":"geo.edge.vaheed.net.","ttl":120,"proxied":true}]}
 ```
 
 ## Edge Proxy

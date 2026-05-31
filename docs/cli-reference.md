@@ -12,7 +12,7 @@ Options are parsed only as `--key=value` or bare `--flag`; there is no short-opt
 php core/artisan list
 ```
 
-Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
+Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
 
 Help output is available with:
 
@@ -91,14 +91,14 @@ Equivalent API: `POST /api/v1/sites/{id}/dns/records`.
 
 Required: `--site_id`, `--type`, `--name`, `--content`.
 
-Optional: `--ttl=300`, `--priority`, `--proxied=0|1`.
+Optional: `--ttl=300`, `--priority`, `--proxied=0|1`, `--geo_policy_id=<id>`, `--edge_target=<hostname>`.
 
 ```bash
 php core/artisan cdn:dns:add-record --site_id=11111111-1111-4111-8111-111111111111 --type=A --name=@ --content=127.0.0.1 --proxied=1
 ```
 
 ```json
-{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","ttl":300,"priority":null,"proxied":true,"status":"active"}}
+{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","origin_type":"A","origin_content":"127.0.0.1","public_type":"ALIAS","public_content":"geo.edge.vaheed.net.","ttl":300,"priority":null,"proxied":true,"status":"active"}}
 ```
 
 Common errors: `Missing --type`, `Missing --name`, `Missing --content`, `Missing --site_id`, `site_not_found`.
@@ -115,7 +115,7 @@ Required: `--site_id`. Equivalent API: `GET /api/v1/sites/{id}/dns/records`.
 
 Required: `--site_id`, `--record_id`, plus at least one update option. Equivalent API: `PATCH /api/v1/sites/{id}/dns/records/{recordId}`.
 
-Optional update fields: `--type`, `--name`, `--content`, `--ttl`, `--priority`, `--proxied=0|1`, `--status`.
+Optional update fields: `--type`, `--name`, `--content`, `--ttl`, `--priority`, `--proxied=0|1`, `--geo_policy_id`, `--edge_target`, `--status`.
 
 ```bash
 php core/artisan cdn:dns:update-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
@@ -132,6 +132,38 @@ Common errors: `Missing --site_id or --record_id`, `Missing update options`, `Re
 Required: `--site_id`, `--record_id`. Equivalent API: `DELETE /api/v1/sites/{id}/dns/records/{recordId}`.
 
 Success: `{"ok":true}`. Common error: `Missing --site_id or --record_id`, `Record not found`.
+
+### cdn:dns:bootstrap-edge-domain
+
+Ensures the CDNLite-owned edge base zone exists, writes SOA/NS and optional `ns1`/`ns2` A records, then generates platform edge LUA records.
+
+```bash
+php core/artisan cdn:dns:bootstrap-edge-domain
+```
+
+### cdn:dns:sync-edge-domain
+
+Recomputes edge records from `edge_nodes` and updates only the platform edge base zone.
+
+```bash
+php core/artisan cdn:dns:sync-edge-domain
+```
+
+### cdn:dns:rebuild-customer-zones
+
+Reprojects customer DNS records with the CNAME/ALIAS design. This does not write edge IPs or customer LUA records.
+
+```bash
+php core/artisan cdn:dns:rebuild-customer-zones
+```
+
+### cdn:dns:validate-routing
+
+Prints edge base-domain settings, active edge nodes, generated edge hostnames, customer public targets, and invalid edge-node state.
+
+```bash
+php core/artisan cdn:dns:validate-routing
+```
 
 ## Edge Commands
 

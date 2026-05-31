@@ -4,7 +4,7 @@
 
 ## DNS Record Model
 
-DNS records are stored in `dns_records` with `id`, `site_id`, `type`, `name`, `content`, `ttl`, `priority`, `proxied`, `status`, `created_at`, and `updated_at`. Records are deleted automatically when their site is deleted.
+DNS records are stored in `dns_records` with origin and public DNS fields. `type` and `content` keep the customer origin input. `origin_type` and `origin_content` mirror that origin explicitly. `public_type` and `public_content` hold the record CDNLite publishes to PowerDNS. Records are deleted automatically when their site is deleted.
 
 ## API Workflow
 
@@ -32,13 +32,26 @@ php core/artisan cdn:dns:delete-record --site_id=11111111-1111-4111-8111-1111111
 
 ## Proxied Behavior
 
-`proxied` is persisted for every DNS record and included in config snapshots. Additional PowerDNS behavior exists for proxied `A` records:
+`proxied` is persisted for every DNS record and included in config snapshots. Customer zones never receive edge IP pools or customer-specific LUA records.
 
-- If active online edge nodes with valid IPv4 addresses exist, PowerDNS receives edge IPs instead of the origin content.
-- Edge agent registration and heartbeat save the detected public IPv4 address in `edge_nodes.public_ip` automatically when `EDGE_PUBLIC_IP=auto`.
-- If edge node regions are two-letter uppercase country codes, core can build a PowerDNS LUA record that returns an edge IP by country.
-- If no active edge IPv4 exists, core logs a warning and syncs the record content as a normal A record.
-- Proxied non-A records are stored but do not get special PowerDNS routing behavior.
+- `proxied=false`: PowerDNS receives the normal customer record as entered.
+- `proxied=true` at the apex/root: PowerDNS receives `ALIAS <policy-target>`.
+- `proxied=true` below the apex: PowerDNS receives `CNAME <policy-target>`.
+- The default policy target is `geo.edge.<CDNLITE_EDGE_BASE_DOMAIN>`.
+- The origin record remains stored for routing/config purposes, but public DNS points only to stable CDNLite edge hostnames.
+
+## Edge Routing Zone
+
+CDNLite owns one base DNS zone, configured by `CDNLITE_EDGE_BASE_DOMAIN`. With the default `vaheed.net` base and `edge` prefix, the platform manages records such as:
+
+- `edge.vaheed.net`
+- `geo.edge.vaheed.net`
+- `ir.edge.vaheed.net`
+- `eu.edge.vaheed.net`
+- `us.edge.vaheed.net`
+- `p-<policy-hash>.edge.vaheed.net`
+
+Only this platform zone contains LUA records and health-checked A/AAAA pools. Edge registration and heartbeat update `edge_nodes`, then recompute the platform edge zone only. Customer zones are not rewritten when edge IPs change.
 
 ## PowerDNS Sync
 
@@ -53,6 +66,23 @@ PowerDNS settings:
 | `POWERDNS_SERVER_ID` | Server path segment, default `localhost`. |
 | `POWERDNS_ZONE_KIND` | `NATIVE`, `MASTER`, or `SLAVE`; invalid values fall back to `NATIVE`. |
 | `POWERDNS_ZONE_NAMESERVERS` | Comma-separated nameservers for created zones. |
+
+Edge DNS settings:
+
+| Variable | Meaning |
+|---|---|
+| `CDNLITE_EDGE_BASE_DOMAIN` | Platform-owned base zone, default `vaheed.net`. |
+| `CDNLITE_EDGE_ZONE_PREFIX` | Edge hostname prefix, default `edge`. |
+| `CDNLITE_EDGE_DEFAULT_TARGET` | Default policy label, default `geo`. |
+| `CDNLITE_EDGE_TTL` | TTL for platform edge records. |
+| `CDNLITE_EDGE_HEALTH_MODE` | `ifportup`, `ifurlup`, or `static`. |
+| `CDNLITE_EDGE_HEALTH_PORT` | Health port, default `80`. |
+| `CDNLITE_EDGE_HEALTH_URL` | HTTP health path for `ifurlup`. |
+| `CDNLITE_EDGE_SELECTOR` | PowerDNS selector, default `pickclosest`. |
+| `CDNLITE_EDGE_BACKUP_SELECTOR` | Backup selector, default `empty`. |
+| `CDNLITE_EDGE_APEX_MODE` | Apex projection mode, default `ALIAS`. |
+
+PowerDNS must be configured with `enable-lua-records=yes`, a resolver that does not point back to the same PowerDNS instance, and `expand-alias=yes` for ALIAS support.
 
 ## Failure Modes
 

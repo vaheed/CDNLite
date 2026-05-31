@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS dns_records (
   ttl INTEGER NOT NULL,
   priority INTEGER NULL,
   proxied BOOLEAN NOT NULL,
+  geo_policy_id TEXT NULL,
+  edge_target TEXT NULL,
+  origin_type TEXT NULL,
+  origin_content TEXT NULL,
+  public_type TEXT NULL,
+  public_content TEXT NULL,
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
@@ -33,13 +39,61 @@ CREATE TABLE IF NOT EXISTS edge_nodes (
   edge_id TEXT NOT NULL UNIQUE,
   hostname TEXT NOT NULL,
   public_ip TEXT NOT NULL,
+  public_ipv4 TEXT NULL,
+  public_ipv6 TEXT NULL,
   region TEXT NOT NULL,
+  country TEXT NULL,
+  continent TEXT NULL,
+  latitude DOUBLE PRECISION NULL,
+  longitude DOUBLE PRECISION NULL,
   version TEXT NOT NULL,
   status TEXT NOT NULL,
+  is_enabled BOOLEAN NOT NULL DEFAULT true,
   last_heartbeat BIGINT NOT NULL,
+  last_heartbeat_at BIGINT NULL,
+  health_status TEXT NOT NULL DEFAULT 'unknown',
+  weight INTEGER NOT NULL DEFAULT 100,
+  priority INTEGER NOT NULL DEFAULT 100,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS geo_policies (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  config_json TEXT NOT NULL,
+  policy_hash TEXT NOT NULL UNIQUE,
+  is_default BOOLEAN NOT NULL DEFAULT false,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS edge_dns_state (
+  id SMALLINT PRIMARY KEY,
+  effective_hash TEXT NOT NULL,
+  synced_at BIGINT NOT NULL,
+  CONSTRAINT edge_dns_state_singleton CHECK (id = 1)
+);
+
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_policy_id TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS edge_target TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_type TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_content TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_type TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_content TEXT NULL;
+
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv4 TEXT NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv6 TEXT NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS country TEXT NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS continent TEXT NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS last_heartbeat_at BIGINT NULL;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS health_status TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 100;
 
 CREATE TABLE IF NOT EXISTS edge_tokens (
   edge_id TEXT PRIMARY KEY,

@@ -30,6 +30,8 @@ class CdnDnsAddRecordCommand
                 'ttl' => (int) ($opts['ttl'] ?? 300),
                 'priority' => isset($opts['priority']) ? (int) $opts['priority'] : null,
                 'proxied' => ($opts['proxied'] ?? '0') !== '0',
+                'geo_policy_id' => $opts['geo_policy_id'] ?? null,
+                'edge_target' => $opts['edge_target'] ?? null,
             ]);
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);

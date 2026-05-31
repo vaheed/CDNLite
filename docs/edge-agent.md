@@ -32,7 +32,7 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 ## Heartbeat Flow
 
-`heartbeat.sh` sends `edge_id`, `hostname`, detected `public_ip`, `region`, and `version`. Core updates `last_heartbeat`, `status=online`, `updated_at`, and any non-empty edge metadata fields. If the public IP changes, the new value is saved automatically and proxied PowerDNS A records are refreshed from the database. If no edge node row exists after auth succeeds, core returns `edge_not_found`.
+`heartbeat.sh` sends `edge_id`, `hostname`, detected `public_ip`, `region`, and `version`. Core updates `last_heartbeat`, `last_heartbeat_at`, `status=online`, `updated_at`, and any non-empty edge metadata fields. If the public IP changes, the new value is saved automatically and the platform edge DNS zone is recomputed. Customer zones are not rewritten. If no edge node row exists after auth succeeds, core returns `edge_not_found`.
 
 ## Config Pull Flow
 
@@ -56,6 +56,6 @@ docker compose exec edge-agent sh -lc '/agent/push_metrics.sh'
 
 - Registration 401: token row missing, wrong token, stale timestamp, bad nonce, or invalid signature.
 - Registration 409: nonce reused.
-- PowerDNS still points to an old edge IP: check `cdn:edge:list` and confirm `public_ip` changed; run `/agent/heartbeat.sh` to force a metadata refresh.
+- PowerDNS still points to an old edge IP: check `cdn:edge:list`, confirm `public_ip` changed, then run `php artisan cdn:dns:sync-edge-domain` or `/agent/heartbeat.sh` to force an edge-zone sync.
 - Config not updating: inspect `edge/config/config.json`, run `/agent/pull_config.sh`, and check core logs.
 - Metrics not arriving: check `edge/config/metrics.ndjson`, then run `/agent/push_metrics.sh` and inspect core logs.
