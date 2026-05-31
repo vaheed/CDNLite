@@ -15,6 +15,6 @@ services:
     environment:
       POWERDNS_ENABLED: ${POWERDNS_ENABLED:-1}
       POWERDNS_STRICT: ${POWERDNS_STRICT:-1}
-      POWERDNS_API_URL: ${POWERDNS_API_URL:-http://powerdns:8081}
+      POWERDNS_API_URL: ${CORE_POWERDNS_API_URL:-http://powerdns:8081}
       POWERDNS_API_KEY: ${POWERDNS_API_KEY:-test-key}
       POWERDNS_SERVER_ID: ${POWERDNS_SERVER_ID:-localhost}
