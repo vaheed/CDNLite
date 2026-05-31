@@ -34,12 +34,12 @@ jobs:
       DB_USERNAME: cdnlite
       DB_PASSWORD: cdnlite
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.3"
           extensions: pdo_pgsql
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: PHP lint
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
@@ -95,7 +95,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: smoke
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
@@ -139,7 +139,7 @@ jobs:
       POWERDNS_SERVER_ID: localhost
       CI_ENV_NAME: e2e-powerdns
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack with PowerDNS mock
@@ -177,7 +177,7 @@ jobs:
     needs: e2e-powerdns
     if: github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set lowercase owner
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
       - uses: docker/setup-qemu-action@v3
