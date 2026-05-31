@@ -32,6 +32,9 @@ record_step PASS "core-health" "core health endpoint reachable"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 record_step PASS "edge-health" "edge health endpoint reachable"
 
+./ci/agent_flow_checks.sh >/dev/null
+record_step PASS "agent-flow-checks" "config and metrics failure handling verified"
+
 wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-connectivity" "postgres reachable"

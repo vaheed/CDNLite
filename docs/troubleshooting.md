@@ -16,4 +16,5 @@
 | Replay 409 | `edge_auth_replay_detected` | Reused nonce | Inspect signing script nonce generation | Use a new nonce per request. |
 | Validation 422 | Required field error | Missing body field or invalid query | Check response JSON | Add required fields; use valid bucket. |
 | Empty usage summary | Counts are zero | No raw usage or aggregates not rebuilt | `php core/artisan cdn:usage:summary` | Push/ingest usage; run recalculate for bucket summaries. |
-| Config not updating | Edge routes old host state | Agent has not pulled or snapshot unchanged | `docker compose exec edge-agent sh -lc '/agent/pull_config.sh && cat "$EDGE_CONFIG_PATH"'` | Force pull; confirm site `proxy_enabled=true`. |
+| Config not updating | Edge routes old host state | Agent has not pulled, snapshot unchanged, or downloaded config failed validation | `docker compose exec edge-agent sh -lc '/agent/pull_config.sh && cat "$EDGE_CONFIG_PATH"'` | Force pull; confirm site `proxy_enabled=true`. The agent preserves the last-known-good config on HTTP or JSON validation failure. |
+| Metrics not clearing | `METRIC_PATH` remains non-empty after push | Collector returned 4xx/5xx or network failed | `docker compose logs edge-agent` | Fix collector/API/auth issue. The agent keeps metrics and a `.payload` spool until ingest succeeds. |
