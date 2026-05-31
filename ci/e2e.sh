@@ -94,6 +94,7 @@ edge_api() {
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
+retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core and edge health passed"
 
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null

@@ -94,6 +94,11 @@ db_query() {
   docker compose exec -T postgres psql -U cdnlite -d cdnlite -t -A -c "$sql"
 }
 
+compose_has_service() {
+  local name="$1"
+  docker compose config --services 2>/dev/null | grep -qx "$name"
+}
+
 pdns_get() {
   local path="$1"
   curl -sS -H "X-API-Key: ${POWERDNS_API_KEY:-test-key}" "${POWERDNS_API_URL}${path}"
@@ -173,6 +178,8 @@ collect_diagnostics() {
   docker compose ps >"$REPORT_DIR/compose-ps.txt" || true
   docker compose logs --no-color >"$REPORT_DIR/compose-logs.txt" || true
   for svc in core edge edge-agent postgres powerdns; do
-    docker compose logs --no-color --tail=200 "$svc" >"$REPORT_DIR/${svc}-tail.log" || true
+    if compose_has_service "$svc"; then
+      docker compose logs --no-color --tail=200 "$svc" >"$REPORT_DIR/${svc}-tail.log" || true
+    fi
   done
 }
