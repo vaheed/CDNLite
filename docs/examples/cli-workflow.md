@@ -35,11 +35,12 @@ php core/artisan cdn:site:update --id=11111111-1111-4111-8111-111111111111 --pro
 
 ```bash
 php core/artisan cdn:dns:add-record --site_id=11111111-1111-4111-8111-111111111111 --type=A --name=@ --content=127.0.0.1 --ttl=300 --proxied=1
+php core/artisan cdn:dns:update-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
 php core/artisan cdn:dns:list-records --site_id=11111111-1111-4111-8111-111111111111
 ```
 
 ```json
-{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","proxied":true}]}
+{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"proxied":true}]}
 ```
 
 ## Config And Edge Check

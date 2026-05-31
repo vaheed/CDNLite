@@ -40,7 +40,6 @@ Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, and `X-CD
 | `proxy.lua` | Sets `$target_upstream` and edge/site headers. |
 | `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase. |
 | `error_page.lua` | Renders custom HTML error responses. |
-| `init.lua` | Loads config state; currently not wired from `nginx.conf`. |
 
 ## Metrics Lifecycle
 

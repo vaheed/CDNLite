@@ -214,6 +214,12 @@ create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"p
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
 record_step PASS "dns-create-multi" "dns_ids=${DNS_IDS[*]}"
 
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}/dns/records/${DNS_IDS[0]}" '{"content":"1.1.1.2","ttl":120}'
+assert_http_status "$HTTP_CODE" "200" "dns update failed"
+updated_dns_content="$(json_get "$HTTP_BODY" '.data.content')"
+assert_eq "$updated_dns_content" "1.1.1.2" "dns update content mismatch"
+record_step PASS "dns-update-one" "updated id=${DNS_IDS[0]}"
+
 dns_db_count="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id='${SITE_ID}';")"
 if [[ "$dns_db_count" -lt 5 ]]; then
   fail "dns rows expected >=5 got $dns_db_count"
@@ -309,6 +315,12 @@ assert_http_status "$HTTP_CODE" "200" "edge heartbeat failed"
 hb_count="$(db_query "SELECT COUNT(*) FROM edge_nodes WHERE edge_id='${EDGE_ID}';")"
 assert_eq "$hb_count" "1" "edge node row missing"
 record_step PASS "edge-heartbeat-db" "edge node exists"
+
+edge_api POST "/api/v1/edge/heartbeat" "{\"edge_id\":\"${EDGE_ID}\",\"hostname\":\"edge-ci\",\"public_ip\":\"127.0.0.2\",\"region\":\"ci\",\"version\":\"v2\"}"
+assert_http_status "$HTTP_CODE" "200" "edge heartbeat metadata update failed"
+edge_public_ip="$(db_query "SELECT public_ip FROM edge_nodes WHERE edge_id='${EDGE_ID}';")"
+assert_eq "$edge_public_ip" "127.0.0.2" "edge public_ip heartbeat update mismatch"
+record_step PASS "edge-heartbeat-public-ip-update" "public_ip=${edge_public_ip}"
 
 api_get "${CORE_URL}/api/v1/edge/nodes"
 assert_http_status "$HTTP_CODE" "200" "edge nodes list failed"

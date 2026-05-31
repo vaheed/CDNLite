@@ -13,6 +13,10 @@ curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-11111
   -H 'Content-Type: application/json' \
   -d '{"type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}'
 
+curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"127.0.0.2","ttl":120}'
+
 curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records
 curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222
 ```
@@ -21,6 +25,7 @@ curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111
 
 ```bash
 php core/artisan cdn:dns:add-record --site_id=11111111-1111-4111-8111-111111111111 --type=A --name=@ --content=127.0.0.1 --proxied=1
+php core/artisan cdn:dns:update-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
 php core/artisan cdn:dns:list-records --site_id=11111111-1111-4111-8111-111111111111
 php core/artisan cdn:dns:delete-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222
 ```
@@ -30,6 +35,7 @@ php core/artisan cdn:dns:delete-record --site_id=11111111-1111-4111-8111-1111111
 `proxied` is persisted for every DNS record and included in config snapshots. Additional PowerDNS behavior exists for proxied `A` records:
 
 - If active online edge nodes with valid IPv4 addresses exist, PowerDNS receives edge IPs instead of the origin content.
+- Edge agent registration and heartbeat save the detected public IPv4 address in `edge_nodes.public_ip` automatically when `EDGE_PUBLIC_IP=auto`.
 - If edge node regions are two-letter uppercase country codes, core can build a PowerDNS LUA record that returns an edge IP by country.
 - If no active edge IPv4 exists, core logs a warning and syncs the record content as a normal A record.
 - Proxied non-A records are stored but do not get special PowerDNS routing behavior.

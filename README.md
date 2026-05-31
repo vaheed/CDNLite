@@ -7,9 +7,10 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 ## Key Features
 
 - Site lifecycle API and CLI.
-- Site-scoped DNS records with optional PowerDNS sync.
+- Site-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
 - Host-based OpenResty edge proxy using a JSON config snapshot.
 - Edge agent registration, heartbeat, config pull, and metric push.
+- Automatic edge public IPv4 discovery for PowerDNS proxied A/LUA records.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
 - Docker Compose local stack and CI smoke/e2e scripts.

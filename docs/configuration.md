@@ -23,7 +23,7 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `EDGE_ID` | `edge-local-1` | edge, agent | Yes | Edge identity. | Not secret. |
 | `EDGE_TOKEN` | `edge-dev-token` | agent | Yes | Bearer token and HMAC secret source. | Secret; rotate. |
 | `EDGE_HOSTNAME` | `edge-local-1` | agent | No | Registration hostname. | Not secret. |
-| `EDGE_PUBLIC_IP` | `127.0.0.1` | agent, PowerDNS proxied A | No | Edge public IP. | Public data. |
+| `EDGE_PUBLIC_IP` | `auto` | agent, PowerDNS proxied A | No | `auto` lets the agent detect its public IPv4 address during register and heartbeat; set a concrete IPv4 to override. | Public data. |
 | `EDGE_REGION` | `local` | edge, agent | No | Region/country marker. Two-letter uppercase values can drive PowerDNS geo LUA. | Not secret. |
 | `EDGE_VERSION` | `v1` | agent | No | Registration version string. | Not secret. |
 | `CORE_HOST_PORT` | `8080` | Compose | No | Host port for core. | Not secret. |

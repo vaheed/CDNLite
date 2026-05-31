@@ -60,6 +60,83 @@ class DnsService
         return $created;
     }
 
+    public function update(string $siteId, string $recordId, array $input): ?array
+    {
+        $site = $this->sites->find($siteId);
+        if ($site === null) {
+            return null;
+        }
+
+        $find = Database::pdo()->prepare('SELECT * FROM dns_records WHERE site_id = :site_id AND id = :id LIMIT 1');
+        $find->execute([':site_id' => $siteId, ':id' => $recordId]);
+        $existing = $find->fetch();
+        if ($existing === false) {
+            return null;
+        }
+
+        $oldRecord = $this->castRow((array) $existing);
+        $patch = [
+            'type' => (string) $oldRecord['type'],
+            'name' => (string) $oldRecord['name'],
+            'content' => (string) $oldRecord['content'],
+            'ttl' => (int) $oldRecord['ttl'],
+            'priority' => $oldRecord['priority'],
+            'proxied' => (bool) $oldRecord['proxied'],
+            'status' => (string) $oldRecord['status'],
+        ];
+
+        foreach (['type', 'name', 'content', 'status'] as $field) {
+            if (isset($input[$field])) {
+                $patch[$field] = (string) $input[$field];
+            }
+        }
+        if (isset($input['ttl'])) {
+            $patch['ttl'] = (int) $input['ttl'];
+        }
+        if (array_key_exists('priority', $input)) {
+            $patch['priority'] = $input['priority'] === null ? null : (int) $input['priority'];
+        }
+        if (isset($input['proxied'])) {
+            $patch['proxied'] = (bool) $input['proxied'];
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'UPDATE dns_records SET
+                type = :type,
+                name = :name,
+                content = :content,
+                ttl = :ttl,
+                priority = :priority,
+                proxied = :proxied,
+                status = :status,
+                updated_at = :updated_at
+             WHERE site_id = :site_id AND id = :id'
+        );
+        $stmt->execute([
+            ':site_id' => $siteId,
+            ':id' => $recordId,
+            ':type' => strtoupper((string) $patch['type']),
+            ':name' => (string) $patch['name'],
+            ':content' => (string) $patch['content'],
+            ':ttl' => (int) $patch['ttl'],
+            ':priority' => $patch['priority'],
+            ':proxied' => (int) ((bool) $patch['proxied']),
+            ':status' => (string) $patch['status'],
+            ':updated_at' => time(),
+        ]);
+
+        $find->execute([':site_id' => $siteId, ':id' => $recordId]);
+        $updated = $this->castRow((array) $find->fetch());
+        if (
+            strtoupper((string) $oldRecord['type']) !== strtoupper((string) $updated['type'])
+            || (string) $oldRecord['name'] !== (string) $updated['name']
+        ) {
+            $this->syncPowerDnsDelete($site, $oldRecord);
+        }
+        $this->syncPowerDnsCreate($site, $updated);
+        return $updated;
+    }
+
     public function delete(string $siteId, string $recordId): bool
     {
         $site = $this->sites->find($siteId);

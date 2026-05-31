@@ -17,6 +17,7 @@ docker compose ps
 docker compose logs -f core
 docker compose logs -f edge
 docker compose exec core php artisan list
+docker compose exec core php artisan help
 docker compose exec postgres psql -U cdnlite -d cdnlite -c 'select count(*) from sites;'
 ```
 

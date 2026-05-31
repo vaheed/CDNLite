@@ -49,7 +49,7 @@ Both scripts write reports under `ci/reports/` by default.
 
 `.github/workflows/ci.yml` runs jobs in this order:
 
-1. `test`: PHP lint, shell syntax checks, WIP marker scan, `pytest -q core/tests` with PostgreSQL service.
+1. `test`: PHP lint, shell syntax checks, marker scan, `pytest -q core/tests` with PostgreSQL service.
 2. `smoke`: starts Compose and runs `ci/smoke.sh`.
 3. `e2e`: starts Compose and runs `ci/e2e.sh`.
 4. `e2e-powerdns`: starts Compose with `ci/docker-compose.ci.yml`, enables strict PowerDNS sync, and runs e2e against the mock server.

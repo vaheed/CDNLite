@@ -58,7 +58,7 @@ services:
       CORE_URL: ${CORE_URL:-http://core:8080}
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge-local-1}
-      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-127.0.0.1}
+      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-auto}
       EDGE_REGION: ${EDGE_REGION:-local}
       EDGE_VERSION: ${EDGE_VERSION:-v1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}

@@ -29,6 +29,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartb
 | POST | `/api/v1/sites/{id}/proxy/disable` | none | Disable proxy. |
 | POST | `/api/v1/sites/{id}/dns/records` | none | Create DNS record. |
 | GET | `/api/v1/sites/{id}/dns/records` | none | List DNS records. |
+| PATCH | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Update DNS record. |
 | DELETE | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Delete DNS record. |
 | GET | `/api/v1/edge/nodes` | none | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
@@ -152,6 +153,22 @@ curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/
 
 Unknown site IDs return an empty `data` array because the list query filters by `site_id` only.
 
+### PATCH /api/v1/sites/{id}/dns/records/{recordId}
+
+Patchable fields: `type`, `name`, `content`, `ttl`, `priority`, `proxied`, and `status`.
+
+```bash
+curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"127.0.0.2","ttl":120}'
+```
+
+```json
+{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000060}}
+```
+
+Empty patch bodies return `422 {"error":"dns_record_update_body_required"}`. Unknown site or record IDs return `404 {"error":"record_not_found"}`.
+
 ### DELETE /api/v1/sites/{id}/dns/records/{recordId}
 
 ```bash
@@ -169,7 +186,7 @@ Unknown site or record: `404 {"error":"record_not_found"}`.
 ### GET /api/v1/edge/nodes
 
 ```json
-{"data":[{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"127.0.0.1","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}]}
+{"data":[{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}]}
 ```
 
 ### Signed Edge Headers
@@ -184,19 +201,19 @@ Unknown site or record: `404 {"error":"record_not_found"}`.
 
 ### POST /api/v1/edge/register
 
-Body: `edge_id` required; `hostname`, `public_ip`, `region`, and `version` optional.
+Body: `edge_id` required; `hostname`, `public_ip`, `region`, and `version` optional. The edge agent sends a detected public IPv4 address automatically when `EDGE_PUBLIC_IP=auto`.
 
 ```json
-{"data":{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"127.0.0.1","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}}
+{"data":{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","region":"local","version":"v1","status":"online","last_heartbeat":1710000000,"created_at":1710000000,"updated_at":1710000000}}
 ```
 
 Header/body edge ID mismatch returns `401 {"error":"edge_auth_edge_id_mismatch"}`.
 
 ### POST /api/v1/edge/heartbeat
 
-Body: `{"edge_id":"edge-local-1"}`.
+Body: `{"edge_id":"edge-local-1"}` is sufficient. The edge agent sends `hostname`, detected `public_ip`, `region`, and `version` too.
 
-Success: `{"ok":true}`. Unknown registered node after successful auth returns `404 {"error":"edge_not_found"}`.
+Success: `{"ok":true}`. When metadata fields are present and non-empty, core updates them on the existing edge row before refreshing proxied PowerDNS A records. Unknown registered node after successful auth returns `404 {"error":"edge_not_found"}`.
 
 ### GET /api/v1/edge/config
 

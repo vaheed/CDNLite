@@ -17,7 +17,7 @@ This documentation is based on the current repository code, scripts, Docker file
 | [CLI Reference](cli-reference.md) | Registered `php core/artisan` commands. |
 | [Edge Runtime](edge-runtime.md) | OpenResty behavior and Lua modules. |
 | [Edge Agent](edge-agent.md) | Agent scripts and signed sync flows. |
-| [DNS And PowerDNS](dns-and-powerdns.md) | DNS model and optional PowerDNS sync. |
+| [DNS And PowerDNS](dns-and-powerdns.md) | DNS model, record lifecycle, and optional PowerDNS sync. |
 | [Usage And Metrics](usage-and-metrics.md) | Ingest payloads, summaries, and aggregates. |
 | [Security](security.md) | Edge token and HMAC model. |
 | [Operations Runbook](operations-runbook.md) | Common operator procedures. |

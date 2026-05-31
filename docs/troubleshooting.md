@@ -12,6 +12,7 @@
 | Site not found | API returns `site_not_found` | Wrong UUID or deleted site | `curl -s http://localhost:8080/api/v1/sites` | Use returned site ID. |
 | DNS sync failure | 502 or log `powerdns_*_failed` | PowerDNS disabled/misconfigured/API key bad | `docker compose logs core | grep powerdns` | Fix PowerDNS env or set `POWERDNS_STRICT=0`. |
 | Edge auth 401 | `edge_auth_*` error | Missing token, invalid signature, stale timestamp | `docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token` | Register correct token; rebuild signature. |
+| Edge public IP wrong | `cdn:edge:list` shows empty, private, or old `public_ip` | Public detection blocked or override is stale | `docker compose exec edge-agent sh -lc '. /agent/lib.sh; cdnlite_public_ip; echo'` | Set `EDGE_PUBLIC_IP=auto` or a concrete IPv4; run `/agent/register.sh` or `/agent/heartbeat.sh`. |
 | Replay 409 | `edge_auth_replay_detected` | Reused nonce | Inspect signing script nonce generation | Use a new nonce per request. |
 | Validation 422 | Required field error | Missing body field or invalid query | Check response JSON | Add required fields; use valid bucket. |
 | Empty usage summary | Counts are zero | No raw usage or aggregates not rebuilt | `php core/artisan cdn:usage:summary` | Push/ingest usage; run recalculate for bucket summaries. |

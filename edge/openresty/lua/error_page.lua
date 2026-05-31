@@ -77,7 +77,7 @@ function M.render(code)
           <h3>For Visitors</h3>
           <ul>
             <li>Refresh the page</li>
-            <li>Try again later</li>
+            <li>Try again after a short wait</li>
             <li>Contact the website owner</li>
           </ul>
         </div>

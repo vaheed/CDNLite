@@ -9,3 +9,20 @@ def test_contract_schema_example():
     }
     assert isinstance(site["id"], str)
     assert site["proxy_enabled"] is True
+
+
+def test_artisan_help_lists_registered_commands():
+    import subprocess
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    proc = subprocess.run(
+        ["php", str(repo_root / "core" / "artisan"), "help"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Usage: php artisan <command> [--key=value]" in proc.stdout
+    assert "cdn:site:create" in proc.stdout

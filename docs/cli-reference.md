@@ -12,7 +12,24 @@ Options are parsed only as `--key=value` or bare `--flag`; there is no short-opt
 php core/artisan list
 ```
 
-Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:delete-record`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
+Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
+
+Help output is available with:
+
+```bash
+php core/artisan help
+php core/artisan --help
+```
+
+Example output:
+
+```text
+Usage: php artisan <command> [--key=value]
+
+Commands:
+  cdn:site:create
+  cdn:site:list
+```
 
 ## Site Commands
 
@@ -93,6 +110,22 @@ Required: `--site_id`. Equivalent API: `GET /api/v1/sites/{id}/dns/records`.
 ```json
 {"data":[{"id":"22222222-2222-4222-8222-222222222222","type":"A","name":"@"}]}
 ```
+
+### cdn:dns:update-record
+
+Required: `--site_id`, `--record_id`, plus at least one update option. Equivalent API: `PATCH /api/v1/sites/{id}/dns/records/{recordId}`.
+
+Optional update fields: `--type`, `--name`, `--content`, `--ttl`, `--priority`, `--proxied=0|1`, `--status`.
+
+```bash
+php core/artisan cdn:dns:update-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
+```
+
+```json
+{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"priority":null,"proxied":true,"status":"active"}}
+```
+
+Common errors: `Missing --site_id or --record_id`, `Missing update options`, `Record not found`.
 
 ### cdn:dns:delete-record
 

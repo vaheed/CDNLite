@@ -15,6 +15,15 @@ class CommandRunner
     public function run(array $argv): int
     {
         $signature = $argv[1] ?? 'list';
+        if ($signature === 'help' || $signature === '--help' || $signature === '-h') {
+            fwrite(STDOUT, "Usage: php artisan <command> [--key=value]\n\n");
+            fwrite(STDOUT, "Commands:\n");
+            foreach (array_keys($this->registry) as $cmd) {
+                fwrite(STDOUT, "  " . $cmd . PHP_EOL);
+            }
+            return 0;
+        }
+
         if ($signature === 'list') {
             foreach (array_keys($this->registry) as $cmd) {
                 fwrite(STDOUT, $cmd . PHP_EOL);

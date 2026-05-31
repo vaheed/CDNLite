@@ -164,6 +164,10 @@ if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records
     respond($dnsController->list((string) $m[1]));
 }
 
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
+    respond($dnsController->update((string) $m[1], (string) $m[2], $body));
+}
+
 if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
     respond($dnsController->delete((string) $m[1], (string) $m[2]));
 }

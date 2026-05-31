@@ -46,11 +46,12 @@ curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-11111
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records -H 'Content-Type: application/json' -d '{"type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}'
+curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 -H 'Content-Type: application/json' -d '{"content":"127.0.0.2","ttl":120}'
 curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records
 ```
 
 ```json
-{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}]}
+{"data":[{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"proxied":true}]}
 ```
 
 ## Edge Proxy

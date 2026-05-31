@@ -131,6 +131,78 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
 
 
+def test_dns_record_update_command_patches_existing_record():
+    reset_db()
+
+    site = run_artisan(
+        "cdn:site:create",
+        "--name=dns-update-demo",
+        "--domain=dns-update-demo.local",
+        "--origin_host=origin.local",
+        "--origin_port=8080",
+    )
+    site_id = site["data"]["id"]
+    record = run_artisan(
+        "cdn:dns:add-record",
+        f"--site_id={site_id}",
+        "--type=A",
+        "--name=@",
+        "--content=127.0.0.1",
+        "--ttl=300",
+    )
+    record_id = record["data"]["id"]
+
+    updated = run_artisan(
+        "cdn:dns:update-record",
+        f"--site_id={site_id}",
+        f"--record_id={record_id}",
+        "--content=127.0.0.2",
+        "--ttl=120",
+        "--proxied=1",
+    )
+
+    assert updated["data"]["id"] == record_id
+    assert updated["data"]["content"] == "127.0.0.2"
+    assert updated["data"]["ttl"] == 120
+    assert updated["data"]["proxied"] is True
+
+
+def test_edge_heartbeat_updates_public_ip_for_powerdns_refresh():
+    reset_db()
+
+    script = r'''
+require __DIR__ . '/core/app/Support/bootstrap.php';
+
+$edge = new App\Modules\Edge\Services\EdgeService();
+$edge->register([
+  'edge_id' => 'edge-ip-1',
+  'hostname' => 'edge-ip-1',
+  'public_ip' => '198.51.100.10',
+  'region' => 'US',
+  'version' => 'v1',
+]);
+$ok = $edge->heartbeat([
+  'edge_id' => 'edge-ip-1',
+  'hostname' => 'edge-ip-1',
+  'public_ip' => '198.51.100.11',
+  'region' => 'US',
+  'version' => 'v2',
+]);
+$nodes = $edge->list();
+
+echo json_encode([
+  'ok' => $ok,
+  'node' => $nodes[0],
+], JSON_UNESCAPED_SLASHES);
+'''
+
+    out = run_php(script)
+
+    assert out["ok"] is True
+    assert out["node"]["public_ip"] == "198.51.100.11"
+    assert out["node"]["version"] == "v2"
+
+
 def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     reset_db()
 

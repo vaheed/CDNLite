@@ -40,6 +40,27 @@ class DnsController
         }
     }
 
+    public function update(string $siteId, string $recordId, array $input): array
+    {
+        if ($input === []) {
+            return ['error' => 'dns_record_update_body_required', 'status' => 422];
+        }
+
+        try {
+            $record = $this->service->update($siteId, $recordId, $input);
+        } catch (\RuntimeException $e) {
+            $payload = ['error' => $e->getMessage(), 'status' => 502];
+            if (Logger::isDebug()) {
+                $payload['detail'] = $e->getMessage();
+            }
+            return $payload;
+        }
+
+        return $record === null
+            ? ['error' => 'record_not_found', 'status' => 404]
+            : ['data' => $record];
+    }
+
     public function delete(string $siteId, string $recordId): array
     {
         return $this->service->delete($siteId, $recordId)

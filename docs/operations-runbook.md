@@ -35,6 +35,8 @@ docker compose exec edge-agent sh -lc '/agent/register.sh'
 docker compose exec core php artisan cdn:edge:list
 ```
 
+`cdn:edge:list` should show the detected `public_ip`. If `EDGE_PUBLIC_IP=auto`, heartbeat keeps this value current.
+
 ## Sync Config
 
 ```bash
@@ -56,6 +58,7 @@ Unknown hosts should return 502.
 
 ```bash
 curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records | jq
+curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 -H 'Content-Type: application/json' -d '{"ttl":120}' | jq
 php core/artisan cdn:dns:list-records --site_id=11111111-1111-4111-8111-111111111111
 ```
 

@@ -52,11 +52,23 @@ class EdgeService
     public function heartbeat(array $input): bool
     {
         $stmt = Database::pdo()->prepare(
-            'UPDATE edge_nodes SET last_heartbeat = :last_heartbeat, status = :status, updated_at = :updated_at WHERE edge_id = :edge_id'
+            'UPDATE edge_nodes SET
+                hostname = COALESCE(NULLIF(:hostname, \'\'), hostname),
+                public_ip = COALESCE(NULLIF(:public_ip, \'\'), public_ip),
+                region = COALESCE(NULLIF(:region, \'\'), region),
+                version = COALESCE(NULLIF(:version, \'\'), version),
+                last_heartbeat = :last_heartbeat,
+                status = :status,
+                updated_at = :updated_at
+             WHERE edge_id = :edge_id'
         );
         $now = time();
         $stmt->execute([
             ':edge_id' => (string) ($input['edge_id'] ?? ''),
+            ':hostname' => (string) ($input['hostname'] ?? ''),
+            ':public_ip' => (string) ($input['public_ip'] ?? ''),
+            ':region' => (string) ($input['region'] ?? ''),
+            ':version' => (string) ($input['version'] ?? ''),
             ':last_heartbeat' => $now,
             ':status' => 'online',
             ':updated_at' => $now,
