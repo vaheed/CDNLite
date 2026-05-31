@@ -3,6 +3,7 @@
 namespace App\Modules\Edge\Services;
 
 use App\Support\Database;
+use App\Support\Uuid;
 
 class EdgeService
 {
@@ -19,8 +20,8 @@ class EdgeService
         $now = time();
 
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO edge_nodes (edge_id, hostname, public_ip, region, version, status, last_heartbeat, created_at, updated_at)
-             VALUES (:edge_id, :hostname, :public_ip, :region, :version, :status, :last_heartbeat, :created_at, :updated_at)
+            'INSERT INTO edge_nodes (id, edge_id, hostname, public_ip, region, version, status, last_heartbeat, created_at, updated_at)
+             VALUES (:id, :edge_id, :hostname, :public_ip, :region, :version, :status, :last_heartbeat, :created_at, :updated_at)
              ON CONFLICT(edge_id) DO UPDATE SET
                 hostname = excluded.hostname,
                 public_ip = excluded.public_ip,
@@ -31,6 +32,7 @@ class EdgeService
                 updated_at = excluded.updated_at'
         );
         $stmt->execute([
+            ':id' => Uuid::v4(),
             ':edge_id' => $edgeId,
             ':hostname' => (string) ($input['hostname'] ?? ''),
             ':public_ip' => (string) ($input['public_ip'] ?? ''),
@@ -82,7 +84,7 @@ class EdgeService
 
     private function castRow(array $row): array
     {
-        $row['id'] = (int) $row['id'];
+        $row['id'] = (string) $row['id'];
         $row['last_heartbeat'] = (int) $row['last_heartbeat'];
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];

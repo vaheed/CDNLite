@@ -35,7 +35,7 @@ class CollectorController
         return $this->service->ingest($items, $idempotencyKey);
     }
 
-    public function summary(?int $siteId, ?string $bucket): array
+    public function summary(?string $siteId, ?string $bucket): array
     {
         if ($bucket !== null && !isset($this->allowedBuckets[$bucket])) {
             return ['error' => 'bucket_must_be_one_of_minute_hour_day', 'status' => 422];
@@ -47,13 +47,10 @@ class CollectorController
     {
         $siteId = null;
         if (isset($input['site_id'])) {
-            if (!is_int($input['site_id']) && !is_numeric($input['site_id'])) {
-                return ['error' => 'site_id_must_be_integer', 'status' => 422];
+            if (!is_string($input['site_id']) || trim($input['site_id']) === '') {
+                return ['error' => 'site_id_must_be_non_empty_string', 'status' => 422];
             }
-            $siteId = (int) $input['site_id'];
-            if ($siteId < 1) {
-                return ['error' => 'site_id_must_be_positive', 'status' => 422];
-            }
+            $siteId = trim($input['site_id']);
         }
 
         return $this->service->rebuildAggregates($siteId);

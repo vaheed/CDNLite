@@ -3,6 +3,7 @@
 namespace App\Modules\Sites\Services;
 
 use App\Support\Database;
+use App\Support\Uuid;
 
 class SiteService
 {
@@ -16,11 +17,13 @@ class SiteService
     public function create(array $input): array
     {
         $now = time();
+        $id = Uuid::v4();
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO sites (user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
-             VALUES (:user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
+            'INSERT INTO sites (id, user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
+             VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
         );
         $stmt->execute([
+            ':id' => $id,
             ':user_id' => (int) ($input['user_id'] ?? 1),
             ':name' => (string) $input['name'],
             ':domain' => (string) $input['domain'],
@@ -34,10 +37,10 @@ class SiteService
             ':updated_at' => $now,
         ]);
 
-        return $this->find((int) Database::pdo()->lastInsertId());
+        return $this->find($id);
     }
 
-    public function update(int $siteId, array $input): ?array
+    public function update(string $siteId, array $input): ?array
     {
         $existing = $this->find($siteId);
         if ($existing === null) {
@@ -99,19 +102,19 @@ class SiteService
         return $this->find($siteId);
     }
 
-    public function delete(int $siteId): bool
+    public function delete(string $siteId): bool
     {
         $stmt = Database::pdo()->prepare('DELETE FROM sites WHERE id = :id');
         $stmt->execute([':id' => $siteId]);
         return $stmt->rowCount() > 0;
     }
 
-    public function setProxy(int $siteId, bool $enabled): ?array
+    public function setProxy(string $siteId, bool $enabled): ?array
     {
         return $this->update($siteId, ['proxy_enabled' => $enabled]);
     }
 
-    public function find(int $siteId): ?array
+    public function find(string $siteId): ?array
     {
         $stmt = Database::pdo()->prepare('SELECT * FROM sites WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $siteId]);
@@ -129,7 +132,7 @@ class SiteService
 
     private function castRow(array $row): array
     {
-        $row['id'] = (int) $row['id'];
+        $row['id'] = (string) $row['id'];
         $row['user_id'] = (int) $row['user_id'];
         $row['origin_port'] = (int) $row['origin_port'];
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);

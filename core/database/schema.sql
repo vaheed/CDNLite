@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS sites (
-  id BIGSERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   user_id BIGINT NOT NULL,
   name TEXT NOT NULL,
   domain TEXT NOT NULL UNIQUE,
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS sites (
 );
 
 CREATE TABLE IF NOT EXISTS dns_records (
-  id BIGSERIAL PRIMARY KEY,
-  site_id BIGINT NOT NULL,
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL,
   type TEXT NOT NULL,
   name TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS dns_records (
 );
 
 CREATE TABLE IF NOT EXISTS edge_nodes (
-  id BIGSERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   edge_id TEXT NOT NULL UNIQUE,
   hostname TEXT NOT NULL,
   public_ip TEXT NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS edge_tokens (
 );
 
 CREATE TABLE IF NOT EXISTS edge_request_nonces (
-  id BIGSERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   edge_id TEXT NOT NULL,
   nonce TEXT NOT NULL,
   created_at BIGINT NOT NULL,
@@ -58,9 +58,9 @@ CREATE TABLE IF NOT EXISTS edge_request_nonces (
 );
 
 CREATE TABLE IF NOT EXISTS usage_rollups (
-  id BIGSERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   ts BIGINT NOT NULL,
-  site_id BIGINT NOT NULL,
+  site_id TEXT NOT NULL,
   edge_node_id TEXT NOT NULL,
   requests_count BIGINT NOT NULL,
   bytes_in BIGINT NOT NULL,
@@ -76,10 +76,10 @@ CREATE TABLE IF NOT EXISTS usage_ingest_keys (
 );
 
 CREATE TABLE IF NOT EXISTS usage_aggregates (
-  id BIGSERIAL PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   bucket TEXT NOT NULL,
   bucket_ts BIGINT NOT NULL,
-  site_id BIGINT NOT NULL,
+  site_id TEXT NOT NULL,
   edge_node_id TEXT NOT NULL,
   status INTEGER NOT NULL,
   requests_count BIGINT NOT NULL,

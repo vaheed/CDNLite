@@ -30,11 +30,11 @@ class SiteController
         return ['data' => $this->service->create($input)];
     }
 
-    public function update(int $siteId, array $input): ?array
+    public function update(string $siteId, array $input): ?array
     {
         if (isset($input['domain'])) {
             $existing = $this->service->findByDomain((string) $input['domain']);
-            if ($existing !== null && (int) $existing['id'] !== $siteId) {
+            if ($existing !== null && (string) $existing['id'] !== $siteId) {
                 return ['error' => 'domain_already_exists', 'status' => 422];
             }
         }
@@ -43,20 +43,20 @@ class SiteController
         return $site ? ['data' => $site] : null;
     }
 
-    public function delete(int $siteId): array
+    public function delete(string $siteId): array
     {
         return $this->service->delete($siteId)
             ? ['ok' => true]
             : ['error' => 'site_not_found', 'status' => 404];
     }
 
-    public function enableProxy(int $siteId): ?array
+    public function enableProxy(string $siteId): ?array
     {
         $site = $this->service->setProxy($siteId, true);
         return $site ? ['data' => $site] : null;
     }
 
-    public function disableProxy(int $siteId): ?array
+    public function disableProxy(string $siteId): ?array
     {
         $site = $this->service->setProxy($siteId, false);
         return $site ? ['data' => $site] : null;

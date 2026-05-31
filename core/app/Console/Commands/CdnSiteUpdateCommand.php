@@ -10,8 +10,8 @@ class CdnSiteUpdateCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = (int) ($opts['id'] ?? 0);
-        if ($siteId <= 0) {
+        $siteId = trim((string) ($opts['id'] ?? ''));
+        if ($siteId === '') {
             fwrite(STDERR, "Missing --id\n");
             return 1;
         }

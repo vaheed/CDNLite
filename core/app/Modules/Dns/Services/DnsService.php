@@ -4,6 +4,8 @@ namespace App\Modules\Dns\Services;
 
 use App\Support\Database;
 use App\Modules\Sites\Services\SiteService;
+use App\Support\Logger;
+use App\Support\Uuid;
 
 class DnsService
 {
@@ -16,7 +18,7 @@ class DnsService
         $this->sites = new SiteService();
     }
 
-    public function listBySite(int $siteId): array
+    public function listBySite(string $siteId): array
     {
         $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE site_id = :site_id ORDER BY id ASC');
         $stmt->execute([':site_id' => $siteId]);
@@ -24,7 +26,7 @@ class DnsService
         return array_map([$this, 'castRow'], $rows);
     }
 
-    public function create(int $siteId, array $input): array
+    public function create(string $siteId, array $input): array
     {
         $site = $this->sites->find($siteId);
         if ($site === null) {
@@ -32,11 +34,13 @@ class DnsService
         }
 
         $now = time();
+        $id = Uuid::v4();
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO dns_records (site_id, type, name, content, ttl, priority, proxied, status, created_at, updated_at)
-             VALUES (:site_id, :type, :name, :content, :ttl, :priority, :proxied, :status, :created_at, :updated_at)'
+            'INSERT INTO dns_records (id, site_id, type, name, content, ttl, priority, proxied, status, created_at, updated_at)
+             VALUES (:id, :site_id, :type, :name, :content, :ttl, :priority, :proxied, :status, :created_at, :updated_at)'
         );
         $stmt->execute([
+            ':id' => $id,
             ':site_id' => $siteId,
             ':type' => strtoupper((string) $input['type']),
             ':name' => (string) $input['name'],
@@ -49,7 +53,6 @@ class DnsService
             ':updated_at' => $now,
         ]);
 
-        $id = (int) Database::pdo()->lastInsertId();
         $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE id = :id LIMIT 1');
         $stmt->execute([':id' => $id]);
         $created = $this->castRow((array) $stmt->fetch());
@@ -57,7 +60,7 @@ class DnsService
         return $created;
     }
 
-    public function delete(int $siteId, int $recordId): bool
+    public function delete(string $siteId, string $recordId): bool
     {
         $site = $this->sites->find($siteId);
         if ($site === null) {
@@ -94,8 +97,19 @@ class DnsService
             (string) $record['content']
         );
 
-        if (($result['ok'] ?? false) !== true && $this->powerDns->isStrict()) {
-            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+        if (($result['ok'] ?? false) !== true) {
+            Logger::error('powerdns_sync_replace_failed', [
+                'site_id' => (string) $site['id'],
+                'domain' => (string) $site['domain'],
+                'record_name' => (string) $record['name'],
+                'record_type' => (string) $record['type'],
+                'status' => (int) ($result['status'] ?? 0),
+                'error' => (string) ($result['error'] ?? 'powerdns_sync_failed'),
+                'response' => (string) ($result['response'] ?? ''),
+            ]);
+            if ($this->powerDns->isStrict()) {
+                throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+            }
         }
     }
 
@@ -111,15 +125,26 @@ class DnsService
             (string) $record['type']
         );
 
-        if (($result['ok'] ?? false) !== true && $this->powerDns->isStrict()) {
-            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+        if (($result['ok'] ?? false) !== true) {
+            Logger::error('powerdns_sync_delete_failed', [
+                'site_id' => (string) $site['id'],
+                'domain' => (string) $site['domain'],
+                'record_name' => (string) $record['name'],
+                'record_type' => (string) $record['type'],
+                'status' => (int) ($result['status'] ?? 0),
+                'error' => (string) ($result['error'] ?? 'powerdns_sync_failed'),
+                'response' => (string) ($result['response'] ?? ''),
+            ]);
+            if ($this->powerDns->isStrict()) {
+                throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+            }
         }
     }
 
     private function castRow(array $row): array
     {
-        $row['id'] = (int) $row['id'];
-        $row['site_id'] = (int) $row['site_id'];
+        $row['id'] = (string) $row['id'];
+        $row['site_id'] = (string) $row['site_id'];
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];
         $row['proxied'] = ((int) $row['proxied']) === 1;

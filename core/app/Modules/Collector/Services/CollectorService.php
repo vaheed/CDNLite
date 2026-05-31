@@ -3,6 +3,7 @@
 namespace App\Modules\Collector\Services;
 
 use App\Support\Database;
+use App\Support\Uuid;
 
 class CollectorService
 {
@@ -34,16 +35,17 @@ class CollectorService
 
         $pdo->beginTransaction();
         $stmt = $pdo->prepare(
-            'INSERT INTO usage_rollups (ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
-             VALUES (:ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
+            'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
+             VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
         );
 
         $count = 0;
         try {
             foreach ($items as $item) {
                 $stmt->execute([
+                    ':id' => Uuid::v4(),
                     ':ts' => (int) ($item['ts'] ?? $now),
-                    ':site_id' => (int) ($item['site_id'] ?? 0),
+                    ':site_id' => (string) ($item['site_id'] ?? ''),
                     ':edge_node_id' => (string) ($item['edge_node_id'] ?? ''),
                     ':requests_count' => (int) ($item['requests_count'] ?? 0),
                     ':bytes_in' => (int) ($item['bytes_in'] ?? 0),
@@ -78,7 +80,7 @@ class CollectorService
         ];
     }
 
-    public function summary(?int $siteId = null, ?string $bucket = null): array
+    public function summary(?string $siteId = null, ?string $bucket = null): array
     {
         $pdo = Database::pdo();
         if ($bucket !== null) {
@@ -149,7 +151,7 @@ class CollectorService
         ];
     }
 
-    public function rebuildAggregates(?int $siteId = null): array
+    public function rebuildAggregates(?string $siteId = null): array
     {
         $pdo = Database::pdo();
         $now = time();
@@ -167,9 +169,10 @@ class CollectorService
                 $where = $siteId !== null ? 'WHERE site_id = :site_id' : '';
                 $sql = sprintf(
                     'INSERT INTO usage_aggregates
-                    (bucket, bucket_ts, site_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT :bucket,
-                           (ts / %d) * %d AS bucket_ts,
+                    (id, bucket, bucket_ts, site_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+                    SELECT md5((:bucket || \':\' || ((ts / %1$d) * %1$d) || \':\' || site_id || \':\' || edge_node_id || \':\' || status)::text),
+                           :bucket,
+                           (ts / %1$d) * %1$d AS bucket_ts,
                            site_id,
                            edge_node_id,
                            status,
@@ -181,7 +184,6 @@ class CollectorService
                     FROM usage_rollups
                     %s
                     GROUP BY bucket_ts, site_id, edge_node_id, status',
-                    $seconds,
                     $seconds,
                     $where
                 );

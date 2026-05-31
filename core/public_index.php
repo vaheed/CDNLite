@@ -12,13 +12,34 @@ use App\Modules\Edge\Services\EdgeService;
 use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Sites\Http\Controllers\SiteController;
 use App\Modules\Sites\Services\SiteService;
+use App\Support\Logger;
 
 header('Content-Type: application/json');
+ini_set('log_errors', '1');
+ini_set('error_log', 'php://stderr');
 
 function respond(array $payload, int $defaultStatus = 200): void
 {
+    global $requestStartedAt, $method, $path;
+
     $status = isset($payload['status']) ? (int) $payload['status'] : $defaultStatus;
+    $error = isset($payload['error']) ? (string) $payload['error'] : null;
     unset($payload['status']);
+
+    $durationMs = (int) round((microtime(true) - $requestStartedAt) * 1000);
+    $context = [
+        'method' => (string) $method,
+        'path' => (string) $path,
+        'status' => $status,
+        'duration_ms' => $durationMs,
+    ];
+    if ($error !== null && $error !== '') {
+        $context['error'] = $error;
+        Logger::warn('http_request_failed', $context);
+    } else {
+        Logger::info('http_request', $context);
+    }
+
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
@@ -55,8 +76,33 @@ function edgeSignature(): string
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestStartedAt = microtime(true);
 $bodyRaw = file_get_contents('php://input');
-$body = $bodyRaw ? json_decode($bodyRaw, true) : [];
+$body = [];
+if ($bodyRaw !== false && trim($bodyRaw) !== '') {
+    $decoded = json_decode($bodyRaw, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        respond(['error' => 'invalid_json', 'detail' => json_last_error_msg()], 400);
+    }
+    if (!is_array($decoded)) {
+        respond(['error' => 'invalid_json_object_expected'], 400);
+    }
+    $body = $decoded;
+}
+set_exception_handler(static function (\Throwable $e): void {
+    Logger::error('uncaught_exception', [
+        'type' => get_class($e),
+        'message' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+    ]);
+
+    $payload = ['error' => 'internal_server_error'];
+    if (Logger::isDebug()) {
+        $payload['detail'] = $e->getMessage();
+    }
+    respond($payload, 500);
+});
 if (!is_array($body)) {
     $body = [];
 }
@@ -82,44 +128,44 @@ if ($method === 'POST' && $path === '/api/v1/sites') {
     respond($siteController->store($body), 201);
 }
 
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/(\d+)$#', $path, $m)) {
-    $result = $siteController->update((int) $m[1], $body);
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
+    $result = $siteController->update((string) $m[1], $body);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
     }
     respond($result);
 }
 
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/(\d+)$#', $path, $m)) {
-    respond($siteController->delete((int) $m[1]));
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
+    respond($siteController->delete((string) $m[1]));
 }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/(\d+)/proxy/enable$#', $path, $m)) {
-    $result = $siteController->enableProxy((int) $m[1]);
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/enable$#', $path, $m)) {
+    $result = $siteController->enableProxy((string) $m[1]);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
     }
     respond($result);
 }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/(\d+)/proxy/disable$#', $path, $m)) {
-    $result = $siteController->disableProxy((int) $m[1]);
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/disable$#', $path, $m)) {
+    $result = $siteController->disableProxy((string) $m[1]);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
     }
     respond($result);
 }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/(\d+)/dns/records$#', $path, $m)) {
-    respond($dnsController->create((int) $m[1], $body), 201);
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
+    respond($dnsController->create((string) $m[1], $body), 201);
 }
 
-if ($method === 'GET' && preg_match('#^/api/v1/sites/(\d+)/dns/records$#', $path, $m)) {
-    respond($dnsController->list((int) $m[1]));
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
+    respond($dnsController->list((string) $m[1]));
 }
 
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/(\d+)/dns/records/(\d+)$#', $path, $m)) {
-    respond($dnsController->delete((int) $m[1], (int) $m[2]));
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
+    respond($dnsController->delete((string) $m[1], (string) $m[2]));
 }
 
 if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
@@ -206,7 +252,7 @@ if ($method === 'POST' && $path === '/api/v1/collector/usage') {
 }
 
 if ($method === 'GET' && $path === '/api/v1/usage/summary') {
-    $siteId = isset($_GET['site_id']) ? (int) $_GET['site_id'] : null;
+    $siteId = isset($_GET['site_id']) ? (string) $_GET['site_id'] : null;
     $bucket = isset($_GET['bucket']) ? (string) $_GET['bucket'] : null;
     respond($collectorController->summary($siteId, $bucket));
 }

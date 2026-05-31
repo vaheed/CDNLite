@@ -10,8 +10,8 @@ class CdnDnsListRecordsCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = (int) ($opts['site_id'] ?? 0);
-        if ($siteId <= 0) {
+        $siteId = trim((string) ($opts['site_id'] ?? ''));
+        if ($siteId === '') {
             fwrite(STDERR, "Missing --site_id\n");
             return 1;
         }

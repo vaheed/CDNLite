@@ -3,6 +3,7 @@
 namespace App\Modules\Dns\Http\Controllers;
 
 use App\Modules\Dns\Services\DnsService;
+use App\Support\Logger;
 
 class DnsController
 {
@@ -10,12 +11,12 @@ class DnsController
     {
     }
 
-    public function list(int $siteId): array
+    public function list(string $siteId): array
     {
         return ['data' => $this->service->listBySite($siteId)];
     }
 
-    public function create(int $siteId, array $input): array
+    public function create(string $siteId, array $input): array
     {
         $required = ['type', 'name', 'content'];
         foreach ($required as $field) {
@@ -31,11 +32,15 @@ class DnsController
             if ($message === 'site_not_found') {
                 return ['error' => 'site_not_found', 'status' => 404];
             }
-            return ['error' => $message, 'status' => 502];
+            $payload = ['error' => $message, 'status' => 502];
+            if (Logger::isDebug()) {
+                $payload['detail'] = $e->getMessage();
+            }
+            return $payload;
         }
     }
 
-    public function delete(int $siteId, int $recordId): array
+    public function delete(string $siteId, string $recordId): array
     {
         return $this->service->delete($siteId, $recordId)
             ? ['ok' => true]

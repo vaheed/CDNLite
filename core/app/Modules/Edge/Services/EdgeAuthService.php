@@ -3,6 +3,7 @@
 namespace App\Modules\Edge\Services;
 
 use App\Support\Database;
+use App\Support\Uuid;
 use PDOException;
 
 class EdgeAuthService
@@ -42,11 +43,12 @@ class EdgeAuthService
 
         try {
             $stmt = Database::pdo()->prepare(
-                'INSERT INTO edge_request_nonces (edge_id, nonce, created_at, expires_at)
-                 VALUES (:edge_id, :nonce, :created_at, :expires_at)'
+                'INSERT INTO edge_request_nonces (id, edge_id, nonce, created_at, expires_at)
+                 VALUES (:id, :edge_id, :nonce, :created_at, :expires_at)'
             );
             $now = time();
             $stmt->execute([
+                ':id' => Uuid::v4(),
                 ':edge_id' => $edgeId,
                 ':nonce' => $nonce,
                 ':created_at' => $now,

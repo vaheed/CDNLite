@@ -2,6 +2,8 @@
 
 Base URL (local): `http://localhost:8080`
 
+If you changed `CORE_HOST_PORT` in `.env` (for example `CORE_HOST_PORT=8085`), use that port in all API calls.
+
 ## Health
 - `GET /health`
 
@@ -29,6 +31,7 @@ curl -s -X POST http://localhost:8080/api/v1/sites \
 
 PowerDNS sync:
 - If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
+- PowerDNS zones must already exist (for example `demo.local.`). CDNLite does not auto-create zones.
 
 ## Edge
 - `POST /api/v1/edge/register`
@@ -59,6 +62,7 @@ Endpoints requiring these headers:
 - `POST /api/v1/collector/usage`
 
 ## Common Error Patterns
+- `400`: malformed JSON body (`invalid_json`, `invalid_json_object_expected`)
 - `422`: validation failure (`<field>_required`, etc.)
 - `401`: edge auth required/invalid
 - `409`: replay detected

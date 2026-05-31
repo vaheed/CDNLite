@@ -9,3 +9,4 @@ storage/*.sqlite-*
 ci/reports/*.*
 __pycache__/
 *.pyc
+.env

@@ -10,7 +10,7 @@ class CdnUsageRecalculateCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = isset($opts['site_id']) ? (int) $opts['site_id'] : null;
+        $siteId = isset($opts['site_id']) ? (string) $opts['site_id'] : null;
         $result = (new CollectorService())->rebuildAggregates($siteId);
         $result['summary'] = (new CollectorService())->summary($siteId);
         $result['aggregates'] = [

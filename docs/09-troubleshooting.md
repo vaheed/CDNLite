@@ -16,6 +16,24 @@ docker compose up --build
 - Verify `DB_*` values in compose.
 - Verify port and hostname (`postgres:5432` inside network).
 
+## Core Logs Are Empty
+- Ensure core log switches are enabled in `.env`:
+  - `APP_LOG_ENABLED=1`
+  - `APP_LOG_LEVEL=debug` (for maximum detail)
+  - `APP_DEBUG=1` (include error detail in API responses)
+- Recreate core after env changes:
+```bash
+docker compose up -d --build core
+```
+- Follow core logs:
+```bash
+docker compose logs -f core
+```
+- Follow all services:
+```bash
+docker compose logs -f
+```
+
 ## Edge Returns Error Page
 - Verify host exists in core site list.
 - Verify site proxy is enabled.
@@ -31,6 +49,19 @@ docker compose up --build
 - Verify edge metrics file and push loop.
 - Check collector endpoint auth and status.
 - Run `cdn:usage:summary` directly.
+
+## PowerDNS Sync Fails (`powerdns_api_error`)
+- Verify:
+  - `POWERDNS_ENABLED=1`
+  - `POWERDNS_API_URL`
+  - `POWERDNS_API_KEY`
+  - `POWERDNS_SERVER_ID`
+- For strict failure mode, set `POWERDNS_STRICT=1`.
+- Check core logs for structured error details (`status`, upstream `response`, record/domain context):
+```bash
+docker compose logs -f core
+```
+- Ensure the target zone already exists in PowerDNS (`demo.local.` for `demo.local`), because CDNLite patches existing zones and does not auto-create zones.
 
 ## CI Test Failures
 - Ensure PHP has `pdo_pgsql` extension in test environment.
