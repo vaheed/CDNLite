@@ -92,6 +92,37 @@ edge_api() {
   rm -f "$tmp"
 }
 
+edge_status_for_host() {
+  local host="$1"
+  curl -s -o /tmp/e2e-edge-status.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${host}"
+}
+
+edge_status_is() {
+  local host="$1"
+  local expected="$2"
+  local code
+  code="$(edge_status_for_host "$host")"
+  [[ "$code" == "$expected" ]]
+}
+
+edge_status_is_success() {
+  local host="$1"
+  local code
+  code="$(edge_status_for_host "$host")"
+  [[ "$code" -ge 200 && "$code" -lt 400 ]]
+}
+
+edge_wait_status() {
+  local host="$1"
+  local expected="$2"
+  retry 40 1 edge_status_is "$host" "$expected"
+}
+
+edge_wait_success_status() {
+  local host="$1"
+  retry 40 1 edge_status_is_success "$host"
+}
+
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 retry 40 2 db_query "SELECT 1;" >/dev/null
@@ -133,6 +164,9 @@ record_step PASS "site-validation-duplicate" "duplicate rejected with code=${HTT
 api_patch "${CORE_URL}/api/v1/sites/99999999" '{"name":"nope"}'
 assert_http_status "$HTTP_CODE" "404" "unknown site should 404"
 record_step PASS "site-validation-unknown" "unknown site 404"
+
+# Force and verify config propagation to edge before route assertions.
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
 
 # DNS lifecycle
 create_dns() {
@@ -184,10 +218,8 @@ if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
 fi
 
 # Edge proxy behavior
-ok_code="$(curl -s -o /tmp/e2e-edge-ok.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${TEST_DOMAIN}")"
-if [[ "$ok_code" -lt 200 || "$ok_code" -ge 400 ]]; then
-  fail "edge proxy expected 2xx/3xx got $ok_code"
-fi
+edge_wait_success_status "${TEST_DOMAIN}"
+ok_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "edge-proxy-enabled" "status=${ok_code}"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/disable" '{}'
@@ -197,18 +229,18 @@ assert_eq "$proxy_db" "0" "proxy_enabled should be false"
 record_step PASS "proxy-disable" "proxy disabled in db"
 
 disabled_code="$(curl -s -o /tmp/e2e-edge-disabled.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${TEST_DOMAIN}")"
+edge_wait_status "${TEST_DOMAIN}" "502"
+disabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 assert_eq "$disabled_code" "502" "disabled proxy should return 502"
 record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/enable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy enable failed"
-enabled_code="$(curl -s -o /tmp/e2e-edge-enabled2.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${TEST_DOMAIN}")"
-if [[ "$enabled_code" -lt 200 || "$enabled_code" -ge 400 ]]; then
-  fail "edge should route again after enable (got ${enabled_code})"
-fi
+edge_wait_success_status "${TEST_DOMAIN}"
+enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "proxy-reenable" "status=${enabled_code}"
 
-unknown_code="$(curl -s -o /tmp/e2e-edge-unknown.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: unknown.example")"
+unknown_code="$(edge_status_for_host "unknown.example")"
 assert_eq "$unknown_code" "502" "unknown host should fail"
 record_step PASS "edge-unknown-host" "status=${unknown_code}"
 
@@ -312,7 +344,8 @@ remaining_dns="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id=${SITE
 assert_eq "$remaining_dns" "0" "dns rows should cascade delete"
 record_step PASS "db-cascade-delete" "site and dns removed"
 
-deleted_edge_code="$(curl -s -o /tmp/e2e-edge-deleted.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${TEST_DOMAIN}")"
+edge_wait_status "${TEST_DOMAIN}" "502"
+deleted_edge_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 assert_eq "$deleted_edge_code" "502" "deleted domain should not route"
 record_step PASS "edge-after-delete" "status=${deleted_edge_code}"
 
