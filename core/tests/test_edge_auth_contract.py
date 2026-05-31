@@ -22,8 +22,30 @@ $username = getenv('DB_USERNAME') ?: 'cdnlite';
 $password = getenv('DB_PASSWORD') ?: 'cdnlite';
 $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$pdo->exec("TRUNCATE TABLE usage_aggregates, usage_ingest_keys, usage_rollups, edge_request_nonces, edge_tokens, edge_nodes, dns_records, sites, config_snapshots, config_state RESTART IDENTITY CASCADE");
-$pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
+$tables = [
+  'usage_aggregates',
+  'usage_ingest_keys',
+  'usage_rollups',
+  'edge_request_nonces',
+  'edge_tokens',
+  'edge_nodes',
+  'dns_records',
+  'sites',
+  'config_snapshots',
+  'config_state',
+];
+$existing = [];
+foreach ($tables as $table) {
+  if ($pdo->query("SELECT to_regclass('public." . $table . "')")->fetchColumn()) {
+    $existing[] = '"' . str_replace('"', '""', $table) . '"';
+  }
+}
+if (!empty($existing)) {
+  $pdo->exec("TRUNCATE TABLE " . implode(', ', $existing) . " RESTART IDENTITY CASCADE");
+}
+if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
+  $pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
+}
 '''
     subprocess.run(
         ["php", "-r", script],
