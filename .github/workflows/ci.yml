@@ -34,24 +34,16 @@ jobs:
       DB_USERNAME: cdnlite
       DB_PASSWORD: cdnlite
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: "8.3"
           extensions: pdo_pgsql
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-
+          python-version: "3.12"
       - name: PHP lint
-        run: |
-          find core -name '*.php' -print0 | xargs -0 -n1 php -l
-
+        run: find core -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Shell syntax checks
         run: |
           sh -n edge/agent/register.sh
@@ -59,14 +51,13 @@ jobs:
           sh -n edge/agent/pull_config.sh
           sh -n edge/agent/push_metrics.sh
           sh -n edge/agent/run.sh
-
+          bash -n ci/smoke.sh
+          bash -n ci/e2e.sh
+          bash -n ci/lib.sh
       - name: No WIP markers
-        run: |
-          ! rg -n "WIP_MARKER" -S core edge ci
-
+        run: '! rg -n "WIP_MARKER" -S core edge ci'
       - name: Install test deps
         run: pip install pytest
-
       - name: Run tests
         run: pytest -q core/tests
 
@@ -74,19 +65,28 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - name: Install helpers
+        run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
         run: docker compose up -d --build
-
       - name: Smoke test
-        run: ./ci/smoke.sh
-
-      - name: Logs on failure
-        if: failure()
-        run: docker compose logs --no-color
-
+        run: |
+          chmod +x ci/*.sh
+          ./ci/smoke.sh
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-reports
+          path: ci/reports/*
+          if-no-files-found: ignore
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f ci/reports/e2e-report.md ]; then
+            cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Teardown
         if: always()
         run: docker compose down -v
@@ -95,49 +95,99 @@ jobs:
     runs-on: ubuntu-latest
     needs: smoke
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - name: Install helpers
+        run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
         run: docker compose up -d --build
-
       - name: E2E test
-        run: ./ci/e2e.sh
-
-      - name: Logs on failure
+        run: |
+          chmod +x ci/*.sh
+          ./ci/e2e.sh
+      - name: Upload e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-reports
+          path: ci/reports/*
+          if-no-files-found: ignore
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f ci/reports/e2e-report.md ]; then
+            cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Service logs on failure
         if: failure()
-        run: docker compose logs --no-color
-
+        run: |
+          docker compose logs --no-color > ci/reports/compose-logs.txt || true
+          for svc in core edge edge-agent postgres; do
+            docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
+          done
       - name: Teardown
         if: always()
         run: docker compose down -v
 
-  build_and_push:
+  e2e-powerdns:
     runs-on: ubuntu-latest
     needs: e2e
+    env:
+      POWERDNS_ENABLED: 1
+      POWERDNS_STRICT: 1
+      POWERDNS_API_KEY: test-key
+      POWERDNS_API_URL: http://localhost:8089
+      POWERDNS_SERVER_ID: localhost
+      CI_ENV_NAME: e2e-powerdns
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install helpers
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Build and start stack with PowerDNS mock
+        run: docker compose -f docker-compose.yml -f ci/docker-compose.ci.yml up -d --build
+      - name: E2E test with PowerDNS strict
+        run: |
+          chmod +x ci/*.sh
+          ./ci/e2e.sh
+      - name: Upload e2e powerdns artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-powerdns-reports
+          path: ci/reports/*
+          if-no-files-found: ignore
+      - name: Job summary
+        if: always()
+        run: |
+          if [ -f ci/reports/e2e-report.md ]; then
+            cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Service logs on failure
+        if: failure()
+        run: |
+          docker compose -f docker-compose.yml -f ci/docker-compose.ci.yml logs --no-color > ci/reports/compose-logs.txt || true
+          for svc in core edge edge-agent postgres powerdns; do
+            docker compose -f docker-compose.yml -f ci/docker-compose.ci.yml logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
+          done
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.yml -f ci/docker-compose.ci.yml down -v
+
+  build_and_push:
+    runs-on: ubuntu-latest
+    needs: e2e-powerdns
     if: github.event_name == 'push'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set lowercase owner
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push core image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ./core
           file: ./core/Dockerfile
@@ -145,9 +195,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:latest
-
-      - name: Build and push edge image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ./edge
           file: ./edge/Dockerfile
@@ -155,9 +203,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:latest
-
-      - name: Build and push edge-agent image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: ./edge
           file: ./edge/agent/Dockerfile

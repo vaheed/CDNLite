@@ -149,7 +149,7 @@ write_reports() {
     echo "  \"failed_steps\": $FAILED_STEPS,"
     echo "  \"steps\": [$(IFS=,; echo "${STEP_JSON_ITEMS[*]}")]"
     echo "}"
-  >"$REPORT_JSON"
+  } >"$REPORT_JSON"
 
   cat >"$REPORT_JUNIT" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
