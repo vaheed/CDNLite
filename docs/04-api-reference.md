@@ -33,7 +33,8 @@ curl -s -X POST http://localhost:8080/api/v1/sites \
 
 PowerDNS sync:
 - If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
-- PowerDNS zones must already exist (for example `demo.local.`). CDNLite does not auto-create zones.
+- If `POWERDNS_ENABLED=1`, site create also attempts to create the matching PowerDNS zone automatically.
+- Zone creation uses `POWERDNS_ZONE_KIND` and `POWERDNS_ZONE_NAMESERVERS`.
 
 ## Edge
 - `POST /api/v1/edge/register`

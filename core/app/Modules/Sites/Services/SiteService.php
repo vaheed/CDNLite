@@ -2,11 +2,20 @@
 
 namespace App\Modules\Sites\Services;
 
+use App\Modules\Dns\Services\PowerDnsService;
 use App\Support\Database;
+use App\Support\Logger;
 use App\Support\Uuid;
 
 class SiteService
 {
+    private PowerDnsService $powerDns;
+
+    public function __construct()
+    {
+        $this->powerDns = new PowerDnsService();
+    }
+
     public function all(): array
     {
         $stmt = Database::pdo()->query('SELECT * FROM sites ORDER BY id ASC');
@@ -37,7 +46,13 @@ class SiteService
             ':updated_at' => $now,
         ]);
 
-        return $this->find($id);
+        $site = $this->find($id);
+        if ($site === null) {
+            throw new \RuntimeException('site_create_failed');
+        }
+
+        $this->syncPowerDnsZoneCreate($site);
+        return $site;
     }
 
     public function update(string $siteId, array $input): ?array
@@ -162,5 +177,30 @@ class SiteService
         }
         $json = json_encode($value, JSON_UNESCAPED_SLASHES);
         return $json === false ? null : $json;
+    }
+
+    private function syncPowerDnsZoneCreate(array $site): void
+    {
+        if (!$this->powerDns->isEnabled()) {
+            return;
+        }
+
+        $result = $this->powerDns->ensureZone((string) $site['domain']);
+        if (($result['ok'] ?? false) === true) {
+            return;
+        }
+
+        Logger::error('powerdns_zone_create_failed', [
+            'site_id' => (string) $site['id'],
+            'domain' => (string) $site['domain'],
+            'status' => (int) ($result['status'] ?? 0),
+            'error' => (string) ($result['error'] ?? 'powerdns_sync_failed'),
+            'response' => (string) ($result['response'] ?? ''),
+        ]);
+
+        if ($this->powerDns->isStrict()) {
+            $this->delete((string) $site['id']);
+            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+        }
     }
 }

@@ -27,7 +27,11 @@ class SiteController
             return ['error' => 'domain_already_exists', 'status' => 422];
         }
 
-        return ['data' => $this->service->create($input)];
+        try {
+            return ['data' => $this->service->create($input)];
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 502];
+        }
     }
 
     public function update(string $siteId, array $input): ?array

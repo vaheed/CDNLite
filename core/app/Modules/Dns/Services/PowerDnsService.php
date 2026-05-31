@@ -49,42 +49,115 @@ class PowerDnsService
         return $this->patchZone($zoneId, $payload);
     }
 
+    public function ensureZone(string $zoneDomain): array
+    {
+        $zoneId = $this->zoneId($zoneDomain);
+        $existing = $this->getZone($zoneId);
+        if (($existing['ok'] ?? false) === true) {
+            return ['ok' => true, 'exists' => true];
+        }
+        if (($existing['status'] ?? 0) !== 404) {
+            return $existing;
+        }
+
+        $kind = strtoupper((string) (getenv('POWERDNS_ZONE_KIND') ?: 'NATIVE'));
+        if (!in_array($kind, ['NATIVE', 'MASTER', 'SLAVE'], true)) {
+            $kind = 'NATIVE';
+        }
+        $payload = [
+            'name' => $zoneId,
+            'kind' => $kind,
+            'nameservers' => $this->zoneNameservers(),
+        ];
+
+        $result = $this->request('POST', $this->zonesBaseUrl(), $payload);
+        if (($result['status'] ?? 0) === 201 || ($result['status'] ?? 0) === 204) {
+            return ['ok' => true, 'created' => true];
+        }
+        return $result;
+    }
+
     private function patchZone(string $zoneId, array $payload): array
     {
-        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
-        $apiKey = (string) getenv('POWERDNS_API_KEY');
-        $serverId = (string) (getenv('POWERDNS_SERVER_ID') ?: 'localhost');
-
-        if ($apiUrl === '' || $apiKey === '') {
-            return ['ok' => false, 'error' => 'powerdns_missing_config'];
-        }
-
-        $url = sprintf('%s/api/v1/servers/%s/zones/%s', $apiUrl, rawurlencode($serverId), rawurlencode($zoneId));
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
-        if ($json === false) {
-            return ['ok' => false, 'error' => 'powerdns_payload_encode_failed'];
-        }
-
-        $headers = implode("\r\n", [
-            'Content-Type: application/json',
-            'X-API-Key: ' . $apiKey,
-        ]);
-        $ctx = stream_context_create([
-            'http' => [
-                'method' => 'PATCH',
-                'header' => $headers . "\r\n",
-                'content' => $json,
-                'timeout' => 8,
-                'ignore_errors' => true,
-            ],
-        ]);
-
-        $response = @file_get_contents($url, false, $ctx);
-        $status = $this->httpStatus($http_response_header ?? []);
+        $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
+        $result = $this->request('PATCH', $url, $payload);
+        $status = (int) ($result['status'] ?? 0);
         if ($status === 204) {
             return ['ok' => true];
         }
+        return $result;
+    }
 
+    private function getZone(string $zoneId): array
+    {
+        $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
+        $result = $this->request('GET', $url, null);
+        $status = (int) ($result['status'] ?? 0);
+        if ($status === 200) {
+            return ['ok' => true];
+        }
+        return $result;
+    }
+
+    private function zonesBaseUrl(): string
+    {
+        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
+        $serverId = (string) (getenv('POWERDNS_SERVER_ID') ?: 'localhost');
+        return sprintf('%s/api/v1/servers/%s/zones', $apiUrl, rawurlencode($serverId));
+    }
+
+    private function zoneNameservers(): array
+    {
+        $raw = trim((string) (getenv('POWERDNS_ZONE_NAMESERVERS') ?: ''));
+        if ($raw === '') {
+            return ['ns1.' . (string) (getenv('POWERDNS_DEFAULT_BASE_DOMAIN') ?: 'local.')];
+        }
+
+        $items = array_map('trim', explode(',', $raw));
+        $filtered = [];
+        foreach ($items as $item) {
+            if ($item === '') {
+                continue;
+            }
+            $filtered[] = str_ends_with($item, '.') ? $item : ($item . '.');
+        }
+        return $filtered === [] ? ['ns1.local.'] : $filtered;
+    }
+
+    private function request(string $method, string $url, ?array $payload): array
+    {
+        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
+        $apiKey = (string) getenv('POWERDNS_API_KEY');
+        if ($apiUrl === '' || $apiKey === '') {
+            return ['ok' => false, 'error' => 'powerdns_missing_config', 'status' => 0, 'response' => ''];
+        }
+
+        $headers = [
+            'Content-Type: application/json',
+            'X-API-Key: ' . $apiKey,
+        ];
+        $content = null;
+        if ($payload !== null) {
+            $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+            if ($json === false) {
+                return ['ok' => false, 'error' => 'powerdns_payload_encode_failed', 'status' => 0, 'response' => ''];
+            }
+            $content = $json;
+        }
+
+        $http = [
+            'method' => $method,
+            'header' => implode("\r\n", $headers) . "\r\n",
+            'timeout' => 8,
+            'ignore_errors' => true,
+        ];
+        if ($content !== null) {
+            $http['content'] = $content;
+        }
+
+        $ctx = stream_context_create(['http' => $http]);
+        $response = @file_get_contents($url, false, $ctx);
+        $status = $this->httpStatus($http_response_header ?? []);
         return [
             'ok' => false,
             'error' => 'powerdns_api_error',
@@ -143,4 +216,3 @@ class PowerDnsService
         return in_array($value, ['1', 'true', 'yes', 'on'], true);
     }
 }
-
