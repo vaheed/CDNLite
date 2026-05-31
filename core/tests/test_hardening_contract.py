@@ -22,6 +22,18 @@ def run_artisan(*args: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def run_php(script: str) -> dict:
+    proc = subprocess.run(
+        ["php", "-r", script],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, **TEST_ENV},
+    )
+    return json.loads(proc.stdout)
+
+
 def reset_db() -> None:
     script = r'''
 $host = getenv('DB_HOST') ?: '127.0.0.1';
