@@ -252,6 +252,29 @@ edge_wait_success_status "${TEST_DOMAIN}"
 ok_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "edge-proxy-enabled" "status=${ok_code}"
 
+# Proxy end-to-end behavior through edge
+edge_health_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/health")"
+assert_contains "$edge_health_body" "\"ok\":true" "edge proxied health payload mismatch"
+record_step PASS "edge-proxy-health" "health endpoint proxied"
+
+edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/api/v1/sites?via=edge")"
+assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missing test domain"
+record_step PASS "edge-proxy-get-query" "GET with query proxied"
+
+edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
+  -X POST "${EDGE_URL}/api/v1/sites" \
+  -H "Host: ${TEST_DOMAIN}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"edge-proxy-validation","origin_host":"core"}')"
+assert_eq "$edge_post_code" "422" "edge proxy POST/body forwarding failed"
+record_step PASS "edge-proxy-post-body" "POST with json body proxied"
+
+edge_delete_code="$(curl -s -o /tmp/e2e-edge-delete.txt -w '%{http_code}' \
+  -X DELETE "${EDGE_URL}/api/v1/sites/99999999" \
+  -H "Host: ${TEST_DOMAIN}")"
+assert_eq "$edge_delete_code" "404" "edge proxy DELETE forwarding failed"
+record_step PASS "edge-proxy-delete" "DELETE proxied"
+
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/disable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy disable failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
@@ -286,6 +309,11 @@ assert_http_status "$HTTP_CODE" "200" "edge heartbeat failed"
 hb_count="$(db_query "SELECT COUNT(*) FROM edge_nodes WHERE edge_id='${EDGE_ID}';")"
 assert_eq "$hb_count" "1" "edge node row missing"
 record_step PASS "edge-heartbeat-db" "edge node exists"
+
+api_get "${CORE_URL}/api/v1/edge/nodes"
+assert_http_status "$HTTP_CODE" "200" "edge nodes list failed"
+assert_contains "$HTTP_BODY" "\"edge_id\":\"${EDGE_ID}\"" "edge nodes missing registered edge"
+record_step PASS "edge-nodes-list" "edge nodes endpoint includes ${EDGE_ID}"
 
 edge_api GET "/api/v1/edge/config" ""
 assert_http_status "$HTTP_CODE" "200" "edge config fetch failed"
