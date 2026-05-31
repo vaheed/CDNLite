@@ -146,19 +146,9 @@ edge_config_has_host() {
   docker compose exec -T edge-agent sh -lc "grep -Fq \"$host\" \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
 }
 
-edge_config_has_text() {
-  local text="$1"
-  docker compose exec -T edge-agent sh -lc "grep -Fq \"$text\" \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
-}
-
 edge_wait_config_host() {
   local host="$1"
   retry 40 1 edge_config_has_host "$host"
-}
-
-edge_wait_config_text() {
-  local text="$1"
-  retry 40 1 edge_config_has_text "$text"
 }
 
 edge_cache_header_for_host() {
@@ -170,6 +160,15 @@ edge_cache_header_for_host() {
   curl -sS -o /tmp/e2e-edge-cache-body.txt -D "$headers" "${EDGE_URL}${path}" -H "Host: ${host}" "$@"
   awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Cache:/ {gsub("\r","",$2); print $2}' "$headers" | tail -n 1
   rm -f "$headers"
+}
+
+edge_cache_header_is() {
+  local host="$1"
+  local path="$2"
+  local expected="$3"
+  local got
+  got="$(edge_cache_header_for_host "$host" "$path")"
+  [[ "$got" == "$expected" ]]
 }
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
@@ -304,14 +303,12 @@ broken_origin_payload="$(jq -nc '{"origin_host":"cdnlite-missing-origin","origin
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
-edge_wait_config_text "cdnlite-missing-origin"
-stale_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
-assert_eq "$stale_cache" "STALE" "origin failure should serve stale cache"
+retry 20 1 edge_cache_header_is "${TEST_DOMAIN}" "$stale_path" "STALE" \
+  || fail "origin failure should serve stale cache"
 restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
-edge_wait_config_text "http://core:8080"
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \

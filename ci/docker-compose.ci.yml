@@ -9,7 +9,7 @@ services:
     volumes:
       - ./:/srv
     ports:
-      - "8089:8081"
+      - "${POWERDNS_HOST_PORT:-8089}:8081"
 
   core:
     environment:
