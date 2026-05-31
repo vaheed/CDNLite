@@ -10,3 +10,7 @@ ci/reports/*.*
 __pycache__/
 *.pyc
 .env
+.agents/
+.codex/
+.gitignore
+.pytest_cache

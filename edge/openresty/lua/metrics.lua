@@ -19,7 +19,7 @@ function M.on_log()
   local bytes_out = tonumber(ngx.var.bytes_sent) or 0
   append_metric({
     ts = os.time(),
-    site_id = tonumber(ngx.ctx.site_id) or 0,
+    site_id = tostring(ngx.ctx.site_id or ''),
     edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
     requests_count = 1,
     bytes_in = bytes_in,

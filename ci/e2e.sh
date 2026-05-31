@@ -167,7 +167,7 @@ assert_http_status "$HTTP_CODE" "201" "site create failed"
 SITE_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "site-create" "site_id=${SITE_ID} domain=${TEST_DOMAIN}"
 
-site_count="$(db_query "SELECT COUNT(*) FROM sites WHERE id=${SITE_ID} AND domain='${TEST_DOMAIN}';")"
+site_count="$(db_query "SELECT COUNT(*) FROM sites WHERE id='${SITE_ID}' AND domain='${TEST_DOMAIN}';")"
 assert_eq "$site_count" "1" "site missing in db"
 record_step PASS "site-db-row" "site persisted"
 
@@ -214,7 +214,7 @@ create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"p
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
 record_step PASS "dns-create-multi" "dns_ids=${DNS_IDS[*]}"
 
-dns_db_count="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id=${SITE_ID};")"
+dns_db_count="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id='${SITE_ID}';")"
 if [[ "$dns_db_count" -lt 5 ]]; then
   fail "dns rows expected >=5 got $dns_db_count"
 fi
@@ -278,7 +278,7 @@ record_step PASS "edge-proxy-delete" "DELETE proxied"
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/disable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy disable failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
-proxy_db="$(db_query "SELECT proxy_enabled::int FROM sites WHERE id=${SITE_ID};")"
+proxy_db="$(db_query "SELECT proxy_enabled::int FROM sites WHERE id='${SITE_ID}';")"
 assert_eq "$proxy_db" "0" "proxy_enabled should be false"
 record_step PASS "proxy-disable" "proxy disabled in db"
 
@@ -359,12 +359,12 @@ assert_contains "$replay_out" "200 409" "replay nonce should return 409 on secon
 record_step PASS "edge-auth-replay" "replay detected"
 
 # Usage ingest and summaries
-edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k1\",\"items\":[{\"ts\":60,\"site_id\":${SITE_ID},\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":10,\"bytes_in\":100,\"bytes_out\":500,\"status\":200}]}"
+edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k1\",\"items\":[{\"ts\":60,\"site_id\":\"${SITE_ID}\",\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":10,\"bytes_in\":100,\"bytes_out\":500,\"status\":200}]}"
 assert_http_status "$HTTP_CODE" "200" "usage ingest failed"
 ingested="$(json_get "$HTTP_BODY" '.ingested')"
 assert_eq "$ingested" "1" "usage first ingest should be 1"
 
-edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k1\",\"items\":[{\"ts\":60,\"site_id\":${SITE_ID},\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":10,\"bytes_in\":100,\"bytes_out\":500,\"status\":200}]}"
+edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k1\",\"items\":[{\"ts\":60,\"site_id\":\"${SITE_ID}\",\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":10,\"bytes_in\":100,\"bytes_out\":500,\"status\":200}]}"
 assert_http_status "$HTTP_CODE" "200" "usage duplicate ingest call failed"
 dup="$(json_get "$HTTP_BODY" '.duplicate')"
 assert_eq "$dup" "true" "usage duplicate expected true"
@@ -380,9 +380,9 @@ for b in minute hour day; do
 done
 record_step PASS "usage-summary-endpoints" "summary endpoints healthy"
 
-api_post "${CORE_URL}/api/v1/usage/recalculate" "{\"site_id\":${SITE_ID}}"
+api_post "${CORE_URL}/api/v1/usage/recalculate" "{\"site_id\":\"${SITE_ID}\"}"
 assert_http_status "$HTTP_CODE" "200" "usage recalculate failed"
-agg_count="$(db_query "SELECT COUNT(*) FROM usage_aggregates WHERE site_id=${SITE_ID};")"
+agg_count="$(db_query "SELECT COUNT(*) FROM usage_aggregates WHERE site_id='${SITE_ID}';")"
 if [[ "$agg_count" -lt 1 ]]; then
   fail "usage aggregates expected >0"
 fi
@@ -399,9 +399,9 @@ assert_http_status "$HTTP_CODE" "200" "site delete failed"
 record_step PASS "site-delete" "site removed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
 
-remaining_site="$(db_query "SELECT COUNT(*) FROM sites WHERE id=${SITE_ID};")"
+remaining_site="$(db_query "SELECT COUNT(*) FROM sites WHERE id='${SITE_ID}';")"
 assert_eq "$remaining_site" "0" "site row should be removed"
-remaining_dns="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id=${SITE_ID};")"
+remaining_dns="$(db_query "SELECT COUNT(*) FROM dns_records WHERE site_id='${SITE_ID}';")"
 assert_eq "$remaining_dns" "0" "dns rows should cascade delete"
 record_step PASS "db-cascade-delete" "site and dns removed"
 

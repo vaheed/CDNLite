@@ -69,17 +69,18 @@ if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
 def test_usage_ingest_idempotency_key_deduplicates_retries():
     reset_db()
 
-    run_artisan(
+    site = run_artisan(
         "cdn:site:create",
         "--name=demo",
         "--domain=demo.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
+    site_id = site["data"]["id"]
 
     first = run_artisan(
         "cdn:usage:ingest",
-        "--site_id=1",
+        f"--site_id={site_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -89,7 +90,7 @@ def test_usage_ingest_idempotency_key_deduplicates_retries():
     )
     second = run_artisan(
         "cdn:usage:ingest",
-        "--site_id=1",
+        f"--site_id={site_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -133,17 +134,18 @@ def test_edge_sync_config_reuses_version_when_unchanged():
 def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     reset_db()
 
-    run_artisan(
+    site = run_artisan(
         "cdn:site:create",
         "--name=agg-demo",
         "--domain=agg-demo.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
+    site_id = site["data"]["id"]
 
     run_artisan(
         "cdn:usage:ingest",
-        "--site_id=1",
+        f"--site_id={site_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -153,7 +155,7 @@ def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     )
     run_artisan(
         "cdn:usage:ingest",
-        "--site_id=1",
+        f"--site_id={site_id}",
         "--edge_node_id=edge-1",
         "--requests_count=5",
         "--bytes_in=40",
@@ -163,7 +165,7 @@ def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     )
     run_artisan(
         "cdn:usage:ingest",
-        "--site_id=1",
+        f"--site_id={site_id}",
         "--edge_node_id=edge-1",
         "--requests_count=7",
         "--bytes_in=70",

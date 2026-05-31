@@ -1,99 +1,115 @@
 # CDNLite
 
-CDNLite is a lightweight modular CDN platform designed for small teams that want a clear, operable stack without heavyweight distributed infrastructure.
+CDNLite is a lightweight modular CDN platform with a PHP control plane, PostgreSQL database, OpenResty/Lua edge proxy, and shell-based edge agent.
 
-## What This Project Includes
-- `core/`: API + CLI control plane (PHP, PostgreSQL)
-- `edge/openresty/`: OpenResty + Lua edge data plane
-- `edge/agent/`: edge control-loop scripts (register, heartbeat, config sync, metrics push)
-- `docker-compose.yml`: local/runtime stack for core + edge + edge-agent + postgres
-- `ci/`: smoke and e2e validation scripts
-- `docs/`: full technical and operational documentation
+It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, and usage summaries. It is useful for first-time CDN learners, developers testing CDN workflows, operators running a small local stack, maintainers, and AI agents working in this repository.
 
-## Key Capabilities
-- Site CRUD and proxy enable/disable
-- DNS record management per site
-- Edge node token registration, node register/heartbeat, and config sync
-- Deterministic config snapshot versioning
-- Usage ingest with idempotency support
-- Usage summary and aggregate rebuild (`minute`, `hour`, `day`)
-- Edge auth + replay protection for control-plane endpoints
-- Modern edge error/status page for upstream failures
+## Key Features
+
+- Site lifecycle API and CLI.
+- Site-scoped DNS records with optional PowerDNS sync.
+- Host-based OpenResty edge proxy using a JSON config snapshot.
+- Edge agent registration, heartbeat, config pull, and metric push.
+- Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
+- Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
+- Docker Compose local stack and CI smoke/e2e scripts.
+
+## Architecture Summary
+
+`core/` is the control plane. It serves HTTP from `core/public_index.php`, registers CLI commands in `core/artisan`, stores data in PostgreSQL, builds edge config, and ingests usage. `edge/openresty/` is the data plane. It reads `/var/lib/cdnlite/config.json`, routes by `Host`, proxies to origins, and writes metrics. `edge/agent/` signs calls to core and keeps the edge registered, configured, and reporting metrics.
+
+## Services And Ports
+
+| Service | Compose name | Container port | Host port default | Purpose |
+|---|---|---:|---:|---|
+| PostgreSQL | `postgres` | `5432` | `5432` | Persistent state. |
+| Core API | `core` | `8080` | `8080` | PHP API and CLI runtime. |
+| Edge proxy | `edge` | `8081` | `8081` | OpenResty proxy. |
+| Edge agent | `edge-agent` | none | none | Background sync loop. |
 
 ## Quick Start
 
-### Prerequisites
-- Docker + Docker Compose
-
-### Run Locally
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Services:
-- Core API: `http://localhost:8080`
-- Edge Proxy: `http://localhost:8081`
-- PostgreSQL: `localhost:5432`
+Health checks:
 
-Environment config:
-- `.env.example` contains all supported runtime variables for local/dev startup.
-- PowerDNS sync is optional and disabled by default. Set `POWERDNS_ENABLED=1` and provide PowerDNS API variables to enable external DNS sync.
-
-### Health Check
 ```bash
-curl -fsS http://localhost:8080/health
-curl -fsS http://localhost:8081/health
+curl -s http://localhost:8080/health
+curl -s http://localhost:8081/health
 ```
 
-## API Quick Test
+Example output:
+
+```json
+{"ok":true,"time":1710000000}
+```
+
+Edge health returns:
+
+```json
+{"ok":true}
+```
+
+Register the local edge token:
+
 ```bash
-# Create site and capture UUID
-SITE_ID=$(curl -s -X POST http://localhost:8080/api/v1/sites \
+docker compose exec core php artisan cdn:edge:register-token \
+  --edge_id=edge-local-1 \
+  --token=edge-dev-token
+```
+
+## First API Example
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites \
   -H 'Content-Type: application/json' \
-  -d '{"name":"demo2","domain":"demo2.local","origin_host":"core","origin_port":8080,"proxy_enabled":true,"geo_origins":{"IR":{"scheme":"http","host":"core-ir","port":8080},"DEFAULT":{"scheme":"http","host":"core","port":8080}}}' | sed -n 's/.*"id":"\\([^"]*\\)".*/\\1/p')
-
-curl -s -X POST http://localhost:8080/api/v1/sites/$SITE_ID/dns/records \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true}'
-
-curl -i http://localhost:8081/api/v1/sites -H 'Host: demo2.local'
+  -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
 ```
 
-## CLI Quick Test
+Example output:
+
+```json
+{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo","domain":"demo.local","origin_scheme":"http","origin_host":"core","origin_port":8080,"proxy_enabled":true,"status":"active","created_at":1710000000,"updated_at":1710000000,"geo_origins":[]}}
+```
+
+## First CLI Example
+
 ```bash
-php core/artisan cdn:site:create --name=demo --domain=demo.local --origin_host=core --origin_port=8080
-php core/artisan cdn:site:list
-php core/artisan cdn:dns:add-record --site_id=<site_uuid> --type=A --name=@ --content=1.1.1.1 --proxied=1
-php core/artisan cdn:dns:list-records --site_id=<site_uuid>
-php core/artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
-php core/artisan cdn:edge:sync-config
-php core/artisan cdn:usage:summary
+docker compose exec core php artisan cdn:site:list
 ```
 
-## Edge Auth Requirements
-Required on edge control and ingest endpoints:
-- `Authorization: Bearer <edge-token>`
-- `X-CDNLITE-Edge-Id: <edge-id>`
-- `X-CDNLITE-Timestamp: <unix-seconds>`
-- `X-CDNLITE-Nonce: <unique nonce>`
-- `X-CDNLITE-Signature: <hmac signature>`
+Example output:
+
+```json
+{"data":[]}
+```
 
 ## Documentation Map
-- [Agent Governance](docs/AGENTS.md)
-- [Development Guide](docs/DEVELOPMENT.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Skills Guide](docs/SKILLS.md)
-- [Architecture and Principles](docs/00-architecture-and-principles.md)
-- [Core Design](docs/01-core-design.md)
-- [Runtime Stages](docs/02-runtime-stages.md)
-- [Change Log](docs/03-change-log.md)
-- [API Reference](docs/04-api-reference.md)
-- [CLI Reference](docs/05-cli-reference.md)
-- [Deployment Guide](docs/06-deployment-guide.md)
-- [Operations Runbook](docs/07-operations-runbook.md)
-- [Security Model](docs/08-security-model.md)
-- [Troubleshooting](docs/09-troubleshooting.md)
 
-## Current Delivery State
-Roadmap and implementation state live in [docs/ROADMAP.md](docs/ROADMAP.md).
+Start at [docs/index.md](docs/index.md). Key pages: [quick start](docs/quick-start.md), [API reference](docs/api-reference.md), [CLI reference](docs/cli-reference.md), [edge agent](docs/edge-agent.md), [security](docs/security.md), and [operations runbook](docs/operations-runbook.md).
+
+## Development And Test Commands
+
+```bash
+docker compose config
+find core -name '*.php' -print0 | xargs -0 -n1 php -l
+pytest -q core/tests
+./ci/smoke.sh
+./ci/e2e.sh
+```
+
+The CI scripts expect the Compose stack to be running.
+
+## Current Limitations And Non-Goals
+
+- No dashboard UI, user auth layer, TLS automation, cache storage, purge API, or billing system is implemented.
+- Public site, DNS, edge list, usage summary, and recalculate endpoints do not require application auth.
+- Edge auth protects only edge registration, heartbeat, config fetch, and usage ingest.
+- Config changes reach edge nodes by polling/pull, not push.
+
+## Security Note
+
+Do not use the development token `edge-dev-token` outside local development. Edge-authenticated endpoints require a registered token and valid HMAC signature. See [docs/security.md](docs/security.md) and [docs/examples/edge-auth-signing.md](docs/examples/edge-auth-signing.md).
