@@ -1,4 +1,4 @@
-# Future AI-Agent Development Plan
+# Future Development Plan
 
 ## Objective
 Make this project agent-friendly so multiple AI agents can safely contribute without architecture drift.
