@@ -20,6 +20,10 @@ record_step PASS "edge-health" "edge health endpoint reachable"
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-connectivity" "postgres reachable"
 
+# Initialize core DB schema explicitly before table assertions.
+retry 40 2 docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; App\\Support\\Database::pdo(); echo 'ok';" >/dev/null
+record_step PASS "core-db-init" "core schema initialization completed"
+
 required_tables=(
   sites dns_records edge_nodes edge_tokens edge_request_nonces
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
