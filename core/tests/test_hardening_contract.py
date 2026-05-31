@@ -145,6 +145,73 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
 
 
+def test_core_agent_config_if_version_contract():
+    reset_db()
+
+    run_artisan(
+        "cdn:site:create",
+        "--name=agent-config-contract",
+        "--domain=agent-config-contract.local",
+        "--origin_host=origin.local",
+        "--origin_port=8080",
+        "--proxy_enabled=1",
+    )
+
+    first = run_artisan("cdn:edge:sync-config")
+    unchanged = run_artisan("cdn:edge:sync-config", f"--if_version={first['version']}")
+    stale = run_artisan("cdn:edge:sync-config", "--if_version=0")
+
+    assert "version" in first
+    assert "hosts" in first
+    assert unchanged == {"not_modified": True, "version": first["version"]}
+    assert stale["version"] == first["version"]
+    assert "hosts" in stale
+
+
+def test_core_collector_idempotency_contract_for_agent_retries():
+    reset_db()
+
+    site = run_artisan(
+        "cdn:site:create",
+        "--name=agent-metrics-contract",
+        "--domain=agent-metrics-contract.local",
+        "--origin_host=origin.local",
+        "--origin_port=8080",
+    )
+    site_id = site["data"]["id"]
+
+    first = run_artisan(
+        "cdn:usage:ingest",
+        f"--site_id={site_id}",
+        "--edge_node_id=edge-1",
+        "--requests_count=1",
+        "--bytes_in=2",
+        "--bytes_out=3",
+        "--status=200",
+        "--idempotency_key=agent-retry-key",
+    )
+    retry = run_artisan(
+        "cdn:usage:ingest",
+        f"--site_id={site_id}",
+        "--edge_node_id=edge-1",
+        "--requests_count=1",
+        "--bytes_in=2",
+        "--bytes_out=3",
+        "--status=200",
+        "--idempotency_key=agent-retry-key",
+    )
+    summary = run_artisan("cdn:usage:summary", f"--site_id={site_id}")
+
+    assert first["ingested"] == 1
+    assert first["duplicate"] is False
+    assert retry["ingested"] == 0
+    assert retry["duplicate"] is True
+    assert retry["idempotency_key"] == "agent-retry-key"
+    assert retry["item_count"] == 1
+    assert summary["data"]["records"] == 1
+    assert summary["data"]["requests_count"] == 1
+
+
 def test_dns_record_update_command_patches_existing_record():
     reset_db()
 

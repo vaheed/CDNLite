@@ -20,4 +20,5 @@ Applies to all files under `edge/`.
 ## Delivery checks
 
 - Shell scripts must pass `sh -n`.
+- Agent behavior changes must include focused shell checks or e2e coverage for success and failure paths.
 - E2E tests must validate edge proxy behavior.

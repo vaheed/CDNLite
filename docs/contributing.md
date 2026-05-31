@@ -5,6 +5,9 @@
 ## Repository Conventions
 
 - Treat code, tests, scripts, Compose, and CI as source of truth.
+- Every code or behavior change must include matching tests or CI checks. If coverage is not practical, explain why in the handoff.
+- Every user-visible behavior, endpoint, command, environment variable, script flow, or operational behavior change must update the relevant docs in the same change.
+- Do not validate against live external services when a local mock exists.
 - Keep API behavior in controllers/services and route wiring in `core/public_index.php`.
 - Keep CLI behavior in command classes registered by `core/artisan`.
 - Keep edge runtime changes in `edge/openresty/` and agent changes in `edge/agent/`.
@@ -42,6 +45,8 @@
 
 ## Pull Request Checklist
 
+- Relevant docs were updated, or the change has no user-visible/operational effect.
+- Focused tests or CI checks cover the changed behavior.
 - `docker compose config` passes.
 - PHP files lint.
 - Shell scripts parse with `sh -n` or `bash -n` as appropriate.

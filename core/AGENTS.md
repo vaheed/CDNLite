@@ -24,4 +24,6 @@ Applies to all files under `core/`.
 ## Delivery checks
 
 - PHP syntax lint must pass.
+- Focused core contract tests must be added or updated for behavior that edge agents, CLI, or API clients depend on.
+- `pytest -q core/tests` must pass for core changes.
 - CI `smoke` and `e2e` must remain green.
