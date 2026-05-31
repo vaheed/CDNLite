@@ -44,7 +44,8 @@ PowerDNS sync:
 - If `POWERDNS_ENABLED=1`, DNS create/delete calls are synced to PowerDNS via its HTTP API.
 - If `POWERDNS_ENABLED=1`, site create also attempts to create the matching PowerDNS zone automatically.
 - Zone creation uses `POWERDNS_ZONE_KIND` and `POWERDNS_ZONE_NAMESERVERS`.
-- For `proxied=true` with `type=A`, CDNLite automatically publishes all online edge `public_ip` values into PowerDNS for that rrset.
+- For `proxied=true` with `type=A`, CDNLite automatically publishes a PowerDNS `LUA` record built from online edge nodes.
+- Country conditions are generated from edge `region` country codes (for example `IR`, `NL`, `US`) without hardcoded country lists.
 - When edge nodes register/heartbeat with changed `public_ip`, proxied `A` rrsets are auto-refreshed without user API calls.
 
 ## Edge

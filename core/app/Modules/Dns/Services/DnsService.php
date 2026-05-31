@@ -266,26 +266,24 @@ class DnsService
             if ($region === '' || $ip === '' || isset($regionIp[$region])) {
                 continue;
             }
+            if (preg_match('/^[A-Z]{2}$/', $region) !== 1) {
+                continue;
+            }
             $regionIp[$region] = $ip;
         }
 
-        $euIp = $regionIp['EU'] ?? null;
-        $irIp = $regionIp['IR'] ?? null;
-        $usIp = $regionIp['US'] ?? null;
-        $fallback = $euIp ?? $usIp ?? $irIp;
+        $fallback = null;
+        foreach ($regionIp as $ip) {
+            $fallback = $ip;
+            break;
+        }
         if ($fallback === null) {
             return null;
         }
 
         $branches = [];
-        if ($euIp !== null) {
-            $branches[] = ["country({'NL','DE','FR','GB'})", $euIp];
-        }
-        if ($irIp !== null) {
-            $branches[] = ["country({'IR'})", $irIp];
-        }
-        if ($usIp !== null) {
-            $branches[] = ["country({'US','CA'})", $usIp];
+        foreach ($regionIp as $cc => $ip) {
+            $branches[] = ["country({'{$cc}'})", $ip];
         }
         if ($branches === []) {
             return null;
