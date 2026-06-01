@@ -168,6 +168,9 @@ CREATE TABLE IF NOT EXISTS redirect_rules (
   source_path TEXT NOT NULL,
   target_url TEXT NOT NULL,
   status_code INTEGER NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 100,
+  match_type TEXT NOT NULL DEFAULT 'exact_path',
+  preserve_query BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE

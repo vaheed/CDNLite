@@ -193,6 +193,9 @@ $router->add('POST', '/api/v1/sites/{siteId}/redirects', static fn (Request $req
 $router->add('GET', '/api/v1/sites/{siteId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['siteId'])), auth: true);
 $router->add('PATCH', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRedirect((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
 $router->add('DELETE', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRedirect((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['siteId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['siteId'], $req->body)), auth: true);
 $router->add('PUT', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['siteId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['siteId'])), auth: true);
 $router->add('DELETE', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['siteId'])), auth: true);

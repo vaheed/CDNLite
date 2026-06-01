@@ -12,7 +12,13 @@ class TrafficRulesService
         $status = (int)($in['status_code'] ?? 302);
         if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
         return $this->insert('redirect_rules', $siteId, [
-            'enabled' => !empty($in['enabled']), 'source_path' => (string)($in['source_path'] ?? ''), 'target_url' => (string)($in['target_url'] ?? ''), 'status_code' => $status,
+            'enabled' => !empty($in['enabled']),
+            'source_path' => (string)($in['source_path'] ?? ''),
+            'target_url' => (string)($in['target_url'] ?? ''),
+            'status_code' => $status,
+            'priority' => (int) ($in['priority'] ?? 100),
+            'match_type' => (string) ($in['match_type'] ?? 'exact_path'),
+            'preserve_query' => array_key_exists('preserve_query', $in) ? !empty($in['preserve_query']) : true,
         ]);
     }
     public function updateRedirect(string $siteId, string $id, array $in): ?array {
@@ -24,6 +30,48 @@ class TrafficRulesService
         return $this->update('redirect_rules', $siteId, $id, $in);
     }
     public function deleteRedirect(string $siteId, string $id): bool { return $this->delete('redirect_rules', $siteId, $id); }
+    public function importRedirects(string $siteId, array $items): array {
+        $out = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $out[] = $this->createRedirect($siteId, $item);
+        }
+        return $out;
+    }
+    public function exportRedirects(string $siteId): array {
+        return $this->listRedirects($siteId);
+    }
+    public function testRedirect(string $siteId, string $path, string $query = ''): ?array {
+        $rules = $this->listRedirects($siteId);
+        usort($rules, static fn (array $a, array $b): int => ((int) ($a['priority'] ?? 100)) <=> ((int) ($b['priority'] ?? 100)));
+        foreach ($rules as $rule) {
+            if (empty($rule['enabled'])) {
+                continue;
+            }
+            $matchType = (string) ($rule['match_type'] ?? 'exact_path');
+            $source = (string) ($rule['source_path'] ?? '');
+            $matched = false;
+            if ($matchType === 'exact_path') { $matched = $path === $source; }
+            if ($matchType === 'prefix') { $matched = str_starts_with($path, $source); }
+            if ($matchType === 'wildcard_simple') { $matched = fnmatch(str_replace('*', '*', $source), $path); }
+            if (!$matched) {
+                continue;
+            }
+            $target = (string) ($rule['target_url'] ?? '');
+            if (!empty($rule['preserve_query']) && $query !== '') {
+                $target .= (str_contains($target, '?') ? '&' : '?') . ltrim($query, '?');
+            }
+            return [
+                'matched' => true,
+                'rule_id' => (string) $rule['id'],
+                'status_code' => (int) $rule['status_code'],
+                'target_url' => $target,
+            ];
+        }
+        return null;
+    }
 
     public function listWaf(string $siteId): array { return $this->listRows('waf_rules', $siteId); }
     public function createWaf(string $siteId, array $in): array {
@@ -169,5 +217,5 @@ class TrafficRulesService
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
     }
     private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
-    private function cast(array $r): array { foreach(['enabled', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
 }

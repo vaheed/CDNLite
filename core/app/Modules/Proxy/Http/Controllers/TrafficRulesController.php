@@ -23,6 +23,12 @@ class TrafficRulesController
         if (($status['ok'] ?? false) !== true || !in_array((int) $status['value'], [301, 302, 307, 308], true)) {
             return ['error' => 'invalid_field', 'field' => 'status_code', 'detail' => 'must_be_one_of_301_302_307_308', 'status' => 422];
         }
+        $priority = Validator::intRange($body, 'priority', 1, 100000, 100);
+        if (($priority['ok'] ?? false) !== true) { return $priority; }
+        $matchType = Validator::enum($body, 'match_type', ['exact_path', 'prefix', 'wildcard_simple']);
+        if (($matchType['ok'] ?? false) !== true) { return $matchType; }
+        $preserveQuery = Validator::bool($body, 'preserve_query', true);
+        if (($preserveQuery['ok'] ?? false) !== true) { return $preserveQuery; }
         return ['data' => $this->service->createRedirect($siteId, $body)];
     }
     public function listRedirects(string $siteId): array { return ['data' => $this->service->listRedirects($siteId)]; }
@@ -33,9 +39,39 @@ class TrafficRulesController
         if (array_key_exists('status_code', $body) && !in_array((int) $body['status_code'], [301, 302, 307, 308], true)) {
             return ['error' => 'invalid_field', 'field' => 'status_code', 'detail' => 'must_be_one_of_301_302_307_308', 'status' => 422];
         }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
+        }
+        if (array_key_exists('match_type', $body)) {
+            $matchType = Validator::enum($body, 'match_type', ['exact_path', 'prefix', 'wildcard_simple']);
+            if (($matchType['ok'] ?? false) !== true) { return $matchType; }
+        }
+        if (array_key_exists('preserve_query', $body)) {
+            $preserveQuery = Validator::bool($body, 'preserve_query');
+            if (($preserveQuery['ok'] ?? false) !== true) { return $preserveQuery; }
+        }
         $r=$this->service->updateRedirect($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'redirect_not_found','status'=>404];
     }
     public function deleteRedirect(string $siteId, string $id): array { return $this->service->deleteRedirect($siteId,$id)?['ok'=>true]:['error'=>'redirect_not_found','status'=>404]; }
+    public function importRedirects(string $siteId, array $body): array {
+        if (!isset($body['items']) || !is_array($body['items'])) {
+            return ['error' => 'invalid_field', 'field' => 'items', 'detail' => 'must_be_array', 'status' => 422];
+        }
+        return ['data' => $this->service->importRedirects($siteId, $body['items'])];
+    }
+    public function exportRedirects(string $siteId): array { return ['data' => $this->service->exportRedirects($siteId)]; }
+    public function testRedirect(string $siteId, array $body): array {
+        $path = Validator::requiredString($body, 'path', 2048);
+        if (($path['ok'] ?? false) !== true) { return $path; }
+        if (!str_starts_with((string) $path['value'], '/')) {
+            return ['error' => 'invalid_field', 'field' => 'path', 'detail' => 'must_start_with_slash', 'status' => 422];
+        }
+        $query = Validator::optionalString($body, 'query', 4096);
+        if (($query['ok'] ?? false) !== true) { return $query; }
+        $result = $this->service->testRedirect($siteId, (string) $path['value'], (string) ($query['value'] ?? ''));
+        return ['data' => $result ?? ['matched' => false]];
+    }
 
     public function setRateLimit(string $siteId, array $body): array {
         $rpm = Validator::intRange($body, 'requests_per_minute', 1, 100000, 60);

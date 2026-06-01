@@ -38,6 +38,9 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | GET | `/api/v1/sites/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | List redirect rules. |
 | PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Update redirect rule. |
 | DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete redirect rule. |
+| POST | `/api/v1/sites/{id}/redirects/import` | bearer when `CDNLITE_API_TOKEN` is set | Bulk import redirect rules. |
+| GET | `/api/v1/sites/{id}/redirects/export` | bearer when `CDNLITE_API_TOKEN` is set | Export redirect rules. |
+| POST | `/api/v1/sites/{id}/redirects/test` | bearer when `CDNLITE_API_TOKEN` is set | Test redirect matching for a path/query. |
 | PUT | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site rate limit rule. |
 | GET | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Get site rate limit rule. |
 | DELETE | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Disable site rate limit rule. |
@@ -206,13 +209,13 @@ Unknown site or record: `404 {"error":"record_not_found"}`.
 
 ## Redirect Rules
 
-Redirect rule fields: `id`, `site_id`, `enabled`, `source_path`, `target_url`, `status_code`, `created_at`, `updated_at`.
+Redirect rule fields: `id`, `site_id`, `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`, `created_at`, `updated_at`.
 
 `status_code` only allows `301`, `302`, `307`, or `308`.
 
 ### POST /api/v1/sites/{id}/redirects
 
-Required: `source_path`, `target_url`. Optional: `enabled` (default `true`), `status_code` (default `302`).
+Required: `source_path`, `target_url`. Optional: `enabled` (default `true`), `status_code` (default `302`), `priority` (default `100`), `match_type` (`exact_path|prefix|wildcard_simple`, default `exact_path`), `preserve_query` (default `true`).
 Validation: `source_path` must start with `/`; `status_code` must be one of `301|302|307|308`.
 
 ```bash
@@ -229,11 +232,23 @@ curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/
 
 ### PATCH /api/v1/sites/{id}/redirects/{redirectId}
 
-Patchable fields: `enabled`, `source_path`, `target_url`, `status_code`.
+Patchable fields: `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`.
 
 ### DELETE /api/v1/sites/{id}/redirects/{redirectId}
 
 Success: `{"ok":true}`. Unknown site/rule: `404 {"error":"redirect_not_found"}`.
+
+### POST /api/v1/sites/{id}/redirects/import
+
+Body: `{"items":[...redirect objects...]}`.
+
+### GET /api/v1/sites/{id}/redirects/export
+
+Returns the site redirects as `data`.
+
+### POST /api/v1/sites/{id}/redirects/test
+
+Body: `{"path":"/old-post","query":"utm_source=x"}`.
 
 ## Rate Limit Rules
 
