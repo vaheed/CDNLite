@@ -230,6 +230,31 @@ Unchanged `if_version` example:
 {"not_modified":true,"version":1}
 ```
 
+### Edge-to-Origin Request Forwarding
+
+Request/response path:
+
+`User -> CDNLite Edge -> Customer Origin -> CDNLite Edge -> User`
+
+How forwarding works for configured hosts:
+
+1. The edge matches the incoming `Host` to `hosts[host]` from the latest `/api/v1/edge/config` snapshot.
+2. The router selects a target upstream from `geo_upstreams` (if country match exists) or falls back to `upstream`.
+3. OpenResty proxies the request to that upstream and forwards origin response bytes/status back to the client (with normal cache/error-page behavior applied at the edge).
+
+Headers sent from edge to origin:
+
+- `Host: $host`
+  Origin sees the customer/CDN hostname requested by the user.
+- `X-Forwarded-For: $proxy_add_x_forwarded_for`
+  Client/proxy IP chain. The left-most IP is the original user IP.
+- `X-Forwarded-Proto: $scheme`
+  Original scheme observed by the edge (`http` or `https`).
+- `X-Real-IP: $remote_addr`
+  Client IP address as seen by this edge hop.
+- `X-CDNLITE-Client-IP: $remote_addr`
+  CDNLite-specific client IP header as seen by this edge hop.
+
 ## Usage
 
 ### POST /api/v1/collector/usage
