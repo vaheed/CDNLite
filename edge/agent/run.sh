@@ -3,6 +3,7 @@ set -eu
 
 touch "$EDGE_CONFIG_PATH"
 touch "$METRIC_PATH"
+touch "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"
 
 if [ "${EDGE_AGENT_IDLE:-0}" = "1" ]; then
   tail -f /dev/null
@@ -19,6 +20,7 @@ while true; do
   /agent/heartbeat.sh || ok=0
   /agent/pull_config.sh || ok=0
   /agent/push_metrics.sh || ok=0
+  /agent/push_security_events.sh || ok=0
 
   if [ "$ok" -eq 1 ]; then
     backoff=2

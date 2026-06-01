@@ -1,7 +1,33 @@
 local loader = require('config_loader')
 local proxy = require('proxy')
+local cjson = require('cjson.safe')
 
 local M = {}
+local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
+
+local function append_security_event(site_id)
+  local t = tostring(ngx.ctx.security_event_type or '')
+  if t == '' then
+    return
+  end
+  local line = cjson.encode({
+    ts = os.time(),
+    site_id = tostring(site_id or ngx.ctx.site_id or ''),
+    edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
+    request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
+    type = t,
+    action = tostring(ngx.ctx.security_action or ''),
+    rule_id = tostring(ngx.ctx.security_rule_id or ''),
+    path = tostring(ngx.var.uri or '/'),
+    method = tostring(ngx.req.get_method() or ''),
+    client_ip = tostring(ngx.var.remote_addr or ''),
+  })
+  if not line then return end
+  local f = io.open(SECURITY_EVENT_PATH, 'a')
+  if not f then return end
+  f:write(line .. '\n')
+  f:close()
+end
 
 local function normalize_host(host)
   if not host then return nil end
@@ -140,6 +166,7 @@ local function apply_waf(cfg, host)
         return true
       end
       if ngx.ctx.security_action == 'block' then
+        append_security_event(nil)
         ngx.status = 403
         ngx.header.content_type = 'application/json'
         ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
@@ -204,6 +231,7 @@ local function apply_rate_limit(cfg, host, site_id)
   ngx.ctx.security_rule_id = tostring(rule.id or '')
   ngx.ctx.security_action = tostring(rule.action or 'block')
   if ngx.ctx.security_action == 'block' then
+    append_security_event(site_id)
     ngx.status = 429
     ngx.header.content_type = 'application/json'
     ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
@@ -226,6 +254,7 @@ function M.handle()
   if not site then
     return false, 'site_not_configured'
   end
+  ngx.ctx.site_id = site.site_id
 
   local redirect = match_redirect_rule(cfg, host)
   if redirect then
@@ -241,7 +270,6 @@ function M.handle()
     return false, 'waf_blocked'
   end
 
-  ngx.ctx.site_id = site.site_id
   local rate_limit_ok = apply_rate_limit(cfg, host, site.site_id)
   if not rate_limit_ok then
     return false, 'rate_limited'

@@ -343,11 +343,41 @@ for needle in '"type":"A"' '"type":"AAAA"' '"type":"CNAME"' '"type":"TXT"' '"typ
 done
 record_step PASS "dns-list" "all record types listed"
 
-docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; \$pdo=App\\Support\\Database::pdo(); \$q=\$pdo->prepare('INSERT INTO audit_log (id,actor_type,actor_id,action,resource_type,resource_id,site_id,details_json,event,created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)'); \$q->execute([':id'=>App\\Support\\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'${EDGE_ID}',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'${WAF_RULE_ID}',':site_id'=>'${SITE_ID}',':details_json'=>'{\"decision\":\"block\"}',':event'=>'waf_match',':created_at'=>time()]); echo 'ok';" >/dev/null
-api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/security/events?type=waf_match&limit=5"
+# Security events should be ingested from edge runtime decisions via agent push.
+edge_wait_success_status "${TEST_DOMAIN}"
+waf_ingest_code="$(curl -sS -o /tmp/e2e-edge-waf-ingest-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/admin?via=edge-waf-ingest")"
+assert_eq "$waf_ingest_code" "403" "waf ingest trigger should return 403"
+seen_429=0
+for i in $(seq 1 35); do
+  code="$(curl -sS -o /tmp/e2e-edge-rate-ingest-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/login?via=edge-rate-ingest")"
+  if [[ "$code" == "429" ]]; then
+    seen_429=1
+  fi
+done
+if [[ "$seen_429" -ne 1 ]]; then
+  fail "rate-limit ingest trigger did not produce 429"
+fi
+# Best-effort precheck: event queue file may appear in edge or edge-agent depending on timing.
+retry 10 1 docker compose exec -T edge sh -lc "test -s /var/lib/cdnlite/security-events.ndjson" || \
+  retry 10 1 docker compose exec -T edge-agent sh -lc "test -s /var/lib/cdnlite/security-events.ndjson" || true
+retry 10 1 agent_exec '/agent/push_security_events.sh'
+found_security_event=0
+for _ in $(seq 1 20); do
+  api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/security/events?limit=20"
+  if [[ "$HTTP_CODE" == "200" ]] && [[ "$HTTP_BODY" == *'"type":"waf_match"'* ]]; then
+    found_security_event=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$found_security_event" -ne 1 ]]; then
+  fail "security events from edge ingestion did not appear in time"
+fi
+api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/security/events?limit=20"
 assert_http_status "$HTTP_CODE" "200" "security events list failed"
-assert_contains "$HTTP_BODY" '"type":"waf_match"' "security event type missing"
-record_step PASS "security-events" "waf_match event visible via api"
+assert_contains "$HTTP_BODY" '"type":"waf_match"' "security waf_match event missing"
+assert_contains "$HTTP_BODY" '"type":"rate_limited"' "security rate_limited event missing"
+record_step PASS "security-events" "edge-ingested waf_match and rate_limited visible via api"
 
 del_id="${DNS_IDS[0]}"
 api_delete "${CORE_URL}/api/v1/sites/${SITE_ID}/dns/records/${del_id}"

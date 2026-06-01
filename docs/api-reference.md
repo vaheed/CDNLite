@@ -72,6 +72,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | GET | `/api/v1/edge/config` | edge signed | Fetch config snapshot. |
 | GET | `/api/v1/edge/config?if_version=...` | edge signed | Fetch if changed. |
 | POST | `/api/v1/collector/usage` | edge signed | Ingest usage rows. |
+| POST | `/api/v1/collector/security-events` | edge signed | Ingest edge security events (`waf_match`, `rate_limited`) into audit log. |
 | GET | `/api/v1/usage/summary` | bearer when `CDNLITE_API_TOKEN` is set | Summarize raw usage. |
 | GET | `/api/v1/usage/summary?site_id=...` | bearer when `CDNLITE_API_TOKEN` is set | Summarize one site. |
 | GET | `/api/v1/usage/summary?bucket=minute|hour|day` | bearer when `CDNLITE_API_TOKEN` is set | Summarize aggregate bucket. |

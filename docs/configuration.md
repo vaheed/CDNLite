@@ -37,6 +37,7 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 | `EDGE_CONFIG_MAX_STALE_SECONDS` | `0` (disabled) | edge | No | Optional stale threshold. `/ready` remains 200 with valid config but reports warning when stale age exceeds this value. | Not secret. |
 | `EDGE_SYNC_STATUS_PATH` | `/var/lib/cdnlite/edge-sync-status.json` | agent | No | Sync metadata file with version/source/core reachability and last successful sync time. | Not secret. |
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
+| `SECURITY_EVENT_PATH` | `/var/lib/cdnlite/security-events.ndjson` | edge, agent | No | Edge security event queue file path consumed by agent push loop. | Contains request metadata (IP/path/method). |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
 | `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. | Requires API key. |
 | `POWERDNS_STRICT` | `0` | core | No | Fail local operations if PowerDNS sync fails. | Operational choice. |

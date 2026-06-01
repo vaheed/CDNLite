@@ -14,6 +14,9 @@ sed "s/__CDNLITE_CACHE_DEFAULT_TTL__/$ttl/g" \
   > /usr/local/openresty/nginx/conf/nginx.conf
 
 mkdir -p /var/lib/cdnlite/tls
+mkdir -p /var/lib/cdnlite
+touch /var/lib/cdnlite/metrics.ndjson /var/lib/cdnlite/security-events.ndjson
+chmod 666 /var/lib/cdnlite/metrics.ndjson /var/lib/cdnlite/security-events.ndjson || true
 if [ ! -f /var/lib/cdnlite/tls/default.crt ] || [ ! -f /var/lib/cdnlite/tls/default.key ]; then
   openssl req -x509 -nodes -newkey rsa:2048 \
     -keyout /var/lib/cdnlite/tls/default.key \

@@ -35,6 +35,19 @@ class CollectorController
         return $this->service->ingest($items, $idempotencyKey);
     }
 
+    public function ingestSecurityEvents(array $input): array
+    {
+        $items = $input['items'] ?? null;
+        if (!is_array($items)) {
+            return ['error' => 'items_must_be_array', 'status' => 422];
+        }
+        $idempotencyKey = null;
+        if (isset($input['idempotency_key']) && is_string($input['idempotency_key']) && trim($input['idempotency_key']) !== '') {
+            $idempotencyKey = trim($input['idempotency_key']);
+        }
+        return $this->service->ingestSecurityEvents($items, $idempotencyKey);
+    }
+
     public function summary(?string $siteId, ?string $bucket): array
     {
         if ($bucket !== null && !isset($this->allowedBuckets[$bucket])) {

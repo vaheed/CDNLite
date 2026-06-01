@@ -80,6 +80,53 @@ class CollectorService
         ];
     }
 
+    public function ingestSecurityEvents(array $items, ?string $idempotencyKey = null): array
+    {
+        $pdo = Database::pdo();
+        $now = time();
+        if ($idempotencyKey !== null && $idempotencyKey !== '') {
+            $checkStmt = $pdo->prepare('SELECT item_count FROM usage_ingest_keys WHERE idempotency_key = :idempotency_key LIMIT 1');
+            $checkStmt->execute([':idempotency_key' => 'sec:' . $idempotencyKey]);
+            $existing = $checkStmt->fetch();
+            if ($existing !== false) {
+                return ['ingested' => 0, 'duplicate' => true, 'idempotency_key' => $idempotencyKey, 'item_count' => (int) $existing['item_count']];
+            }
+        }
+        $pdo->beginTransaction();
+        $count = 0;
+        $stmt = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
+        try {
+            foreach ($items as $item) {
+                $event = (string) ($item['type'] ?? '');
+                if (!in_array($event, ['waf_match', 'rate_limited'], true)) {
+                    continue;
+                }
+                $stmt->execute([
+                    ':id' => Uuid::v4(),
+                    ':actor_type' => 'system',
+                    ':actor_id' => (string) ($item['edge_node_id'] ?? ''),
+                    ':action' => 'inspect',
+                    ':resource_type' => $event === 'waf_match' ? 'waf' : 'rate_limit',
+                    ':resource_id' => (string) ($item['rule_id'] ?? ''),
+                    ':site_id' => (string) ($item['site_id'] ?? ''),
+                    ':details_json' => json_encode(['decision' => (string) ($item['action'] ?? ''), 'request_id' => (string) ($item['request_id'] ?? ''), 'path' => (string) ($item['path'] ?? ''), 'method' => (string) ($item['method'] ?? ''), 'client_ip' => (string) ($item['client_ip'] ?? '')], JSON_UNESCAPED_SLASHES),
+                    ':event' => $event,
+                    ':created_at' => (int) ($item['ts'] ?? $now),
+                ]);
+                $count++;
+            }
+            if ($idempotencyKey !== null && $idempotencyKey !== '') {
+                $markStmt = $pdo->prepare('INSERT INTO usage_ingest_keys (idempotency_key, item_count, created_at) VALUES (:idempotency_key, :item_count, :created_at)');
+                $markStmt->execute([':idempotency_key' => 'sec:' . $idempotencyKey, ':item_count' => $count, ':created_at' => $now]);
+            }
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+        return ['ingested' => $count, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
+    }
+
     public function summary(?string $siteId = null, ?string $bucket = null): array
     {
         $pdo = Database::pdo();
