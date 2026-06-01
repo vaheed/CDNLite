@@ -46,6 +46,17 @@ local function match_cache_rule(cfg, host)
   return best
 end
 
+local function match_redirect_rule(cfg, host)
+  local rules = cfg.redirects or {}
+  local path = ngx.var.uri or '/'
+  for _, rule in ipairs(rules) do
+    if rule and rule.host == host and rule.enabled and rule.source_path == path then
+      return rule
+    end
+  end
+  return nil
+end
+
 function M.handle()
   local cfg = loader.load()
   local host = normalize_host(ngx.var.host)
@@ -56,6 +67,13 @@ function M.handle()
   local site = cfg.hosts[host]
   if not site then
     return false, 'site_not_configured'
+  end
+
+  local redirect = match_redirect_rule(cfg, host)
+  if redirect then
+    ngx.header['Location'] = tostring(redirect.target_url or '')
+    ngx.header['X-CDNLITE-Rule'] = 'redirect'
+    return ngx.exit(tonumber(redirect.status_code) or 302)
   end
 
   ngx.ctx.site_id = site.site_id

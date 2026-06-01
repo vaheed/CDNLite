@@ -316,6 +316,35 @@ edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/api/v1/sites?
 assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missing test domain"
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
 
+redirect_target="https://example.com/new-destination"
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/redirects" "{\"enabled\":true,\"source_path\":\"/redirect-me\",\"target_url\":\"${redirect_target}\",\"status_code\":308}"
+assert_http_status "$HTTP_CODE" "201" "redirect rule create failed"
+redirect_id="$(json_get "$HTTP_BODY" '.data.id')"
+record_step PASS "redirect-rule-create" "redirect_id=${redirect_id}"
+
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+snapshot_redirect_target="$(docker compose exec -T edge-agent sh -lc "jq -r --arg host \"${TEST_DOMAIN}\" '.redirects[] | select(.host == \$host and .source_path == \"/redirect-me\") | .target_url' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" | head -n1")"
+assert_eq "$snapshot_redirect_target" "$redirect_target" "redirect rule missing from edge snapshot"
+record_step PASS "redirect-snapshot-pull" "redirect present in snapshot"
+
+redirect_headers="$(mktemp)"
+redirect_status="$(curl -sS -o /tmp/e2e-edge-redirect-body.txt -D "$redirect_headers" -w '%{http_code}' "${EDGE_URL}/redirect-me" -H "Host: ${TEST_DOMAIN}")"
+assert_eq "$redirect_status" "308" "redirect request should return configured status"
+redirect_location="$(awk 'BEGIN{IGNORECASE=1} /^Location:/ {sub(/\r$/,"",$2); print $2}' "$redirect_headers" | tail -n1)"
+assert_eq "$redirect_location" "$redirect_target" "redirect Location header mismatch"
+redirect_rule_header="$(awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Rule:/ {sub(/\r$/,"",$2); print $2}' "$redirect_headers" | tail -n1)"
+assert_eq "$redirect_rule_header" "redirect" "redirect rule header mismatch"
+rm -f "$redirect_headers"
+record_step PASS "edge-redirect-response" "status/location/rule header verified"
+
+origin_logs_before="$(docker compose logs --no-color core | wc -l | tr -d ' ')"
+for _ in 1 2 3; do
+  curl -sS -o /dev/null "${EDGE_URL}/redirect-me" -H "Host: ${TEST_DOMAIN}"
+done
+origin_logs_after="$(docker compose logs --no-color core | wc -l | tr -d ' ')"
+assert_eq "$origin_logs_after" "$origin_logs_before" "origin should not be called for redirect requests"
+record_step PASS "edge-redirect-no-origin" "redirect handled at edge without origin call"
+
 cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":60}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"

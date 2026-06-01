@@ -15,7 +15,14 @@ class TrafficRulesService
             'enabled' => !empty($in['enabled']), 'source_path' => (string)($in['source_path'] ?? ''), 'target_url' => (string)($in['target_url'] ?? ''), 'status_code' => $status,
         ]);
     }
-    public function updateRedirect(string $siteId, string $id, array $in): ?array { return $this->update('redirect_rules', $siteId, $id, $in); }
+    public function updateRedirect(string $siteId, string $id, array $in): ?array {
+        if (array_key_exists('status_code', $in)) {
+            $status = (int) $in['status_code'];
+            if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
+            $in['status_code'] = $status;
+        }
+        return $this->update('redirect_rules', $siteId, $id, $in);
+    }
     public function deleteRedirect(string $siteId, string $id): bool { return $this->delete('redirect_rules', $siteId, $id); }
 
     public function listWaf(string $siteId): array { return $this->listRows('waf_rules', $siteId); }

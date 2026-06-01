@@ -12,7 +12,7 @@ Options are parsed only as `--key=value` or bare `--flag`; there is no short-opt
 php core/artisan list
 ```
 
-Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
+Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:redirect:create`, `cdn:redirect:list`, `cdn:redirect:update`, `cdn:redirect:delete`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
 
 CI release validation uses `./ci/release_check.sh`, which runs `./ci/smoke.sh` then `./ci/e2e.sh` in sequence.
 
@@ -168,6 +168,38 @@ php core/artisan cdn:dns:validate-routing
 ```
 
 ## Edge Commands
+
+## Redirect Commands
+
+### cdn:redirect:create
+
+Equivalent API: `POST /api/v1/sites/{id}/redirects`.
+
+Required: `--site_id`, `--source_path`, `--target_url`.
+
+Optional: `--enabled=0|1`, `--status_code=301|302|307|308` (default `302`).
+
+### cdn:redirect:list
+
+Equivalent API: `GET /api/v1/sites/{id}/redirects`.
+
+Required: `--site_id`.
+
+### cdn:redirect:update
+
+Equivalent API: `PATCH /api/v1/sites/{id}/redirects/{redirectId}`.
+
+Required: `--site_id`, `--id`.
+
+Optional update fields: `--enabled=0|1`, `--source_path`, `--target_url`, `--status_code=301|302|307|308`.
+
+### cdn:redirect:delete
+
+Equivalent API: `DELETE /api/v1/sites/{id}/redirects/{redirectId}`.
+
+Required: `--site_id`, `--id`.
+
+Success: `{"ok":true}`.
 
 ### cdn:edge:list
 

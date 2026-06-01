@@ -32,6 +32,10 @@ Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartb
 | GET | `/api/v1/sites/{id}/dns/records` | none | List DNS records. |
 | PATCH | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Update DNS record. |
 | DELETE | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Delete DNS record. |
+| POST | `/api/v1/sites/{id}/redirects` | none | Create redirect rule. |
+| GET | `/api/v1/sites/{id}/redirects` | none | List redirect rules. |
+| PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Update redirect rule. |
+| DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Delete redirect rule. |
 | GET | `/api/v1/edge/nodes` | none | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -182,6 +186,36 @@ curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111
 
 Unknown site or record: `404 {"error":"record_not_found"}`.
 
+## Redirect Rules
+
+Redirect rule fields: `id`, `site_id`, `enabled`, `source_path`, `target_url`, `status_code`, `created_at`, `updated_at`.
+
+`status_code` only allows `301`, `302`, `307`, or `308`.
+
+### POST /api/v1/sites/{id}/redirects
+
+Required: `source_path`, `target_url`. Optional: `enabled` (default `true`), `status_code` (default `302`).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/redirects \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled":true,"source_path":"/old-path","target_url":"https://example.com/new-path","status_code":308}'
+```
+
+### GET /api/v1/sites/{id}/redirects
+
+```bash
+curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/redirects
+```
+
+### PATCH /api/v1/sites/{id}/redirects/{redirectId}
+
+Patchable fields: `enabled`, `source_path`, `target_url`, `status_code`.
+
+### DELETE /api/v1/sites/{id}/redirects/{redirectId}
+
+Success: `{"ok":true}`. Unknown site/rule: `404 {"error":"redirect_not_found"}`.
+
 ## Edge Nodes
 
 ### GET /api/v1/edge/nodes
@@ -240,7 +274,8 @@ How forwarding works for configured hosts:
 
 1. The edge matches the incoming `Host` to `hosts[host]` from the latest `/api/v1/edge/config` snapshot.
 2. The router selects a target upstream from `geo_upstreams` (if country match exists) or falls back to `upstream`.
-3. OpenResty proxies the request to that upstream and forwards origin response bytes/status back to the client (with normal cache/error-page behavior applied at the edge).
+3. Before proxying, OpenResty checks enabled `redirects` entries for exact host + path match. When matched, it returns `301|302|307|308` with `Location: <target_url>` and `X-CDNLITE-Rule: redirect`.
+4. If no redirect matches, OpenResty proxies the request to the chosen upstream and forwards origin response bytes/status back to the client (with normal cache/error-page behavior applied at the edge).
 
 Headers sent from edge to origin:
 
