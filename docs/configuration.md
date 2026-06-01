@@ -74,3 +74,5 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `./edge/logs:/var/log/openresty` | OpenResty logs. |
 
 The edge container also uses `/var/cache/cdnlite` inside the container for the OpenResty proxy cache.
+
+Compose starts `core` only after the PostgreSQL healthcheck passes, so edge-agent startup should not emit transient config-pull 500s from a database that is still booting.
