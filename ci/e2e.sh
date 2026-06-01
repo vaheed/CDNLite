@@ -326,7 +326,7 @@ stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
-broken_origin_payload="$(jq -nc '{"origin_host":"powerdns","origin_port":8081,"geo_origins":{"DEFAULT":{"scheme":"http","host":"powerdns","port":8081},"IR":{"scheme":"http","host":"powerdns","port":8081}}}')"
+broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_port":9,"geo_origins":{"DEFAULT":{"scheme":"http","host":"127.0.0.1","port":9},"IR":{"scheme":"http","host":"127.0.0.1","port":9}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null

@@ -122,6 +122,7 @@ record_step() {
 
 init_report() {
   mkdir -p "$REPORT_DIR"
+  rm -f "$REPORT_MD" "$REPORT_JSON" "$REPORT_JUNIT"
 }
 
 write_reports() {

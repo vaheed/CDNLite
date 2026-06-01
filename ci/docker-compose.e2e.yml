@@ -1,0 +1,14 @@
+services:
+  core:
+    environment:
+      POWERDNS_ENABLED: ${POWERDNS_ENABLED:-0}
+      POWERDNS_STRICT: ${POWERDNS_STRICT:-0}
+      POWERDNS_API_URL: ${POWERDNS_API_URL:-}
+      POWERDNS_API_KEY: ${POWERDNS_API_KEY:-}
+
+  edge:
+    environment:
+      CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-1s}
+
+  edge-agent:
+    command: sh -lc 'touch "$${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}" "$${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}" && tail -f /dev/null'
