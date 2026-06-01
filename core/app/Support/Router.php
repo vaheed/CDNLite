@@ -37,14 +37,15 @@ class Router
 
     private function match(string $pattern, string $path): ?array
     {
-        if (!str_contains($pattern, '{')) {
+        $regex = preg_replace_callback(
+            '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
+            static fn (array $m): string => '(?P<' . $m[1] . '>[0-9a-fA-F-]+)',
+            $pattern
+        );
+        if (!is_string($regex)) {
             return $pattern === $path ? [] : null;
         }
-
-        $regex = preg_replace_callback('/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/', static function (array $m): string {
-            return '(?P<' . $m[1] . '>[0-9a-fA-F-]+)';
-        }, preg_quote($pattern, '#'));
-        $regex = str_replace('\{\?\}', '(.*?)', $regex ?? '');
+        $regex = preg_replace('#/#', '\/', $regex);
         if (!is_string($regex)) {
             return null;
         }
@@ -63,4 +64,3 @@ class Router
         return $params;
     }
 }
-
