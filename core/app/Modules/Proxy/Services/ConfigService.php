@@ -62,6 +62,7 @@ class ConfigService
             }
 
             return [
+                'schema_version' => 1,
                 'version' => (int) $existing['version'],
                 'generated_at' => (int) $existing['generated_at'],
                 'hosts' => $hosts,
@@ -75,6 +76,7 @@ class ConfigService
 
         $version = $this->nextVersion();
         $payload = [
+            'schema_version' => 1,
             'version' => $version,
             'generated_at' => time(),
             'hosts' => $hosts,
@@ -91,6 +93,7 @@ class ConfigService
                 }
 
                 return [
+                    'schema_version' => 1,
                     'version' => (int) $existing['version'],
                     'generated_at' => (int) $existing['generated_at'],
                     'hosts' => $hosts,

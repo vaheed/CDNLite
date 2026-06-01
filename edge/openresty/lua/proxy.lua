@@ -54,6 +54,7 @@ function M.forward(site)
   end
   ngx.header['X-CDNLITE-Edge'] = 'openresty'
   ngx.header['X-CDNLITE-Site'] = tostring(site.site_id)
+  ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   return true
 end
 

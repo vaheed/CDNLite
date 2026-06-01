@@ -21,7 +21,7 @@ end
 
 function M.render(code)
   local info = details(code)
-  local reqid = ngx.var.request_id
+  local reqid = ngx.ctx.request_id or ngx.var.request_id
   if not reqid or reqid == "" then
     reqid = string.format("%x-%x", math.floor(ngx.now() * 1000), ngx.worker.pid())
   end
@@ -31,6 +31,7 @@ function M.render(code)
   local host = ngx.var.host or "unknown"
 
   ngx.status = code
+  ngx.header['X-CDNLITE-Request-Id'] = reqid
   ngx.header.content_type = "text/html; charset=utf-8"
   ngx.say([[
 <!doctype html>

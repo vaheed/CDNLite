@@ -20,9 +20,10 @@ Status legend: `done`, `in progress`, `pending`.
 | Stage 4 — Small router and response cleanup | done | Tiny `Request`/`Response`/`Router` support classes and route-table dispatch are in place, with route-focused contract tests added (`core/tests/test_router_contract.py`). |
 | Stage 5 — Database migrations and indexes | done (v1 scope) | Migration directory SQL set and `cdn:migrate` runner are now present with schema tracking and core index migrations. |
 | Stage 6 — Edge agent hardening | done (v1 scope) | `doctor.sh`, sync `last_error` status, heartbeat `config_version`, and retry backoff with jitter are now implemented and documented. |
-| Stage 7+ | pending | Website CDN essentials/security/SSL/purge/page-rules roadmap items remain future work. |
+| Stage 7 — OpenResty edge reliability | done (v1 scope) | Config schema versioning guard, request-id propagation to responses/metrics/error page, and reliability contract tests are now in place. |
+| Stage 8+ | pending | Website CDN essentials/security/SSL/purge/page-rules roadmap items remain future work. |
 
-Next development target: **Stage 7 (OpenResty edge reliability)**.
+Next development target: **Stage 8 (website CDN essentials and security depth)**.
 
 ---
 

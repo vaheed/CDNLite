@@ -8,6 +8,15 @@ local function normalize_host(host)
   return string.lower(host:gsub(':%d+$', ''))
 end
 
+local function ensure_request_id()
+  local reqid = ngx.var.request_id
+  if reqid and reqid ~= '' then
+    ngx.ctx.request_id = reqid
+    return
+  end
+  ngx.ctx.request_id = string.format('%x-%x', math.floor(ngx.now() * 1000), ngx.worker.pid())
+end
+
 local function request_country()
   local country = ngx.var.http_x_cdnlite_country or ngx.var.http_cf_ipcountry or ''
   country = string.upper(country)
@@ -58,6 +67,7 @@ local function match_redirect_rule(cfg, host)
 end
 
 function M.handle()
+  ensure_request_id()
   local cfg = loader.load()
   local host = normalize_host(ngx.var.host)
   if not host then

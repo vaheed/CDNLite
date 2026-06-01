@@ -25,6 +25,7 @@ function M.on_log()
     bytes_in = bytes_in,
     bytes_out = bytes_out,
     status = tonumber(ngx.status) or 0,
+    request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
   })
 end
 

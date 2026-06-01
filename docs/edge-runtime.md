@@ -36,22 +36,22 @@ Nginx forwards:
 - `X-Forwarded-For: $proxy_add_x_forwarded_for`
 - `X-Forwarded-Proto: $scheme`
 
-Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, and `X-CDNLITE-Site` when proxying.
+Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, `X-CDNLITE-Site`, and `X-CDNLITE-Request-Id` when proxying.
 Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HIT`, `BYPASS`, or `STALE`.
 
 ## Lua Modules
 
 | Module | Purpose |
 |---|---|
-| `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; falls back to version 0 empty hosts. |
-| `router.lua` | Host lookup and geo upstream selection. |
+| `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; enforces `schema_version=1`; falls back to version 0 empty hosts. |
+| `router.lua` | Host lookup, geo upstream selection, and request-id context setup. |
 | `proxy.lua` | Sets `$target_upstream`, cache bypass variables, per-rule cache TTL, and edge/site headers. |
-| `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase. |
+| `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase, including `request_id`. |
 | `error_page.lua` | Renders custom HTML error responses. |
 
 ## Metrics Lifecycle
 
-`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `site_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, and `status`. The agent batches and truncates this file after a successful usage push.
+`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `site_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, `status`, and `request_id`. The agent batches and truncates this file after a successful usage push.
 
 ## Upstream Failures
 

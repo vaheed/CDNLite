@@ -3,6 +3,7 @@ local cjson = require('cjson.safe')
 local M = {}
 local CONFIG_FILE = '/var/lib/cdnlite/config.json'
 local STATUS_FILE = '/var/lib/cdnlite/edge-sync-status.json'
+local EXPECTED_SCHEMA_VERSION = 1
 
 local function read_file(path)
   local f = io.open(path, 'r')
@@ -15,12 +16,16 @@ end
 function M.load()
   local raw = read_file(CONFIG_FILE)
   if not raw then
-    return { version = 0, hosts = {} }
+    return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
   local decoded = cjson.decode(raw)
   if not decoded then
-    return { version = 0, hosts = {} }
+    return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
+  end
+
+  if decoded.schema_version ~= EXPECTED_SCHEMA_VERSION then
+    return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
   decoded.hosts = decoded.hosts or {}
@@ -44,6 +49,9 @@ function M.ready()
 
   if type(decoded.hosts) ~= 'table' then
     return false, 'config_hosts_invalid'
+  end
+  if tonumber(decoded.schema_version) ~= EXPECTED_SCHEMA_VERSION then
+    return false, 'config_schema_unsupported'
   end
 
   local status_raw = read_file(STATUS_FILE)
