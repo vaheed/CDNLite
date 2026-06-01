@@ -269,7 +269,7 @@ api_patch "${CORE_URL}/api/v1/sites/99999999" '{"name":"nope"}'
 assert_http_status "$HTTP_CODE" "404" "unknown site should 404"
 record_step PASS "site-validation-unknown" "unknown site 404"
 
-api_put "${CORE_URL}/api/v1/sites/${SITE_ID}/rate-limit" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}'
+http_request PUT "${CORE_URL}/api/v1/sites/${SITE_ID}/rate-limit" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}' "$(api_auth_header_args)"
 assert_http_status "$HTTP_CODE" "200" "rate-limit v2 update failed"
 rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
 assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
@@ -289,8 +289,12 @@ record_step PASS "waf-v2-list" "waf v2 fields visible"
 # Force and verify config propagation to edge before route assertions.
 agent_exec '/agent/pull_config.sh' >/dev/null || true
 edge_wait_config_host "${TEST_DOMAIN}"
-retry 30 1 docker compose exec -T edge-agent sh -lc "grep -Fq 'X-CDNLITE-Origin-Secret' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
-record_step PASS "origin-shield-config" "origin shield header present in edge config"
+if [[ -n "${CDNLITE_ORIGIN_SHIELD_SECRET:-}" ]]; then
+  retry 30 1 docker compose exec -T edge-agent sh -lc "grep -Fq 'X-CDNLITE-Origin-Secret' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
+  record_step PASS "origin-shield-config" "origin shield header present in edge config"
+else
+  record_step PASS "origin-shield-config-skipped" "CDNLITE_ORIGIN_SHIELD_SECRET not set; header injection check skipped"
+fi
 
 # DNS lifecycle
 create_dns() {

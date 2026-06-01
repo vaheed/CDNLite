@@ -113,6 +113,17 @@ CREATE TABLE IF NOT EXISTS edge_request_nonces (
   UNIQUE(edge_id, nonce)
 );
 
+CREATE TABLE IF NOT EXISTS audit_log (
+  id TEXT PRIMARY KEY,
+  actor_type TEXT NOT NULL,
+  action TEXT NOT NULL,
+  resource_type TEXT NOT NULL,
+  resource_id TEXT NULL,
+  before_json TEXT NULL,
+  after_json TEXT NULL,
+  created_at BIGINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS usage_rollups (
   id TEXT PRIMARY KEY,
   ts BIGINT NOT NULL,
@@ -186,6 +197,19 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules (
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS rate_limit_rules_v2 (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  priority INTEGER NOT NULL DEFAULT 100,
+  path_prefix TEXT NOT NULL DEFAULT '/',
+  key_type TEXT NOT NULL DEFAULT 'ip',
+  requests_per_minute INTEGER NOT NULL,
+  action TEXT NOT NULL DEFAULT 'block',
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS waf_rules (
