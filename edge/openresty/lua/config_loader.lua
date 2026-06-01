@@ -2,6 +2,7 @@ local cjson = require('cjson.safe')
 
 local M = {}
 local CONFIG_FILE = '/var/lib/cdnlite/config.json'
+local STATUS_FILE = '/var/lib/cdnlite/edge-sync-status.json'
 
 local function read_file(path)
   local f = io.open(path, 'r')
@@ -26,6 +27,10 @@ function M.load()
   return decoded
 end
 
+local function now_epoch()
+  return os.time(os.date("!*t"))
+end
+
 function M.ready()
   local raw = read_file(CONFIG_FILE)
   if not raw then
@@ -41,7 +46,27 @@ function M.ready()
     return false, 'config_hosts_invalid'
   end
 
-  return true, nil
+  local status_raw = read_file(STATUS_FILE)
+  local status = status_raw and cjson.decode(status_raw) or {}
+  local max_stale = tonumber(os.getenv('EDGE_CONFIG_MAX_STALE_SECONDS') or '') or 0
+  local sync_ts = tonumber(status and status.last_successful_sync_time or '') or nil
+  local stale_age = nil
+  local warning = nil
+  if sync_ts then
+    stale_age = now_epoch() - sync_ts
+    if max_stale > 0 and stale_age > max_stale then
+      warning = 'config_stale'
+    end
+  end
+
+  return true, nil, {
+    current_config_version = decoded.version,
+    last_successful_sync_time = sync_ts,
+    config_source = status and status.config_source or 'unknown',
+    core_reachable = status and status.core_reachable or false,
+    stale_age_seconds = stale_age,
+    warning = warning,
+  }
 end
 
 return M

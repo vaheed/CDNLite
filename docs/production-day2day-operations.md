@@ -92,6 +92,17 @@ Expected:
 - Known host routes upstream
 - Unknown host returns `502`
 
+## Edge Offline Mode
+
+Edge nodes continue serving with the last-known-good config when core is temporarily unreachable.
+
+- Startup: the agent first pulls from core; if that fails, it restores from `EDGE_CONFIG_CACHE_PATH` (default: same as `EDGE_CONFIG_PATH`).
+- Runtime: config polling continues; temporary pull failures do not clear active config.
+- Recovery: when core is reachable again and a newer snapshot exists, the edge applies it automatically and refreshes cache.
+- Readiness: `/ready` depends on a valid active config, not current core availability. It returns `200` when a valid config is loaded and `503` only when no valid config is available.
+- Stale safety: set `EDGE_CONFIG_MAX_STALE_SECONDS` to emit readiness warning (`status.warning=config_stale`) if sync age exceeds policy while still serving traffic.
+- Sync status: `/ready` includes current version, last successful sync time, source (`remote` or `cache`), and core reachability signal.
+
 ## Safe Change Procedure: Site Config
 
 When changing origin host/port, geo upstreams, proxy enablement, DNS, or cache rules:

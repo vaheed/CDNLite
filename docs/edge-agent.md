@@ -8,7 +8,8 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 | Script | Purpose |
 |---|---|
-| `run.sh` | Creates config/metric files, runs initial register and config pull, then loops every 10 seconds. |
+| `run.sh` | Creates config/metric files, runs initial register and config initialization, then loops every 10 seconds. |
+| `init_config.sh` | Startup config initialization: pull from core first, then fall back to local cache if core is unavailable. |
 | `lib.sh` | Shared agent helpers, including public IPv4 discovery. |
 | `register.sh` | Detects public IPv4 and sends signed `POST /api/v1/edge/register`. |
 | `heartbeat.sh` | Detects public IPv4 and sends signed `POST /api/v1/edge/heartbeat`. |
@@ -17,7 +18,7 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 ## Required Environment
 
-`CORE_URL`, `EDGE_ID`, `EDGE_TOKEN`, `EDGE_CONFIG_PATH`, and `METRIC_PATH` are required for normal operation. Registration and heartbeat also use `EDGE_HOSTNAME`, `EDGE_PUBLIC_IP`, `EDGE_REGION`, and `EDGE_VERSION`.
+`CORE_URL`, `EDGE_ID`, `EDGE_TOKEN`, `EDGE_CONFIG_PATH`, and `METRIC_PATH` are required for normal operation. `EDGE_CONFIG_CACHE_PATH` is optional and defaults to `EDGE_CONFIG_PATH`. `EDGE_SYNC_STATUS_PATH` is optional and defaults to `/var/lib/cdnlite/edge-sync-status.json`. Registration and heartbeat also use `EDGE_HOSTNAME`, `EDGE_PUBLIC_IP`, `EDGE_REGION`, and `EDGE_VERSION`.
 
 `EDGE_PUBLIC_IP=auto` is the default. In that mode the agent asks public IPv4 endpoints for its address and falls back to the first local IPv4 address if public detection is unavailable. Set `EDGE_PUBLIC_IP` to a concrete IPv4 address only when you want to override detection.
 
@@ -41,7 +42,15 @@ explicitly.
 
 ## Config Pull Flow
 
-`pull_config.sh` signs a GET request with an empty body hash and writes the response to a new file before moving it to `EDGE_CONFIG_PATH`. The script does not pass `if_version`; it always writes the full response it receives.
+`pull_config.sh` signs a GET request with an empty body hash, sends `if_version=<current_version>` when a current version is known, validates the response JSON, and writes atomically. A valid response updates `EDGE_CONFIG_PATH` and `EDGE_CONFIG_CACHE_PATH`. On HTTP failure or invalid response, the script keeps the current active and cached config unchanged.
+
+The cache file is written with `0600` permissions (owner read/write only). Cache content is a config snapshot and should avoid storing secrets.
+
+Each pull/init attempt also updates `EDGE_SYNC_STATUS_PATH` with:
+- `current_config_version`
+- `last_successful_sync_time`
+- `config_source` (`remote`, `cache`, or `active`)
+- `core_reachable` (`true` or `false`)
 
 ## Metrics Push Flow
 

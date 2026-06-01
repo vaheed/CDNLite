@@ -33,6 +33,9 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 | `CORE_URL` | `http://core:8080` | agent | Yes | Core base URL. | Use trusted network. |
 | `EDGE_CONFIG_DIR` | `./edge/config` | Compose | No | Host directory mounted into edge and edge-agent at `/var/lib/cdnlite`. | Contains config and metrics. |
 | `EDGE_CONFIG_PATH` | `/var/lib/cdnlite/config.json` | agent | Yes | Snapshot write path. | Agent-writable. |
+| `EDGE_CONFIG_CACHE_PATH` | `EDGE_CONFIG_PATH` | agent | No | Last-known-good snapshot cache path used for offline startup fallback. | Agent-writable. |
+| `EDGE_CONFIG_MAX_STALE_SECONDS` | `0` (disabled) | edge | No | Optional stale threshold. `/ready` remains 200 with valid config but reports warning when stale age exceeds this value. | Not secret. |
+| `EDGE_SYNC_STATUS_PATH` | `/var/lib/cdnlite/edge-sync-status.json` | agent | No | Sync metadata file with version/source/core reachability and last successful sync time. | Not secret. |
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
 | `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. | Requires API key. |
