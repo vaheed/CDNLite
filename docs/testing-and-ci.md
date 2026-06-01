@@ -10,7 +10,7 @@
 | `core/tests/test_edge_auth_contract.py` | Edge auth missing-token and replay behavior. |
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
 | `ci/smoke.sh` | Stack health, DB connectivity, schema, edge container, config path. |
-| `ci/e2e.sh` | Full API, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow. |
+| `ci/e2e.sh` | Full API, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, and API auth coverage when token is configured. |
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |
 
 ## Local Commands
@@ -61,6 +61,10 @@ PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
 `POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. In both jobs, `ci/e2e.sh`
 provisions the edge token before running the agent registration and heartbeat
 scripts explicitly.
+
+When `CDNLITE_API_TOKEN` is set in the job environment, `ci/smoke.sh` and
+`ci/e2e.sh` validate unauthenticated control-plane API requests return `401`
+and continue all positive-path API calls with `Authorization: Bearer <token>`.
 
 The workflow defines `POWERDNS_HOST_PORT` and `PDNS_PORT` globally because
 Compose interpolates profile service ports even when the `powerdns` profile is

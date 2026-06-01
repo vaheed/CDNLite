@@ -214,6 +214,14 @@ agent_exec '/agent/pull_config.sh' >/dev/null || true
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned"
 
+if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
+  no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/sites" \
+    -H 'Content-Type: application/json' \
+    -d '{"name":"unauth-e2e","domain":"unauth.e2e.local","origin_host":"core"}')"
+  assert_eq "$no_auth_code" "401" "control-plane create site should require bearer auth when token is configured"
+  record_step PASS "api-auth-negative-site-create" "unauthenticated create returned 401"
+fi
+
 # Site lifecycle
 api_post "${CORE_URL}/api/v1/sites" \
   "{\"name\":\"e2e-site-${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN}\",\"origin_host\":\"core\",\"origin_port\":8080,\"proxy_enabled\":true,\"geo_origins\":{\"DEFAULT\":{\"scheme\":\"http\",\"host\":\"core\",\"port\":8080},\"IR\":{\"scheme\":\"http\",\"host\":\"core\",\"port\":8080}}}"

@@ -39,6 +39,16 @@ wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-connectivity" "postgres reachable"
 
+if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
+  no_auth_code="$(curl -sS -o /tmp/smoke-auth.txt -w '%{http_code}' "${CORE_URL}/api/v1/sites")"
+  assert_eq "$no_auth_code" "401" "control-plane endpoint should require bearer auth when token is configured"
+  record_step PASS "api-auth-negative" "unauthenticated /api/v1/sites returned 401"
+
+  api_get "${CORE_URL}/api/v1/sites"
+  assert_http_status "$HTTP_CODE" "200" "authenticated site list failed"
+  record_step PASS "api-auth-positive" "authenticated /api/v1/sites returned 200"
+fi
+
 # Initialize core DB schema explicitly before table assertions.
 retry 40 2 docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; App\\Support\\Database::pdo(); echo 'ok';" >/dev/null
 record_step PASS "core-db-init" "core schema initialization completed"

@@ -75,10 +75,16 @@ http_request() {
   rm -f "$tmp"
 }
 
-api_get() { http_request GET "$1"; }
-api_post() { http_request POST "$1" "$2"; }
-api_patch() { http_request PATCH "$1" "$2"; }
-api_delete() { http_request DELETE "$1"; }
+api_auth_header_args() {
+  if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
+    printf -- "-H Authorization: Bearer %s" "${CDNLITE_API_TOKEN}"
+  fi
+}
+
+api_get() { http_request GET "$1" "" "$(api_auth_header_args)"; }
+api_post() { http_request POST "$1" "$2" "$(api_auth_header_args)"; }
+api_patch() { http_request PATCH "$1" "$2" "$(api_auth_header_args)"; }
+api_delete() { http_request DELETE "$1" "" "$(api_auth_header_args)"; }
 
 assert_http_status() {
   local got="$1"
