@@ -12,6 +12,7 @@ def test_stage7_schema_and_request_id_contract():
     assert "'schema_version' => 1" in config_service
     assert "EXPECTED_SCHEMA_VERSION = 1" in loader
     assert "config_schema_unsupported" in loader
+    assert "decoded.schema_version == nil" in loader
     assert "X-CDNLITE-Request-Id" in proxy
     assert "request_id" in metrics
     assert "X-CDNLITE-Request-Id" in error_page

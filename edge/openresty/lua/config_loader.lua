@@ -24,6 +24,10 @@ function M.load()
     return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
+  if decoded.schema_version == nil then
+    decoded.schema_version = EXPECTED_SCHEMA_VERSION
+  end
+
   if decoded.schema_version ~= EXPECTED_SCHEMA_VERSION then
     return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
@@ -50,7 +54,11 @@ function M.ready()
   if type(decoded.hosts) ~= 'table' then
     return false, 'config_hosts_invalid'
   end
-  if tonumber(decoded.schema_version) ~= EXPECTED_SCHEMA_VERSION then
+  local schema_version = decoded.schema_version
+  if schema_version == nil then
+    schema_version = EXPECTED_SCHEMA_VERSION
+  end
+  if tonumber(schema_version) ~= EXPECTED_SCHEMA_VERSION then
     return false, 'config_schema_unsupported'
   end
 
