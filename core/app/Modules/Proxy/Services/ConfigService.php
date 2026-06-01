@@ -10,8 +10,10 @@ class ConfigService
 {
     public function __construct(
         private SiteService $sites,
-        private DnsService $dns
+        private DnsService $dns,
+        private ?TrafficRulesService $rules = null
     ) {
+        $this->rules ??= new TrafficRulesService();
     }
 
     public function buildSnapshot(): array
@@ -38,9 +40,20 @@ class ConfigService
         }
 
         ksort($hosts);
+        $redirects = [];
+        $rateLimits = [];
+        $wafRules = [];
+        $cacheRules = [];
+        foreach ($hosts as $host => $siteCfg) {
+            $siteId = (string) $siteCfg['site_id'];
+            foreach ($this->rules->listRedirects($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
+            $rl = $this->rules->getRateLimit($siteId); if ($rl !== null && !empty($rl['enabled'])) { $rl['host'] = $host; $rateLimits[] = $rl; }
+            foreach ($this->rules->listWaf($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
+            foreach ($this->rules->listCacheRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
+        }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
-        $contentHash = hash('sha256', json_encode(['hosts' => $hosts], JSON_UNESCAPED_SLASHES));
+        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules], JSON_UNESCAPED_SLASHES));
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
@@ -52,6 +65,10 @@ class ConfigService
                 'version' => (int) $existing['version'],
                 'generated_at' => (int) $existing['generated_at'],
                 'hosts' => $hosts,
+                'redirects' => $redirects,
+                'rate_limits' => $rateLimits,
+                'waf_rules' => $wafRules,
+                'cache_rules' => $cacheRules,
                 'reused' => true,
             ];
         }
@@ -61,6 +78,10 @@ class ConfigService
             'version' => $version,
             'generated_at' => time(),
             'hosts' => $hosts,
+            'redirects' => $redirects,
+            'rate_limits' => $rateLimits,
+            'waf_rules' => $wafRules,
+            'cache_rules' => $cacheRules,
         ];
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
@@ -73,6 +94,10 @@ class ConfigService
                     'version' => (int) $existing['version'],
                     'generated_at' => (int) $existing['generated_at'],
                     'hosts' => $hosts,
+                    'redirects' => $redirects,
+                    'rate_limits' => $rateLimits,
+                    'waf_rules' => $wafRules,
+                    'cache_rules' => $cacheRules,
                     'reused' => true,
                 ];
             }

@@ -160,3 +160,47 @@ CREATE TABLE IF NOT EXISTS config_snapshots (
   payload_json TEXT NOT NULL,
   generated_at BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS redirect_rules (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  source_path TEXT NOT NULL,
+  target_url TEXT NOT NULL,
+  status_code INTEGER NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS rate_limit_rules (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL UNIQUE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  requests_per_minute INTEGER NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS waf_rules (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  type TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS cache_rules (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  path_prefix TEXT NOT NULL,
+  ttl_seconds INTEGER NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+);

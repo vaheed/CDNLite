@@ -10,6 +10,8 @@ use App\Modules\Edge\Http\Controllers\EdgeController;
 use App\Modules\Edge\Services\EdgeAuthService;
 use App\Modules\Edge\Services\EdgeService;
 use App\Modules\Proxy\Services\ConfigService;
+use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Sites\Http\Controllers\SiteController;
 use App\Modules\Sites\Services\SiteService;
 use App\Support\Logger;
@@ -114,10 +116,36 @@ $dnsController = new DnsController($dnsService);
 $edgeController = new EdgeController(new EdgeService());
 $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
+$rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
 
 if ($method === 'GET' && $path === '/health') {
     respond(['ok' => true, 'time' => time()]);
+}
+
+if ($method === 'GET' && $path === '/ready') {
+    $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];
+    try {
+        \App\Support\Database::pdo()->query('SELECT 1');
+    } catch (\Throwable) {
+        $checks['postgres'] = 'fail';
+    }
+    try {
+        $required = ['sites','redirect_rules','rate_limit_rules','waf_rules','cache_rules','config_state','config_snapshots'];
+        foreach ($required as $table) {
+            $stmt = \App\Support\Database::pdo()->query("SELECT to_regclass('public." . $table . "')");
+            if ($stmt->fetchColumn() === null) { $checks['schema'] = 'fail'; break; }
+        }
+    } catch (\Throwable) {
+        $checks['schema'] = 'fail';
+    }
+    try {
+        $configService->buildSnapshotForVersion(null);
+    } catch (\Throwable) {
+        $checks['config_generation'] = 'fail';
+    }
+    $ok = !in_array('fail', $checks, true);
+    respond(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 }
 
 if ($method === 'GET' && $path === '/api/v1/sites') {
@@ -163,6 +191,25 @@ if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/record
 if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
     respond($dnsController->list((string) $m[1]));
 }
+
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { respond($rulesController->createRedirect((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { respond($rulesController->listRedirects((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateRedirect((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteRedirect((string) $m[1], (string) $m[2])); }
+
+if ($method === 'PUT' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->setRateLimit((string) $m[1], $body)); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->getRateLimit((string) $m[1])); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->disableRateLimit((string) $m[1])); }
+
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { respond($rulesController->createWaf((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { respond($rulesController->listWaf((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateWaf((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteWaf((string) $m[1], (string) $m[2])); }
+
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { respond($rulesController->createCacheRule((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { respond($rulesController->listCacheRules((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateCacheRule((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteCacheRule((string) $m[1], (string) $m[2])); }
 
 if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
     respond($dnsController->update((string) $m[1], (string) $m[2], $body));
