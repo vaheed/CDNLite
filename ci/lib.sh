@@ -105,7 +105,7 @@ compose_has_service() {
 
 pdns_get() {
   local path="$1"
-  curl -sS -H "X-API-Key: ${POWERDNS_API_KEY:-test-key}" "${POWERDNS_API_URL}${path}"
+  curl -sS -H "X-API-Key: ${POWERDNS_API_KEY:-test-key}" "${POWERDNS_PUBLIC_API_URL:-${POWERDNS_API_URL}}${path}"
 }
 
 record_step() {

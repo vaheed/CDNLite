@@ -92,8 +92,22 @@ services:
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}
       METRIC_PATH: ${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}
+      EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE:-0}
     volumes:
       - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
+
+  powerdns:
+    image: python:3.12-alpine
+    profiles: ["powerdns"]
+    working_dir: /srv
+    command: sh -lc "python /srv/ci/pdns_mock_server.py"
+    environment:
+      PDNS_API_KEY: ${POWERDNS_API_KEY:-test-key}
+      PDNS_PORT: 8081
+    volumes:
+      - ./:/srv
+    ports:
+      - "${POWERDNS_HOST_PORT:-8089}:8081"
 
 volumes:
   pgdata:

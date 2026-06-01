@@ -4,6 +4,10 @@ set -eu
 touch "$EDGE_CONFIG_PATH"
 touch "$METRIC_PATH"
 
+if [ "${EDGE_AGENT_IDLE:-0}" = "1" ]; then
+  tail -f /dev/null
+fi
+
 /agent/register.sh || true
 /agent/pull_config.sh || true
 

@@ -7,11 +7,12 @@ source "$(dirname "$0")/lib.sh"
 CORE_URL="${CORE_URL:-http://localhost:8080}"
 EDGE_URL="${EDGE_URL:-http://localhost:8081}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
+POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
 POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
 EDGE_ID="${EDGE_ID:-edge-local-1}"
 EDGE_TOKEN="${EDGE_TOKEN:-edge-dev-token}"
 CI_ENV_NAME="${CI_ENV_NAME:-e2e}"
-export CORE_URL EDGE_URL POWERDNS_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME
+export CORE_URL EDGE_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME
 
 RUN_KEY="${GITHUB_RUN_ID:-local}-$RANDOM"
 TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
@@ -285,16 +286,16 @@ api_delete "${CORE_URL}/api/v1/sites/${SITE_ID}/dns/records/${del_id}"
 assert_http_status "$HTTP_CODE" "200" "dns delete failed"
 record_step PASS "dns-delete-one" "deleted id=${del_id}"
 
-# PowerDNS sync checks (mock service in CI override)
+# PowerDNS sync checks (mock service from the Compose powerdns profile)
 if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
-  retry 20 1 curl -fsS "${POWERDNS_API_URL}/health" >/dev/null
+  retry 20 1 curl -fsS "${POWERDNS_PUBLIC_API_URL}/health" >/dev/null
   zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
   assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
   assert_contains "$zone_json" "\"type\":\"ALIAS\"" "pdns missing proxied ALIAS"
   record_step PASS "powerdns-sync-positive" "records present in pdns mock"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
-    -X PATCH "${POWERDNS_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
+    -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
     -H "Content-Type: application/json" -H "X-API-Key: bad-key" -d '{"rrsets":[]}')"
   assert_eq "$bad_code" "403" "pdns strict negative key test failed"
   record_step PASS "powerdns-negative-auth" "bad key rejected"

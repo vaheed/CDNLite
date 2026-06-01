@@ -2,7 +2,7 @@
 
 [Back to docs index](index.md)
 
-Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, and a few code-level fallbacks.
+Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environment variables, and a few code-level fallbacks.
 
 ## Variables
 
@@ -34,9 +34,11 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `EDGE_CONFIG_DIR` | `./edge/config` | Compose | No | Host directory mounted into edge and edge-agent at `/var/lib/cdnlite`. | Contains config and metrics. |
 | `EDGE_CONFIG_PATH` | `/var/lib/cdnlite/config.json` | agent | Yes | Snapshot write path. | Agent-writable. |
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
+| `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
 | `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. | Requires API key. |
 | `POWERDNS_STRICT` | `0` | core | No | Fail local operations if PowerDNS sync fails. | Operational choice. |
 | `POWERDNS_API_URL` | empty in Compose | core | If enabled | PowerDNS API base URL. | Prefer private/TLS network. |
+| `POWERDNS_PUBLIC_API_URL` | `POWERDNS_API_URL` | CI scripts | No | Host-reachable PowerDNS URL for e2e checks when core uses an internal Compose URL. | Test-only. |
 | `POWERDNS_API_KEY` | empty in Compose | core | If enabled | Sent as `X-API-Key`. | Secret. |
 | `POWERDNS_SERVER_ID` | `localhost` | core | No | PowerDNS server ID path segment. | Not secret. |
 | `POWERDNS_ZONE_KIND` | `NATIVE` | core | No | Zone kind: `NATIVE`, `MASTER`, or `SLAVE`. | Not secret. |
@@ -61,7 +63,6 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `CDNLITE_GEO_ENABLE_REGION_RULES` | `true` | core | No | Enables region policy generation. | Not secret. |
 | `CDNLITE_NS1_IP`, `CDNLITE_NS2_IP` | empty | core | No | Optional A records for platform nameservers. | Public DNS data. |
 | `CDNLITE_BOOTSTRAP_EDGE_DNS` | `1` | core | No | Operational flag for bootstrapping edge DNS. | Not secret. |
-| `CORE_POWERDNS_API_URL` | CI only | CI override | No | Container URL for PowerDNS mock. | Not secret. |
 | `PDNS_API_KEY`, `PDNS_HOST`, `PDNS_PORT` | `test-key`, `0.0.0.0`, `8081` | CI mock | No | Mock PowerDNS settings. | Test-only. |
 | `CORE_URL`, `EDGE_URL`, `CI_ENV_NAME`, `REPORT_DIR`, `REPORT_MD`, `REPORT_JSON`, `REPORT_JUNIT` | script defaults | CI scripts | No | Test endpoints and report files. | Reports may contain diagnostics. |
 

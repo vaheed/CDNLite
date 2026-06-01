@@ -105,7 +105,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: smoke
     env:
-      COMPOSE_FILE: docker-compose.yml:ci/docker-compose.e2e.yml
+      EDGE_AGENT_IDLE: 1
+      CDNLITE_CACHE_DEFAULT_TTL: 1s
       POWERDNS_ENABLED: 0
       POWERDNS_STRICT: 0
     steps:
@@ -146,12 +147,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: e2e
     env:
-      COMPOSE_FILE: docker-compose.yml:ci/docker-compose.ci.yml
+      EDGE_AGENT_IDLE: 1
+      CDNLITE_CACHE_DEFAULT_TTL: 1s
       POWERDNS_ENABLED: 1
       POWERDNS_STRICT: 1
       POWERDNS_API_KEY: test-key
-      POWERDNS_API_URL: http://localhost:8089
-      CORE_POWERDNS_API_URL: http://powerdns:8081
+      POWERDNS_API_URL: http://powerdns:8081
+      POWERDNS_PUBLIC_API_URL: http://localhost:8089
       POWERDNS_SERVER_ID: localhost
       CI_ENV_NAME: e2e-powerdns
     steps:
@@ -159,7 +161,7 @@ jobs:
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack with PowerDNS mock
-        run: docker compose up -d --build
+        run: docker compose --profile powerdns up -d --build
       - name: E2E test with PowerDNS strict
         run: |
           chmod +x ci/*.sh
@@ -186,7 +188,7 @@ jobs:
           done
       - name: Teardown
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile powerdns down -v
 
   build_and_push:
     runs-on: ubuntu-latest

@@ -21,6 +21,11 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 `EDGE_PUBLIC_IP=auto` is the default. In that mode the agent asks public IPv4 endpoints for its address and falls back to the first local IPv4 address if public detection is unavailable. Set `EDGE_PUBLIC_IP` to a concrete IPv4 address only when you want to override detection.
 
+`EDGE_AGENT_IDLE=1` is for CI and local tests only. It creates the config and
+metrics files, then keeps the container running without starting the agent
+loop, so tests can provision the token first and execute agent scripts
+explicitly.
+
 ## Register Flow
 
 1. Operator provisions token: `php artisan cdn:edge:register-token --edge_id=<id> --token=<token>`.

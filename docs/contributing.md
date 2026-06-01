@@ -12,6 +12,7 @@
 - Keep CLI behavior in command classes registered by `core/artisan`.
 - Keep edge runtime changes in `edge/openresty/` and agent changes in `edge/agent/`.
 - Update docs with every behavior change.
+- Keep CI on the root `docker-compose.yml`. Use job environment variables for CI-specific behavior and the `powerdns` Compose profile for the mock PowerDNS service.
 
 ## Add An API Endpoint
 

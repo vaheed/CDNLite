@@ -11,8 +11,6 @@
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
 | `ci/smoke.sh` | Stack health, DB connectivity, schema, edge container, config path. |
 | `ci/e2e.sh` | Full API, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow. |
-| `ci/docker-compose.e2e.yml` | Plain e2e override that disables PowerDNS and makes agent execution deterministic. |
-| `ci/docker-compose.ci.yml` | PowerDNS e2e override that starts the PowerDNS mock and makes agent execution deterministic. |
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |
 
 ## Local Commands
@@ -54,11 +52,12 @@ Both scripts write reports under `ci/reports/` by default.
 1. `test`: PHP lint, shell syntax checks, marker scan, `pytest -q core/tests` with PostgreSQL service.
 2. `smoke`: starts Compose and runs `ci/smoke.sh`.
 3. `e2e`: starts Compose and runs `ci/e2e.sh`.
-4. `e2e-powerdns`: starts Compose with `ci/docker-compose.ci.yml`, enables strict PowerDNS sync, and runs e2e against the mock server.
+4. `e2e-powerdns`: starts Compose with `--profile powerdns`, enables strict PowerDNS sync, and runs e2e against the mock server.
 5. `build_and_push`: on push, publishes core, edge, and edge-agent images to GHCR.
 
-The e2e Compose overrides keep the edge-agent container idle while e2e
-provisions the edge token, then `ci/e2e.sh` runs the agent registration and
-heartbeat scripts explicitly. They also shorten the edge cache TTL for stable
-cache assertions. The plain e2e override forces PowerDNS off; the PowerDNS job
-is the only e2e job that enables strict PowerDNS sync.
+CI uses only the root `docker-compose.yml`. The plain e2e job sets
+`EDGE_AGENT_IDLE=1`, `CDNLITE_CACHE_DEFAULT_TTL=1s`, and PowerDNS off. The
+PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
+`POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. In both jobs, `ci/e2e.sh`
+provisions the edge token before running the agent registration and heartbeat
+scripts explicitly.

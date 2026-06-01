@@ -21,6 +21,13 @@ Applies to the entire repository unless a narrower `AGENTS.md` overrides a secti
 - Run `pytest -q core/tests` when core behavior or contracts are touched.
 - Run smoke/e2e, or state clearly why they were not run.
 
+## CI Layout
+
+- Keep CI on the root `docker-compose.yml`; do not add extra Compose override files for CI jobs.
+- Use environment variables for job-specific behavior. Current e2e jobs set `EDGE_AGENT_IDLE=1` so `ci/e2e.sh` can provision the edge token before manually running agent scripts, and set `CDNLITE_CACHE_DEFAULT_TTL=1s` for stable cache assertions.
+- The PowerDNS mock is the `powerdns` service in `docker-compose.yml` behind the `powerdns` profile. Plain e2e runs without the profile and with PowerDNS disabled; PowerDNS e2e runs `docker compose --profile powerdns up -d --build`.
+- When changing CI, update `.github/workflows/ci.yml`, `docker-compose.yml`, and `docs/testing-and-ci.md` together.
+
 ## Documentation Checklist
 
 - API behavior: update `docs/api-reference.md` and examples.
