@@ -2,7 +2,7 @@
 
 [Back to docs index](index.md)
 
-Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartbeat, config, and collector usage require signed edge auth; other implemented endpoints do not have application auth.
+Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`. Edge registration, heartbeat, config, and collector usage require signed edge auth.
 
 ## Common Errors
 
@@ -10,6 +10,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartb
 |---:|---|---|
 | 400 | `{"error":"invalid_json","detail":"Syntax error"}` | Malformed JSON body. |
 | 400 | `{"error":"invalid_json_object_expected"}` | JSON body is not an object. |
+| 401 | `{"error":"api_auth_required"}` | Missing or invalid control-plane bearer token. |
 | 401 | `{"error":"edge_auth_required"}` | Missing edge auth fields. |
 | 404 | `{"error":"not_found"}` | Unknown route. |
 | 409 | `{"error":"edge_auth_replay_detected"}` | Reused nonce. |

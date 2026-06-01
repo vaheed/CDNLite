@@ -66,6 +66,7 @@ docker compose exec core php artisan cdn:edge:register-token \
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
+  -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
   -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
 ```
@@ -108,7 +109,7 @@ The CI scripts expect the Compose stack to be running.
 
 - No dashboard UI, user auth layer, TLS automation, advanced cache policy engine, purge API, or billing system is implemented.
 - Basic OpenResty cache exists at the edge (`X-CDNLITE-Cache` response headers, cache rules, and stale-on-error behavior), but first-class purge APIs and richer cache controls are still missing.
-- Public site, DNS, edge list, usage summary, and recalculate endpoints do not require application auth.
+- Control-plane API auth is optional: when `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`.
 - Edge auth protects only edge registration, heartbeat, config fetch, and usage ingest.
 - Config changes reach edge nodes by polling/pull, not push.
 

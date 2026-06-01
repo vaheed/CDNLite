@@ -14,6 +14,7 @@ use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Sites\Http\Controllers\SiteController;
 use App\Modules\Sites\Services\SiteService;
+use App\Support\ApiAuth;
 use App\Support\Logger;
 
 header('Content-Type: application/json');
@@ -74,6 +75,17 @@ function bearerToken(): string
 function edgeSignature(): string
 {
     return (string) (headerValue('X-CDNLITE-Signature') ?? '');
+}
+
+function requireApiAuth(): void
+{
+    if (!ApiAuth::requiresAuth()) {
+        return;
+    }
+
+    if (!ApiAuth::isValid(bearerToken())) {
+        respond(['error' => 'api_auth_required'], 401);
+    }
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -144,19 +156,27 @@ if ($method === 'GET' && $path === '/ready') {
     } catch (\Throwable) {
         $checks['config_generation'] = 'fail';
     }
+    if (ApiAuth::productionMissingToken()) {
+        $checks['api_token'] = 'fail';
+    } else {
+        $checks['api_token'] = ApiAuth::isConfigured() ? 'ok' : 'warn';
+    }
     $ok = !in_array('fail', $checks, true);
     respond(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 }
 
 if ($method === 'GET' && $path === '/api/v1/sites') {
+    requireApiAuth();
     respond($siteController->index());
 }
 
 if ($method === 'POST' && $path === '/api/v1/sites') {
+    requireApiAuth();
     respond($siteController->store($body), 201);
 }
 
 if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
+    requireApiAuth();
     $result = $siteController->update((string) $m[1], $body);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
@@ -165,10 +185,12 @@ if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path
 }
 
 if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
+    requireApiAuth();
     respond($siteController->delete((string) $m[1]));
 }
 
 if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/enable$#', $path, $m)) {
+    requireApiAuth();
     $result = $siteController->enableProxy((string) $m[1]);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
@@ -177,6 +199,7 @@ if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/enab
 }
 
 if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/disable$#', $path, $m)) {
+    requireApiAuth();
     $result = $siteController->disableProxy((string) $m[1]);
     if ($result === null) {
         respond(['error' => 'site_not_found'], 404);
@@ -185,41 +208,46 @@ if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/disa
 }
 
 if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
+    requireApiAuth();
     respond($dnsController->create((string) $m[1], $body), 201);
 }
 
 if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
+    requireApiAuth();
     respond($dnsController->list((string) $m[1]));
 }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { respond($rulesController->createRedirect((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { respond($rulesController->listRedirects((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateRedirect((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteRedirect((string) $m[1], (string) $m[2])); }
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { requireApiAuth(); respond($rulesController->createRedirect((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { requireApiAuth(); respond($rulesController->listRedirects((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateRedirect((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteRedirect((string) $m[1], (string) $m[2])); }
 
-if ($method === 'PUT' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->setRateLimit((string) $m[1], $body)); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->getRateLimit((string) $m[1])); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { respond($rulesController->disableRateLimit((string) $m[1])); }
+if ($method === 'PUT' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->setRateLimit((string) $m[1], $body)); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->getRateLimit((string) $m[1])); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->disableRateLimit((string) $m[1])); }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { respond($rulesController->createWaf((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { respond($rulesController->listWaf((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateWaf((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteWaf((string) $m[1], (string) $m[2])); }
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->createWaf((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->listWaf((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateWaf((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteWaf((string) $m[1], (string) $m[2])); }
 
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { respond($rulesController->createCacheRule((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { respond($rulesController->listCacheRules((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->updateCacheRule((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { respond($rulesController->deleteCacheRule((string) $m[1], (string) $m[2])); }
+if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->createCacheRule((string) $m[1], $body), 201); }
+if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->listCacheRules((string) $m[1])); }
+if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateCacheRule((string) $m[1], (string) $m[2], $body)); }
+if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteCacheRule((string) $m[1], (string) $m[2])); }
 
 if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
+    requireApiAuth();
     respond($dnsController->update((string) $m[1], (string) $m[2], $body));
 }
 
 if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
+    requireApiAuth();
     respond($dnsController->delete((string) $m[1], (string) $m[2]));
 }
 
 if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
+    requireApiAuth();
     respond($edgeController->list());
 }
 
@@ -303,12 +331,14 @@ if ($method === 'POST' && $path === '/api/v1/collector/usage') {
 }
 
 if ($method === 'GET' && $path === '/api/v1/usage/summary') {
+    requireApiAuth();
     $siteId = isset($_GET['site_id']) ? (string) $_GET['site_id'] : null;
     $bucket = isset($_GET['bucket']) ? (string) $_GET['bucket'] : null;
     respond($collectorController->summary($siteId, $bucket));
 }
 
 if ($method === 'POST' && $path === '/api/v1/usage/recalculate') {
+    requireApiAuth();
     respond($collectorController->recalculate($body));
 }
 
