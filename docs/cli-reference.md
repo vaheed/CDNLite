@@ -12,7 +12,21 @@ Options are parsed only as `--key=value` or bare `--flag`; there is no short-opt
 php core/artisan list
 ```
 
-Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:redirect:create`, `cdn:redirect:list`, `cdn:redirect:update`, `cdn:redirect:delete`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`.
+Registered commands: `cdn:site:create`, `cdn:site:list`, `cdn:site:update`, `cdn:site:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:redirect:create`, `cdn:redirect:list`, `cdn:redirect:update`, `cdn:redirect:delete`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`, `cdn:migrate`.
+
+### cdn:migrate
+
+Purpose: apply SQL files from `core/database/migrations` in lexicographic order, recording each filename in `schema_migrations` so reruns are idempotent.
+
+```bash
+php core/artisan cdn:migrate
+```
+
+Example output:
+
+```json
+{"ok":true,"applied":2}
+```
 
 CI release validation uses `./ci/release_check.sh`, which runs `./ci/smoke.sh` then `./ci/e2e.sh` in sequence.
 

@@ -38,6 +38,7 @@ use App\Console\Commands\CdnCacheRuleCreateCommand;
 use App\Console\Commands\CdnCacheRuleListCommand;
 use App\Console\Commands\CdnCacheRuleUpdateCommand;
 use App\Console\Commands\CdnCacheRuleDeleteCommand;
+use App\Console\Commands\CdnMigrateCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:site:create', new CdnSiteCreateCommand());
@@ -74,5 +75,6 @@ $runner->register('cdn:cache-rule:create', new CdnCacheRuleCreateCommand());
 $runner->register('cdn:cache-rule:list', new CdnCacheRuleListCommand());
 $runner->register('cdn:cache-rule:update', new CdnCacheRuleUpdateCommand());
 $runner->register('cdn:cache-rule:delete', new CdnCacheRuleDeleteCommand());
+$runner->register('cdn:migrate', new CdnMigrateCommand());
 
 exit($runner->run($argv));

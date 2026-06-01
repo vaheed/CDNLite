@@ -18,11 +18,11 @@ Status legend: `done`, `in progress`, `pending`.
 | Stage 2 — Simple control-plane API auth | done | `App\Support\ApiAuth`, `requireApiAuth()`, route protection, production readiness guard, and auth route contract tests are present. |
 | Stage 3 — Validation without framework complexity | done (v1 scope) | `App\Support\Validator` exists and route contracts cover invalid site/DNS/traffic-rule payloads. |
 | Stage 4 — Small router and response cleanup | done | Tiny `Request`/`Response`/`Router` support classes and route-table dispatch are in place, with route-focused contract tests added (`core/tests/test_router_contract.py`). |
-| Stage 5 — Database migrations and indexes | pending | Migration directory/runner and explicit schema migration table in roadmap format are not complete yet. |
+| Stage 5 — Database migrations and indexes | done (v1 scope) | Migration directory SQL set and `cdn:migrate` runner are now present with schema tracking and core index migrations. |
 | Stage 6 — Edge agent hardening | partially done | Some operational docs/flows exist, but `doctor.sh` and full hardening checklist are not complete. |
 | Stage 7+ | pending | Website CDN essentials/security/SSL/purge/page-rules roadmap items remain future work. |
 
-Next development target: **Stage 4 (tiny router + response cleanup)**.
+Next development target: **Stage 6 (edge agent hardening)**.
 
 ---
 

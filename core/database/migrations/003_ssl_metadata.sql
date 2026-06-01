@@ -1,0 +1,2 @@
+-- Reserved for Stage 7+ certificate lifecycle metadata.
+-- Intentionally no-op in Stage 5.
