@@ -9,13 +9,16 @@ use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
 use App\Modules\Edge\Services\EdgeAuthService;
 use App\Modules\Edge\Services\EdgeService;
+use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\TrafficRulesService;
-use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Sites\Http\Controllers\SiteController;
 use App\Modules\Sites\Services\SiteService;
 use App\Support\ApiAuth;
 use App\Support\Logger;
+use App\Support\Request;
+use App\Support\Response;
+use App\Support\Router;
 
 header('Content-Type: application/json');
 ini_set('log_errors', '1');
@@ -117,9 +120,8 @@ set_exception_handler(static function (\Throwable $e): void {
     }
     respond($payload, 500);
 });
-if (!is_array($body)) {
-    $body = [];
-}
+
+$request = new Request($method, (string) $path, $_GET, is_array($body) ? $body : [], (string) ($bodyRaw ?: ''));
 
 $siteService = new SiteService();
 $dnsService = new DnsService();
@@ -131,11 +133,9 @@ $configService = new ConfigService($siteService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
 
-if ($method === 'GET' && $path === '/health') {
-    respond(['ok' => true, 'time' => time()]);
-}
-
-if ($method === 'GET' && $path === '/ready') {
+$router = new Router();
+$router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
+$router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];
     try {
         \App\Support\Database::pdo()->query('SELECT 1');
@@ -143,10 +143,13 @@ if ($method === 'GET' && $path === '/ready') {
         $checks['postgres'] = 'fail';
     }
     try {
-        $required = ['sites','redirect_rules','rate_limit_rules','waf_rules','cache_rules','config_state','config_snapshots'];
+        $required = ['sites', 'redirect_rules', 'rate_limit_rules', 'waf_rules', 'cache_rules', 'config_state', 'config_snapshots'];
         foreach ($required as $table) {
             $stmt = \App\Support\Database::pdo()->query("SELECT to_regclass('public." . $table . "')");
-            if ($stmt->fetchColumn() === null) { $checks['schema'] = 'fail'; break; }
+            if ($stmt->fetchColumn() === null) {
+                $checks['schema'] = 'fail';
+                break;
+            }
         }
     } catch (\Throwable) {
         $checks['schema'] = 'fail';
@@ -162,184 +165,88 @@ if ($method === 'GET' && $path === '/ready') {
         $checks['api_token'] = ApiAuth::isConfigured() ? 'ok' : 'warn';
     }
     $ok = !in_array('fail', $checks, true);
-    respond(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
+    return Response::json(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
+});
+
+$router->add('GET', '/api/v1/sites', static fn () => Response::json($siteController->index()), auth: true);
+$router->add('POST', '/api/v1/sites', static fn (Request $req) => Response::json($siteController->store($req->body), 201), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}', static function (Request $req, array $p) use ($siteController): array {
+    $result = $siteController->update((string) $p['siteId'], $req->body);
+    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+}, auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}', static fn (Request $req, array $p) => Response::json($siteController->delete((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/proxy/enable', static function (Request $req, array $p) use ($siteController): array {
+    $result = $siteController->enableProxy((string) $p['siteId']);
+    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+}, auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/proxy/disable', static function (Request $req, array $p) use ($siteController): array {
+    $result = $siteController->disableProxy((string) $p['siteId']);
+    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+}, auth: true);
+
+$router->add('POST', '/api/v1/sites/{siteId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->create((string) $p['siteId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['siteId'])), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->update((string) $p['siteId'], (string) $p['recordId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['siteId'], (string) $p['recordId'])), auth: true);
+
+$router->add('POST', '/api/v1/sites/{siteId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['siteId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['siteId'])), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRedirect((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRedirect((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
+$router->add('PUT', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['siteId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['siteId'])), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->createWaf((string) $p['siteId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->listWaf((string) $p['siteId'])), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->updateWaf((string) $p['siteId'], (string) $p['wafId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteWaf((string) $p['siteId'], (string) $p['wafId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->createCacheRule((string) $p['siteId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->listCacheRules((string) $p['siteId'])), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateCacheRule((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteCacheRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
+
+$router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
+$router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);
+$router->add('POST', '/api/v1/edge/heartbeat', static fn (Request $req) => Response::json($edgeController->heartbeat($req->body)), edgeAuth: true);
+$router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response::json($configService->buildSnapshotForVersion(isset($req->query['if_version']) ? (int) $req->query['if_version'] : null)), edgeAuth: true);
+$router->add('POST', '/api/v1/collector/usage', static fn (Request $req) => Response::json($collectorController->ingest($req->body)), edgeAuth: true);
+$router->add('GET', '/api/v1/usage/summary', static fn (Request $req) => Response::json($collectorController->summary(isset($req->query['site_id']) ? (string) $req->query['site_id'] : null, isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
+$router->add('POST', '/api/v1/usage/recalculate', static fn (Request $req) => Response::json($collectorController->recalculate($req->body)), auth: true);
+
+$matched = $router->dispatch($request);
+if ($matched === null) {
+    respond(['error' => 'not_found'], 404);
 }
 
-if ($method === 'GET' && $path === '/api/v1/sites') {
+$route = $matched['route'];
+$params = $matched['params'];
+
+if (($route['auth'] ?? false) === true) {
     requireApiAuth();
-    respond($siteController->index());
 }
 
-if ($method === 'POST' && $path === '/api/v1/sites') {
-    requireApiAuth();
-    respond($siteController->store($body), 201);
-}
-
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
-    requireApiAuth();
-    $result = $siteController->update((string) $m[1], $body);
-    if ($result === null) {
-        respond(['error' => 'site_not_found'], 404);
-    }
-    respond($result);
-}
-
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m)) {
-    requireApiAuth();
-    respond($siteController->delete((string) $m[1]));
-}
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/enable$#', $path, $m)) {
-    requireApiAuth();
-    $result = $siteController->enableProxy((string) $m[1]);
-    if ($result === null) {
-        respond(['error' => 'site_not_found'], 404);
-    }
-    respond($result);
-}
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/disable$#', $path, $m)) {
-    requireApiAuth();
-    $result = $siteController->disableProxy((string) $m[1]);
-    if ($result === null) {
-        respond(['error' => 'site_not_found'], 404);
-    }
-    respond($result);
-}
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
-    requireApiAuth();
-    respond($dnsController->create((string) $m[1], $body), 201);
-}
-
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records$#', $path, $m)) {
-    requireApiAuth();
-    respond($dnsController->list((string) $m[1]));
-}
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { requireApiAuth(); respond($rulesController->createRedirect((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects$#', $path, $m)) { requireApiAuth(); respond($rulesController->listRedirects((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateRedirect((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/redirects/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteRedirect((string) $m[1], (string) $m[2])); }
-
-if ($method === 'PUT' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->setRateLimit((string) $m[1], $body)); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->getRateLimit((string) $m[1])); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/rate-limit$#', $path, $m)) { requireApiAuth(); respond($rulesController->disableRateLimit((string) $m[1])); }
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->createWaf((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->listWaf((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateWaf((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/waf-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteWaf((string) $m[1], (string) $m[2])); }
-
-if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->createCacheRule((string) $m[1], $body), 201); }
-if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules$#', $path, $m)) { requireApiAuth(); respond($rulesController->listCacheRules((string) $m[1])); }
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->updateCacheRule((string) $m[1], (string) $m[2], $body)); }
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/cache-rules/([0-9a-fA-F-]+)$#', $path, $m)) { requireApiAuth(); respond($rulesController->deleteCacheRule((string) $m[1], (string) $m[2])); }
-
-if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
-    requireApiAuth();
-    respond($dnsController->update((string) $m[1], (string) $m[2], $body));
-}
-
-if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/dns/records/([0-9a-fA-F-]+)$#', $path, $m)) {
-    requireApiAuth();
-    respond($dnsController->delete((string) $m[1], (string) $m[2]));
-}
-
-if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
-    requireApiAuth();
-    respond($edgeController->list());
-}
-
-if ($method === 'POST' && $path === '/api/v1/edge/register') {
+if (($route['edge_auth'] ?? false) === true) {
     $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
-    if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
+    if (in_array($request->path, ['/api/v1/edge/register', '/api/v1/edge/heartbeat'], true)
+        && ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($request->body['edge_id'] ?? ''))) {
         respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
     }
+
     $auth = $edgeAuth->authenticate(
         $edgeIdHeader,
         bearerToken(),
         (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
         (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
-        $method,
-        $path,
-        $bodyRaw ?: '',
+        $request->method,
+        $request->path,
+        in_array($request->method, ['POST', 'PUT', 'PATCH'], true) ? $request->rawBody : '',
         edgeSignature()
     );
+
     if (($auth['ok'] ?? false) !== true) {
         respond(['error' => (string) $auth['error']], (int) $auth['status']);
     }
-    respond($edgeController->register($body));
 }
 
-if ($method === 'POST' && $path === '/api/v1/edge/heartbeat') {
-    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
-    if ($edgeIdHeader === '' || $edgeIdHeader !== (string) ($body['edge_id'] ?? '')) {
-        respond(['error' => 'edge_auth_edge_id_mismatch'], 401);
-    }
-    $auth = $edgeAuth->authenticate(
-        $edgeIdHeader,
-        bearerToken(),
-        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
-        $method,
-        $path,
-        $bodyRaw ?: '',
-        edgeSignature()
-    );
-    if (($auth['ok'] ?? false) !== true) {
-        respond(['error' => (string) $auth['error']], (int) $auth['status']);
-    }
-    respond($edgeController->heartbeat($body));
-}
-
-if ($method === 'GET' && $path === '/api/v1/edge/config') {
-    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
-    $auth = $edgeAuth->authenticate(
-        $edgeIdHeader,
-        bearerToken(),
-        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
-        $method,
-        $path,
-        '',
-        edgeSignature()
-    );
-    if (($auth['ok'] ?? false) !== true) {
-        respond(['error' => (string) $auth['error']], (int) $auth['status']);
-    }
-    $ifVersion = isset($_GET['if_version']) ? (int) $_GET['if_version'] : null;
-    respond($configService->buildSnapshotForVersion($ifVersion));
-}
-
-if ($method === 'POST' && $path === '/api/v1/collector/usage') {
-    $edgeIdHeader = headerValue('X-CDNLITE-Edge-Id') ?? '';
-    $auth = $edgeAuth->authenticate(
-        $edgeIdHeader,
-        bearerToken(),
-        (int) (headerValue('X-CDNLITE-Timestamp') ?? 0),
-        (string) (headerValue('X-CDNLITE-Nonce') ?? ''),
-        $method,
-        $path,
-        $bodyRaw ?: '',
-        edgeSignature()
-    );
-    if (($auth['ok'] ?? false) !== true) {
-        respond(['error' => (string) $auth['error']], (int) $auth['status']);
-    }
-    respond($collectorController->ingest($body));
-}
-
-if ($method === 'GET' && $path === '/api/v1/usage/summary') {
-    requireApiAuth();
-    $siteId = isset($_GET['site_id']) ? (string) $_GET['site_id'] : null;
-    $bucket = isset($_GET['bucket']) ? (string) $_GET['bucket'] : null;
-    respond($collectorController->summary($siteId, $bucket));
-}
-
-if ($method === 'POST' && $path === '/api/v1/usage/recalculate') {
-    requireApiAuth();
-    respond($collectorController->recalculate($body));
-}
-
-respond(['error' => 'not_found'], 404);
+$result = ($route['handler'])($request, $params);
+respond($result['payload'], (int) $result['status']);
