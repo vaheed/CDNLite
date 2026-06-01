@@ -38,7 +38,11 @@ class DnsController
 
         $input['type'] = strtoupper((string) $type['value']);
         $input['name'] = $name['value'];
-        $input['content'] = $content['value'];
+        $contentByType = Validator::dnsRecordContent($input['type'], (string) $content['value']);
+        if (($contentByType['ok'] ?? false) !== true) {
+            return $contentByType;
+        }
+        $input['content'] = $contentByType['value'];
         $input['ttl'] = $ttl['value'];
 
         try {
@@ -82,6 +86,15 @@ class DnsController
                 return $content;
             }
             $input['content'] = $content['value'];
+        }
+        if (array_key_exists('type', $input) && array_key_exists('content', $input)) {
+            $typeValue = (string) $input['type'];
+            $contentValue = (string) $input['content'];
+            $contentByType = Validator::dnsRecordContent($typeValue, $contentValue);
+            if (($contentByType['ok'] ?? false) !== true) {
+                return $contentByType;
+            }
+            $input['content'] = $contentByType['value'];
         }
         if (array_key_exists('ttl', $input)) {
             $ttl = Validator::intRange($input, 'ttl', 60, 86400);

@@ -37,3 +37,28 @@ echo json_encode([
     assert out["badPort"]["field"] == "origin_port"
     assert out["okPort"]["ok"] is True
     assert out["okPort"]["value"] == 443
+
+
+def test_dns_type_specific_content_validation_contract():
+    script = r'''
+require __DIR__ . '/core/app/Support/bootstrap.php';
+
+$aBad = App\Support\Validator::dnsRecordContent('A', 'not-ip');
+$aOk = App\Support\Validator::dnsRecordContent('A', '127.0.0.1');
+$aaaaBad = App\Support\Validator::dnsRecordContent('AAAA', 'not-ipv6');
+$cnameBad = App\Support\Validator::dnsRecordContent('CNAME', 'bad host');
+
+echo json_encode([
+  'aBad' => $aBad,
+  'aOk' => $aOk,
+  'aaaaBad' => $aaaaBad,
+  'cnameBad' => $cnameBad,
+], JSON_UNESCAPED_SLASHES);
+'''
+    out = run_php(script)
+
+    assert out["aBad"]["ok"] is False
+    assert out["aBad"]["detail"] == "must_be_valid_ipv4"
+    assert out["aOk"]["ok"] is True
+    assert out["aaaaBad"]["detail"] == "must_be_valid_ipv6"
+    assert out["cnameBad"]["detail"] == "must_be_valid_hostname"

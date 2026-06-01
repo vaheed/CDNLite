@@ -4,6 +4,35 @@ namespace App\Support;
 
 final class Validator
 {
+    public static function dnsRecordContent(string $type, string $content): array
+    {
+        $normalizedType = strtoupper(trim($type));
+        $value = trim($content);
+        if ($value === '') {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_non_empty', 'status' => 422];
+        }
+
+        if ($normalizedType === 'A' && filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_ipv4', 'status' => 422];
+        }
+        if ($normalizedType === 'AAAA' && filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_ipv6', 'status' => 422];
+        }
+        if ($normalizedType === 'CNAME' && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_hostname', 'status' => 422];
+        }
+        if ($normalizedType === 'MX' && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_hostname_for_mx', 'status' => 422];
+        }
+        if ($normalizedType === 'CAA' && strlen($value) > 1024) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'max_length_1024', 'status' => 422];
+        }
+        if ($normalizedType === 'TXT' && strlen($value) > 1024) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'max_length_1024', 'status' => 422];
+        }
+
+        return ['ok' => true, 'value' => $value];
+    }
     public static function requiredString(array $body, string $key, int $max = 255): array
     {
         if (!array_key_exists($key, $body) || !is_string($body[$key]) || trim($body[$key]) === '') {

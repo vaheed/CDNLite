@@ -208,6 +208,7 @@ Redirect rule fields: `id`, `site_id`, `enabled`, `source_path`, `target_url`, `
 ### POST /api/v1/sites/{id}/redirects
 
 Required: `source_path`, `target_url`. Optional: `enabled` (default `true`), `status_code` (default `302`).
+Validation: `source_path` must start with `/`; `status_code` must be one of `301|302|307|308`.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/redirects \
@@ -234,6 +235,7 @@ Success: `{"ok":true}`. Unknown site/rule: `404 {"error":"redirect_not_found"}`.
 ### PUT /api/v1/sites/{id}/rate-limit
 
 Creates or updates a site rate-limit rule.
+Validation: `requests_per_minute` must be an integer between `1` and `100000`.
 
 ### GET /api/v1/sites/{id}/rate-limit
 
@@ -248,6 +250,8 @@ Disables/removes the active site rate-limit rule.
 ### POST /api/v1/sites/{id}/waf-rules
 
 Creates a WAF rule for the site.
+Validation: `type` must be `path_contains` or `user_agent_contains`; `pattern` must be a non-empty string.
+Patch validation: same constraints apply to provided fields.
 
 ### GET /api/v1/sites/{id}/waf-rules
 
@@ -266,6 +270,8 @@ Deletes one WAF rule.
 ### POST /api/v1/sites/{id}/cache-rules
 
 Creates a cache rule for the site.
+Validation: `path_prefix` must start with `/` when provided; `ttl_seconds` must be an integer between `1` and `31536000`.
+Patch validation: same constraints apply to provided fields.
 
 ### GET /api/v1/sites/{id}/cache-rules
 

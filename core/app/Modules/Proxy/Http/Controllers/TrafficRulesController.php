@@ -56,7 +56,6 @@ class TrafficRulesController
         return ['data' => $this->service->createWaf($siteId, $body)];
     }
     public function listWaf(string $siteId): array { return ['data' => $this->service->listWaf($siteId)]; }
-    public function updateWaf(string $siteId, string $id, array $body): array { $r=$this->service->updateWaf($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'waf_not_found','status'=>404]; }
     public function deleteWaf(string $siteId, string $id): array { return $this->service->deleteWaf($siteId,$id)?['ok'=>true]:['error'=>'waf_not_found','status'=>404]; }
 
     public function createCacheRule(string $siteId, array $body): array {
@@ -72,6 +71,25 @@ class TrafficRulesController
         return ['data' => $this->service->createCacheRule($siteId, $body)];
     }
     public function listCacheRules(string $siteId): array { return ['data' => $this->service->listCacheRules($siteId)]; }
-    public function updateCacheRule(string $siteId, string $id, array $body): array { $r=$this->service->updateCacheRule($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'cache_rule_not_found','status'=>404]; }
+    public function updateWaf(string $siteId, string $id, array $body): array {
+        if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'user_agent_contains'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_user_agent_contains', 'status' => 422];
+        }
+        if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || trim((string) $body['pattern']) === '')) {
+            return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_be_non_empty_string', 'status' => 422];
+        }
+        $r=$this->service->updateWaf($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'waf_not_found','status'=>404];
+    }
+
+    public function updateCacheRule(string $siteId, string $id, array $body): array {
+        if (array_key_exists('path_prefix', $body) && (!is_string($body['path_prefix']) || !str_starts_with((string) $body['path_prefix'], '/'))) {
+            return ['error' => 'invalid_field', 'field' => 'path_prefix', 'detail' => 'must_start_with_slash', 'status' => 422];
+        }
+        if (array_key_exists('ttl_seconds', $body)) {
+            $ttl = Validator::intRange($body, 'ttl_seconds', 1, 31536000);
+            if (($ttl['ok'] ?? false) !== true) { return $ttl; }
+        }
+        $r=$this->service->updateCacheRule($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'cache_rule_not_found','status'=>404];
+    }
     public function deleteCacheRule(string $siteId, string $id): array { return $this->service->deleteCacheRule($siteId,$id)?['ok'=>true]:['error'=>'cache_rule_not_found','status'=>404]; }
 }
