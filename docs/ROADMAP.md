@@ -22,10 +22,10 @@ Status legend: `done`, `in progress`, `pending`.
 | Stage 6 — Edge agent hardening | done (v1 scope) | `doctor.sh`, sync `last_error` status, heartbeat `config_version`, and retry backoff with jitter are now implemented and documented. |
 | Stage 7 — OpenResty edge reliability | done (v1 scope) | Config schema versioning guard, request-id propagation to responses/metrics/error page, and reliability contract tests are now in place. |
 | Stage 8 | done (v1 scope) | Site cache settings, cache purge requests/versions, redirects v2, page rules v1, and SSL metadata APIs are implemented. |
-| Stage 9 | in progress | WAF v2 fields/types/actions, rate-limit v2 schema + API compatibility path, origin-shield header baseline, security events API, and smoke/e2e coverage were added; edge-side WAF/rate-limit enforcement depth still pending. |
-| Stage 10 | in progress | Manual SSL import + edge TLS runtime path implemented; hardening and deeper lifecycle automation remain. |
+| Stage 9 | done (v1 scope) | WAF v2 fields/types/actions, rate-limit v2 schema + compatibility path, origin-shield baseline, security events ingest API, edge runtime enforcement (403/429), and smoke/e2e coverage are in place. |
+| Stage 10 | done (v1 scope) | Manual SSL import + edge TLS runtime path, cache analytics endpoint, purge audit enrichment, server-rendered dashboard pages, and dashboard action console are implemented with contract and e2e coverage. |
 
-Next development target: **Stage 9 completion at edge runtime (enforcement + analytics depth), then Stage 10 hardening completion**.
+Next development target: **Stage 11 — DNS and PowerDNS safety**.
 
 ---
 

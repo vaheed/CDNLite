@@ -4,6 +4,11 @@
 
 Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`. Edge registration, heartbeat, config, and collector usage require signed edge auth.
 
+Dashboard pages are server-rendered HTML and require the same bearer auth when `CDNLITE_API_TOKEN` is set:
+- `/dashboard/sites`
+- `/dashboard/sites/{siteId}`
+- `/dashboard/console`
+
 ## Common Errors
 
 | Status | Example | Cause |

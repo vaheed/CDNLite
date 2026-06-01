@@ -4,6 +4,7 @@ require __DIR__ . '/app/Support/bootstrap.php';
 
 use App\Modules\Collector\Http\Controllers\CollectorController;
 use App\Modules\Collector\Services\CollectorService;
+use App\Modules\Dashboard\Http\Controllers\DashboardController;
 use App\Modules\Dns\Http\Controllers\DnsController;
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
@@ -20,7 +21,8 @@ use App\Support\Request;
 use App\Support\Response;
 use App\Support\Router;
 
-header('Content-Type: application/json');
+$requestedPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+header('Content-Type: ' . (str_starts_with($requestedPath, '/dashboard') ? 'text/html; charset=utf-8' : 'application/json'));
 ini_set('log_errors', '1');
 ini_set('error_log', 'php://stderr');
 
@@ -47,6 +49,10 @@ function respond(array $payload, int $defaultStatus = 200): void
     }
 
     http_response_code($status);
+    if (isset($payload['html']) && is_string($payload['html'])) {
+        echo $payload['html'];
+        exit;
+    }
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -97,14 +103,19 @@ $requestStartedAt = microtime(true);
 $bodyRaw = file_get_contents('php://input');
 $body = [];
 if ($bodyRaw !== false && trim($bodyRaw) !== '') {
-    $decoded = json_decode($bodyRaw, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        respond(['error' => 'invalid_json', 'detail' => json_last_error_msg()], 400);
+    $contentType = (string) ($_SERVER['CONTENT_TYPE'] ?? '');
+    if (str_starts_with($contentType, 'application/x-www-form-urlencoded') || str_starts_with($contentType, 'multipart/form-data')) {
+        $body = $_POST;
+    } else {
+        $decoded = json_decode($bodyRaw, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            respond(['error' => 'invalid_json', 'detail' => json_last_error_msg()], 400);
+        }
+        if (!is_array($decoded)) {
+            respond(['error' => 'invalid_json_object_expected'], 400);
+        }
+        $body = $decoded;
     }
-    if (!is_array($decoded)) {
-        respond(['error' => 'invalid_json_object_expected'], 400);
-    }
-    $body = $decoded;
 }
 set_exception_handler(static function (\Throwable $e): void {
     Logger::error('uncaught_exception', [
@@ -132,8 +143,16 @@ $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
+$dashboardController = new DashboardController($siteService, new EdgeService(), new CollectorService(), new TrafficRulesService());
 
 $router = new Router();
+$router->add('GET', '/dashboard/sites', static fn (): array => $dashboardController->sitesPage(), auth: true);
+$router->add('GET', '/dashboard/sites/{siteId}', static fn (Request $req, array $p): array => $dashboardController->sitePage((string) $p['siteId']), auth: true);
+$router->add('GET', '/dashboard/console', static fn (): array => $dashboardController->consolePage(), auth: true);
+$router->add('POST', '/dashboard/console/run', static fn (Request $req): array => $dashboardController->consoleRun($req), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/proxy', static fn (Request $req, array $p): array => $dashboardController->proxyAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/purge', static fn (Request $req, array $p): array => $dashboardController->purgeAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/waf', static fn (Request $req, array $p): array => $dashboardController->wafAction($req, (string) $p['siteId']), auth: true);
 $router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
 $router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];

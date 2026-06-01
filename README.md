@@ -14,6 +14,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
 - Docker Compose local stack and CI smoke/e2e scripts.
+- Server-rendered dashboard with site operations and API action console.
 
 ## Architecture Summary
 
@@ -62,6 +63,28 @@ docker compose exec core php artisan cdn:edge:register-token \
   --token=edge-dev-token
 ```
 
+## Dashboard Access
+
+Dashboard routes:
+
+- `http://localhost:8080/dashboard/sites`
+- `http://localhost:8080/dashboard/sites/{site_id}`
+- `http://localhost:8080/dashboard/console`
+
+Auth behavior:
+
+- If `CDNLITE_API_TOKEN` is set, dashboard routes require `Authorization: Bearer <token>`.
+- For browser access, use a header-capable client/proxy (for example, local dev proxy or browser extension that injects `Authorization`).
+
+Quick check with curl:
+
+```bash
+curl -i http://localhost:8080/dashboard/sites \
+  -H 'Authorization: Bearer <token>'
+```
+
+You should receive HTML (`Content-Type: text/html`).
+
 ## First API Example
 
 ```bash
@@ -107,8 +130,8 @@ The CI scripts expect the Compose stack to be running.
 
 ## Current Limitations And Non-Goals
 
-- No dashboard UI, user auth layer, TLS automation, advanced cache policy engine, purge API, or billing system is implemented.
-- Basic OpenResty cache exists at the edge (`X-CDNLITE-Cache` response headers, cache rules, and stale-on-error behavior), but first-class purge APIs and richer cache controls are still missing.
+- No user account system, TLS automation, advanced cache policy engine, or billing system is implemented.
+- Dashboard is currently operator-focused and token-auth based; it is not multi-user RBAC.
 - Control-plane API auth is optional: when `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`.
 - Edge auth protects only edge registration, heartbeat, config fetch, and usage ingest.
 - Config changes reach edge nodes by polling/pull, not push.

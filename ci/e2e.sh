@@ -259,11 +259,33 @@ assert_http_status "$HTTP_CODE" "200" "site list failed"
 assert_contains "$HTTP_BODY" "$TEST_DOMAIN" "site not listed"
 record_step PASS "site-list" "site listed"
 
+# Dashboard HTML and console action execution
+dashboard_code="$(curl -sS -o /tmp/e2e-dashboard-sites.html -w '%{http_code}' "${CORE_URL}/dashboard/sites" $(api_auth_header_args))"
+assert_eq "$dashboard_code" "200" "dashboard sites page should return 200"
+assert_contains "$(cat /tmp/e2e-dashboard-sites.html)" "CDNLite Control Deck" "dashboard sites html marker missing"
+record_step PASS "dashboard-sites-html" "dashboard sites rendered"
+
+dashboard_console_code="$(curl -sS -o /tmp/e2e-dashboard-console.html -w '%{http_code}' "${CORE_URL}/dashboard/console" $(api_auth_header_args))"
+assert_eq "$dashboard_console_code" "200" "dashboard console page should return 200"
+assert_contains "$(cat /tmp/e2e-dashboard-console.html)" "API Action Console" "dashboard console html marker missing"
+record_step PASS "dashboard-console-html" "dashboard console rendered"
+
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"name":"e2e-site-updated","origin_host":"core","origin_port":8080}'
 assert_http_status "$HTTP_CODE" "200" "site update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"
 assert_eq "$updated_name" "e2e-site-updated" "site name update mismatch"
 record_step PASS "site-update" "site updated"
+
+dashboard_run_code="$(curl -sS -o /tmp/e2e-dashboard-console-run.html -w '%{http_code}' \
+  -X POST "${CORE_URL}/dashboard/console/run" \
+  $(api_auth_header_args) \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "method=GET" \
+  --data-urlencode "path=/api/v1/sites/${SITE_ID}/security/events?limit=1" \
+  --data-urlencode 'body={}')"
+assert_eq "$dashboard_run_code" "200" "dashboard console run should return 200"
+assert_contains "$(cat /tmp/e2e-dashboard-console-run.html)" "HTTP 200" "dashboard console run should show live HTTP status"
+record_step PASS "dashboard-console-run" "dashboard console executed api action"
 
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_shield_header_name":"X-CDNLITE-Origin-Secret","origin_shield_secret":"stage9-origin-secret"}'
 assert_http_status "$HTTP_CODE" "200" "origin shield update failed"
