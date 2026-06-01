@@ -7,25 +7,33 @@ use App\Support\Uuid;
 
 class TrafficRulesService
 {
+    private ?bool $redirectV2ColumnsAvailable = null;
+
     public function listRedirects(string $siteId): array { return $this->listRows('redirect_rules', $siteId); }
     public function createRedirect(string $siteId, array $in): array {
         $status = (int)($in['status_code'] ?? 302);
         if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
-        return $this->insert('redirect_rules', $siteId, [
+        $payload = [
             'enabled' => !empty($in['enabled']),
             'source_path' => (string)($in['source_path'] ?? ''),
             'target_url' => (string)($in['target_url'] ?? ''),
             'status_code' => $status,
-            'priority' => (int) ($in['priority'] ?? 100),
-            'match_type' => (string) ($in['match_type'] ?? 'exact_path'),
-            'preserve_query' => array_key_exists('preserve_query', $in) ? !empty($in['preserve_query']) : true,
-        ]);
+        ];
+        if ($this->redirectV2Supported()) {
+            $payload['priority'] = (int) ($in['priority'] ?? 100);
+            $payload['match_type'] = (string) ($in['match_type'] ?? 'exact_path');
+            $payload['preserve_query'] = array_key_exists('preserve_query', $in) ? !empty($in['preserve_query']) : true;
+        }
+        return $this->insert('redirect_rules', $siteId, $payload);
     }
     public function updateRedirect(string $siteId, string $id, array $in): ?array {
         if (array_key_exists('status_code', $in)) {
             $status = (int) $in['status_code'];
             if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
             $in['status_code'] = $status;
+        }
+        if (!$this->redirectV2Supported()) {
+            unset($in['priority'], $in['match_type'], $in['preserve_query']);
         }
         return $this->update('redirect_rules', $siteId, $id, $in);
     }
@@ -218,4 +226,13 @@ class TrafficRulesService
     }
     private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
     private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
+    private function redirectV2Supported(): bool {
+        if ($this->redirectV2ColumnsAvailable !== null) {
+            return $this->redirectV2ColumnsAvailable;
+        }
+        $s = Database::pdo()->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='redirect_rules' AND column_name='match_type' LIMIT 1");
+        $s->execute();
+        $this->redirectV2ColumnsAvailable = $s->fetchColumn() !== false;
+        return $this->redirectV2ColumnsAvailable;
+    }
 }
