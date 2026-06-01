@@ -204,3 +204,40 @@ CREATE TABLE IF NOT EXISTS cache_rules (
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS site_cache_settings (
+  site_id TEXT PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  default_edge_ttl_seconds INTEGER NOT NULL DEFAULT 3600,
+  default_browser_ttl_seconds INTEGER NULL,
+  cache_query_string_mode TEXT NOT NULL DEFAULT 'include_all',
+  respect_origin_cache_control BOOLEAN NOT NULL DEFAULT true,
+  cache_authorized_requests BOOLEAN NOT NULL DEFAULT false,
+  stale_if_error_seconds INTEGER NOT NULL DEFAULT 86400,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cache_purge_requests (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  value TEXT NULL,
+  status TEXT NOT NULL,
+  requested_by TEXT NULL,
+  edge_seen_count INTEGER NOT NULL DEFAULT 0,
+  error TEXT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  completed_at BIGINT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cache_purge_versions (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  scope TEXT NOT NULL,
+  value TEXT NOT NULL,
+  version BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  UNIQUE(site_id, scope, value)
+);
