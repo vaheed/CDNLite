@@ -154,7 +154,9 @@ jobs:
       POWERDNS_API_KEY: test-key
       POWERDNS_API_URL: http://powerdns:8081
       POWERDNS_PUBLIC_API_URL: http://localhost:8089
+      POWERDNS_HOST_PORT: 8089
       POWERDNS_SERVER_ID: localhost
+      PDNS_PORT: 8081
       CI_ENV_NAME: e2e-powerdns
     steps:
       - uses: actions/checkout@v6

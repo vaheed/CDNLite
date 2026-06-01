@@ -103,11 +103,11 @@ services:
     command: sh -lc "python /srv/ci/pdns_mock_server.py"
     environment:
       PDNS_API_KEY: ${POWERDNS_API_KEY:-test-key}
-      PDNS_PORT: 8081
+      PDNS_PORT: ${PDNS_PORT}
     volumes:
       - ./:/srv
     ports:
-      - "${POWERDNS_HOST_PORT:-8089}:8081"
+      - "${POWERDNS_HOST_PORT}:${PDNS_PORT}"
 
 volumes:
   pgdata:
