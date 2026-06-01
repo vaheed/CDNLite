@@ -172,17 +172,8 @@ def test_ready_fails_in_production_without_api_token():
         "CDNLITE_API_TOKEN": "",
     }
 
-    router = REPO_ROOT / "core" / "tests" / "_tmp_ready_router.php"
-    router.write_text(
-        "<?php\n"
-        "putenv('APP_ENV=production');\n"
-        "putenv('CDNLITE_API_TOKEN=');\n"
-        "require __DIR__ . '/../../public_index.php';\n",
-        encoding="utf-8",
-    )
-
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", str(router)],
+        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -198,5 +189,3 @@ def test_ready_fails_in_production_without_api_token():
     finally:
         server.terminate()
         server.wait(timeout=5)
-        if router.exists():
-            router.unlink()
