@@ -4,6 +4,7 @@ namespace App\Modules\Dns\Http\Controllers;
 
 use App\Modules\Dns\Services\DnsService;
 use App\Support\Logger;
+use App\Support\Validator;
 
 class DnsController
 {
@@ -18,12 +19,27 @@ class DnsController
 
     public function create(string $siteId, array $input): array
     {
-        $required = ['type', 'name', 'content'];
-        foreach ($required as $field) {
-            if (empty($input[$field])) {
-                return ['error' => $field . '_required', 'status' => 422];
-            }
+        $type = Validator::requiredString($input, 'type', 16);
+        if (($type['ok'] ?? false) !== true) {
+            return $type;
         }
+        $name = Validator::requiredString($input, 'name', 255);
+        if (($name['ok'] ?? false) !== true) {
+            return $name;
+        }
+        $content = Validator::requiredString($input, 'content', 2048);
+        if (($content['ok'] ?? false) !== true) {
+            return $content;
+        }
+        $ttl = Validator::intRange($input, 'ttl', 60, 86400, 300);
+        if (($ttl['ok'] ?? false) !== true) {
+            return $ttl;
+        }
+
+        $input['type'] = strtoupper((string) $type['value']);
+        $input['name'] = $name['value'];
+        $input['content'] = $content['value'];
+        $input['ttl'] = $ttl['value'];
 
         try {
             return ['data' => $this->service->create($siteId, $input)];
@@ -44,6 +60,34 @@ class DnsController
     {
         if ($input === []) {
             return ['error' => 'dns_record_update_body_required', 'status' => 422];
+        }
+
+        if (array_key_exists('type', $input)) {
+            $type = Validator::requiredString($input, 'type', 16);
+            if (($type['ok'] ?? false) !== true) {
+                return $type;
+            }
+            $input['type'] = strtoupper((string) $type['value']);
+        }
+        if (array_key_exists('name', $input)) {
+            $name = Validator::requiredString($input, 'name', 255);
+            if (($name['ok'] ?? false) !== true) {
+                return $name;
+            }
+            $input['name'] = $name['value'];
+        }
+        if (array_key_exists('content', $input)) {
+            $content = Validator::requiredString($input, 'content', 2048);
+            if (($content['ok'] ?? false) !== true) {
+                return $content;
+            }
+            $input['content'] = $content['value'];
+        }
+        if (array_key_exists('ttl', $input)) {
+            $ttl = Validator::intRange($input, 'ttl', 60, 86400);
+            if (($ttl['ok'] ?? false) !== true) {
+                return $ttl;
+            }
         }
 
         try {
