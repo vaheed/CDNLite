@@ -295,7 +295,8 @@ class TrafficRulesService
         $existing = Database::pdo()->prepare('SELECT * FROM cache_purge_versions WHERE site_id=:site_id AND scope=:scope AND value=:value LIMIT 1');
         $existing->execute([':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
         $row = $existing->fetch();
-        $nextVersion = $row ? ((int) $row['version']) + 1 : 2;
+        $beforeVersion = $row ? (int) $row['version'] : 1;
+        $nextVersion = $beforeVersion + 1;
         if ($row) {
             $u = Database::pdo()->prepare('UPDATE cache_purge_versions SET version=:version,updated_at=:updated_at WHERE site_id=:site_id AND scope=:scope AND value=:value');
             $u->execute([':version' => $nextVersion, ':updated_at' => $now, ':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
@@ -305,6 +306,26 @@ class TrafficRulesService
         }
         $r = Database::pdo()->prepare('INSERT INTO cache_purge_requests (id,site_id,type,value,status,requested_by,edge_seen_count,error,created_at,updated_at,completed_at) VALUES (:id,:site_id,:type,:value,:status,:requested_by,:edge_seen_count,:error,:created_at,:updated_at,:completed_at)');
         $r->execute([':id'=>$requestId,':site_id'=>$siteId,':type'=>$type,':value'=>$value,':status'=>'completed',':requested_by'=>null,':edge_seen_count'=>0,':error'=>null,':created_at'=>$now,':updated_at'=>$now,':completed_at'=>$now]);
+        $audit = Database::pdo()->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
+        $audit->execute([
+            ':id' => Uuid::v4(),
+            ':actor_type' => 'system',
+            ':actor_id' => null,
+            ':action' => 'purge',
+            ':resource_type' => 'cache',
+            ':resource_id' => $requestId,
+            ':site_id' => $siteId,
+            ':details_json' => json_encode([
+                'type' => $type,
+                'value' => $value,
+                'scope' => $scope,
+                'scope_value' => $scopeValue,
+                'version_before' => $beforeVersion,
+                'version_after' => $nextVersion,
+            ], JSON_UNESCAPED_SLASHES),
+            ':event' => 'cache_purge_requested',
+            ':created_at' => $now,
+        ]);
         $q = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE id=:id LIMIT 1');
         $q->execute([':id' => $requestId]);
         return $this->cast((array) $q->fetch());

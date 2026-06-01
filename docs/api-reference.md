@@ -331,6 +331,7 @@ Creates a purge request and increments a soft purge namespace version.
 
 Allowed `type`: `url`, `prefix`, `site`, `everything`.
 `value` is required for `url` and `prefix`.
+Each request also writes an audit event (`cache_purge_requested`) into `audit_log` with `type`, `value`, `scope`, `scope_value`, `version_before`, and `version_after`.
 
 ### GET /api/v1/sites/{id}/cache/purge-requests
 
