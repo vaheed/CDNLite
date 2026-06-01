@@ -319,6 +319,7 @@ record_step PASS "edge-proxy-get-query" "GET with query proxied"
 cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":60}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
+docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "site cache rule created"
 
 first_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
