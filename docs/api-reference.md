@@ -57,6 +57,11 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | POST | `/api/v1/sites/{id}/cache/purge` | bearer when `CDNLITE_API_TOKEN` is set | Create a cache purge request and bump soft purge namespace version. |
 | GET | `/api/v1/sites/{id}/cache/purge-requests` | bearer when `CDNLITE_API_TOKEN` is set | List cache purge requests. |
 | GET | `/api/v1/sites/{id}/cache/purge-requests/{requestId}` | bearer when `CDNLITE_API_TOKEN` is set | Get one cache purge request. |
+| POST | `/api/v1/sites/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create page rule. |
+| GET | `/api/v1/sites/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | List page rules. |
+| PATCH | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update page rule. |
+| DELETE | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
+| POST | `/api/v1/sites/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |

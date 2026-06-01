@@ -165,4 +165,41 @@ class TrafficRulesController
         $row = $this->service->getCachePurgeRequest($siteId, $id);
         return $row ? ['data' => $row] : ['error' => 'cache_purge_request_not_found', 'status' => 404];
     }
+    public function createPageRule(string $siteId, array $body): array {
+        $pattern = Validator::requiredString($body, 'pattern', 2048);
+        if (($pattern['ok'] ?? false) !== true) { return $pattern; }
+        if (!str_starts_with((string) $pattern['value'], '/')) {
+            return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_start_with_slash', 'status' => 422];
+        }
+        $priority = Validator::intRange($body, 'priority', 1, 100000, 100);
+        if (($priority['ok'] ?? false) !== true) { return $priority; }
+        if (!isset($body['actions']) || !is_array($body['actions'])) {
+            return ['error' => 'invalid_field', 'field' => 'actions', 'detail' => 'must_be_object', 'status' => 422];
+        }
+        return ['data' => $this->service->createPageRule($siteId, $body)];
+    }
+    public function listPageRules(string $siteId): array { return ['data' => $this->service->listPageRules($siteId)]; }
+    public function updatePageRule(string $siteId, string $id, array $body): array {
+        if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || !str_starts_with((string) $body['pattern'], '/'))) {
+            return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_start_with_slash', 'status' => 422];
+        }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
+        }
+        if (array_key_exists('actions', $body) && !is_array($body['actions'])) {
+            return ['error' => 'invalid_field', 'field' => 'actions', 'detail' => 'must_be_object', 'status' => 422];
+        }
+        $row = $this->service->updatePageRule($siteId, $id, $body);
+        return $row ? ['data' => $row] : ['error' => 'page_rule_not_found', 'status' => 404];
+    }
+    public function deletePageRule(string $siteId, string $id): array { return $this->service->deletePageRule($siteId, $id) ? ['ok' => true] : ['error' => 'page_rule_not_found', 'status' => 404]; }
+    public function testPageRule(string $siteId, array $body): array {
+        $path = Validator::requiredString($body, 'path', 2048);
+        if (($path['ok'] ?? false) !== true) { return $path; }
+        if (!str_starts_with((string) $path['value'], '/')) {
+            return ['error' => 'invalid_field', 'field' => 'path', 'detail' => 'must_start_with_slash', 'status' => 422];
+        }
+        return ['data' => $this->service->testPageRule($siteId, (string) $path['value'])];
+    }
 }

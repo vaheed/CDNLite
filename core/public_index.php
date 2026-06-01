@@ -212,6 +212,11 @@ $router->add('PUT', '/api/v1/sites/{siteId}/cache/settings', static fn (Request 
 $router->add('POST', '/api/v1/sites/{siteId}/cache/purge', static fn (Request $req, array $p) => Response::json($rulesController->createCachePurgeRequest((string) $p['siteId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/cache/purge-requests', static fn (Request $req, array $p) => Response::json($rulesController->listCachePurgeRequests((string) $p['siteId'])), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/cache/purge-requests/{requestId}', static fn (Request $req, array $p) => Response::json($rulesController->getCachePurgeRequest((string) $p['siteId'], (string) $p['requestId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->createPageRule((string) $p['siteId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->listPageRules((string) $p['siteId'])), auth: true);
+$router->add('PATCH', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updatePageRule((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['siteId'], $req->body)), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);

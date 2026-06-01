@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS page_rules (
+  id TEXT PRIMARY KEY,
+  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  priority INTEGER NOT NULL DEFAULT 100,
+  pattern TEXT NOT NULL,
+  actions_json TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);

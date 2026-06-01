@@ -94,6 +94,43 @@ class TrafficRulesService
     public function createCacheRule(string $siteId, array $in): array { return $this->insert('cache_rules', $siteId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
     public function updateCacheRule(string $siteId, string $id, array $in): ?array { return $this->update('cache_rules', $siteId, $id, $in); }
     public function deleteCacheRule(string $siteId, string $id): bool { return $this->delete('cache_rules', $siteId, $id); }
+    public function listPageRules(string $siteId): array { return $this->listRows('page_rules', $siteId); }
+    public function createPageRule(string $siteId, array $in): array {
+        return $this->insert('page_rules', $siteId, [
+            'enabled' => !empty($in['enabled']),
+            'priority' => (int) ($in['priority'] ?? 100),
+            'pattern' => (string) ($in['pattern'] ?? ''),
+            'actions_json' => json_encode(($in['actions'] ?? []), JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+    public function updatePageRule(string $siteId, string $id, array $in): ?array {
+        if (array_key_exists('actions', $in)) {
+            $in['actions_json'] = json_encode($in['actions'], JSON_UNESCAPED_SLASHES);
+            unset($in['actions']);
+        }
+        return $this->update('page_rules', $siteId, $id, $in);
+    }
+    public function deletePageRule(string $siteId, string $id): bool { return $this->delete('page_rules', $siteId, $id); }
+    public function testPageRule(string $siteId, string $path): array {
+        $rules = array_values(array_filter($this->listPageRules($siteId), static fn (array $r): bool => !empty($r['enabled'])));
+        usort($rules, static function (array $a, array $b): int {
+            $p = ((int) ($a['priority'] ?? 100)) <=> ((int) ($b['priority'] ?? 100));
+            if ($p !== 0) { return $p; }
+            $l = strlen((string) ($b['pattern'] ?? '')) <=> strlen((string) ($a['pattern'] ?? ''));
+            if ($l !== 0) { return $l; }
+            return ((int) ($a['created_at'] ?? 0)) <=> ((int) ($b['created_at'] ?? 0));
+        });
+        foreach ($rules as $rule) {
+            $pattern = (string) ($rule['pattern'] ?? '');
+            $matched = str_ends_with($pattern, '*')
+                ? str_starts_with($path, rtrim(substr($pattern, 0, -1), '/'))
+                : $path === $pattern;
+            if ($matched) {
+                return ['matched' => true, 'rule' => $rule];
+            }
+        }
+        return ['matched' => false];
+    }
     public function getSiteCacheSettings(string $siteId): array {
         $s = Database::pdo()->prepare('SELECT * FROM site_cache_settings WHERE site_id=:site_id LIMIT 1');
         $s->execute([':site_id' => $siteId]);
@@ -225,7 +262,7 @@ class TrafficRulesService
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
     }
     private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } return $r; }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
             return $this->redirectV2ColumnsAvailable;

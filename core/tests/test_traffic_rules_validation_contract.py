@@ -24,6 +24,7 @@ $badWafPatch = $c->updateWaf('site-1', 'rule-1', ['type' => 'country_is']);
 $badCachePatch = $c->updateCacheRule('site-1', 'rule-2', ['ttl_seconds' => 0]);
 $badRedirectMatchType = $c->createRedirect('site-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
 $badRedirectPriority = $c->updateRedirect('site-1', 'rule-9', ['priority' => 0]);
+$badPageRule = $c->createPageRule('site-1', ['pattern' => 'admin/*', 'actions' => ['cache' => 'bypass']]);
 
 echo json_encode([
   'badRedirect' => $badRedirect,
@@ -34,6 +35,7 @@ echo json_encode([
   'badCachePatch' => $badCachePatch,
   'badRedirectMatchType' => $badRedirectMatchType,
   'badRedirectPriority' => $badRedirectPriority,
+  'badPageRule' => $badPageRule,
 ], JSON_UNESCAPED_SLASHES);
 '''
     out = run_php(script)
@@ -61,3 +63,6 @@ echo json_encode([
 
     assert out['badRedirectPriority']['error'] == 'invalid_field'
     assert out['badRedirectPriority']['field'] == 'priority'
+
+    assert out['badPageRule']['error'] == 'invalid_field'
+    assert out['badPageRule']['field'] == 'pattern'

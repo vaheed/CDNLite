@@ -45,6 +45,7 @@ class ConfigService
         $wafRules = [];
         $cacheRules = [];
         $cachePurgeVersions = [];
+        $pageRules = [];
         foreach ($hosts as $host => $siteCfg) {
             $siteId = (string) $siteCfg['site_id'];
             foreach ($this->rules->listRedirects($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
@@ -52,10 +53,11 @@ class ConfigService
             foreach ($this->rules->listWaf($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
             foreach ($this->rules->listCacheRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
             foreach ($this->rules->listCachePurgeVersionsForConfig($siteId, $host) as $row) { $cachePurgeVersions[] = $row; }
+            foreach ($this->rules->listPageRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
         }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
-        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions], JSON_UNESCAPED_SLASHES));
+        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules], JSON_UNESCAPED_SLASHES));
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
@@ -73,6 +75,7 @@ class ConfigService
                 'waf_rules' => $wafRules,
                 'cache_rules' => $cacheRules,
                 'cache_purge_versions' => $cachePurgeVersions,
+                'page_rules' => $pageRules,
                 'reused' => true,
             ];
         }
@@ -88,6 +91,7 @@ class ConfigService
             'waf_rules' => $wafRules,
             'cache_rules' => $cacheRules,
             'cache_purge_versions' => $cachePurgeVersions,
+            'page_rules' => $pageRules,
         ];
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
@@ -106,6 +110,7 @@ class ConfigService
                     'waf_rules' => $wafRules,
                     'cache_rules' => $cacheRules,
                     'cache_purge_versions' => $cachePurgeVersions,
+                    'page_rules' => $pageRules,
                     'reused' => true,
                 ];
             }
