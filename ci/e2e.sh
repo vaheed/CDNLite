@@ -26,6 +26,16 @@ on_error() {
   local line="${1:-unknown}"
   local cmd="${2:-unknown}"
   echo "e2e: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
+  echo "----- e2e progress -----"
+  if [[ ${#STEP_LINES[@]} -gt 0 ]]; then
+    printf '%s\n' "${STEP_LINES[@]}"
+  else
+    echo "no recorded steps completed"
+  fi
+  if [[ -s "$REPORT_MD" ]]; then
+    echo "----- ${REPORT_MD} -----"
+    cat "$REPORT_MD" || true
+  fi
   docker compose ps || true
   docker compose logs --no-color || true
   for svc in core edge edge-agent postgres powerdns; do
@@ -193,6 +203,8 @@ retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core and edge health passed"
 
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null
+docker compose exec -T edge-agent sh -lc '/agent/register.sh' >/dev/null
+docker compose exec -T edge-agent sh -lc '/agent/heartbeat.sh' >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned"
 
 # Site lifecycle

@@ -54,3 +54,8 @@ Both scripts write reports under `ci/reports/` by default.
 3. `e2e`: starts Compose and runs `ci/e2e.sh`.
 4. `e2e-powerdns`: starts Compose with `ci/docker-compose.ci.yml`, enables strict PowerDNS sync, and runs e2e against the mock server.
 5. `build_and_push`: on push, publishes core, edge, and edge-agent images to GHCR.
+
+The CI Compose override keeps the edge-agent container idle while e2e
+provisions the edge token, then `ci/e2e.sh` runs the agent registration and
+heartbeat scripts explicitly. This avoids startup-order noise hiding the real
+failing step in CI logs.

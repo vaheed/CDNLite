@@ -22,3 +22,6 @@ services:
   edge:
     environment:
       CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-1s}
+
+  edge-agent:
+    command: sh -lc 'touch "$${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}" "$${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}" && tail -f /dev/null'
