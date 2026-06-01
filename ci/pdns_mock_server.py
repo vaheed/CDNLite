@@ -43,6 +43,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
             return
 
+        if self.path.startswith("/api/v1/sites"):
+            self._send(500, {"error": "forced_origin_failure"})
+            return
+
         if self.path == "/debug/requests":
             self._send(200, {"data": STATE["requests"]})
             return

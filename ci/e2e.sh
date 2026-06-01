@@ -162,13 +162,28 @@ edge_cache_header_for_host() {
   rm -f "$headers"
 }
 
-edge_cache_header_is() {
+edge_wait_cache_header() {
   local host="$1"
   local path="$2"
   local expected="$3"
-  local got
-  got="$(edge_cache_header_for_host "$host" "$path")"
-  [[ "$got" == "$expected" ]]
+  local tries="${4:-20}"
+  local sleep_s="${5:-1}"
+  local got=""
+  local n=1
+  while [[ "$n" -le "$tries" ]]; do
+    got="$(edge_cache_header_for_host "$host" "$path")"
+    if [[ "$got" == "$expected" ]]; then
+      return 0
+    fi
+    n=$((n + 1))
+    sleep "$sleep_s"
+  done
+
+  local body=""
+  if [[ -s /tmp/e2e-edge-cache-body.txt ]]; then
+    body="$(tr '\n' ' ' </tmp/e2e-edge-cache-body.txt | cut -c 1-300)"
+  fi
+  fail "cache header mismatch for ${path} (expected='${expected}' got='${got}' body='${body}')"
 }
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
@@ -299,12 +314,11 @@ stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
-broken_origin_payload="$(jq -nc '{"origin_host":"cdnlite-missing-origin","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"cdnlite-missing-origin","port":8080},"IR":{"scheme":"http","host":"cdnlite-missing-origin","port":8080}}}')"
+broken_origin_payload="$(jq -nc '{"origin_host":"powerdns","origin_port":8081,"geo_origins":{"DEFAULT":{"scheme":"http","host":"powerdns","port":8081},"IR":{"scheme":"http","host":"powerdns","port":8081}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
-retry 20 1 edge_cache_header_is "${TEST_DOMAIN}" "$stale_path" "STALE" \
-  || fail "origin failure should serve stale cache"
+edge_wait_cache_header "${TEST_DOMAIN}" "$stale_path" "STALE" 20 1
 restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"

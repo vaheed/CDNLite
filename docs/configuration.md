@@ -31,6 +31,7 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | `EDGE_HOST_PORT` | `8081` | Compose | No | Host port for edge. | Not secret. |
 | `POSTGRES_HOST_PORT` | `5432` | Compose | No | Host port for PostgreSQL. | Do not expose publicly. |
 | `CORE_URL` | `http://core:8080` | agent | Yes | Core base URL. | Use trusted network. |
+| `EDGE_CONFIG_DIR` | `./edge/config` | Compose | No | Host directory mounted into edge and edge-agent at `/var/lib/cdnlite`. | Contains config and metrics. |
 | `EDGE_CONFIG_PATH` | `/var/lib/cdnlite/config.json` | agent | Yes | Snapshot write path. | Agent-writable. |
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
 | `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. | Requires API key. |
@@ -69,7 +70,7 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI overrides, 
 | Mount | Purpose |
 |---|---|
 | `pgdata:/var/lib/postgresql/data` | PostgreSQL data. |
-| `./edge/config:/var/lib/cdnlite` | Edge config and metrics shared with agent. |
+| `${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite` | Edge config and metrics shared with agent. |
 | `./edge/logs:/var/log/openresty` | OpenResty logs. |
 
 The edge container also uses `/var/cache/cdnlite` inside the container for the OpenResty proxy cache.

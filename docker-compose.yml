@@ -60,7 +60,7 @@ services:
     depends_on:
       - core
     volumes:
-      - ./edge/config:/var/lib/cdnlite
+      - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
       - ./edge/logs:/var/log/openresty
     ports:
       - "${EDGE_HOST_PORT:-8081}:8081"
@@ -87,7 +87,7 @@ services:
       EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}
       METRIC_PATH: ${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}
     volumes:
-      - ./edge/config:/var/lib/cdnlite
+      - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
 
 volumes:
   pgdata:
