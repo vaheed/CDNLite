@@ -11,8 +11,10 @@ POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
 POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
 EDGE_ID="${EDGE_ID:-edge-local-1}"
 EDGE_TOKEN="${EDGE_TOKEN:-edge-dev-token}"
+EDGE_TLS_URL="${EDGE_TLS_URL:-https://localhost:${EDGE_TLS_HOST_PORT:-8443}}"
+CDNLITE_SSL_SECRET_KEY="${CDNLITE_SSL_SECRET_KEY:-e2e-ssl-secret}"
 CI_ENV_NAME="${CI_ENV_NAME:-e2e}"
-export CORE_URL EDGE_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME
+export CORE_URL EDGE_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME
 
 RUN_KEY="${GITHUB_RUN_ID:-local}-$RANDOM"
 TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
@@ -207,6 +209,13 @@ wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core and edge health passed (readiness waits for config)"
 
+ssl_key_present="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
+if [[ "$ssl_key_present" != "set" ]]; then
+  CDNLITE_SSL_SECRET_KEY="$CDNLITE_SSL_SECRET_KEY" docker compose up -d --force-recreate core >/dev/null
+  retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
+  record_step PASS "core-recreate-ssl-secret" "recreated core with CDNLITE_SSL_SECRET_KEY for stage10 checks"
+fi
+
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null
 agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
@@ -328,6 +337,40 @@ record_step PASS "edge-proxy-health" "health endpoint proxied"
 edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/api/v1/sites?via=edge")"
 assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missing test domain"
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
+
+# Stage 10 SSL manual cert import + HTTPS edge proxy on TLS port
+tmpdir="$(mktemp -d)"
+openssl req -x509 -nodes -newkey rsa:2048 \
+  -keyout "${tmpdir}/key.pem" \
+  -out "${tmpdir}/cert.pem" \
+  -subj "/CN=${TEST_DOMAIN}" \
+  -days 365 >/dev/null 2>&1
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/ssl/manual-certificate" \
+  "$(jq -nc --arg h "${TEST_DOMAIN}" --rawfile c "${tmpdir}/cert.pem" --rawfile k "${tmpdir}/key.pem" '{hostname:$h,certificate_pem:$c,private_key_pem:$k}')"
+assert_http_status "$HTTP_CODE" "200" "ssl manual certificate import failed"
+api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/ssl/certificates"
+assert_http_status "$HTTP_CODE" "200" "ssl certificates list failed"
+assert_contains "$HTTP_BODY" "\"hostname\":\"${TEST_DOMAIN}\"" "ssl certificate hostname missing"
+if [[ "$HTTP_BODY" == *"private_key_pem"* ]]; then
+  fail "ssl certificate list should not expose private key"
+fi
+agent_exec '/agent/pull_config.sh' >/dev/null || true
+snapshot_ssl_host="$(docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"${TEST_DOMAIN}\" <<'PY'
+import json, sys
+path, host = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8') as fh:
+    data = json.load(fh)
+for row in data.get('ssl_certificates', []):
+    if row.get('hostname') == host:
+        print(row.get('hostname', ''))
+        break
+PY
+")"
+assert_eq "$snapshot_ssl_host" "$TEST_DOMAIN" "ssl certificate missing from edge snapshot"
+tls_code="$(curl -k -s -o /tmp/e2e-edge-tls.txt -w '%{http_code}' "${EDGE_TLS_URL}/api/v1/sites?via=edge-tls" -H "Host: ${TEST_DOMAIN}")"
+assert_eq "$tls_code" "200" "tls proxy request through edge failed"
+record_step PASS "ssl-manual-import-and-tls-proxy" "manual cert imported and https proxy works on ${EDGE_TLS_URL}"
+rm -rf "$tmpdir"
 
 redirect_target="https://example.com/new-destination"
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/redirects" "{\"enabled\":true,\"source_path\":\"/redirect-me\",\"target_url\":\"${redirect_target}\",\"status_code\":308}"

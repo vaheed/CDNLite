@@ -21,9 +21,10 @@ Status legend: `done`, `in progress`, `pending`.
 | Stage 5 — Database migrations and indexes | done (v1 scope) | Migration directory SQL set and `cdn:migrate` runner are now present with schema tracking and core index migrations. |
 | Stage 6 — Edge agent hardening | done (v1 scope) | `doctor.sh`, sync `last_error` status, heartbeat `config_version`, and retry backoff with jitter are now implemented and documented. |
 | Stage 7 — OpenResty edge reliability | done (v1 scope) | Config schema versioning guard, request-id propagation to responses/metrics/error page, and reliability contract tests are now in place. |
-| Stage 8+ | pending | Website CDN essentials/security/SSL/purge/page-rules roadmap items remain future work. |
+| Stage 8 | done (v1 scope) | Site cache settings, cache purge requests/versions, redirects v2, page rules v1, and SSL metadata APIs are implemented. |
+| Stage 10 | in progress | Manual SSL import + edge TLS runtime path implemented; hardening and deeper lifecycle automation remain. |
 
-Next development target: **Stage 8 (website CDN essentials and security depth)**.
+Next development target: **Stage 10 hardening completion (TLS lifecycle safety and e2e depth)**.
 
 ---
 

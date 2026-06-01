@@ -182,6 +182,9 @@ class TrafficRulesService
         $now = time();
         $days = $notAfter !== null ? (int) floor(($notAfter - $now) / 86400) : null;
         $status = $notAfter !== null && $notAfter < $now ? 'expired' : 'active';
+        if ($status !== 'active') {
+            throw new \InvalidArgumentException('certificate_not_active');
+        }
 
         $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
         $s->execute([':site_id' => $siteId, ':hostname' => $hostname]);
@@ -203,11 +206,16 @@ class TrafficRulesService
         $s->execute([':site_id' => $siteId]);
         $out = [];
         foreach ($s->fetchAll() as $r) {
+            try {
+                $decrypted = Secrets::decrypt((string) $r['private_key_pem']);
+            } catch (\Throwable) {
+                continue;
+            }
             $out[] = [
                 'host' => $host,
                 'hostname' => (string) $r['hostname'],
                 'certificate_pem' => (string) $r['certificate_pem'],
-                'private_key_pem' => Secrets::decrypt((string) $r['private_key_pem']),
+                'private_key_pem' => $decrypted,
                 'status' => (string) $r['status'],
             ];
         }

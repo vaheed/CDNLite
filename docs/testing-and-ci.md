@@ -9,8 +9,8 @@
 | `core/tests/test_contract.py` | Basic response-shape contract example. |
 | `core/tests/test_edge_auth_contract.py` | Edge auth missing-token and replay behavior. |
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
-| `ci/smoke.sh` | Stack health, DB connectivity, schema, edge container, config path. |
-| `ci/e2e.sh` | Full API, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, and API auth coverage when token is configured. |
+| `ci/smoke.sh` | Stack health, DB connectivity, schema (including cache/page/ssl tables), edge container, config path. |
+| `ci/e2e.sh` | Full API, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, API auth coverage, and stage-10 SSL manual-import + TLS proxy checks. |
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |
 
 ## Local Commands

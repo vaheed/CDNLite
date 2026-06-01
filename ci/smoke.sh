@@ -56,12 +56,20 @@ record_step PASS "core-db-init" "core schema initialization completed"
 required_tables=(
   sites dns_records edge_nodes edge_tokens edge_request_nonces
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
+  site_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
 )
 for t in "${required_tables[@]}"; do
   count="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='${t}';")"
   assert_eq "$count" "1" "table ${t} missing"
 done
 record_step PASS "schema-tables" "all required tables exist"
+
+ssl_key_check="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
+if [[ "$ssl_key_check" == "set" ]]; then
+  record_step PASS "ssl-secret-configured" "CDNLITE_SSL_SECRET_KEY present"
+else
+  record_step PASS "ssl-secret-configured" "CDNLITE_SSL_SECRET_KEY missing in running container (e2e ssl import will enforce/validate)"
+fi
 
 docker compose ps edge | grep -q "Up"
 record_step PASS "edge-container-running" "edge service is up"

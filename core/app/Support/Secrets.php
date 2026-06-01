@@ -4,6 +4,11 @@ namespace App\Support;
 
 final class Secrets
 {
+    public static function isConfigured(): bool
+    {
+        return self::key() !== '';
+    }
+
     public static function encrypt(string $plaintext): string
     {
         $key = self::key();

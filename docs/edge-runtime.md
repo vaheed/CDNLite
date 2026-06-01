@@ -6,7 +6,7 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 
 ## Nginx Behavior
 
-- Listens on port `8081`.
+- Listens on port `8081` (HTTP) and `8443` (HTTPS/TLS).
 - `/health` returns `{"ok":true}` directly from Nginx and does not require a configured host.
 - Other paths run `router.handle()` in `access_by_lua_block`.
 - `proxy_pass` uses `$target_upstream` set by Lua.
@@ -19,6 +19,7 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 - Requests with `Authorization` or `Cache-Control: no-cache` / `no-store` bypass cache and are not stored.
 - Stale cached responses can be served for upstream errors, timeouts, and upstream 500, 502, 503, or 504 responses. `proxy_cache_lock` is enabled to reduce duplicate origin fetches on cache misses.
 - Access logs go to `/var/log/openresty/access.log`; error logs go to `/var/log/openresty/error.log`.
+- HTTPS SNI certificate selection uses Lua (`tls_cert.lua`) and cert material from config snapshot `ssl_certificates`.
 
 ## Host-Based Routing
 

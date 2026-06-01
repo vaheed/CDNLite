@@ -3,6 +3,7 @@
 namespace App\Modules\Proxy\Http\Controllers;
 
 use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Support\Secrets;
 use App\Support\Validator;
 
 class TrafficRulesController
@@ -219,6 +220,9 @@ class TrafficRulesController
         return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
     }
     public function importManualSslCertificate(string $siteId, array $body): array {
+        if (!Secrets::isConfigured()) {
+            return ['error' => 'invalid_field', 'field' => 'CDNLITE_SSL_SECRET_KEY', 'detail' => 'missing_required_env', 'status' => 422];
+        }
         $hostname = Validator::requiredString($body, 'hostname', 255);
         if (($hostname['ok'] ?? false) !== true) { return $hostname; }
         $cert = Validator::requiredString($body, 'certificate_pem', 65535);
@@ -234,6 +238,8 @@ class TrafficRulesController
             )];
         } catch (\InvalidArgumentException $e) {
             return ['error' => 'invalid_field', 'field' => 'certificate', 'detail' => $e->getMessage(), 'status' => 422];
+        } catch (\RuntimeException $e) {
+            return ['error' => 'invalid_field', 'field' => 'CDNLITE_SSL_SECRET_KEY', 'detail' => $e->getMessage(), 'status' => 422];
         }
     }
 }
