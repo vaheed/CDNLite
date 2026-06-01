@@ -46,6 +46,7 @@ class ConfigService
         $cacheRules = [];
         $cachePurgeVersions = [];
         $pageRules = [];
+        $sslCertificates = [];
         foreach ($hosts as $host => $siteCfg) {
             $siteId = (string) $siteCfg['site_id'];
             foreach ($this->rules->listRedirects($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
@@ -54,10 +55,11 @@ class ConfigService
             foreach ($this->rules->listCacheRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
             foreach ($this->rules->listCachePurgeVersionsForConfig($siteId, $host) as $row) { $cachePurgeVersions[] = $row; }
             foreach ($this->rules->listPageRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
+            foreach ($this->rules->listSslCertificatesForConfig($siteId, $host) as $row) { $sslCertificates[] = $row; }
         }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
-        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules], JSON_UNESCAPED_SLASHES));
+        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
@@ -76,6 +78,7 @@ class ConfigService
                 'cache_rules' => $cacheRules,
                 'cache_purge_versions' => $cachePurgeVersions,
                 'page_rules' => $pageRules,
+                'ssl_certificates' => $sslCertificates,
                 'reused' => true,
             ];
         }
@@ -92,6 +95,7 @@ class ConfigService
             'cache_rules' => $cacheRules,
             'cache_purge_versions' => $cachePurgeVersions,
             'page_rules' => $pageRules,
+            'ssl_certificates' => $sslCertificates,
         ];
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
@@ -111,6 +115,7 @@ class ConfigService
                     'cache_rules' => $cacheRules,
                     'cache_purge_versions' => $cachePurgeVersions,
                     'page_rules' => $pageRules,
+                    'ssl_certificates' => $sslCertificates,
                     'reused' => true,
                 ];
             }

@@ -218,4 +218,22 @@ class TrafficRulesController
         }
         return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
     }
+    public function importManualSslCertificate(string $siteId, array $body): array {
+        $hostname = Validator::requiredString($body, 'hostname', 255);
+        if (($hostname['ok'] ?? false) !== true) { return $hostname; }
+        $cert = Validator::requiredString($body, 'certificate_pem', 65535);
+        if (($cert['ok'] ?? false) !== true) { return $cert; }
+        $key = Validator::requiredString($body, 'private_key_pem', 65535);
+        if (($key['ok'] ?? false) !== true) { return $key; }
+        try {
+            return ['data' => $this->service->importManualSslCertificate(
+                $siteId,
+                strtolower((string) $hostname['value']),
+                (string) $cert['value'],
+                (string) $key['value']
+            )];
+        } catch (\InvalidArgumentException $e) {
+            return ['error' => 'invalid_field', 'field' => 'certificate', 'detail' => $e->getMessage(), 'status' => 422];
+        }
+    }
 }

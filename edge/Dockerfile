@@ -1,6 +1,6 @@
 FROM openresty/openresty:1.27.1.2-0-alpine
 
-RUN apk add --no-cache lua-cjson \
+RUN apk add --no-cache lua-cjson openssl \
   && mkdir -p /var/cache/cdnlite /var/log/openresty \
   && chown -R nobody:nobody /var/cache/cdnlite /var/log/openresty
 
@@ -14,6 +14,6 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY openresty/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf.template
 COPY openresty/lua /etc/openresty/lua
 RUN chmod +x /docker-entrypoint.sh
-EXPOSE 8081
+EXPOSE 8081 8443
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]

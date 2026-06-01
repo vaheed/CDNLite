@@ -270,7 +270,12 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
   renewal_due_at BIGINT NULL,
   last_checked_at BIGINT NULL,
   last_error TEXT NULL,
+  certificate_pem TEXT NULL,
+  private_key_pem TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   UNIQUE(site_id, hostname)
 );
+
+ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;
+ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS private_key_pem TEXT NULL;

@@ -70,6 +70,7 @@ services:
       - ./edge/logs:/var/log/openresty
     ports:
       - "${EDGE_HOST_PORT:-8081}:8081"
+      - "${EDGE_TLS_HOST_PORT:-8443}:8443"
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_REGION: ${EDGE_REGION:-local}
