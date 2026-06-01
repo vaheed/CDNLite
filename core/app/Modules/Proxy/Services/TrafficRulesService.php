@@ -9,6 +9,7 @@ use App\Support\Uuid;
 class TrafficRulesService
 {
     private ?bool $redirectV2ColumnsAvailable = null;
+    private ?bool $rateLimitV2TableAvailable = null;
 
     public function listRedirects(string $siteId): array { return $this->listRows('redirect_rules', $siteId); }
     public function createRedirect(string $siteId, array $in): array {
@@ -85,8 +86,18 @@ class TrafficRulesService
     public function listWaf(string $siteId): array { return $this->listRows('waf_rules', $siteId); }
     public function createWaf(string $siteId, array $in): array {
         $type = (string)($in['type'] ?? '');
-        if (!in_array($type, ['path_contains','user_agent_contains'], true)) { throw new \InvalidArgumentException('invalid_type'); }
-        return $this->insert('waf_rules', $siteId, ['enabled'=>!empty($in['enabled']),'type'=>$type,'pattern'=>(string)($in['pattern'] ?? '')]);
+        if (!in_array($type, ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) { throw new \InvalidArgumentException('invalid_type'); }
+        $action = (string)($in['action'] ?? 'block');
+        if (!in_array($action, ['block', 'log', 'allow'], true)) { throw new \InvalidArgumentException('invalid_action'); }
+        return $this->insert('waf_rules', $siteId, [
+            'enabled' => !empty($in['enabled']),
+            'name' => isset($in['name']) ? (string) $in['name'] : null,
+            'priority' => (int) ($in['priority'] ?? 100),
+            'type' => $type,
+            'pattern' => (string)($in['pattern'] ?? ''),
+            'action' => $action,
+            'description' => isset($in['description']) ? (string) $in['description'] : null,
+        ]);
     }
     public function updateWaf(string $siteId, string $id, array $in): ?array { return $this->update('waf_rules', $siteId, $id, $in); }
     public function deleteWaf(string $siteId, string $id): bool { return $this->delete('waf_rules', $siteId, $id); }
@@ -318,23 +329,78 @@ class TrafficRulesService
         }
         return $rows;
     }
+    public function listSecurityEvents(string $siteId, ?string $type = null, int $limit = 100): array {
+        $query = 'SELECT id,event,details_json,created_at FROM audit_log WHERE site_id=:site_id';
+        $params = [':site_id' => $siteId];
+        if ($type !== null && $type !== '') {
+            $query .= ' AND event=:event';
+            $params[':event'] = $type;
+        }
+        $query .= ' ORDER BY created_at DESC LIMIT :limit';
+        $stmt = Database::pdo()->prepare($query);
+        $stmt->bindValue(':site_id', $siteId);
+        if (array_key_exists(':event', $params)) {
+            $stmt->bindValue(':event', $params[':event']);
+        }
+        $stmt->bindValue(':limit', max(1, min(500, $limit)), \PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $rows[] = [
+                'id' => (string) $row['id'],
+                'type' => (string) $row['event'],
+                'details' => json_decode((string) ($row['details_json'] ?? '{}'), true) ?: [],
+                'created_at' => (int) $row['created_at'],
+            ];
+        }
+        return $rows;
+    }
 
     public function getRateLimit(string $siteId): ?array {
-        $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE site_id=:site_id LIMIT 1'); $s->execute([':site_id'=>$siteId]); $r = $s->fetch(); return $r ? $this->cast($r):null;
+        if ($this->rateLimitV2Supported()) {
+            $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules_v2 WHERE site_id=:site_id ORDER BY priority ASC, created_at ASC LIMIT 1');
+            $s->execute([':site_id'=>$siteId]); $r = $s->fetch(); return $r ? $this->cast($r):null;
+        }
+        $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE site_id=:site_id LIMIT 1');
+        $s->execute([':site_id'=>$siteId]); $r = $s->fetch();
+        if (!$r) { return null; }
+        $row = $this->cast((array) $r);
+        $row['priority'] = 100;
+        $row['path_prefix'] = '/';
+        $row['key_type'] = 'ip';
+        $row['action'] = 'block';
+        return $row;
     }
     public function setRateLimit(string $siteId, array $in): array {
         $now=time(); $existing=$this->getRateLimit($siteId); $rpm=(int)($in['requests_per_minute'] ?? 60); $enabled=!empty($in['enabled']);
+        $priority = (int)($in['priority'] ?? 100);
+        $pathPrefix = (string)($in['path_prefix'] ?? '/');
+        $keyType = (string)($in['key_type'] ?? 'ip');
+        $action = (string)($in['action'] ?? 'block');
         if ($existing) {
-            $s=Database::pdo()->prepare('UPDATE rate_limit_rules SET enabled=:enabled,requests_per_minute=:rpm,updated_at=:u WHERE id=:id');
-            $s->execute([':enabled'=>(int)$enabled,':rpm'=>$rpm,':u'=>$now,':id'=>$existing['id']]);
+            if (!$this->rateLimitV2Supported()) {
+                $s=Database::pdo()->prepare('UPDATE rate_limit_rules SET enabled=:enabled,requests_per_minute=:rpm,updated_at=:u WHERE id=:id');
+                $s->execute([':enabled'=>(int)$enabled,':rpm'=>$rpm,':u'=>$now,':id'=>$existing['id']]);
+                return $this->getRateLimit($siteId);
+            }
+            $s=Database::pdo()->prepare('UPDATE rate_limit_rules_v2 SET enabled=:enabled,priority=:priority,path_prefix=:path_prefix,key_type=:key_type,requests_per_minute=:rpm,action=:action,updated_at=:u WHERE id=:id');
+            $s->execute([':enabled'=>(int)$enabled,':priority'=>$priority,':path_prefix'=>$pathPrefix,':key_type'=>$keyType,':rpm'=>$rpm,':action'=>$action,':u'=>$now,':id'=>$existing['id']]);
             return $this->getRateLimit($siteId);
         }
         $id=Uuid::v4();
-        $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules (id,site_id,enabled,requests_per_minute,created_at,updated_at) VALUES (:id,:site,:en,:rpm,:c,:u)');
-        $s->execute([':id'=>$id,':site'=>$siteId,':en'=>(int)$enabled,':rpm'=>$rpm,':c'=>$now,':u'=>$now]);
+        if (!$this->rateLimitV2Supported()) {
+            $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules (id,site_id,enabled,requests_per_minute,created_at,updated_at) VALUES (:id,:site,:en,:rpm,:c,:u)');
+            $s->execute([':id'=>$id,':site'=>$siteId,':en'=>(int)$enabled,':rpm'=>$rpm,':c'=>$now,':u'=>$now]);
+            return $this->getRateLimit($siteId);
+        }
+        $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules_v2 (id,site_id,enabled,priority,path_prefix,key_type,requests_per_minute,action,created_at,updated_at) VALUES (:id,:site,:en,:priority,:path_prefix,:key_type,:rpm,:action,:c,:u)');
+        $s->execute([':id'=>$id,':site'=>$siteId,':en'=>(int)$enabled,':priority'=>$priority,':path_prefix'=>$pathPrefix,':key_type'=>$keyType,':rpm'=>$rpm,':action'=>$action,':c'=>$now,':u'=>$now]);
         return $this->getRateLimit($siteId);
     }
-    public function disableRateLimit(string $siteId): bool { $s=Database::pdo()->prepare('DELETE FROM rate_limit_rules WHERE site_id=:site'); $s->execute([':site'=>$siteId]); return $s->rowCount()>0; }
+    public function disableRateLimit(string $siteId): bool {
+        $table = $this->rateLimitV2Supported() ? 'rate_limit_rules_v2' : 'rate_limit_rules';
+        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE site_id=:site"); $s->execute([':site'=>$siteId]); return $s->rowCount()>0;
+    }
 
     private function listRows(string $table, string $siteId): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE site_id=:site_id ORDER BY created_at ASC"); $s->execute([':site_id'=>$siteId]); return array_map([$this,'cast'], $s->fetchAll()); }
     private function insert(string $table, string $siteId, array $in): array {
@@ -352,7 +418,7 @@ class TrafficRulesService
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
     }
     private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
             return $this->redirectV2ColumnsAvailable;
@@ -361,5 +427,14 @@ class TrafficRulesService
         $s->execute();
         $this->redirectV2ColumnsAvailable = $s->fetchColumn() !== false;
         return $this->redirectV2ColumnsAvailable;
+    }
+    private function rateLimitV2Supported(): bool {
+        if ($this->rateLimitV2TableAvailable !== null) {
+            return $this->rateLimitV2TableAvailable;
+        }
+        $s = Database::pdo()->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='rate_limit_rules_v2' LIMIT 1");
+        $s->execute();
+        $this->rateLimitV2TableAvailable = $s->fetchColumn() !== false;
+        return $this->rateLimitV2TableAvailable;
     }
 }

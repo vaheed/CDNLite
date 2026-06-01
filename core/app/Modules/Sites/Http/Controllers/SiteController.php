@@ -38,6 +38,20 @@ class SiteController
         if (($originScheme['ok'] ?? false) !== true) {
             return $originScheme;
         }
+        if (array_key_exists('origin_shield_header_name', $input)) {
+            $header = Validator::optionalString($input, 'origin_shield_header_name', 255);
+            if (($header['ok'] ?? false) !== true) {
+                return $header;
+            }
+        }
+        if (array_key_exists('origin_shield_secret', $input)) {
+            $secret = Validator::requiredString($input, 'origin_shield_secret', 4096);
+            if (($secret['ok'] ?? false) !== true) {
+                return $secret;
+            }
+            $input['origin_shield_header_value_hash'] = hash('sha256', (string) $secret['value']);
+            unset($input['origin_shield_secret']);
+        }
 
         if ($this->service->findByDomain((string) $domain['value']) !== null) {
             return ['error' => 'domain_already_exists', 'status' => 422];
@@ -86,6 +100,20 @@ class SiteController
                 return $scheme;
             }
             $input['origin_scheme'] = $scheme['value'];
+        }
+        if (array_key_exists('origin_shield_header_name', $input)) {
+            $header = Validator::optionalString($input, 'origin_shield_header_name', 255);
+            if (($header['ok'] ?? false) !== true) {
+                return $header;
+            }
+        }
+        if (array_key_exists('origin_shield_secret', $input)) {
+            $secret = Validator::requiredString($input, 'origin_shield_secret', 4096);
+            if (($secret['ok'] ?? false) !== true) {
+                return $secret;
+            }
+            $input['origin_shield_header_value_hash'] = hash('sha256', (string) $secret['value']);
+            unset($input['origin_shield_secret']);
         }
 
         if (isset($input['domain'])) {

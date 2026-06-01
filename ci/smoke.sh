@@ -57,12 +57,17 @@ required_tables=(
   sites dns_records edge_nodes edge_tokens edge_request_nonces
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
   site_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
+  rate_limit_rules_v2 audit_log
 )
 for t in "${required_tables[@]}"; do
   count="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='${t}';")"
   assert_eq "$count" "1" "table ${t} missing"
 done
 record_step PASS "schema-tables" "all required tables exist"
+
+waf_action_col="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='waf_rules' AND column_name='action';")"
+assert_eq "$waf_action_col" "1" "waf_rules.action column missing"
+record_step PASS "schema-waf-v2-column" "waf_rules.action column exists"
 
 ssl_key_check="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
 if [[ "$ssl_key_check" == "set" ]]; then

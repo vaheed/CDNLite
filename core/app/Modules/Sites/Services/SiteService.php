@@ -28,8 +28,8 @@ class SiteService
         $now = time();
         $id = Uuid::v4();
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO sites (id, user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
-             VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
+            'INSERT INTO sites (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, created_at, updated_at)
+             VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :origin_shield_header_name, :origin_shield_header_value_hash, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
         );
         $stmt->execute([
             ':id' => $id,
@@ -39,6 +39,8 @@ class SiteService
             ':origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
             ':origin_host' => (string) $input['origin_host'],
             ':origin_port' => (int) ($input['origin_port'] ?? 8080),
+            ':origin_shield_header_name' => array_key_exists('origin_shield_header_name', $input) ? (string) $input['origin_shield_header_name'] : null,
+            ':origin_shield_header_value_hash' => array_key_exists('origin_shield_header_value_hash', $input) ? (string) $input['origin_shield_header_value_hash'] : null,
             ':geo_origins_json' => $this->encodeGeoOrigins($input['geo_origins'] ?? null),
             ':proxy_enabled' => (int) ((bool) ($input['proxy_enabled'] ?? true)),
             ':status' => 'active',
@@ -68,12 +70,14 @@ class SiteService
             'origin_scheme' => $existing['origin_scheme'],
             'origin_host' => $existing['origin_host'],
             'origin_port' => $existing['origin_port'],
+            'origin_shield_header_name' => $existing['origin_shield_header_name'] ?? null,
+            'origin_shield_header_value_hash' => $existing['origin_shield_header_value_hash'] ?? null,
             'geo_origins_json' => $this->encodeGeoOrigins($existing['geo_origins']),
             'proxy_enabled' => (int) $existing['proxy_enabled'],
             'status' => $existing['status'],
         ];
 
-        foreach (['name', 'domain', 'origin_scheme', 'origin_host', 'status'] as $field) {
+        foreach (['name', 'domain', 'origin_scheme', 'origin_host', 'status', 'origin_shield_header_name', 'origin_shield_header_value_hash'] as $field) {
             if (isset($input[$field])) {
                 $patch[$field] = (string) $input[$field];
             }
@@ -95,6 +99,8 @@ class SiteService
                 origin_scheme = :origin_scheme,
                 origin_host = :origin_host,
                 origin_port = :origin_port,
+                origin_shield_header_name = :origin_shield_header_name,
+                origin_shield_header_value_hash = :origin_shield_header_value_hash,
                 geo_origins_json = :geo_origins_json,
                 proxy_enabled = :proxy_enabled,
                 status = :status,
@@ -108,6 +114,8 @@ class SiteService
             ':origin_scheme' => $patch['origin_scheme'],
             ':origin_host' => $patch['origin_host'],
             ':origin_port' => $patch['origin_port'],
+            ':origin_shield_header_name' => $patch['origin_shield_header_name'],
+            ':origin_shield_header_value_hash' => $patch['origin_shield_header_value_hash'],
             ':geo_origins_json' => $patch['geo_origins_json'],
             ':proxy_enabled' => $patch['proxy_enabled'],
             ':status' => $patch['status'],

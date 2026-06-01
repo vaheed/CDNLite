@@ -253,6 +253,10 @@ updated_name="$(json_get "$HTTP_BODY" '.data.name')"
 assert_eq "$updated_name" "e2e-site-updated" "site name update mismatch"
 record_step PASS "site-update" "site updated"
 
+api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_shield_header_name":"X-CDNLITE-Origin-Secret","origin_shield_secret":"stage9-origin-secret"}'
+assert_http_status "$HTTP_CODE" "200" "origin shield update failed"
+record_step PASS "site-origin-shield-update" "origin shield metadata updated"
+
 api_post "${CORE_URL}/api/v1/sites" '{"name":"bad","origin_host":"core"}'
 assert_http_status "$HTTP_CODE" "422" "missing domain validation expected"
 record_step PASS "site-validation-missing-domain" "422 returned"
@@ -265,9 +269,28 @@ api_patch "${CORE_URL}/api/v1/sites/99999999" '{"name":"nope"}'
 assert_http_status "$HTTP_CODE" "404" "unknown site should 404"
 record_step PASS "site-validation-unknown" "unknown site 404"
 
+api_put "${CORE_URL}/api/v1/sites/${SITE_ID}/rate-limit" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}'
+assert_http_status "$HTTP_CODE" "200" "rate-limit v2 update failed"
+rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
+assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
+record_step PASS "rate-limit-v2" "path_prefix=/login key_type=ip_path"
+
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/waf-rules" '{"enabled":true,"name":"block-admin","priority":20,"type":"path_prefix","pattern":"/admin","action":"block","description":"block admin path"}'
+assert_http_status "$HTTP_CODE" "201" "waf v2 create failed"
+WAF_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+record_step PASS "waf-v2-create" "rule_id=${WAF_RULE_ID}"
+
+api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/waf-rules"
+assert_http_status "$HTTP_CODE" "200" "waf list failed"
+assert_contains "$HTTP_BODY" '"type":"path_prefix"' "waf v2 type missing"
+assert_contains "$HTTP_BODY" '"action":"block"' "waf v2 action missing"
+record_step PASS "waf-v2-list" "waf v2 fields visible"
+
 # Force and verify config propagation to edge before route assertions.
 agent_exec '/agent/pull_config.sh' >/dev/null || true
 edge_wait_config_host "${TEST_DOMAIN}"
+retry 30 1 docker compose exec -T edge-agent sh -lc "grep -Fq 'X-CDNLITE-Origin-Secret' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
+record_step PASS "origin-shield-config" "origin shield header present in edge config"
 
 # DNS lifecycle
 create_dns() {
@@ -303,6 +326,12 @@ for needle in '"type":"A"' '"type":"AAAA"' '"type":"CNAME"' '"type":"TXT"' '"typ
   assert_contains "$HTTP_BODY" "$needle" "dns list missing ${needle}"
 done
 record_step PASS "dns-list" "all record types listed"
+
+docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; \$pdo=App\\Support\\Database::pdo(); \$q=\$pdo->prepare('INSERT INTO audit_log (id,actor_type,actor_id,action,resource_type,resource_id,site_id,details_json,event,created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)'); \$q->execute([':id'=>App\\Support\\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'${EDGE_ID}',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'${WAF_RULE_ID}',':site_id'=>'${SITE_ID}',':details_json'=>'{\"decision\":\"block\"}',':event'=>'waf_match',':created_at'=>time()]); echo 'ok';" >/dev/null
+api_get "${CORE_URL}/api/v1/sites/${SITE_ID}/security/events?type=waf_match&limit=5"
+assert_http_status "$HTTP_CODE" "200" "security events list failed"
+assert_contains "$HTTP_BODY" '"type":"waf_match"' "security event type missing"
+record_step PASS "security-events" "waf_match event visible via api"
 
 del_id="${DNS_IDS[0]}"
 api_delete "${CORE_URL}/api/v1/sites/${SITE_ID}/dns/records/${del_id}"

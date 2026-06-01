@@ -77,6 +77,25 @@ class TrafficRulesController
     public function setRateLimit(string $siteId, array $body): array {
         $rpm = Validator::intRange($body, 'requests_per_minute', 1, 100000, 60);
         if (($rpm['ok'] ?? false) !== true) { return $rpm; }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
+        }
+        if (array_key_exists('path_prefix', $body)) {
+            $path = Validator::requiredString($body, 'path_prefix', 2048);
+            if (($path['ok'] ?? false) !== true) { return $path; }
+            if (!str_starts_with((string) $path['value'], '/')) {
+                return ['error' => 'invalid_field', 'field' => 'path_prefix', 'detail' => 'must_start_with_slash', 'status' => 422];
+            }
+        }
+        if (array_key_exists('key_type', $body)) {
+            $keyType = Validator::enum($body, 'key_type', ['ip', 'ip_path']);
+            if (($keyType['ok'] ?? false) !== true) { return $keyType; }
+        }
+        if (array_key_exists('action', $body)) {
+            $action = Validator::enum($body, 'action', ['block']);
+            if (($action['ok'] ?? false) !== true) { return $action; }
+        }
         return ['data' => $this->service->setRateLimit($siteId, $body)];
     }
     public function getRateLimit(string $siteId): array { $r=$this->service->getRateLimit($siteId); return $r?['data'=>$r]:['error'=>'rate_limit_not_found','status'=>404]; }
@@ -85,11 +104,27 @@ class TrafficRulesController
     public function createWaf(string $siteId, array $body): array {
         $type = Validator::requiredString($body, 'type', 64);
         if (($type['ok'] ?? false) !== true) { return $type; }
-        if (!in_array((string) $type['value'], ['path_contains', 'user_agent_contains'], true)) {
-            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_user_agent_contains', 'status' => 422];
+        if (!in_array((string) $type['value'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains', 'status' => 422];
         }
         $pattern = Validator::requiredString($body, 'pattern', 2048);
         if (($pattern['ok'] ?? false) !== true) { return $pattern; }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
+        }
+        if (array_key_exists('action', $body)) {
+            $action = Validator::enum($body, 'action', ['block', 'log', 'allow']);
+            if (($action['ok'] ?? false) !== true) { return $action; }
+        }
+        if (array_key_exists('name', $body)) {
+            $name = Validator::optionalString($body, 'name', 255);
+            if (($name['ok'] ?? false) !== true) { return $name; }
+        }
+        if (array_key_exists('description', $body)) {
+            $description = Validator::optionalString($body, 'description', 2048);
+            if (($description['ok'] ?? false) !== true) { return $description; }
+        }
         return ['data' => $this->service->createWaf($siteId, $body)];
     }
     public function listWaf(string $siteId): array { return ['data' => $this->service->listWaf($siteId)]; }
@@ -109,11 +144,18 @@ class TrafficRulesController
     }
     public function listCacheRules(string $siteId): array { return ['data' => $this->service->listCacheRules($siteId)]; }
     public function updateWaf(string $siteId, string $id, array $body): array {
-        if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'user_agent_contains'], true)) {
-            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_user_agent_contains', 'status' => 422];
+        if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains', 'status' => 422];
         }
         if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || trim((string) $body['pattern']) === '')) {
             return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_be_non_empty_string', 'status' => 422];
+        }
+        if (array_key_exists('action', $body) && !in_array((string) $body['action'], ['block', 'log', 'allow'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'action', 'detail' => 'must_be_one_of_block_log_allow', 'status' => 422];
+        }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
         }
         $r=$this->service->updateWaf($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'waf_not_found','status'=>404];
     }
@@ -218,6 +260,17 @@ class TrafficRulesController
             }
         }
         return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
+    }
+    public function listSecurityEvents(string $siteId, array $query): array {
+        $type = null;
+        if (array_key_exists('type', $query) && is_string($query['type']) && trim((string) $query['type']) !== '') {
+            $type = trim((string) $query['type']);
+        }
+        $limit = 100;
+        if (array_key_exists('limit', $query) && is_string($query['limit']) && ctype_digit($query['limit'])) {
+            $limit = (int) $query['limit'];
+        }
+        return ['data' => $this->service->listSecurityEvents($siteId, $type, $limit)];
     }
     public function importManualSslCertificate(string $siteId, array $body): array {
         if (!Secrets::isConfigured()) {

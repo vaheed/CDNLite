@@ -37,6 +37,12 @@ class ConfigService
                 'headers' => ['X-CDNLITE-Site' => (string) $site['id']],
                 'dns_records' => $this->dns->listBySite((string) $site['id']),
             ];
+            $shieldHeaderName = isset($site['origin_shield_header_name']) ? trim((string) $site['origin_shield_header_name']) : '';
+            $shieldHash = isset($site['origin_shield_header_value_hash']) ? trim((string) $site['origin_shield_header_value_hash']) : '';
+            $shieldSecret = (string) (getenv('CDNLITE_ORIGIN_SHIELD_SECRET') ?: '');
+            if ($shieldHeaderName !== '' && $shieldHash !== '' && $shieldSecret !== '' && hash('sha256', $shieldSecret) === $shieldHash) {
+                $hosts[$site['domain']]['headers'][$shieldHeaderName] = $shieldSecret;
+            }
         }
 
         ksort($hosts);

@@ -18,6 +18,9 @@ def test_stage5_migration_files_exist_in_order():
         "009_page_rules_v1.sql",
         "010_ssl_certificates_v1.sql",
         "011_ssl_manual_certificates.sql",
+        "012_waf_rules_v2.sql",
+        "013_rate_limit_rules_v2.sql",
+        "014_origin_shield_header.sql",
     ]
 
 

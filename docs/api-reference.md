@@ -65,6 +65,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | GET | `/api/v1/sites/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for site hostnames. |
 | POST | `/api/v1/sites/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
 | POST | `/api/v1/sites/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
+| GET | `/api/v1/sites/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List site security events from audit log. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -94,7 +95,8 @@ Success:
 
 ### POST /api/v1/sites
 
-Required JSON fields: `name`, `domain`, `origin_host`. Optional: `user_id`, `origin_scheme` default `http`, `origin_port` default `8080`, `geo_origins`, `proxy_enabled` default `true`.
+Required JSON fields: `name`, `domain`, `origin_host`. Optional: `user_id`, `origin_scheme` default `http`, `origin_port` default `8080`, `geo_origins`, `proxy_enabled` default `true`, `origin_shield_header_name`, `origin_shield_secret`.
+If `origin_shield_secret` is provided, core stores only its SHA-256 hash and never stores the plaintext in the database.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
@@ -122,7 +124,7 @@ curl -s http://localhost:8080/api/v1/sites
 
 ### PATCH /api/v1/sites/{id}
 
-Patchable fields: `name`, `domain`, `origin_scheme`, `origin_host`, `origin_port`, `geo_origins`, `proxy_enabled`, `status`.
+Patchable fields: `name`, `domain`, `origin_scheme`, `origin_host`, `origin_port`, `geo_origins`, `proxy_enabled`, `status`, `origin_shield_header_name`, `origin_shield_secret`.
 
 ```bash
 curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111 \
@@ -264,6 +266,7 @@ Body: `{"path":"/old-post","query":"utm_source=x"}`.
 
 Creates or updates a site rate-limit rule.
 Validation: `requests_per_minute` must be an integer between `1` and `100000`.
+Optional fields: `priority` (`1..100000`), `path_prefix` (must start with `/`), `key_type` (`ip` or `ip_path`), `action` (`block`).
 
 ### GET /api/v1/sites/{id}/rate-limit
 
@@ -278,7 +281,7 @@ Disables/removes the active site rate-limit rule.
 ### POST /api/v1/sites/{id}/waf-rules
 
 Creates a WAF rule for the site.
-Validation: `type` must be `path_contains` or `user_agent_contains`; `pattern` must be a non-empty string.
+Validation: `type` must be one of `path_contains`, `path_prefix`, `user_agent_contains`, `ip_cidr`, `country_is`, `method_is`, `header_contains`; `action` (optional) must be one of `block`, `log`, `allow`; `priority` (optional) must be `1..100000`; `pattern` must be a non-empty string.
 Patch validation: same constraints apply to provided fields.
 
 ### GET /api/v1/sites/{id}/waf-rules
@@ -328,6 +331,16 @@ Updates one WAF rule.
 ### DELETE /api/v1/sites/{id}/waf-rules/{wafId}
 
 Deletes one WAF rule.
+
+## Security Events
+
+### GET /api/v1/sites/{id}/security/events
+
+Returns recent events from `audit_log` for the site, newest first.
+
+Optional query params:
+- `type`: filter by event type (exact match).
+- `limit`: max rows to return (`1..500`, default `100`).
 
 ## Cache Rules
 

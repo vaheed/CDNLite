@@ -17,10 +17,12 @@ require __DIR__ . '/core/app/Support/bootstrap.php';
 $c = new App\Modules\Proxy\Http\Controllers\TrafficRulesController(new App\Modules\Proxy\Services\TrafficRulesService());
 
 $badRedirect = $c->createRedirect('site-1', ['source_path' => 'no-slash', 'target_url' => 'https://example.com']);
-$badWaf = $c->createWaf('site-1', ['type' => 'ip_cidr', 'pattern' => '1.2.3.4/32']);
+$badWaf = $c->createWaf('site-1', ['type' => 'not_valid', 'pattern' => '1.2.3.4/32']);
 $badCache = $c->createCacheRule('site-1', ['path_prefix' => 'assets', 'ttl_seconds' => 3600]);
 $badRate = $c->setRateLimit('site-1', ['requests_per_minute' => 0]);
-$badWafPatch = $c->updateWaf('site-1', 'rule-1', ['type' => 'country_is']);
+$badRatePath = $c->setRateLimit('site-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
+$badRateKeyType = $c->setRateLimit('site-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
+$badWafPatch = $c->updateWaf('site-1', 'rule-1', ['type' => 'not_valid']);
 $badCachePatch = $c->updateCacheRule('site-1', 'rule-2', ['ttl_seconds' => 0]);
 $badRedirectMatchType = $c->createRedirect('site-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
 $badRedirectPriority = $c->updateRedirect('site-1', 'rule-9', ['priority' => 0]);
@@ -33,6 +35,8 @@ echo json_encode([
   'badWaf' => $badWaf,
   'badCache' => $badCache,
   'badRate' => $badRate,
+  'badRatePath' => $badRatePath,
+  'badRateKeyType' => $badRateKeyType,
   'badWafPatch' => $badWafPatch,
   'badCachePatch' => $badCachePatch,
   'badRedirectMatchType' => $badRedirectMatchType,
@@ -54,6 +58,10 @@ echo json_encode([
 
     assert out['badRate']['error'] == 'invalid_field'
     assert out['badRate']['field'] == 'requests_per_minute'
+    assert out['badRatePath']['error'] == 'invalid_field'
+    assert out['badRatePath']['field'] == 'path_prefix'
+    assert out['badRateKeyType']['error'] == 'invalid_field'
+    assert out['badRateKeyType']['field'] == 'key_type'
 
     assert out['badWafPatch']['error'] == 'invalid_field'
     assert out['badWafPatch']['field'] == 'type'
