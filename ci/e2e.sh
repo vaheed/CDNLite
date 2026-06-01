@@ -330,7 +330,7 @@ bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Ca
 assert_eq "$bypass_cache" "BYPASS" "Cache-Control no-cache should bypass cache"
 auth_bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Authorization: Bearer e2e-token")"
 assert_eq "$auth_bypass_cache" "BYPASS" "Authorization should bypass cache"
-non_matching_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/health?via=edge-nonmatch-${RUN_KEY}")"
+non_matching_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/api/v1/collector/unknown?via=edge-nonmatch-${RUN_KEY}")"
 assert_eq "$non_matching_cache" "BYPASS" "non-matching path should bypass cache rule"
 
 stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"

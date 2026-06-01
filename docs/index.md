@@ -21,6 +21,7 @@ This documentation is based on the current repository code, scripts, Docker file
 | [Usage And Metrics](usage-and-metrics.md) | Ingest payloads, summaries, and aggregates. |
 | [Security](security.md) | Edge token and HMAC model. |
 | [Operations Runbook](operations-runbook.md) | Common operator procedures. |
+| [Production Day-2-Day Operations](production-day2day-operations.md) | Practical daily production checks, safe change flow, and rollback playbooks. |
 | [Troubleshooting](troubleshooting.md) | Symptoms, diagnostics, and fixes. |
 | [Testing And CI](testing-and-ci.md) | Tests, smoke, e2e, and GitHub Actions. |
 | [Contributing](contributing.md) | Repository conventions and checklists. |
