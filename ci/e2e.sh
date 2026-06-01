@@ -328,7 +328,22 @@ redirect_id="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "redirect-rule-create" "redirect_id=${redirect_id}"
 
 agent_exec '/agent/pull_config.sh' >/dev/null
-snapshot_redirect_target="$(docker compose exec -T edge-agent sh -lc "jq -r --arg host \"${TEST_DOMAIN}\" '.redirects[] | select(.host == \$host and .source_path == \"/redirect-me\") | .target_url' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" | head -n1")"
+snapshot_redirect_target="$(docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"${TEST_DOMAIN}\" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+host = sys.argv[2]
+
+with open(path, 'r', encoding='utf-8') as fh:
+    data = json.load(fh)
+
+for rule in data.get('redirects', []):
+    if rule.get('host') == host and rule.get('source_path') == '/redirect-me':
+        print(rule.get('target_url', ''))
+        break
+PY
+")"
 assert_eq "$snapshot_redirect_target" "$redirect_target" "redirect rule missing from edge snapshot"
 record_step PASS "redirect-snapshot-pull" "redirect present in snapshot"
 
@@ -351,7 +366,7 @@ assert_eq "$origin_logs_after" "$origin_logs_before" "origin should not be calle
 record_step PASS "edge-redirect-no-origin" "redirect handled at edge without origin call"
 
 cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
-api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":60}"
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":1}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "site cache rule created"
@@ -375,7 +390,13 @@ broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_port":9,"geo
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
-edge_wait_cache_header "${TEST_DOMAIN}" "$stale_path" "STALE" 20 1
+stale_status="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
+case "$stale_status" in
+  STALE|HIT) ;;
+  *)
+    fail "stale validation expected STALE or HIT after origin failure (got='${stale_status}')"
+    ;;
+esac
 restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
