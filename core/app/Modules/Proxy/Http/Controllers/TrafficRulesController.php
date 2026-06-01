@@ -92,4 +92,24 @@ class TrafficRulesController
         $r=$this->service->updateCacheRule($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'cache_rule_not_found','status'=>404];
     }
     public function deleteCacheRule(string $siteId, string $id): array { return $this->service->deleteCacheRule($siteId,$id)?['ok'=>true]:['error'=>'cache_rule_not_found','status'=>404]; }
+    public function getSiteCacheSettings(string $siteId): array { return ['data' => $this->service->getSiteCacheSettings($siteId)]; }
+    public function setSiteCacheSettings(string $siteId, array $body): array {
+        $enabled = Validator::bool($body, 'enabled', true);
+        if (($enabled['ok'] ?? false) !== true) { return $enabled; }
+        $edgeTtl = Validator::intRange($body, 'default_edge_ttl_seconds', 1, 31536000, 3600);
+        if (($edgeTtl['ok'] ?? false) !== true) { return $edgeTtl; }
+        if (array_key_exists('default_browser_ttl_seconds', $body) && $body['default_browser_ttl_seconds'] !== null) {
+            $browserTtl = Validator::intRange($body, 'default_browser_ttl_seconds', 1, 31536000);
+            if (($browserTtl['ok'] ?? false) !== true) { return $browserTtl; }
+        }
+        $mode = Validator::enum($body, 'cache_query_string_mode', ['include_all', 'ignore_all', 'include_allowlist']);
+        if (($mode['ok'] ?? false) !== true) { return $mode; }
+        $respect = Validator::bool($body, 'respect_origin_cache_control', true);
+        if (($respect['ok'] ?? false) !== true) { return $respect; }
+        $authorized = Validator::bool($body, 'cache_authorized_requests', false);
+        if (($authorized['ok'] ?? false) !== true) { return $authorized; }
+        $stale = Validator::intRange($body, 'stale_if_error_seconds', 0, 31536000, 86400);
+        if (($stale['ok'] ?? false) !== true) { return $stale; }
+        return ['data' => $this->service->setSiteCacheSettings($siteId, $body)];
+    }
 }

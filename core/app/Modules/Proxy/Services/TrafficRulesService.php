@@ -38,6 +38,58 @@ class TrafficRulesService
     public function createCacheRule(string $siteId, array $in): array { return $this->insert('cache_rules', $siteId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
     public function updateCacheRule(string $siteId, string $id, array $in): ?array { return $this->update('cache_rules', $siteId, $id, $in); }
     public function deleteCacheRule(string $siteId, string $id): bool { return $this->delete('cache_rules', $siteId, $id); }
+    public function getSiteCacheSettings(string $siteId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM site_cache_settings WHERE site_id=:site_id LIMIT 1');
+        $s->execute([':site_id' => $siteId]);
+        $row = $s->fetch();
+        if ($row) {
+            return $this->cast((array) $row);
+        }
+        $now = time();
+        $defaults = [
+            'site_id' => $siteId,
+            'enabled' => true,
+            'default_edge_ttl_seconds' => 3600,
+            'default_browser_ttl_seconds' => null,
+            'cache_query_string_mode' => 'include_all',
+            'respect_origin_cache_control' => true,
+            'cache_authorized_requests' => false,
+            'stale_if_error_seconds' => 86400,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+        $ins = Database::pdo()->prepare('INSERT INTO site_cache_settings (site_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,created_at,updated_at) VALUES (:site_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:created_at,:updated_at)');
+        $ins->execute([
+            ':site_id' => $siteId,
+            ':enabled' => 1,
+            ':edge' => 3600,
+            ':browser' => null,
+            ':mode' => 'include_all',
+            ':respect' => 1,
+            ':authorized' => 0,
+            ':stale' => 86400,
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]);
+        return $this->cast($defaults);
+    }
+    public function setSiteCacheSettings(string $siteId, array $in): array {
+        $existing = $this->getSiteCacheSettings($siteId);
+        $payload = [
+            ':site_id' => $siteId,
+            ':enabled' => (int) ($in['enabled'] ?? $existing['enabled']),
+            ':edge' => (int) ($in['default_edge_ttl_seconds'] ?? $existing['default_edge_ttl_seconds']),
+            ':browser' => array_key_exists('default_browser_ttl_seconds', $in) ? $in['default_browser_ttl_seconds'] : $existing['default_browser_ttl_seconds'],
+            ':mode' => (string) ($in['cache_query_string_mode'] ?? $existing['cache_query_string_mode']),
+            ':respect' => (int) ($in['respect_origin_cache_control'] ?? $existing['respect_origin_cache_control']),
+            ':authorized' => (int) ($in['cache_authorized_requests'] ?? $existing['cache_authorized_requests']),
+            ':stale' => (int) ($in['stale_if_error_seconds'] ?? $existing['stale_if_error_seconds']),
+            ':updated_at' => time(),
+        ];
+        $u = Database::pdo()->prepare('UPDATE site_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,updated_at=:updated_at WHERE site_id=:site_id');
+        $u->execute($payload);
+        return $this->getSiteCacheSettings($siteId);
+    }
 
     public function getRateLimit(string $siteId): ?array {
         $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE site_id=:site_id LIMIT 1'); $s->execute([':site_id'=>$siteId]); $r = $s->fetch(); return $r ? $this->cast($r):null;
@@ -72,5 +124,5 @@ class TrafficRulesService
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
     }
     private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
-    private function cast(array $r): array { foreach(['enabled'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i])){$r[$i]=(int)$r[$i];}} return $r; }
 }

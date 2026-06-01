@@ -49,6 +49,8 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | GET | `/api/v1/sites/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | List cache rules. |
 | PATCH | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update cache rule. |
 | DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete cache rule. |
+| GET | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Get site cache defaults and policy controls. |
+| PUT | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site cache defaults and policy controls. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -258,6 +260,25 @@ Patch validation: same constraints apply to provided fields.
 Lists WAF rules for the site.
 
 ### PATCH /api/v1/sites/{id}/waf-rules/{wafId}
+
+## Site Cache Settings
+
+### GET /api/v1/sites/{id}/cache/settings
+
+Returns site-level cache defaults. If settings do not exist yet, defaults are created and returned.
+
+### PUT /api/v1/sites/{id}/cache/settings
+
+Creates/updates site-level cache defaults and policy controls.
+
+Allowed fields:
+- `enabled` (boolean)
+- `default_edge_ttl_seconds` (integer `1..31536000`)
+- `default_browser_ttl_seconds` (integer `1..31536000` or `null`)
+- `cache_query_string_mode` (`include_all`, `ignore_all`, `include_allowlist`)
+- `respect_origin_cache_control` (boolean)
+- `cache_authorized_requests` (boolean)
+- `stale_if_error_seconds` (integer `0..31536000`)
 
 Updates one WAF rule.
 

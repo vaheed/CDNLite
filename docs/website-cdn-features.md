@@ -13,6 +13,7 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 - Site-level rate limit rule (basic model).
 - WAF custom rules (basic model).
 - Cache rules by path prefix and TTL.
+- Site cache settings API (`GET/PUT /api/v1/sites/{site_id}/cache/settings`) for default cache policy controls.
 - Edge caching with `X-CDNLITE-Cache` visibility.
 - Edge stale-cache serving in selected origin-failure cases.
 - Edge registration, heartbeat, config pull, and usage ingest with signed edge auth.
@@ -21,12 +22,11 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 ## Partially Available
 
 - Control-plane API auth: available via one bearer token (`CDNLITE_API_TOKEN`), optional unless configured.
-- Caching controls: basic cache rules exist, but richer policy controls are pending.
+- Caching controls: cache rules and site-level settings are available; purge and deeper policy behaviors are pending.
 
 ## Planned (Roadmap)
 
 - First-class cache purge API (soft purge/versioned namespace approach).
-- Site cache settings (default TTL and cache policy controls).
 - Redirects v2 (priority, richer matching, import/export, test endpoint).
 - Page rules v1 (friendly URL pattern actions).
 - SSL certificate metadata visibility and lifecycle checks.

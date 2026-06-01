@@ -130,6 +130,17 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         assert cache_code == 422
         assert cache_body["error"] == "invalid_field"
         assert cache_body["field"] == "ttl_seconds"
+
+        cache_settings_code, cache_settings_body = request_json(
+            base_url,
+            "PUT",
+            f"/api/v1/sites/{site_id}/cache/settings",
+            body={"default_edge_ttl_seconds": 0},
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        assert cache_settings_code == 422
+        assert cache_settings_body["error"] == "invalid_field"
+        assert cache_settings_body["field"] == "default_edge_ttl_seconds"
     finally:
         server.terminate()
         server.wait(timeout=5)

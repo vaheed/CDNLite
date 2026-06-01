@@ -12,6 +12,7 @@ def test_stage5_migration_files_exist_in_order():
         "003_ssl_metadata.sql",
         "004_page_rules.sql",
         "005_cache_purge.sql",
+        "006_site_cache_settings.sql",
     ]
 
 
