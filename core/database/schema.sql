@@ -137,6 +137,11 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   bytes_in BIGINT NOT NULL,
   bytes_out BIGINT NOT NULL,
   status INTEGER NOT NULL,
+  cache_status TEXT NULL,
+  rule_id TEXT NULL,
+  request_id TEXT NULL,
+  origin_status INTEGER NULL,
+  origin_time_ms INTEGER NULL,
   FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
 );
 

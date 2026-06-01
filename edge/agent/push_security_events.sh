@@ -47,11 +47,14 @@ drop_sent() {
 }
 
 [ -s "$payload_file" ] || build_payload || exit 0
-sent="$(awk 'NR==1{print int($1)}' "$count_file" 2>/dev/null || true)"
-if [ "${sent:-0}" -le 0 ]; then
-  sent="$(payload_count "$payload_file")"
+sent_count=""
+if [ -s "$count_file" ]; then
+  sent_count="$(awk 'NR==1{print int($1)}' "$count_file")"
 fi
-if [ "${sent:-0}" -le 0 ]; then
+if [ "$sent_count" = "" ] || [ "$sent_count" -le 0 ]; then
+  sent_count="$(payload_count "$payload_file")"
+fi
+if [ "$sent_count" = "" ] || [ "$sent_count" -le 0 ]; then
   echo "security-events payload is invalid; preserving payload and queue" >&2
   exit 1
 fi
@@ -75,5 +78,5 @@ if ! curl -fsS -X POST "$CORE_URL${path}" \
   exit 1
 fi
 
-drop_sent "$sent"
+drop_sent "$sent_count"
 rm -f "$payload_file" "$count_file"

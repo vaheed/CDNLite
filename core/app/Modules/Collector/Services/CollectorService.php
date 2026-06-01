@@ -7,6 +7,7 @@ use App\Support\Uuid;
 
 class CollectorService
 {
+    private ?bool $usageRollupCacheColumnsAvailable = null;
     /** @var array<string,int> */
     private array $bucketSeconds = [
         'minute' => 60,
@@ -34,15 +35,20 @@ class CollectorService
         }
 
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare(
-            'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
-             VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
-        );
+        $stmt = $this->usageRollupCacheColumnsAvailable()
+            ? $pdo->prepare(
+                'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status, rule_id, request_id, origin_status, origin_time_ms)
+                 VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms)'
+            )
+            : $pdo->prepare(
+                'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
+                 VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
+            );
 
         $count = 0;
         try {
             foreach ($items as $item) {
-                $stmt->execute([
+                $params = [
                     ':id' => Uuid::v4(),
                     ':ts' => (int) ($item['ts'] ?? $now),
                     ':site_id' => (string) ($item['site_id'] ?? ''),
@@ -51,7 +57,15 @@ class CollectorService
                     ':bytes_in' => (int) ($item['bytes_in'] ?? 0),
                     ':bytes_out' => (int) ($item['bytes_out'] ?? 0),
                     ':status' => (int) ($item['status'] ?? 0),
-                ]);
+                ];
+                if ($this->usageRollupCacheColumnsAvailable()) {
+                    $params[':cache_status'] = (string) ($item['cache_status'] ?? 'BYPASS');
+                    $params[':rule_id'] = isset($item['rule_id']) ? (string) $item['rule_id'] : null;
+                    $params[':request_id'] = isset($item['request_id']) ? (string) $item['request_id'] : null;
+                    $params[':origin_status'] = isset($item['origin_status']) ? (int) $item['origin_status'] : null;
+                    $params[':origin_time_ms'] = isset($item['origin_time_ms']) ? (int) $item['origin_time_ms'] : null;
+                }
+                $stmt->execute($params);
                 $count++;
             }
 
@@ -256,5 +270,62 @@ class CollectorService
             $pdo->rollBack();
             throw $e;
         }
+    }
+
+    public function cacheAnalytics(string $siteId): array
+    {
+        $pdo = Database::pdo();
+        if (!$this->usageRollupCacheColumnsAvailable()) {
+            return ['hit_ratio' => 0.0, 'requests' => 0, 'hit' => 0, 'miss' => 0, 'bypass' => 0, 'stale' => 0];
+        }
+
+        $stmt = $pdo->prepare(
+            'SELECT
+                COUNT(*) AS requests,
+                SUM(CASE WHEN cache_status = :hit THEN requests_count ELSE 0 END) AS hit,
+                SUM(CASE WHEN cache_status = :miss THEN requests_count ELSE 0 END) AS miss,
+                SUM(CASE WHEN cache_status = :bypass THEN requests_count ELSE 0 END) AS bypass,
+                SUM(CASE WHEN cache_status = :stale THEN requests_count ELSE 0 END) AS stale
+             FROM usage_rollups
+             WHERE site_id = :site_id'
+        );
+        $stmt->execute([
+            ':hit' => 'HIT',
+            ':miss' => 'MISS',
+            ':bypass' => 'BYPASS',
+            ':stale' => 'STALE',
+            ':site_id' => $siteId,
+        ]);
+        $row = (array) $stmt->fetch();
+        $requests = (int) ($row['requests'] ?? 0);
+        $hit = (int) ($row['hit'] ?? 0);
+        $miss = (int) ($row['miss'] ?? 0);
+        $bypass = (int) ($row['bypass'] ?? 0);
+        $stale = (int) ($row['stale'] ?? 0);
+        $ratio = $requests > 0 ? round($hit / $requests, 4) : 0.0;
+
+        return [
+            'hit_ratio' => $ratio,
+            'requests' => $requests,
+            'hit' => $hit,
+            'miss' => $miss,
+            'bypass' => $bypass,
+            'stale' => $stale,
+        ];
+    }
+
+    private function usageRollupCacheColumnsAvailable(): bool
+    {
+        if ($this->usageRollupCacheColumnsAvailable !== null) {
+            return $this->usageRollupCacheColumnsAvailable;
+        }
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='usage_rollups'
+             AND column_name IN ('cache_status', 'rule_id', 'request_id', 'origin_status', 'origin_time_ms')"
+        );
+        $stmt->execute();
+        $this->usageRollupCacheColumnsAvailable = (int) $stmt->fetchColumn() === 5;
+        return $this->usageRollupCacheColumnsAvailable;
     }
 }

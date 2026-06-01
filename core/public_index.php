@@ -221,6 +221,7 @@ $router->add('GET', '/api/v1/sites/{siteId}/ssl/certificates', static fn (Reques
 $router->add('POST', '/api/v1/sites/{siteId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['siteId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/sites/{siteId}/ssl/manual-certificate', static fn (Request $req, array $p) => Response::json($rulesController->importManualSslCertificate((string) $p['siteId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/security/events', static fn (Request $req, array $p) => Response::json($rulesController->listSecurityEvents((string) $p['siteId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['siteId'])), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);

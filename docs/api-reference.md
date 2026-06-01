@@ -66,6 +66,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | POST | `/api/v1/sites/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
 | POST | `/api/v1/sites/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
 | GET | `/api/v1/sites/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List site security events from audit log. |
+| GET | `/api/v1/sites/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one site. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -77,6 +78,18 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | GET | `/api/v1/usage/summary?site_id=...` | bearer when `CDNLITE_API_TOKEN` is set | Summarize one site. |
 | GET | `/api/v1/usage/summary?bucket=minute|hour|day` | bearer when `CDNLITE_API_TOKEN` is set | Summarize aggregate bucket. |
 | POST | `/api/v1/usage/recalculate` | bearer when `CDNLITE_API_TOKEN` is set | Rebuild aggregates. |
+
+### GET /api/v1/sites/{id}/analytics/cache
+
+Returns cache outcome totals and hit ratio for one site based on ingested usage rows.
+
+```bash
+curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/analytics/cache
+```
+
+```json
+{"data":{"hit_ratio":0.82,"requests":10000,"hit":8200,"miss":1200,"bypass":500,"stale":100}}
+```
 
 ## GET /health
 

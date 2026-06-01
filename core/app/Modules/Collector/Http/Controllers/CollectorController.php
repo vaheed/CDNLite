@@ -68,4 +68,12 @@ class CollectorController
 
         return $this->service->rebuildAggregates($siteId);
     }
+
+    public function cacheAnalytics(string $siteId): array
+    {
+        if (trim($siteId) === '') {
+            return ['error' => 'site_id_must_be_non_empty_string', 'status' => 422];
+        }
+        return ['data' => $this->service->cacheAnalytics($siteId)];
+    }
 }
