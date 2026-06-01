@@ -124,9 +124,13 @@ cache_dir="$(dirname "$EDGE_CONFIG_CACHE_PATH")"
 mkdir -p "$cache_dir"
 cache_suffix="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 cache_tmp="${cache_dir}/.$(basename "$EDGE_CONFIG_CACHE_PATH").part.${cache_suffix}"
-cp "$EDGE_CONFIG_PATH" "$cache_tmp"
-mv "$cache_tmp" "$EDGE_CONFIG_CACHE_PATH"
-chmod 0600 "$EDGE_CONFIG_CACHE_PATH"
+if [ "$EDGE_CONFIG_CACHE_PATH" != "$EDGE_CONFIG_PATH" ]; then
+  cp "$EDGE_CONFIG_PATH" "$cache_tmp"
+  mv "$cache_tmp" "$EDGE_CONFIG_CACHE_PATH"
+  chmod 0600 "$EDGE_CONFIG_CACHE_PATH"
+else
+  rm -f "$cache_tmp"
+fi
 
 write_status true "remote" "$ts"
 trap - EXIT HUP INT TERM

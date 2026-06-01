@@ -4,8 +4,8 @@ set -o errtrace
 
 source "$(dirname "$0")/lib.sh"
 
-CORE_URL="${CORE_URL:-http://localhost:8080}"
-EDGE_URL="${EDGE_URL:-http://localhost:8081}"
+CORE_URL="${CORE_URL:-http://localhost:${CORE_HOST_PORT:-8080}}"
+EDGE_URL="${EDGE_URL:-http://localhost:${EDGE_HOST_PORT:-8081}}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
 POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
 POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
@@ -162,6 +162,10 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+agent_exec() {
+  docker compose exec -T edge-agent sh -lc "CORE_URL=http://core:8080 $1"
+}
+
 edge_cache_header_for_host() {
   local host="$1"
   local path="$2"
@@ -199,14 +203,15 @@ edge_wait_cache_header() {
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
-retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
-record_step PASS "stack-ready" "core and edge health passed"
+record_step PASS "stack-ready" "core and edge health passed (readiness waits for config)"
 
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null
-docker compose exec -T edge-agent sh -lc '/agent/register.sh' >/dev/null
-docker compose exec -T edge-agent sh -lc '/agent/heartbeat.sh' >/dev/null
+agent_exec '/agent/register.sh' >/dev/null
+agent_exec '/agent/heartbeat.sh' >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null || true
+retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned"
 
 # Site lifecycle
@@ -244,7 +249,7 @@ assert_http_status "$HTTP_CODE" "404" "unknown site should 404"
 record_step PASS "site-validation-unknown" "unknown site 404"
 
 # Force and verify config propagation to edge before route assertions.
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null || true
 edge_wait_config_host "${TEST_DOMAIN}"
 
 # DNS lifecycle
@@ -322,7 +327,7 @@ assert_http_status "$HTTP_CODE" "201" "redirect rule create failed"
 redirect_id="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "redirect-rule-create" "redirect_id=${redirect_id}"
 
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
 snapshot_redirect_target="$(docker compose exec -T edge-agent sh -lc "jq -r --arg host \"${TEST_DOMAIN}\" '.redirects[] | select(.host == \$host and .source_path == \"/redirect-me\") | .target_url' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" | head -n1")"
 assert_eq "$snapshot_redirect_target" "$redirect_target" "redirect rule missing from edge snapshot"
 record_step PASS "redirect-snapshot-pull" "redirect present in snapshot"
@@ -348,7 +353,7 @@ record_step PASS "edge-redirect-no-origin" "redirect handled at edge without ori
 cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":60}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "site cache rule created"
 
 first_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
@@ -369,12 +374,12 @@ sleep 2
 broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_port":9,"geo_origins":{"DEFAULT":{"scheme":"http","host":"127.0.0.1","port":9},"IR":{"scheme":"http","host":"127.0.0.1","port":9}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin failure update failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
 edge_wait_cache_header "${TEST_DOMAIN}" "$stale_path" "STALE" 20 1
 restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
@@ -393,7 +398,7 @@ record_step PASS "edge-proxy-delete" "DELETE proxied"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/disable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy disable failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null || true
 proxy_db="$(db_query "SELECT proxy_enabled::int FROM sites WHERE id='${SITE_ID}';")"
 assert_eq "$proxy_db" "0" "proxy_enabled should be false"
 record_step PASS "proxy-disable" "proxy disabled in db"
@@ -406,7 +411,7 @@ record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/proxy/enable" '{}'
 assert_http_status "$HTTP_CODE" "200" "proxy enable failed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null || true
 edge_wait_success_status "${TEST_DOMAIN}"
 enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "proxy-reenable" "status=${enabled_code}"
@@ -519,7 +524,7 @@ done
 api_delete "${CORE_URL}/api/v1/sites/${SITE_ID}"
 assert_http_status "$HTTP_CODE" "200" "site delete failed"
 record_step PASS "site-delete" "site removed"
-docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null || true
 
 remaining_site="$(db_query "SELECT COUNT(*) FROM sites WHERE id='${SITE_ID}';")"
 assert_eq "$remaining_site" "0" "site row should be removed"
