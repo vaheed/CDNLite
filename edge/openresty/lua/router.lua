@@ -29,6 +29,23 @@ local function pick_upstream(site)
   return site.upstream
 end
 
+local function match_cache_rule(cfg, host)
+  local rules = cfg.cache_rules or {}
+  local path = ngx.var.uri or '/'
+  local best = nil
+  local best_len = -1
+  for _, rule in ipairs(rules) do
+    if rule and rule.host == host and rule.enabled and type(rule.path_prefix) == 'string' then
+      local prefix = rule.path_prefix
+      if path:sub(1, #prefix) == prefix and #prefix > best_len then
+        best = rule
+        best_len = #prefix
+      end
+    end
+  end
+  return best
+end
+
 function M.handle()
   local cfg = loader.load()
   local host = normalize_host(ngx.var.host)
@@ -43,6 +60,7 @@ function M.handle()
 
   ngx.ctx.site_id = site.site_id
   ngx.ctx.upstream = pick_upstream(site)
+  ngx.ctx.cache_rule = match_cache_rule(cfg, host)
   return proxy.forward(site)
 end
 

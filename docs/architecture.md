@@ -85,4 +85,4 @@ sequenceDiagram
 
 ## Limitations And Assumptions
 
-No dashboard, purge API, TLS automation, production scheduler, or user auth layer is implemented. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers. The cache layer has a clean site-level `cache_rules` snapshot placeholder, but advanced purge and rule management are intentionally not implemented yet.
+No dashboard, purge API, TLS automation, production scheduler, or user auth layer is implemented. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers. Cache behavior supports simple per-site `cache_rules` by `path_prefix` + `ttl_seconds`, while advanced purge and richer policy management are intentionally not implemented yet.

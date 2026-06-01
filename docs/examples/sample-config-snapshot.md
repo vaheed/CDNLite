@@ -18,10 +18,6 @@ A config snapshot is the JSON payload core returns from `GET /api/v1/edge/config
         "DEFAULT": "http://core:8080",
         "IR": "http://core:8080"
       },
-      "cache_rules": {
-        "enabled": false,
-        "rules": []
-      },
       "headers": {
         "X-CDNLITE-Site": "11111111-1111-4111-8111-111111111111"
       },
@@ -41,7 +37,19 @@ A config snapshot is the JSON payload core returns from `GET /api/v1/edge/config
         }
       ]
     }
-  }
+  },
+  "cache_rules": [
+    {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "site_id": "11111111-1111-4111-8111-111111111111",
+      "enabled": true,
+      "path_prefix": "/api/v1/sites",
+      "ttl_seconds": 60,
+      "created_at": 1710000000,
+      "updated_at": 1710000000,
+      "host": "demo.local"
+    }
+  ]
 }
 ```
 
@@ -55,4 +63,4 @@ Core hashes the `hosts` content. If the content is unchanged, it reuses the exis
 
 `generated_at` is intentionally excluded from the content hash so no-op syncs do not create new versions.
 
-`cache_rules` is a backward-compatible placeholder for future site-level cache policy. It is emitted disabled by default, and current edge runtimes ignore unknown fields safely.
+`cache_rules` includes enabled rules across hosts. At the edge, the longest matching `path_prefix` for the request host is applied.

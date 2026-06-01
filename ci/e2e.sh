@@ -317,6 +317,10 @@ assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missi
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
 
 cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":60}"
+assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
+record_step PASS "cache-rule-create" "site cache rule created"
+
 first_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
 assert_eq "$first_cache" "MISS" "first cacheable GET should MISS"
 second_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
@@ -325,6 +329,8 @@ bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Ca
 assert_eq "$bypass_cache" "BYPASS" "Cache-Control no-cache should bypass cache"
 auth_bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Authorization: Bearer e2e-token")"
 assert_eq "$auth_bypass_cache" "BYPASS" "Authorization should bypass cache"
+non_matching_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/health?via=edge-nonmatch-${RUN_KEY}")"
+assert_eq "$non_matching_cache" "BYPASS" "non-matching path should bypass cache rule"
 
 stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"

@@ -221,7 +221,7 @@ Success: `{"ok":true}`. When metadata fields are present and non-empty, core upd
 Optional query: `if_version` integer. HMAC signs path `/api/v1/edge/config`, not the query string.
 
 ```json
-{"version":1,"generated_at":1710000000,"hosts":{"demo.local":{"site_id":"11111111-1111-4111-8111-111111111111","upstream":"http://core:8080","geo_upstreams":{},"cache_rules":{"enabled":false,"rules":[]},"headers":{"X-CDNLITE-Site":"11111111-1111-4111-8111-111111111111"},"dns_records":[]}}}
+{"version":1,"generated_at":1710000000,"hosts":{"demo.local":{"site_id":"11111111-1111-4111-8111-111111111111","upstream":"http://core:8080","geo_upstreams":{},"headers":{"X-CDNLITE-Site":"11111111-1111-4111-8111-111111111111"},"dns_records":[]}},"cache_rules":[{"id":"44444444-4444-4444-8444-444444444444","site_id":"11111111-1111-4111-8111-111111111111","enabled":true,"path_prefix":"/api/v1/sites","ttl_seconds":60,"created_at":1710000000,"updated_at":1710000000,"host":"demo.local"}]}
 ```
 
 Unchanged `if_version` example:

@@ -13,7 +13,9 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 - `proxy_intercept_errors on` maps 500, 502, 503, and 504 to the custom error page.
 - `proxy_cache_path` stores cached objects under `/var/cache/cdnlite` in the `cdnlite_cache` zone.
 - `proxy_cache_key` includes scheme, host, request URI, `Accept-Encoding`, `X-CDNLITE-Country`, and `CF-IPCountry`.
-- GET and HEAD responses with status 200, 301, or 302 are cached for `CDNLITE_CACHE_DEFAULT_TTL` (`60s` by default).
+- Cache lookup/storage is enabled only when a matching enabled cache rule exists for the host and request path prefix.
+- Cache rule matching uses longest `path_prefix` match from snapshot `cache_rules` entries for that host.
+- GET and HEAD responses with status 200, 301, or 302 are cached using the matched rule `ttl_seconds`.
 - Requests with `Authorization` or `Cache-Control: no-cache` / `no-store` bypass cache and are not stored.
 - Stale cached responses can be served for upstream errors, timeouts, and upstream 500, 502, 503, or 504 responses. `proxy_cache_lock` is enabled to reduce duplicate origin fetches on cache misses.
 - Access logs go to `/var/log/openresty/access.log`; error logs go to `/var/log/openresty/error.log`.
@@ -43,7 +45,7 @@ Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HI
 |---|---|
 | `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; falls back to version 0 empty hosts. |
 | `router.lua` | Host lookup and geo upstream selection. |
-| `proxy.lua` | Sets `$target_upstream`, cache bypass variables, and edge/site headers. |
+| `proxy.lua` | Sets `$target_upstream`, cache bypass variables, per-rule cache TTL, and edge/site headers. |
 | `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase. |
 | `error_page.lua` | Renders custom HTML error responses. |
 
