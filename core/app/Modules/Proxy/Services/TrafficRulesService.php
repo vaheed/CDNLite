@@ -90,6 +90,51 @@ class TrafficRulesService
         $u->execute($payload);
         return $this->getSiteCacheSettings($siteId);
     }
+    public function createCachePurgeRequest(string $siteId, array $in): array {
+        $type = (string) ($in['type'] ?? 'site');
+        $value = array_key_exists('value', $in) ? (string) $in['value'] : null;
+        $scope = $type === 'everything' ? 'site' : $type;
+        $scopeValue = $scope === 'site' ? '*' : (string) ($value ?? '*');
+        $now = time();
+        $requestId = Uuid::v4();
+
+        $existing = Database::pdo()->prepare('SELECT * FROM cache_purge_versions WHERE site_id=:site_id AND scope=:scope AND value=:value LIMIT 1');
+        $existing->execute([':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
+        $row = $existing->fetch();
+        $nextVersion = $row ? ((int) $row['version']) + 1 : 2;
+        if ($row) {
+            $u = Database::pdo()->prepare('UPDATE cache_purge_versions SET version=:version,updated_at=:updated_at WHERE site_id=:site_id AND scope=:scope AND value=:value');
+            $u->execute([':version' => $nextVersion, ':updated_at' => $now, ':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
+        } else {
+            $i = Database::pdo()->prepare('INSERT INTO cache_purge_versions (id,site_id,scope,value,version,updated_at) VALUES (:id,:site_id,:scope,:value,:version,:updated_at)');
+            $i->execute([':id' => Uuid::v4(), ':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue, ':version' => $nextVersion, ':updated_at' => $now]);
+        }
+        $r = Database::pdo()->prepare('INSERT INTO cache_purge_requests (id,site_id,type,value,status,requested_by,edge_seen_count,error,created_at,updated_at,completed_at) VALUES (:id,:site_id,:type,:value,:status,:requested_by,:edge_seen_count,:error,:created_at,:updated_at,:completed_at)');
+        $r->execute([':id'=>$requestId,':site_id'=>$siteId,':type'=>$type,':value'=>$value,':status'=>'completed',':requested_by'=>null,':edge_seen_count'=>0,':error'=>null,':created_at'=>$now,':updated_at'=>$now,':completed_at'=>$now]);
+        $q = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE id=:id LIMIT 1');
+        $q->execute([':id' => $requestId]);
+        return $this->cast((array) $q->fetch());
+    }
+    public function listCachePurgeRequests(string $siteId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE site_id=:site_id ORDER BY created_at DESC');
+        $s->execute([':site_id' => $siteId]);
+        return array_map([$this, 'cast'], $s->fetchAll());
+    }
+    public function getCachePurgeRequest(string $siteId, string $id): ?array {
+        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE site_id=:site_id AND id=:id LIMIT 1');
+        $s->execute([':site_id' => $siteId, ':id' => $id]);
+        $r = $s->fetch();
+        return $r ? $this->cast((array) $r) : null;
+    }
+    public function listCachePurgeVersionsForConfig(string $siteId, string $host): array {
+        $s = Database::pdo()->prepare('SELECT scope,value,version,updated_at FROM cache_purge_versions WHERE site_id=:site_id ORDER BY scope ASC, value ASC');
+        $s->execute([':site_id' => $siteId]);
+        $rows = [];
+        foreach ($s->fetchAll() as $r) {
+            $rows[] = ['host' => $host, 'scope' => (string) $r['scope'], 'value' => (string) $r['value'], 'version' => (int) $r['version'], 'updated_at' => (int) $r['updated_at']];
+        }
+        return $rows;
+    }
 
     public function getRateLimit(string $siteId): ?array {
         $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE site_id=:site_id LIMIT 1'); $s->execute([':site_id'=>$siteId]); $r = $s->fetch(); return $r ? $this->cast($r):null;

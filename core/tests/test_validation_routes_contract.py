@@ -141,6 +141,17 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         assert cache_settings_code == 422
         assert cache_settings_body["error"] == "invalid_field"
         assert cache_settings_body["field"] == "default_edge_ttl_seconds"
+
+        purge_code, purge_body = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/sites/{site_id}/cache/purge",
+            body={"type": "prefix"},
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        assert purge_code == 422
+        assert purge_body["error"] == "invalid_field"
+        assert purge_body["field"] == "value"
     finally:
         server.terminate()
         server.wait(timeout=5)

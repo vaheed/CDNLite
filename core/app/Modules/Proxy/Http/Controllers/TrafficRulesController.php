@@ -112,4 +112,21 @@ class TrafficRulesController
         if (($stale['ok'] ?? false) !== true) { return $stale; }
         return ['data' => $this->service->setSiteCacheSettings($siteId, $body)];
     }
+    public function createCachePurgeRequest(string $siteId, array $body): array {
+        $type = Validator::enum($body, 'type', ['url', 'prefix', 'site', 'everything']);
+        if (($type['ok'] ?? false) !== true || ($type['exists'] ?? false) !== true) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_url_prefix_site_everything', 'status' => 422];
+        }
+        $value = Validator::optionalString($body, 'value', 4096);
+        if (($value['ok'] ?? false) !== true) { return $value; }
+        if (in_array((string) $type['value'], ['url', 'prefix'], true) && (($value['exists'] ?? false) !== true || (string) $value['value'] === '')) {
+            return ['error' => 'invalid_field', 'field' => 'value', 'detail' => 'required_for_url_or_prefix', 'status' => 422];
+        }
+        return ['data' => $this->service->createCachePurgeRequest($siteId, $body)];
+    }
+    public function listCachePurgeRequests(string $siteId): array { return ['data' => $this->service->listCachePurgeRequests($siteId)]; }
+    public function getCachePurgeRequest(string $siteId, string $id): array {
+        $row = $this->service->getCachePurgeRequest($siteId, $id);
+        return $row ? ['data' => $row] : ['error' => 'cache_purge_request_not_found', 'status' => 404];
+    }
 }

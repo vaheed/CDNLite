@@ -51,6 +51,9 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete cache rule. |
 | GET | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Get site cache defaults and policy controls. |
 | PUT | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site cache defaults and policy controls. |
+| POST | `/api/v1/sites/{id}/cache/purge` | bearer when `CDNLITE_API_TOKEN` is set | Create a cache purge request and bump soft purge namespace version. |
+| GET | `/api/v1/sites/{id}/cache/purge-requests` | bearer when `CDNLITE_API_TOKEN` is set | List cache purge requests. |
+| GET | `/api/v1/sites/{id}/cache/purge-requests/{requestId}` | bearer when `CDNLITE_API_TOKEN` is set | Get one cache purge request. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -279,6 +282,23 @@ Allowed fields:
 - `respect_origin_cache_control` (boolean)
 - `cache_authorized_requests` (boolean)
 - `stale_if_error_seconds` (integer `0..31536000`)
+
+## Cache Purge Requests
+
+### POST /api/v1/sites/{id}/cache/purge
+
+Creates a purge request and increments a soft purge namespace version.
+
+Allowed `type`: `url`, `prefix`, `site`, `everything`.
+`value` is required for `url` and `prefix`.
+
+### GET /api/v1/sites/{id}/cache/purge-requests
+
+Lists purge requests for the site, newest first.
+
+### GET /api/v1/sites/{id}/cache/purge-requests/{requestId}
+
+Returns one purge request. Unknown ID returns `404 {"error":"cache_purge_request_not_found"}`.
 
 Updates one WAF rule.
 
