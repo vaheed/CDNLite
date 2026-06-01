@@ -152,6 +152,17 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         assert purge_code == 422
         assert purge_body["error"] == "invalid_field"
         assert purge_body["field"] == "value"
+
+        ssl_check_code, ssl_check_body = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/sites/{site_id}/ssl/check",
+            body={"hostnames": [""]},
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        assert ssl_check_code == 422
+        assert ssl_check_body["error"] == "invalid_field"
+        assert ssl_check_body["field"] == "hostnames"
     finally:
         server.terminate()
         server.wait(timeout=5)

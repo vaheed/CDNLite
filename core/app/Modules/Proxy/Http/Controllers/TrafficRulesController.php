@@ -202,4 +202,20 @@ class TrafficRulesController
         }
         return ['data' => $this->service->testPageRule($siteId, (string) $path['value'])];
     }
+    public function listSslCertificates(string $siteId): array { return ['data' => $this->service->listSslCertificates($siteId)]; }
+    public function checkSslCertificates(string $siteId, array $body): array {
+        $hostnames = [];
+        if (array_key_exists('hostnames', $body)) {
+            if (!is_array($body['hostnames'])) {
+                return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array', 'status' => 422];
+            }
+            foreach ($body['hostnames'] as $h) {
+                if (!is_string($h) || trim($h) === '') {
+                    return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_non_empty_string_array', 'status' => 422];
+                }
+                $hostnames[] = strtolower(trim($h));
+            }
+        }
+        return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
+    }
 }

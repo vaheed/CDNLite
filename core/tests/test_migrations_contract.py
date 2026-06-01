@@ -16,6 +16,7 @@ def test_stage5_migration_files_exist_in_order():
         "007_cache_purge_requests.sql",
         "008_redirects_v2.sql",
         "009_page_rules_v1.sql",
+        "010_ssl_certificates_v1.sql",
     ]
 
 

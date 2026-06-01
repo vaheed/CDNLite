@@ -217,6 +217,8 @@ $router->add('GET', '/api/v1/sites/{siteId}/page-rules', static fn (Request $req
 $router->add('PATCH', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updatePageRule((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
 $router->add('DELETE', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
 $router->add('POST', '/api/v1/sites/{siteId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['siteId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/sites/{siteId}/ssl/certificates', static fn (Request $req, array $p) => Response::json($rulesController->listSslCertificates((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['siteId'], $req->body)), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);

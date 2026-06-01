@@ -62,6 +62,8 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | PATCH | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update page rule. |
 | DELETE | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
 | POST | `/api/v1/sites/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
+| GET | `/api/v1/sites/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for site hostnames. |
+| POST | `/api/v1/sites/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |

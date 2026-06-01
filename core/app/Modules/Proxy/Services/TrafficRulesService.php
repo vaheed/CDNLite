@@ -131,6 +131,36 @@ class TrafficRulesService
         }
         return ['matched' => false];
     }
+    public function listSslCertificates(string $siteId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM ssl_certificates WHERE site_id=:site_id ORDER BY hostname ASC');
+        $s->execute([':site_id' => $siteId]);
+        return array_map([$this, 'cast'], $s->fetchAll());
+    }
+    public function checkSslCertificates(string $siteId, array $hostnames): array {
+        $now = time();
+        $targets = $hostnames === [] ? [''] : $hostnames;
+        foreach ($targets as $hostname) {
+            $h = trim((string) $hostname);
+            if ($h === '') {
+                continue;
+            }
+            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
+            $s->execute([':site_id' => $siteId, ':hostname' => $h]);
+            $id = $s->fetchColumn();
+            if ($id === false) {
+                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
+                $i->execute([
+                    ':id' => Uuid::v4(), ':site_id' => $siteId, ':hostname' => $h, ':provider' => 'manual', ':status' => 'missing',
+                    ':issuer' => null, ':serial' => null, ':not_before' => null, ':not_after' => null, ':days' => null, ':renewal' => null,
+                    ':checked' => $now, ':error' => 'certificate_not_provisioned', ':created' => $now, ':updated' => $now,
+                ]);
+            } else {
+                $u = Database::pdo()->prepare('UPDATE ssl_certificates SET last_checked_at=:checked,last_error=:error,updated_at=:updated WHERE id=:id');
+                $u->execute([':checked' => $now, ':error' => 'certificate_not_provisioned', ':updated' => $now, ':id' => $id]);
+            }
+        }
+        return $this->listSslCertificates($siteId);
+    }
     public function getSiteCacheSettings(string $siteId): array {
         $s = Database::pdo()->prepare('SELECT * FROM site_cache_settings WHERE site_id=:site_id LIMIT 1');
         $s->execute([':site_id' => $siteId]);
