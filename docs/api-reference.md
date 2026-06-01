@@ -22,42 +22,43 @@ Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/health` | none | Core health. |
+| GET | `/ready` | none | Core readiness (includes API token production guard). |
 | GET | `http://localhost:8081/ready` | none | Edge readiness (`503` only when no valid config exists). |
-| POST | `/api/v1/sites` | none | Create site. |
-| GET | `/api/v1/sites` | none | List sites. |
-| PATCH | `/api/v1/sites/{id}` | none | Update site. |
-| DELETE | `/api/v1/sites/{id}` | none | Delete site. |
-| POST | `/api/v1/sites/{id}/proxy/enable` | none | Enable proxy. |
-| POST | `/api/v1/sites/{id}/proxy/disable` | none | Disable proxy. |
-| POST | `/api/v1/sites/{id}/dns/records` | none | Create DNS record. |
-| GET | `/api/v1/sites/{id}/dns/records` | none | List DNS records. |
-| PATCH | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Update DNS record. |
-| DELETE | `/api/v1/sites/{id}/dns/records/{recordId}` | none | Delete DNS record. |
-| POST | `/api/v1/sites/{id}/redirects` | none | Create redirect rule. |
-| GET | `/api/v1/sites/{id}/redirects` | none | List redirect rules. |
-| PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Update redirect rule. |
-| DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Delete redirect rule. |
-| PUT | `/api/v1/sites/{id}/rate-limit` | none | Create/update site rate limit rule. |
-| GET | `/api/v1/sites/{id}/rate-limit` | none | Get site rate limit rule. |
-| DELETE | `/api/v1/sites/{id}/rate-limit` | none | Disable site rate limit rule. |
-| POST | `/api/v1/sites/{id}/waf-rules` | none | Create WAF rule. |
-| GET | `/api/v1/sites/{id}/waf-rules` | none | List WAF rules. |
-| PATCH | `/api/v1/sites/{id}/waf-rules/{wafId}` | none | Update WAF rule. |
-| DELETE | `/api/v1/sites/{id}/waf-rules/{wafId}` | none | Delete WAF rule. |
-| POST | `/api/v1/sites/{id}/cache-rules` | none | Create cache rule. |
-| GET | `/api/v1/sites/{id}/cache-rules` | none | List cache rules. |
-| PATCH | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | none | Update cache rule. |
-| DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | none | Delete cache rule. |
-| GET | `/api/v1/edge/nodes` | none | List edge nodes. |
+| POST | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | Create site. |
+| GET | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | List sites. |
+| PATCH | `/api/v1/sites/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Update site. |
+| DELETE | `/api/v1/sites/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Delete site. |
+| POST | `/api/v1/sites/{id}/proxy/enable` | bearer when `CDNLITE_API_TOKEN` is set | Enable proxy. |
+| POST | `/api/v1/sites/{id}/proxy/disable` | bearer when `CDNLITE_API_TOKEN` is set | Disable proxy. |
+| POST | `/api/v1/sites/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | Create DNS record. |
+| GET | `/api/v1/sites/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | List DNS records. |
+| PATCH | `/api/v1/sites/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Update DNS record. |
+| DELETE | `/api/v1/sites/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete DNS record. |
+| POST | `/api/v1/sites/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | Create redirect rule. |
+| GET | `/api/v1/sites/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | List redirect rules. |
+| PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Update redirect rule. |
+| DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete redirect rule. |
+| PUT | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site rate limit rule. |
+| GET | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Get site rate limit rule. |
+| DELETE | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Disable site rate limit rule. |
+| POST | `/api/v1/sites/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create WAF rule. |
+| GET | `/api/v1/sites/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | List WAF rules. |
+| PATCH | `/api/v1/sites/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Update WAF rule. |
+| DELETE | `/api/v1/sites/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete WAF rule. |
+| POST | `/api/v1/sites/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create cache rule. |
+| GET | `/api/v1/sites/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | List cache rules. |
+| PATCH | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update cache rule. |
+| DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete cache rule. |
+| GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
 | GET | `/api/v1/edge/config` | edge signed | Fetch config snapshot. |
 | GET | `/api/v1/edge/config?if_version=...` | edge signed | Fetch if changed. |
 | POST | `/api/v1/collector/usage` | edge signed | Ingest usage rows. |
-| GET | `/api/v1/usage/summary` | none | Summarize raw usage. |
-| GET | `/api/v1/usage/summary?site_id=...` | none | Summarize one site. |
-| GET | `/api/v1/usage/summary?bucket=minute|hour|day` | none | Summarize aggregate bucket. |
-| POST | `/api/v1/usage/recalculate` | none | Rebuild aggregates. |
+| GET | `/api/v1/usage/summary` | bearer when `CDNLITE_API_TOKEN` is set | Summarize raw usage. |
+| GET | `/api/v1/usage/summary?site_id=...` | bearer when `CDNLITE_API_TOKEN` is set | Summarize one site. |
+| GET | `/api/v1/usage/summary?bucket=minute|hour|day` | bearer when `CDNLITE_API_TOKEN` is set | Summarize aggregate bucket. |
+| POST | `/api/v1/usage/recalculate` | bearer when `CDNLITE_API_TOKEN` is set | Rebuild aggregates. |
 
 ## GET /health
 
