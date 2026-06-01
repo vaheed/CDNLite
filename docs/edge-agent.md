@@ -15,6 +15,7 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 | `heartbeat.sh` | Detects public IPv4 and sends signed `POST /api/v1/edge/heartbeat`. |
 | `pull_config.sh` | Signed `GET /api/v1/edge/config`; atomically writes `EDGE_CONFIG_PATH`. |
 | `push_metrics.sh` | Converts metrics NDJSON into `{"items":[...]}` and signed-posts usage. |
+| `doctor.sh` | Runs local readiness checks and prints one JSON result for env/core/config/metrics/signing. |
 
 ## Required Environment
 
@@ -38,7 +39,7 @@ explicitly.
 
 ## Heartbeat Flow
 
-`heartbeat.sh` sends `edge_id`, `hostname`, detected `public_ip`, `region`, and `version`. Core updates `last_heartbeat`, `last_heartbeat_at`, `status=online`, `updated_at`, and any non-empty edge metadata fields. If the public IP changes, the new value is saved automatically and the platform edge DNS zone is recomputed. Customer zones are not rewritten. If no edge node row exists after auth succeeds, core returns `edge_not_found`.
+`heartbeat.sh` sends `edge_id`, `hostname`, detected `public_ip`, `region`, `version`, and `config_version`. Core updates `last_heartbeat`, `last_heartbeat_at`, `status=online`, `updated_at`, and any non-empty edge metadata fields. If the public IP changes, the new value is saved automatically and the platform edge DNS zone is recomputed. Customer zones are not rewritten. If no edge node row exists after auth succeeds, core returns `edge_not_found`.
 
 ## Config Pull Flow
 
@@ -51,6 +52,9 @@ Each pull/init attempt also updates `EDGE_SYNC_STATUS_PATH` with:
 - `last_successful_sync_time`
 - `config_source` (`remote`, `cache`, or `active`)
 - `core_reachable` (`true` or `false`)
+- `last_error` (`null`, `config_pull_failed`, or `config_validation_failed`)
+
+`run.sh` now applies exponential retry backoff with small jitter after failures, and resets to the normal 10s loop after successful cycles.
 
 ## Metrics Push Flow
 
@@ -64,6 +68,7 @@ docker compose exec edge-agent sh -lc '/agent/register.sh'
 docker compose exec edge-agent sh -lc '/agent/heartbeat.sh'
 docker compose exec edge-agent sh -lc '/agent/pull_config.sh'
 docker compose exec edge-agent sh -lc '/agent/push_metrics.sh'
+docker compose exec edge-agent sh -lc '/agent/doctor.sh'
 ```
 
 ## Troubleshooting

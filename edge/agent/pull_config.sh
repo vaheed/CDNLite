@@ -27,13 +27,14 @@ write_status() {
   core_reachable="$1"
   source="$2"
   sync_time="$3"
+  last_error="${4:-null}"
   version="$(config_version "$EDGE_CONFIG_PATH")"
   status_dir="$(dirname "$EDGE_SYNC_STATUS_PATH")"
   mkdir -p "$status_dir"
   suffix="$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   tmp="${status_dir}/.$(basename "$EDGE_SYNC_STATUS_PATH").part.${suffix}"
-  printf '{"current_config_version":%s,"last_successful_sync_time":%s,"config_source":"%s","core_reachable":%s}\n' \
-    "${version:-null}" "${sync_time:-null}" "$source" "$core_reachable" > "$tmp"
+  printf '{"current_config_version":%s,"last_successful_sync_time":%s,"config_source":"%s","core_reachable":%s,"last_error":%s}\n' \
+    "${version:-null}" "${sync_time:-null}" "$source" "$core_reachable" "$last_error" > "$tmp"
   mv "$tmp" "$EDGE_SYNC_STATUS_PATH"
   chmod 0644 "$EDGE_SYNC_STATUS_PATH"
 }
@@ -99,20 +100,20 @@ if ! curl -fsS -o "$tmp" "$url" \
   -H "X-CDNLITE-Nonce: ${nonce}" \
   -H "X-CDNLITE-Signature: ${sig}"
 then
-  write_status false "active" "null"
+  write_status false "active" "null" '"config_pull_failed"'
   echo "config pull failed; keeping last-known-good config" >&2
   exit 1
 fi
 
 if is_not_modified_response "$tmp"; then
   rm -f "$tmp"
-  write_status true "remote" "$ts"
+  write_status true "remote" "$ts" "null"
   trap - EXIT HUP INT TERM
   exit 0
 fi
 
 if ! validate_config "$tmp"; then
-  write_status true "active" "null"
+  write_status true "active" "null" '"config_validation_failed"'
   echo "config validation failed; keeping last-known-good config" >&2
   exit 1
 fi
@@ -132,5 +133,5 @@ else
   rm -f "$cache_tmp"
 fi
 
-write_status true "remote" "$ts"
+write_status true "remote" "$ts" "null"
 trap - EXIT HUP INT TERM

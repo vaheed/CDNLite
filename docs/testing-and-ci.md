@@ -23,6 +23,7 @@ sh -n edge/agent/heartbeat.sh
 sh -n edge/agent/pull_config.sh
 sh -n edge/agent/push_metrics.sh
 sh -n edge/agent/run.sh
+sh -n edge/agent/doctor.sh
 bash -n ci/smoke.sh
 bash -n ci/e2e.sh
 bash -n ci/lib.sh

@@ -50,3 +50,20 @@ cdnlite_public_ip() {
 
   printf ''
 }
+
+cdnlite_config_version() {
+  file="$1"
+  [ -s "$file" ] || return 0
+  python3 - "$file" <<'PY' 2>/dev/null || true
+import json
+import sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+except Exception:
+    sys.exit(0)
+version = data.get("version") if isinstance(data, dict) else None
+if isinstance(version, int) and version >= 0:
+    print(version)
+PY
+}
