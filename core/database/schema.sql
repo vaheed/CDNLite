@@ -116,9 +116,13 @@ CREATE TABLE IF NOT EXISTS edge_request_nonces (
 CREATE TABLE IF NOT EXISTS audit_log (
   id TEXT PRIMARY KEY,
   actor_type TEXT NOT NULL,
+  actor_id TEXT NULL,
   action TEXT NOT NULL,
   resource_type TEXT NOT NULL,
   resource_id TEXT NULL,
+  site_id TEXT NULL,
+  details_json TEXT NULL,
+  event TEXT NULL,
   before_json TEXT NULL,
   after_json TEXT NULL,
   created_at BIGINT NOT NULL
