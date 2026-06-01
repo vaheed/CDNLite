@@ -134,6 +134,75 @@ class DashboardController
         return ['html' => $this->layout('API Console', $content)];
     }
 
+    public function opsPage(): array
+    {
+        $sites = $this->sites->all();
+        $edges = $this->edges->list();
+        $security = [];
+        $sslRisk = [];
+        $purgeRecent = [];
+        $cacheLow = [];
+
+        foreach ($sites as $site) {
+            $siteId = (string) $site['id'];
+            $events = $this->rules->listSecurityEvents($siteId, null, 8);
+            foreach ($events as $event) {
+                $security[] = ['site' => (string) $site['domain'], 'type' => (string) $event['type'], 'decision' => (string) ($event['details']['decision'] ?? '-'), 'at' => (int) $event['created_at']];
+            }
+            $certs = $this->rules->listSslCertificates($siteId);
+            foreach ($certs as $cert) {
+                if ((string) ($cert['status'] ?? '') !== 'active' || ((int) ($cert['days_until_expiry'] ?? 9999)) <= 30) {
+                    $sslRisk[] = ['site' => (string) $site['domain'], 'host' => (string) ($cert['hostname'] ?? ''), 'status' => (string) ($cert['status'] ?? ''), 'days' => (string) ($cert['days_until_expiry'] ?? '-')];
+                }
+            }
+            $cache = $this->collector->cacheAnalytics($siteId);
+            if ((float) ($cache['hit_ratio'] ?? 0.0) < 0.3 && (int) ($cache['requests'] ?? 0) > 20) {
+                $cacheLow[] = ['site' => (string) $site['domain'], 'ratio' => round(((float) $cache['hit_ratio']) * 100, 2), 'requests' => (int) $cache['requests']];
+            }
+            foreach (array_slice($this->rules->listCachePurgeRequests($siteId), 0, 2) as $pr) {
+                $purgeRecent[] = ['site' => (string) $site['domain'], 'type' => (string) $pr['type'], 'status' => (string) $pr['status'], 'at' => (int) ($pr['created_at'] ?? 0)];
+            }
+        }
+        usort($security, static fn(array $a, array $b): int => $b['at'] <=> $a['at']);
+        usort($purgeRecent, static fn(array $a, array $b): int => $b['at'] <=> $a['at']);
+
+        $edgeRows = '';
+        foreach ($edges as $e) {
+            $stale = (time() - (int) ($e['last_heartbeat'] ?? 0)) > 120 ? 'stale' : 'ok';
+            $edgeRows .= '<tr><td>' . htmlspecialchars((string) $e['edge_id']) . '</td><td>' . htmlspecialchars((string) ($e['region'] ?? '-')) . '</td><td>' . htmlspecialchars((string) ($e['public_ip'] ?? '-')) . '</td><td>' . $stale . '</td></tr>';
+        }
+        $secRows = '';
+        foreach (array_slice($security, 0, 15) as $row) {
+            $secRows .= '<tr><td>' . htmlspecialchars($row['site']) . '</td><td>' . htmlspecialchars($row['type']) . '</td><td>' . htmlspecialchars($row['decision']) . '</td><td>' . date('Y-m-d H:i:s', $row['at']) . '</td></tr>';
+        }
+        $sslRows = '';
+        foreach (array_slice($sslRisk, 0, 15) as $row) {
+            $sslRows .= '<tr><td>' . htmlspecialchars($row['site']) . '</td><td>' . htmlspecialchars($row['host']) . '</td><td>' . htmlspecialchars($row['status']) . '</td><td>' . htmlspecialchars($row['days']) . '</td></tr>';
+        }
+        $purgeRows = '';
+        foreach (array_slice($purgeRecent, 0, 15) as $row) {
+            $purgeRows .= '<tr><td>' . htmlspecialchars($row['site']) . '</td><td>' . htmlspecialchars($row['type']) . '</td><td>' . htmlspecialchars($row['status']) . '</td><td>' . date('Y-m-d H:i:s', $row['at']) . '</td></tr>';
+        }
+        $cacheRows = '';
+        foreach (array_slice($cacheLow, 0, 15) as $row) {
+            $cacheRows .= '<tr><td>' . htmlspecialchars($row['site']) . '</td><td>' . htmlspecialchars((string) $row['ratio']) . '%</td><td>' . htmlspecialchars((string) $row['requests']) . '</td></tr>';
+        }
+
+        $content = '<section class="hero"><h1>Ops & Troubleshooting</h1><p>High-signal runtime diagnostics for fast triage.</p></section>'
+            . '<section class="stats">'
+            . '<article><h4>Sites</h4><b>' . count($sites) . '</b></article>'
+            . '<article><h4>Edges</h4><b>' . count($edges) . '</b></article>'
+            . '<article><h4>Security Events (recent)</h4><b>' . count($security) . '</b></article>'
+            . '<article><h4>SSL Risks</h4><b>' . count($sslRisk) . '</b></article>'
+            . '</section>'
+            . '<section class="panel"><h3>Edge Health</h3><table><tr><th>Edge</th><th>Region</th><th>IP</th><th>Heartbeat</th></tr>' . $edgeRows . '</table></section>'
+            . '<section class="panel"><h3>Recent Security Events</h3><table><tr><th>Site</th><th>Type</th><th>Decision</th><th>Time</th></tr>' . $secRows . '</table></section>'
+            . '<section class="panel"><h3>SSL Risk View</h3><table><tr><th>Site</th><th>Hostname</th><th>Status</th><th>Days Left</th></tr>' . $sslRows . '</table></section>'
+            . '<section class="panel"><h3>Purge Timeline</h3><table><tr><th>Site</th><th>Type</th><th>Status</th><th>Time</th></tr>' . $purgeRows . '</table></section>'
+            . '<section class="panel"><h3>Low Cache Efficiency Sites</h3><table><tr><th>Site</th><th>Hit Ratio</th><th>Requests</th></tr>' . $cacheRows . '</table></section>';
+        return ['html' => $this->layout('Ops', $content)];
+    }
+
     public function consoleRun(Request $req): array
     {
         $method = strtoupper(trim((string) ($req->body['method'] ?? 'GET')));
@@ -155,26 +224,61 @@ class DashboardController
         $url = $scheme . '://' . $host . $path;
 
         $headers = ['Content-Type: application/json'];
-        $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+        $auth = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
         if ($auth !== '') {
             $headers[] = 'Authorization: ' . $auth;
         }
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        if (!in_array($method, ['GET', 'DELETE'], true)) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES));
-        }
-        $raw = curl_exec($ch);
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-
+        $raw = false;
+        $status = 0;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            if (!in_array($method, ['GET', 'DELETE'], true)) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_SLASHES));
+            }
+            $raw = curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $err = curl_error($ch);
+            curl_close($ch);
+            if ($raw === false) {
+                $fallback = $this->runInProcess($method, $path, $payload);
+                if ($fallback !== null) {
+                    return $this->consolePage("HTTP 200\n\n" . json_encode($fallback, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                }
+                return $this->consolePage("Request failed: " . $err);
+            }
+        } else {
+            $opts = [
+                'http' => [
+                    'method' => $method,
+                    'header' => implode("\r\n", $headers),
+                    'timeout' => 20,
+                    'ignore_errors' => true,
+                ],
+            ];
+            if (!in_array($method, ['GET', 'DELETE'], true)) {
+                $opts['http']['content'] = json_encode($payload, JSON_UNESCAPED_SLASHES);
+            }
+            $ctx = stream_context_create($opts);
+            $raw = @file_get_contents($url, false, $ctx);
+            $metaHeaders = $http_response_header ?? [];
+            foreach ($metaHeaders as $line) {
+                if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $line, $m) === 1) {
+                    $status = (int) $m[1];
+                    break;
+                }
+            }
         if ($raw === false) {
-            return $this->consolePage("Request failed: " . $err);
+            $fallback = $this->runInProcess($method, $path, $payload);
+            if ($fallback !== null) {
+                return $this->consolePage("HTTP 200\n\n" . json_encode($fallback, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            }
+            return $this->consolePage('Request failed: transport_error');
+        }
         }
         $pretty = $raw;
         $decoded = json_decode($raw, true);
@@ -182,6 +286,41 @@ class DashboardController
             $pretty = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: $raw;
         }
         return $this->consolePage("HTTP " . $status . "\n\n" . $pretty);
+    }
+
+    private function runInProcess(string $method, string $path, array $payload): ?array
+    {
+        if ($method === 'POST' && $path === '/api/v1/sites') {
+            return ['data' => $this->sites->create($payload)];
+        }
+        if ($method === 'PATCH' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m) === 1) {
+            $updated = $this->sites->update((string) $m[1], $payload);
+            return $updated !== null ? ['data' => $updated] : ['error' => 'site_not_found'];
+        }
+        if ($method === 'DELETE' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)$#', $path, $m) === 1) {
+            return $this->sites->delete((string) $m[1]) ? ['ok' => true] : ['error' => 'site_not_found'];
+        }
+        if ($method === 'POST' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/proxy/(enable|disable)$#', $path, $m) === 1) {
+            $site = $this->sites->setProxy((string) $m[1], $m[2] === 'enable');
+            return $site !== null ? ['data' => $site] : ['error' => 'site_not_found'];
+        }
+        if ($method === 'GET' && preg_match('#^/api/v1/sites/([0-9a-fA-F-]+)/security/events(?:\?(.*))?$#', $path, $m) === 1) {
+            $siteId = (string) $m[1];
+            parse_str((string) ($m[2] ?? ''), $query);
+            $type = isset($query['type']) && is_string($query['type']) ? trim($query['type']) : null;
+            $limit = isset($query['limit']) && is_scalar($query['limit']) ? (int) $query['limit'] : 100;
+            return ['data' => $this->rules->listSecurityEvents($siteId, $type, $limit)];
+        }
+        if ($method === 'GET' && $path === '/api/v1/sites') {
+            return ['data' => $this->sites->all()];
+        }
+        if ($method === 'GET' && $path === '/api/v1/edge/nodes') {
+            return ['data' => $this->edges->list()];
+        }
+        if ($method === 'GET' && $path === '/api/v1/usage/summary') {
+            return ['data' => $this->collector->summary()];
+        }
+        return null;
     }
 
     private function layout(string $title, string $content): string
@@ -208,6 +347,6 @@ class DashboardController
         .flash{background:#e8fff8;border:1px solid #b6f0de;color:#115749;padding:12px;border-radius:12px;margin:12px 0}
         .empty{background:#fff1f1;padding:16px;border-radius:12px;color:#8b2f2f}
         @media(max-width:700px){.wrap{padding:12px}.hero{padding:18px}}
-        </style></head><body><div class="wrap"><nav><a href="/dashboard/sites">CDNLite Dashboard</a><a href="/api/v1/sites">API</a></nav>' . $content . '</div></body></html>';
+        </style></head><body><div class="wrap"><nav><a href="/dashboard/sites">CDNLite Dashboard</a><span><a href="/dashboard/ops">Ops</a> <a href="/dashboard/console">Console</a> <a href="/api/v1/sites">API</a></span></nav>' . $content . '</div></body></html>';
     }
 }

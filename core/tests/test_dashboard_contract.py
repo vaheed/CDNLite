@@ -8,9 +8,11 @@ def test_dashboard_routes_contract():
 
     assert "/dashboard/sites" in public_index
     assert "/dashboard/sites/{siteId}" in public_index
+    assert "/dashboard/ops" in public_index
     assert "/dashboard/console" in public_index
     assert "text/html; charset=utf-8" in public_index
     assert "CDNLite Control Deck" in dashboard_controller
     assert "API Action Console" in dashboard_controller
+    assert "Ops & Troubleshooting" in dashboard_controller
     assert "curl_init" in dashboard_controller
     assert "Only /api/v1/* paths are allowed." in dashboard_controller

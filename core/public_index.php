@@ -147,6 +147,7 @@ $dashboardController = new DashboardController($siteService, new EdgeService(), 
 
 $router = new Router();
 $router->add('GET', '/dashboard/sites', static fn (): array => $dashboardController->sitesPage(), auth: true);
+$router->add('GET', '/dashboard/ops', static fn (): array => $dashboardController->opsPage(), auth: true);
 $router->add('GET', '/dashboard/sites/{siteId}', static fn (Request $req, array $p): array => $dashboardController->sitePage((string) $p['siteId']), auth: true);
 $router->add('GET', '/dashboard/console', static fn (): array => $dashboardController->consolePage(), auth: true);
 $router->add('POST', '/dashboard/console/run', static fn (Request $req): array => $dashboardController->consoleRun($req), auth: true);
@@ -287,4 +288,10 @@ if (($route['edge_auth'] ?? false) === true) {
 }
 
 $result = ($route['handler'])($request, $params);
-respond($result['payload'], (int) $result['status']);
+if (is_array($result) && array_key_exists('payload', $result) && array_key_exists('status', $result)) {
+    respond((array) $result['payload'], (int) $result['status']);
+}
+if (is_array($result)) {
+    respond($result, 200);
+}
+respond(['error' => 'invalid_route_response'], 500);

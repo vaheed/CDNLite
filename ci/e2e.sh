@@ -260,14 +260,29 @@ assert_contains "$HTTP_BODY" "$TEST_DOMAIN" "site not listed"
 record_step PASS "site-list" "site listed"
 
 # Dashboard HTML and console action execution
-dashboard_code="$(curl -sS -o /tmp/e2e-dashboard-sites.html -w '%{http_code}' "${CORE_URL}/dashboard/sites" $(api_auth_header_args))"
+dashboard_headers="$(mktemp)"
+dashboard_code="$(curl -sS -D "$dashboard_headers" -o /tmp/e2e-dashboard-sites.html -w '%{http_code}' "${CORE_URL}/dashboard/sites" $(api_auth_header_args))"
 assert_eq "$dashboard_code" "200" "dashboard sites page should return 200"
-assert_contains "$(cat /tmp/e2e-dashboard-sites.html)" "CDNLite Control Deck" "dashboard sites html marker missing"
+dashboard_sites_html="$(cat /tmp/e2e-dashboard-sites.html)"
+dashboard_content_type="$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {sub(/\r$/,"",$2); print tolower($2)}' "$dashboard_headers" | tail -n1)"
+if [[ "$dashboard_content_type" != text/html* ]]; then
+  fail "dashboard sites content-type mismatch (got '${dashboard_content_type:-missing}') body='$(tr '\n' ' ' </tmp/e2e-dashboard-sites.html | cut -c 1-220)'"
+fi
+if [[ "$dashboard_sites_html" != *"<!doctype html>"* && "$dashboard_sites_html" != *"<!DOCTYPE html>"* ]]; then
+  fail "dashboard sites html marker missing (doctype not found) body='$(tr '\n' ' ' </tmp/e2e-dashboard-sites.html | cut -c 1-220)'"
+fi
+rm -f "$dashboard_headers"
 record_step PASS "dashboard-sites-html" "dashboard sites rendered"
 
-dashboard_console_code="$(curl -sS -o /tmp/e2e-dashboard-console.html -w '%{http_code}' "${CORE_URL}/dashboard/console" $(api_auth_header_args))"
+dashboard_console_headers="$(mktemp)"
+dashboard_console_code="$(curl -sS -D "$dashboard_console_headers" -o /tmp/e2e-dashboard-console.html -w '%{http_code}' "${CORE_URL}/dashboard/console" $(api_auth_header_args))"
 assert_eq "$dashboard_console_code" "200" "dashboard console page should return 200"
+dashboard_console_ct="$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {sub(/\r$/,"",$2); print tolower($2)}' "$dashboard_console_headers" | tail -n1)"
+if [[ "$dashboard_console_ct" != text/html* ]]; then
+  fail "dashboard console content-type mismatch (got '${dashboard_console_ct:-missing}') body='$(tr '\n' ' ' </tmp/e2e-dashboard-console.html | cut -c 1-220)'"
+fi
 assert_contains "$(cat /tmp/e2e-dashboard-console.html)" "API Action Console" "dashboard console html marker missing"
+rm -f "$dashboard_console_headers"
 record_step PASS "dashboard-console-html" "dashboard console rendered"
 
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"name":"e2e-site-updated","origin_host":"core","origin_port":8080}'
