@@ -199,6 +199,7 @@ edge_wait_cache_header() {
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
+retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core and edge health passed"
@@ -322,6 +323,8 @@ second_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
 assert_eq "$second_cache" "HIT" "second cacheable GET should HIT"
 bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Cache-Control: no-cache")"
 assert_eq "$bypass_cache" "BYPASS" "Cache-Control no-cache should bypass cache"
+auth_bypass_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path" -H "Authorization: Bearer e2e-token")"
+assert_eq "$auth_bypass_cache" "BYPASS" "Authorization should bypass cache"
 
 stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
@@ -336,7 +339,7 @@ restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "site origin restore failed"
 docker compose exec -T edge-agent sh -lc '/agent/pull_config.sh' >/dev/null
-record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS/STALE verified"
+record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
   -X POST "${EDGE_URL}/api/v1/sites" \

@@ -8,6 +8,7 @@
 | Database connection failure | Core 500 or CLI PDO error | PostgreSQL not ready or DB env mismatch | `docker compose exec postgres pg_isready -U cdnlite -d cdnlite` | Start DB; align `DB_*` and `POSTGRES_*`. |
 | Core health failure | `curl /health` fails | Core container down or port changed | `docker compose ps core && docker compose logs core` | Start core; check `CORE_HOST_PORT`. |
 | Edge health failure | `curl :8081/health` fails | Edge container down or port changed | `docker compose logs edge` | Start edge; check `EDGE_HOST_PORT`. |
+| Edge readiness failure | `curl :8081/ready` returns 503 | Missing or invalid edge config JSON | `curl -i http://localhost:8081/ready && docker compose exec edge-agent sh -lc 'cat "$EDGE_CONFIG_PATH"'` | Run `/agent/pull_config.sh`; fix invalid JSON payload generation. |
 | Edge returns 502 | Custom error page | Unknown host, disabled proxy, missing config, or origin failure | `docker compose exec edge-agent sh -lc 'cat "$EDGE_CONFIG_PATH"'` | Pull config, enable proxy, fix origin. |
 | Site not found | API returns `site_not_found` | Wrong UUID or deleted site | `curl -s http://localhost:8080/api/v1/sites` | Use returned site ID. |
 | DNS sync failure | 502 or log `powerdns_*_failed` | PowerDNS disabled/misconfigured/API key bad | `docker compose logs core | grep powerdns` | Fix PowerDNS env or set `POWERDNS_STRICT=0`. |

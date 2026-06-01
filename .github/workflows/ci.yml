@@ -58,6 +58,7 @@ jobs:
           bash -n ci/agent_flow_checks.sh
           bash -n ci/smoke.sh
           bash -n ci/e2e.sh
+          bash -n ci/release_check.sh
           bash -n ci/lib.sh
       - name: No WIP markers
         run: '! rg -n "WIP_MARKER" -S core edge ci'
@@ -194,9 +195,29 @@ jobs:
         if: always()
         run: docker compose --profile powerdns down -v
 
-  build_and_push:
+  release_check:
     runs-on: ubuntu-latest
     needs: e2e-powerdns
+    env:
+      EDGE_AGENT_IDLE: 1
+      CDNLITE_CACHE_DEFAULT_TTL: 1s
+      POWERDNS_ENABLED: 0
+      POWERDNS_STRICT: 0
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install helpers
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Build and start stack
+        run: docker compose up -d --build
+      - name: Release check
+        run: ./ci/release_check.sh
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  build_and_push:
+    runs-on: ubuntu-latest
+    needs: release_check
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v6

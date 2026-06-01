@@ -21,6 +21,7 @@ Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartb
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/health` | none | Core health. |
+| GET | `http://localhost:8081/ready` | none | Edge readiness (`503` when config missing/invalid). |
 | POST | `/api/v1/sites` | none | Create site. |
 | GET | `/api/v1/sites` | none | List sites. |
 | PATCH | `/api/v1/sites/{id}` | none | Update site. |

@@ -59,4 +59,11 @@ For register and heartbeat, header edge ID must match body `edge_id` before sign
 
 Use a long random token for real edges, store it only in the agent environment or secret manager, rotate it with `cdn:edge:rotate-token`, and keep `APP_DEBUG=0` outside development. Do not use `edge-dev-token` outside local Compose.
 
+## Edge Cache Enforcement
+
+The edge runtime bypasses cache storage and lookup when request risk is high:
+- Non-`GET`/`HEAD` methods set cache bypass.
+- `Authorization` header sets cache bypass.
+- `Cache-Control: no-cache` or `no-store` sets cache bypass.
+
 See [Edge Auth Signing](examples/edge-auth-signing.md) for copy-pasteable signing examples.

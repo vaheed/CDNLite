@@ -26,4 +26,22 @@ function M.load()
   return decoded
 end
 
+function M.ready()
+  local raw = read_file(CONFIG_FILE)
+  if not raw then
+    return false, 'config_missing'
+  end
+
+  local decoded = cjson.decode(raw)
+  if not decoded then
+    return false, 'config_invalid_json'
+  end
+
+  if type(decoded.hosts) ~= 'table' then
+    return false, 'config_hosts_invalid'
+  end
+
+  return true, nil
+end
+
 return M
