@@ -21,6 +21,7 @@ def test_stage5_migration_files_exist_in_order():
         "012_waf_rules_v2.sql",
         "013_rate_limit_rules_v2.sql",
         "014_origin_shield_header.sql",
+        "015_usage_rollups_cache_analytics.sql",
     ]
 
 

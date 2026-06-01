@@ -143,7 +143,7 @@ $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
-$dashboardController = new DashboardController($siteService, new EdgeService(), new CollectorService(), new TrafficRulesService());
+$dashboardController = new DashboardController($siteService, new EdgeService(), new CollectorService(), new TrafficRulesService(), $dnsService);
 
 $router = new Router();
 $router->add('GET', '/dashboard/sites', static fn (): array => $dashboardController->sitesPage(), auth: true);
@@ -154,6 +154,13 @@ $router->add('POST', '/dashboard/console/run', static fn (Request $req): array =
 $router->add('POST', '/dashboard/sites/{siteId}/proxy', static fn (Request $req, array $p): array => $dashboardController->proxyAction($req, (string) $p['siteId']), auth: true);
 $router->add('POST', '/dashboard/sites/{siteId}/purge', static fn (Request $req, array $p): array => $dashboardController->purgeAction($req, (string) $p['siteId']), auth: true);
 $router->add('POST', '/dashboard/sites/{siteId}/waf', static fn (Request $req, array $p): array => $dashboardController->wafAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/ssl/check', static fn (Request $req, array $p): array => $dashboardController->sslCheckAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/ssl/import', static fn (Request $req, array $p): array => $dashboardController->sslImportAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/dns/create', static fn (Request $req, array $p): array => $dashboardController->dnsCreateAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/redirect/create', static fn (Request $req, array $p): array => $dashboardController->redirectCreateAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/cache-rule/create', static fn (Request $req, array $p): array => $dashboardController->cacheRuleCreateAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/page-rule/create', static fn (Request $req, array $p): array => $dashboardController->pageRuleCreateAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/dashboard/sites/{siteId}/rate-limit/set', static fn (Request $req, array $p): array => $dashboardController->rateLimitSetAction($req, (string) $p['siteId']), auth: true);
 $router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
 $router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];
