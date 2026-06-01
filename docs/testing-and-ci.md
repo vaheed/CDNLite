@@ -61,3 +61,7 @@ PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
 `POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. In both jobs, `ci/e2e.sh`
 provisions the edge token before running the agent registration and heartbeat
 scripts explicitly.
+
+The workflow defines `POWERDNS_HOST_PORT` and `PDNS_PORT` globally because
+Compose interpolates profile service ports even when the `powerdns` profile is
+not started.
