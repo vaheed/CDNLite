@@ -2,45 +2,73 @@
 
 [Back to docs index](index.md)
 
-This page tracks what is safe today and what must be addressed before exposing CDNLite to the public internet.
+CDNLite is safe for local development and controlled test environments. It is not yet a hardened internet-facing control plane.
 
-## Current Status
+## Current Readiness Status
 
-- Safe for local development and controlled internal test environments.
-- Not safe for direct internet exposure in current default form because most control-plane endpoints do not require application-level API auth.
-- Edge-to-core signed auth is implemented for edge agent flows only.
+- Local/dev: supported.
+- Internet-exposed control plane: not recommended unless API auth is enabled and secrets are rotated.
+- Edge data plane: suitable for small controlled deployments with signed edge auth.
 
-## Internet Exposure Risks
+## Required Secrets
 
-- Control-plane admin APIs for sites, DNS, redirects, rate limits, WAF, cache rules, edge node listing, and usage summary are reachable without app bearer auth.
-- If `CDNLITE_DNS_PROVIDER=powerdns` with write credentials, unauthenticated API writes can mutate DNS records.
-- TLS certificate lifecycle automation is not implemented; cert state/expiry tracking is also not yet implemented.
+Set strong random values before any non-local deployment:
 
-## Required Secrets And Hygiene
+- `APP_KEY`
+- `CDNLITE_API_TOKEN`
+- `CDNLITE_EDGE_SHARED_SECRET`
+- `CDNLITE_EDGE_INIT_TOKEN`
+- `CDNLITE_PDNS_API_KEY` (when PowerDNS sync is enabled)
 
-Minimum secrets to rotate and protect:
+Do not keep default/example values in production.
 
-- `EDGE_SHARED_TOKEN` for edge signed requests.
-- `CDNLITE_DNS_POWERDNS_API_KEY` when PowerDNS integration is enabled.
-- `DB_PASSWORD` (and DB network access controls).
+## Control-Plane API Auth
 
-Recommended hardening before production:
+Control-plane auth is token-based and enabled by setting `CDNLITE_API_TOKEN`. When set, non-edge `/api/v1/*` routes require:
 
-- Put core behind private networking or API gateway allowlists.
-- Add application bearer auth for non-edge control-plane endpoints.
-- Enable HTTPS termination and strict firewall rules.
-- Rotate edge token and DNS credentials regularly.
+```http
+Authorization: Bearer <token>
+```
 
-## Cache And Purge Reality
+If `CDNLITE_API_TOKEN` is unset, control-plane API routes are unauthenticated. That is not safe for internet exposure.
 
-- OpenResty edge cache is active and supports cache-rule-based eligibility and TTL.
-- Cache bypass exists for unsafe methods and selected request headers.
-- Purge API is not implemented yet; cache invalidation is currently time-based (TTL expiry).
+## PowerDNS Risk Notes
 
-## Go/No-Go Checklist
+When PowerDNS sync is enabled, API writes can propagate to DNS automatically.
 
-- API auth for admin endpoints is implemented and tested.
-- Secrets are not using local/dev defaults.
-- Core is not publicly reachable without network controls.
-- TLS certificate management and monitoring workflow is defined.
-- PowerDNS access is restricted and audited if enabled.
+- Use a scoped PowerDNS API key.
+- Keep strict mode enabled only when you are ready to fail writes on DNS sync errors.
+- Validate zone ownership and expected record targets before enabling proxied DNS behavior.
+
+## TLS Status
+
+CDNLite currently does not provide full certificate lifecycle automation for end-user domains.
+
+- No built-in ACME certificate automation for managed domains yet.
+- SSL metadata tracking and lifecycle APIs are roadmap items.
+
+Use external TLS termination or controlled manual cert handling for now.
+
+## Cache/Purge Status
+
+Current cache behavior:
+
+- Basic OpenResty cache is implemented.
+- `X-CDNLITE-Cache` header is emitted.
+- Cache bypass behavior exists for non-cacheable requests.
+- Stale-on-error behavior exists for origin failures.
+
+Current gaps:
+
+- No first-class control-plane purge API yet.
+- No full site-level cache policy model yet.
+
+## Minimum Internet-Exposure Checklist
+
+Before exposing the control plane publicly:
+
+- Set all required secrets to strong random values.
+- Set `CDNLITE_API_TOKEN` and enforce bearer auth for control-plane operations.
+- Restrict core API access by network policy/firewall.
+- Restrict PowerDNS API key scope and network path.
+- Enable centralized logs and monitor edge auth failures.

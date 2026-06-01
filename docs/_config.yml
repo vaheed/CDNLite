@@ -1,0 +1,8 @@
+title: CDNLite Documentation
+description: Lightweight CDN control plane and edge runtime docs
+theme: minima
+markdown: kramdown
+kramdown:
+  input: GFM
+plugins:
+  - jekyll-seo-tag

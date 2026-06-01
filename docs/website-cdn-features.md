@@ -2,38 +2,40 @@
 
 [Back to docs index](index.md)
 
-This page summarizes what CDNLite supports today for website CDN use, plus the near-term roadmap.
+This page shows what CDNLite website-CDN capabilities work today and what is planned.
 
-## Works Today
+## Available Now
 
-- Site management: create, list, update, delete.
-- DNS records: create, list, update, delete per site.
-- Edge proxying: host-based routing to origin from edge config snapshots.
-- Redirect rules: CRUD for path-based redirects (status 301/302/307/308).
-- Rate limiting: set/get/disable per-site limit rule.
-- WAF rules: CRUD for custom rule entries.
-- Cache rules: CRUD for path-prefix cache TTL rules.
-- Edge agent sync: register, heartbeat, signed config pull, usage push.
-- Usage summaries: query minute/hour/day aggregates and rebuild.
+- Site lifecycle management (`create/list/update/delete`).
+- DNS record CRUD per site (with optional PowerDNS sync).
+- Edge host-based proxying from config snapshots.
+- Redirect rules (basic path-to-target URL rules).
+- Site-level rate limit rule (basic model).
+- WAF custom rules (basic model).
+- Cache rules by path prefix and TTL.
+- Edge caching with `X-CDNLITE-Cache` visibility.
+- Edge stale-cache serving in selected origin-failure cases.
+- Edge registration, heartbeat, config pull, and usage ingest with signed edge auth.
+- Usage summary and aggregate rebuild endpoints.
 
-## Partially Implemented
+## Partially Available
 
-- Edge caching exists with `X-CDNLITE-Cache` response signals and stale-on-error handling.
-- Cache controls are rule-driven but still basic for production-grade policy needs.
+- Control-plane API auth: available via one bearer token (`CDNLITE_API_TOKEN`), optional unless configured.
+- Caching controls: basic cache rules exist, but richer policy controls are pending.
 
-## Planned Next (Simple-First)
+## Planned (Roadmap)
 
-- Control-plane bearer API auth for non-edge admin endpoints.
-- Stronger payload validation across sites, DNS, and traffic rules.
-- Cache purge APIs (likely soft-purge versioning first).
-- Site-level cache defaults (not only path rules).
-- Redirect priority and broader matching modes.
-- SSL certificate metadata visibility (status/expiry tracking).
-- Lightweight page-rules abstraction for common website actions.
+- First-class cache purge API (soft purge/versioned namespace approach).
+- Site cache settings (default TTL and cache policy controls).
+- Redirects v2 (priority, richer matching, import/export, test endpoint).
+- Page rules v1 (friendly URL pattern actions).
+- SSL certificate metadata visibility and lifecycle checks.
+- WAF and rate-limit model expansion for practical website protection.
+- Small server-rendered dashboard for non-CLI operation.
 
-## Explicitly Not First
+## Not In Scope For Early Versions
 
-- Kubernetes-only deployment model.
-- Full enterprise RBAC/multi-account authorization model.
-- Complex edge compute/workers model.
-- Billing and monetization systems.
+- Full rules expression engine.
+- Enterprise RBAC/billing stack.
+- Anycast/global POP marketing promises.
+- Workers-like edge compute runtime.

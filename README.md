@@ -91,7 +91,7 @@ Example output:
 
 ## Documentation Map
 
-Start at [docs/index.md](docs/index.md). Key pages: [quick start](docs/quick-start.md), [API reference](docs/api-reference.md), [CLI reference](docs/cli-reference.md), [edge agent](docs/edge-agent.md), [security](docs/security.md), and [operations runbook](docs/operations-runbook.md).
+Start at [docs/README.md](docs/README.md). Key pages: [quick start](docs/quick-start.md), [API reference](docs/api-reference.md), [CLI reference](docs/cli-reference.md), [edge agent](docs/edge-agent.md), [security](docs/security.md), [production readiness](docs/production-readiness.md), [website CDN features](docs/website-cdn-features.md), and [operations runbook](docs/operations-runbook.md).
 
 ## Development And Test Commands
 
