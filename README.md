@@ -63,6 +63,26 @@ docker compose exec core php artisan cdn:edge:register-token \
   --token=edge-dev-token
 ```
 
+For clean resets (`docker compose down -v`) you can enable automatic bootstrap so the edge re-registers without manual token setup:
+
+```bash
+# in .env
+CDNLITE_BOOTSTRAP_EDGE_TOKEN=1
+```
+
+Then restart:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Production recommendation:
+
+1. Set `CDNLITE_BOOTSTRAP_EDGE_TOKEN=0`.
+2. Provision per-edge tokens with `cdn:edge:register-token`.
+3. Rotate tokens regularly with `cdn:edge:rotate-token`.
+
 ## Dashboard Access
 
 Dashboard routes:

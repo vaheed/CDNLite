@@ -31,6 +31,9 @@ class DashboardController
     {
         $sites = $this->sites->all();
         $edgeCount = count($this->edges->list());
+        $edgeHint = $edgeCount === 0
+            ? '<div class="empty">No edge nodes are registered yet. Run edge register/heartbeat (or wait for edge-agent loop) and refresh.</div>'
+            : '';
         $cards = '';
         foreach ($sites as $site) {
             $status = $site['proxy_enabled'] ? 'Proxy On' : 'Proxy Off';
@@ -39,7 +42,7 @@ class DashboardController
         if ($cards === '') {
             $cards = '<div class="empty">No sites yet. Create one using API or CLI, then refresh.</div>';
         }
-        return ['html' => $this->layout('Sites', '<section class="hero"><h1>CDNLite Control Deck</h1><p>Operate your websites with realtime signals and quick drill-down.</p><div class="kpi"><b>' . count($sites) . '</b><span>Sites</span></div><div class="kpi"><b>' . $edgeCount . '</b><span>Edges</span></div></section><section class="grid">' . $cards . '</section>')];
+        return ['html' => $this->layout('Sites', '<section class="hero"><h1>CDNLite Control Deck</h1><p>Operate your websites with realtime signals and quick drill-down.</p><div class="kpi"><b>' . count($sites) . '</b><span>Sites</span></div><div class="kpi"><b>' . $edgeCount . '</b><span>Edges</span></div></section>' . $edgeHint . '<section class="grid">' . $cards . '</section>')];
     }
 
     public function sitePage(string $siteId, ?string $flash = null): array
@@ -266,33 +269,7 @@ class DashboardController
         if ($response !== null) {
             $content .= '<section class="panel"><h3>Response</h3><pre style="white-space:pre-wrap;background:#0f1720;color:#d6e7ff;padding:12px;border-radius:12px;overflow:auto">' . htmlspecialchars($response) . '</pre></section>';
         }
-        $content .= '<script>
-        function loadPreset(v){if(!v)return;try{var p=JSON.parse(v);document.getElementById("method").value=p.method||"GET";document.getElementById("path").value=p.path||"";document.getElementById("body").value=p.body||"{}";}catch(e){}}
-        function setWafExample(){
-          var t=document.getElementById("waf-type"); if(!t) return;
-          var p=document.getElementById("waf-pattern"); var h=document.getElementById("waf-help"); if(!p||!h) return;
-          var m={
-            "path_contains": ["Contains text in URI", "/wp-admin"],
-            "path_prefix": ["URI starts with prefix", "/admin"],
-            "user_agent_contains": ["User-Agent contains text", "curl"],
-            "ip_cidr": ["Client IP in CIDR range", "192.168.1.0/24"],
-            "country_is": ["2-letter country code", "IR"],
-            "method_is": ["HTTP method", "POST"],
-            "header_contains": ["header:value format", "x-forwarded-for:10.0.0."]
-          };
-          var v=t.value; var ex=(m[v]||["Pattern",""])[1]; var desc=(m[v]||["Pattern",""])[0];
-          p.placeholder=ex; h.innerHTML="Example: <code>"+ex.replace(/</g,"&lt;")+"</code> ("+desc+").";
-        }
-        function applyWafPreset(type, pattern){
-          var t=document.getElementById("waf-type");
-          var p=document.getElementById("waf-pattern");
-          if(!t||!p) return;
-          t.value=type;
-          setWafExample();
-          p.value=pattern;
-        }
-        setWafExample();
-        </script>';
+        $content .= '<script>function loadPreset(v){if(!v)return;try{var p=JSON.parse(v);document.getElementById("method").value=p.method||"GET";document.getElementById("path").value=p.path||"";document.getElementById("body").value=p.body||"{}";}catch(e){}} setupWafHelpers();</script>';
         return ['html' => $this->layout('API Console', $content)];
     }
 
@@ -509,6 +486,19 @@ class DashboardController
         .flash{background:#e8fff8;border:1px solid #b6f0de;color:#115749;padding:12px;border-radius:12px;margin:12px 0}
         .empty{background:#fff1f1;padding:16px;border-radius:12px;color:#8b2f2f}
         @media(max-width:700px){.wrap{padding:12px}.hero{padding:18px}}
-        </style></head><body><div class="wrap"><nav><a href="/dashboard/sites">CDNLite Dashboard</a><span><a href="/dashboard/ops">Ops</a> <a href="/dashboard/console">Console</a> <a href="/api/v1/sites">API</a></span></nav>' . $content . '</div></body></html>';
+        </style><script>
+        function setupWafHelpers(){
+          function setWafExample(){
+            var t=document.getElementById("waf-type"); if(!t) return;
+            var p=document.getElementById("waf-pattern"); var h=document.getElementById("waf-help"); if(!p||!h) return;
+            var m={"path_contains":["Contains text in URI","/wp-admin"],"path_prefix":["URI starts with prefix","/admin"],"user_agent_contains":["User-Agent contains text","curl"],"ip_cidr":["Client IP in CIDR range","192.168.1.0/24"],"country_is":["2-letter country code","IR"],"method_is":["HTTP method","POST"],"header_contains":["header:value format","x-forwarded-for:10.0.0."]};
+            var v=t.value; var ex=(m[v]||["Pattern",""])[1]; var desc=(m[v]||["Pattern",""])[0];
+            p.placeholder=ex; h.innerHTML="Example: <code>"+ex.replace(/</g,"&lt;")+"</code> ("+desc+").";
+          }
+          window.applyWafPreset=function(type, pattern){ var t=document.getElementById("waf-type"); var p=document.getElementById("waf-pattern"); if(!t||!p) return; t.value=type; setWafExample(); p.value=pattern; };
+          window.setWafExample=setWafExample;
+          setWafExample();
+        }
+        </script></head><body><div class="wrap"><nav><a href="/dashboard/sites">CDNLite Dashboard</a><span><a href="/dashboard/ops">Ops</a> <a href="/dashboard/console">Console</a> <a href="/api/v1/sites">API</a></span></nav>' . $content . '</div></body></html>';
     }
 }

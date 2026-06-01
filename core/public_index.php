@@ -26,6 +26,17 @@ header('Content-Type: ' . (str_starts_with($requestedPath, '/dashboard') ? 'text
 ini_set('log_errors', '1');
 ini_set('error_log', 'php://stderr');
 
+function truthyEnv(string $name, bool $default = false): bool
+{
+    $raw = getenv($name);
+    if ($raw === false || trim($raw) === '') {
+        return $default;
+    }
+
+    $value = strtolower(trim($raw));
+    return in_array($value, ['1', 'true', 'yes', 'on'], true);
+}
+
 function respond(array $payload, int $defaultStatus = 200): void
 {
     global $requestStartedAt, $method, $path;
@@ -136,14 +147,27 @@ $request = new Request($method, (string) $path, $_GET, is_array($body) ? $body :
 
 $siteService = new SiteService();
 $dnsService = new DnsService();
+$edgeService = new EdgeService();
 $siteController = new SiteController($siteService);
 $dnsController = new DnsController($dnsService);
-$edgeController = new EdgeController(new EdgeService());
+$edgeController = new EdgeController($edgeService);
 $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
-$dashboardController = new DashboardController($siteService, new EdgeService(), new CollectorService(), new TrafficRulesService(), $dnsService);
+$dashboardController = new DashboardController($siteService, $edgeService, new CollectorService(), new TrafficRulesService(), $dnsService);
+
+if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
+    $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
+    $bootstrapToken = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE') ?: getenv('EDGE_TOKEN') ?: ''));
+    if ($bootstrapEdgeId !== '' && $bootstrapToken !== '') {
+        try {
+            $edgeService->registerToken($bootstrapEdgeId, $bootstrapToken);
+        } catch (\Throwable $e) {
+            Logger::warn('edge_token_bootstrap_failed', ['error' => $e->getMessage()]);
+        }
+    }
+}
 
 $router = new Router();
 $router->add('GET', '/dashboard/sites', static fn (): array => $dashboardController->sitesPage(), auth: true);

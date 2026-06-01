@@ -22,6 +22,9 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 | `APP_DEBUG` | `0` | core | No | Truthy values include exception details in 500 responses. | Keep off outside dev. |
 | `EDGE_ID` | `edge-local-1` | edge, agent | Yes | Edge identity. | Not secret. |
 | `EDGE_TOKEN` | `edge-dev-token` | agent | Yes | Bearer token and HMAC secret source. | Secret; rotate. |
+| `CDNLITE_BOOTSTRAP_EDGE_TOKEN` | `1` | core | No | When truthy, core auto-upserts one edge token at startup using bootstrap values. Useful after `docker compose down -v` resets the database. | Keep disabled if you require strict external token provisioning. |
+| `CDNLITE_BOOTSTRAP_EDGE_ID` | empty (`EDGE_ID` fallback) | core | No | Edge ID used by token bootstrap when enabled. | Not secret. |
+| `CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE` | empty (`EDGE_TOKEN` fallback) | core | No | Token value used by bootstrap when enabled. | Secret. |
 | `EDGE_HOSTNAME` | `edge-local-1` | agent | No | Registration hostname. | Not secret. |
 | `EDGE_PUBLIC_IP` | `auto` | agent, edge DNS | No | `auto` lets the agent detect its public IPv4 address during register and heartbeat; set a concrete IPv4 to override. | Public data. |
 | `EDGE_REGION` | `local` | edge, agent | No | Region slug used for platform edge hostnames such as `ir.edge.example.com`. | Not secret. |
