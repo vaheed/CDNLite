@@ -36,6 +36,17 @@ Base URL: `http://localhost:8080`. Responses are JSON. Edge registration, heartb
 | GET | `/api/v1/sites/{id}/redirects` | none | List redirect rules. |
 | PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Update redirect rule. |
 | DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | none | Delete redirect rule. |
+| PUT | `/api/v1/sites/{id}/rate-limit` | none | Create/update site rate limit rule. |
+| GET | `/api/v1/sites/{id}/rate-limit` | none | Get site rate limit rule. |
+| DELETE | `/api/v1/sites/{id}/rate-limit` | none | Disable site rate limit rule. |
+| POST | `/api/v1/sites/{id}/waf-rules` | none | Create WAF rule. |
+| GET | `/api/v1/sites/{id}/waf-rules` | none | List WAF rules. |
+| PATCH | `/api/v1/sites/{id}/waf-rules/{wafId}` | none | Update WAF rule. |
+| DELETE | `/api/v1/sites/{id}/waf-rules/{wafId}` | none | Delete WAF rule. |
+| POST | `/api/v1/sites/{id}/cache-rules` | none | Create cache rule. |
+| GET | `/api/v1/sites/{id}/cache-rules` | none | List cache rules. |
+| PATCH | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | none | Update cache rule. |
+| DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | none | Delete cache rule. |
 | GET | `/api/v1/edge/nodes` | none | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -215,6 +226,56 @@ Patchable fields: `enabled`, `source_path`, `target_url`, `status_code`.
 ### DELETE /api/v1/sites/{id}/redirects/{redirectId}
 
 Success: `{"ok":true}`. Unknown site/rule: `404 {"error":"redirect_not_found"}`.
+
+## Rate Limit Rules
+
+### PUT /api/v1/sites/{id}/rate-limit
+
+Creates or updates a site rate-limit rule.
+
+### GET /api/v1/sites/{id}/rate-limit
+
+Returns the current site rate-limit rule.
+
+### DELETE /api/v1/sites/{id}/rate-limit
+
+Disables/removes the active site rate-limit rule.
+
+## WAF Rules
+
+### POST /api/v1/sites/{id}/waf-rules
+
+Creates a WAF rule for the site.
+
+### GET /api/v1/sites/{id}/waf-rules
+
+Lists WAF rules for the site.
+
+### PATCH /api/v1/sites/{id}/waf-rules/{wafId}
+
+Updates one WAF rule.
+
+### DELETE /api/v1/sites/{id}/waf-rules/{wafId}
+
+Deletes one WAF rule.
+
+## Cache Rules
+
+### POST /api/v1/sites/{id}/cache-rules
+
+Creates a cache rule for the site.
+
+### GET /api/v1/sites/{id}/cache-rules
+
+Lists cache rules for the site.
+
+### PATCH /api/v1/sites/{id}/cache-rules/{cacheRuleId}
+
+Updates one cache rule.
+
+### DELETE /api/v1/sites/{id}/cache-rules/{cacheRuleId}
+
+Deletes one cache rule.
 
 ## Edge Nodes
 

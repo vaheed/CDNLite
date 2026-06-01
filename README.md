@@ -106,7 +106,8 @@ The CI scripts expect the Compose stack to be running.
 
 ## Current Limitations And Non-Goals
 
-- No dashboard UI, user auth layer, TLS automation, cache storage, purge API, or billing system is implemented.
+- No dashboard UI, user auth layer, TLS automation, advanced cache policy engine, purge API, or billing system is implemented.
+- Basic OpenResty cache exists at the edge (`X-CDNLITE-Cache` response headers, cache rules, and stale-on-error behavior), but first-class purge APIs and richer cache controls are still missing.
 - Public site, DNS, edge list, usage summary, and recalculate endpoints do not require application auth.
 - Edge auth protects only edge registration, heartbeat, config fetch, and usage ingest.
 - Config changes reach edge nodes by polling/pull, not push.
