@@ -52,7 +52,7 @@ function M.forward(site)
   else
     ngx.header['X-Accel-Expires'] = '0'
   end
-  ngx.header['X-CDNLITE-Edge'] = 'openresty'
+  ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
   ngx.header['X-CDNLITE-Site'] = tostring(site.site_id)
   ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   return true

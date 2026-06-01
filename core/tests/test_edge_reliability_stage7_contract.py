@@ -8,11 +8,22 @@ def test_stage7_schema_and_request_id_contract():
     proxy = (repo_root / "edge" / "openresty" / "lua" / "proxy.lua").read_text()
     metrics = (repo_root / "edge" / "openresty" / "lua" / "metrics.lua").read_text()
     error_page = (repo_root / "edge" / "openresty" / "lua" / "error_page.lua").read_text()
+    router = (repo_root / "edge" / "openresty" / "lua" / "router.lua").read_text()
+    nginx = (repo_root / "edge" / "openresty" / "nginx.conf").read_text()
 
     assert "'schema_version' => 1" in config_service
     assert "EXPECTED_SCHEMA_VERSION = 1" in loader
     assert "config_schema_unsupported" in loader
     assert "decoded.schema_version == nil" in loader
     assert "X-CDNLITE-Request-Id" in proxy
+    assert "os.getenv('EDGE_ID')" in proxy
     assert "request_id" in metrics
+    assert "cache_status" in metrics
+    assert "security_event_type" in metrics
+    assert "security_action" in metrics
+    assert "blocked_by_waf" in router
+    assert "rate_limited" in router
+    assert "X-CDNLITE-Edge" in router
+    assert "lua_shared_dict cdnlite_limits" in nginx
     assert "X-CDNLITE-Request-Id" in error_page
+    assert "X-CDNLITE-Edge" in error_page

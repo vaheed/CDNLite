@@ -15,6 +15,7 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 - `proxy_cache_key` includes scheme, host, request URI, `Accept-Encoding`, `X-CDNLITE-Country`, and `CF-IPCountry`.
 - Cache lookup/storage is enabled only when a matching enabled cache rule exists for the host and request path prefix.
 - Cache rule matching uses longest `path_prefix` match from snapshot `cache_rules` entries for that host.
+- Rate-limit matching uses longest enabled `path_prefix` from snapshot `rate_limits` for that host.
 - GET and HEAD responses with status 200, 301, or 302 are cached using the matched rule `ttl_seconds`.
 - Requests with `Authorization` or `Cache-Control: no-cache` / `no-store` bypass cache and are not stored.
 - Stale cached responses can be served for upstream errors, timeouts, and upstream 500, 502, 503, or 504 responses. `proxy_cache_lock` is enabled to reduce duplicate origin fetches on cache misses.
@@ -24,6 +25,10 @@ The edge runtime is OpenResty from `edge/Dockerfile`, configured by `edge/openre
 ## Host-Based Routing
 
 `router.lua` lowercases the request host and strips any port. It loads `/var/lib/cdnlite/config.json`, looks up `hosts[host]`, chooses an upstream, and calls `proxy.forward(site)`. Missing host or unknown host returns 502.
+
+Before proxying, the router evaluates enabled WAF rules for the host from snapshot `waf_rules`. When a `block` rule matches, the edge returns `403` with JSON `{"error":"blocked_by_waf","request_id":"..."}`. `log` and `allow` actions continue request flow.
+
+The router also evaluates a per-site/path rate-limit rule from snapshot `rate_limits`. Counters are stored in `lua_shared_dict cdnlite_limits` as 60-second buckets. When over threshold with `action=block`, the edge returns `429` JSON `{"error":"rate_limited","request_id":"..."}` and sets `Retry-After: 60`.
 
 ## Geo Upstreams
 
@@ -37,7 +42,7 @@ Nginx forwards:
 - `X-Forwarded-For: $proxy_add_x_forwarded_for`
 - `X-Forwarded-Proto: $scheme`
 
-Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge: openresty`, `X-CDNLITE-Site`, and `X-CDNLITE-Request-Id` when proxying.
+Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (from `EDGE_ID`, fallback `edge-local-1`), `X-CDNLITE-Site`, and `X-CDNLITE-Request-Id` when proxying.
 Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HIT`, `BYPASS`, or `STALE`.
 
 ## Lua Modules
@@ -47,12 +52,12 @@ Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HI
 | `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; enforces `schema_version=1`; falls back to version 0 empty hosts. |
 | `router.lua` | Host lookup, geo upstream selection, and request-id context setup. |
 | `proxy.lua` | Sets `$target_upstream`, cache bypass variables, per-rule cache TTL, and edge/site headers. |
-| `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase, including `request_id`. |
+| `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase, including `request_id` and `cache_status`. |
 | `error_page.lua` | Renders custom HTML error responses. |
 
 ## Metrics Lifecycle
 
-`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `site_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, `status`, and `request_id`. The agent batches and truncates this file after a successful usage push.
+`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `site_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, `status`, `request_id`, `cache_status` (`HIT`, `MISS`, `BYPASS`, `STALE`, or other upstream cache labels), plus security decision fields: `security_event_type`, `security_action`, and `security_rule_id` (for WAF and rate-limit matches).
 
 ## Upstream Failures
 

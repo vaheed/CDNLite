@@ -66,6 +66,154 @@ local function match_redirect_rule(cfg, host)
   return nil
 end
 
+local function split_once(input, sep)
+  local i, j = string.find(input or '', sep, 1, true)
+  if not i then
+    return input, ''
+  end
+  return string.sub(input, 1, i - 1), string.sub(input, j + 1)
+end
+
+local function ip_in_cidr(ip, cidr)
+  local base, prefix = split_once(cidr or '', '/')
+  local n = tonumber(prefix or '')
+  if not base or base == '' or not n then
+    return false
+  end
+  local ip_bin = ngx.re.match(ip or '', [[^\d{1,3}(?:\.\d{1,3}){3}$]], 'jo')
+  local base_bin = ngx.re.match(base or '', [[^\d{1,3}(?:\.\d{1,3}){3}$]], 'jo')
+  if not ip_bin or not base_bin or n < 0 or n > 32 then
+    return false
+  end
+  local function ipv4_to_u32(v)
+    local a, b, c, d = string.match(v, '^(%d+)%.(%d+)%.(%d+)%.(%d+)$')
+    a, b, c, d = tonumber(a), tonumber(b), tonumber(c), tonumber(d)
+    if not a or a > 255 or not b or b > 255 or not c or c > 255 or not d or d > 255 then return nil end
+    return a * 16777216 + b * 65536 + c * 256 + d
+  end
+  local ipn = ipv4_to_u32(ip)
+  local basen = ipv4_to_u32(base)
+  if not ipn or not basen then
+    return false
+  end
+  local hostbits = 32 - n
+  local mask = hostbits == 32 and 0 or (0xFFFFFFFF - (2 ^ hostbits - 1))
+  return bit.band(ipn, mask) == bit.band(basen, mask)
+end
+
+local function waf_rule_matches(rule, path, method, client_ip, country, ua)
+  local t = tostring(rule.type or '')
+  local pattern = tostring(rule.pattern or '')
+  if pattern == '' then
+    return false
+  end
+  if t == 'path_contains' then return string.find(path, pattern, 1, true) ~= nil end
+  if t == 'path_prefix' then return string.sub(path, 1, #pattern) == pattern end
+  if t == 'user_agent_contains' then return string.find(ua, pattern, 1, true) ~= nil end
+  if t == 'ip_cidr' then return ip_in_cidr(client_ip, pattern) end
+  if t == 'country_is' then return string.upper(country) == string.upper(pattern) end
+  if t == 'method_is' then return string.upper(method) == string.upper(pattern) end
+  if t == 'header_contains' then
+    local header_name, header_value = split_once(pattern, ':')
+    if not header_name or header_name == '' or not header_value or header_value == '' then
+      return false
+    end
+    local v = ngx.req.get_headers()[header_name]
+    return type(v) == 'string' and string.find(v, header_value, 1, true) ~= nil
+  end
+  return false
+end
+
+local function apply_waf(cfg, host)
+  local rules = cfg.waf_rules or {}
+  local path = ngx.var.uri or '/'
+  local method = ngx.req.get_method() or ''
+  local client_ip = ngx.var.remote_addr or ''
+  local country = request_country()
+  local ua = tostring(ngx.var.http_user_agent or '')
+  for _, rule in ipairs(rules) do
+    if rule and rule.host == host and rule.enabled and waf_rule_matches(rule, path, method, client_ip, country, ua) then
+      ngx.ctx.security_event_type = 'waf_match'
+      ngx.ctx.security_rule_id = tostring(rule.id or '')
+      ngx.ctx.security_action = tostring(rule.action or 'block')
+      if ngx.ctx.security_action == 'allow' then
+        return true
+      end
+      if ngx.ctx.security_action == 'block' then
+        ngx.status = 403
+        ngx.header.content_type = 'application/json'
+        ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+        ngx.say('{"error":"blocked_by_waf","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
+        return ngx.exit(403)
+      end
+      return true
+    end
+  end
+  return true
+end
+
+local function match_rate_limit(cfg, host)
+  local rules = cfg.rate_limits or {}
+  local path = ngx.var.uri or '/'
+  local best = nil
+  local best_len = -1
+  for _, rule in ipairs(rules) do
+    if rule and rule.host == host and rule.enabled and type(rule.path_prefix) == 'string' then
+      local prefix = rule.path_prefix
+      if path:sub(1, #prefix) == prefix and #prefix > best_len then
+        best = rule
+        best_len = #prefix
+      end
+    end
+  end
+  return best
+end
+
+local function apply_rate_limit(cfg, host, site_id)
+  local rule = match_rate_limit(cfg, host)
+  if not rule then
+    return true
+  end
+  local rpm = tonumber(rule.requests_per_minute or 0) or 0
+  if rpm <= 0 then
+    return true
+  end
+
+  local key_type = tostring(rule.key_type or 'ip')
+  local client_ip = ngx.var.remote_addr or ''
+  local key = client_ip
+  if key_type == 'ip_path' then
+    key = client_ip .. '|' .. (ngx.var.uri or '/')
+  end
+  local bucket = tostring(math.floor(ngx.now() / 60))
+  local counter_key = tostring(site_id) .. '|' .. tostring(rule.id or '') .. '|' .. key .. '|' .. bucket
+  local dict = ngx.shared.cdnlite_limits
+  if not dict then
+    return true
+  end
+  local current, err = dict:incr(counter_key, 1, 0, 61)
+  if not current then
+    ngx.log(ngx.ERR, 'rate_limit_counter_error: ', tostring(err or 'unknown'))
+    return true
+  end
+  if current <= rpm then
+    return true
+  end
+
+  ngx.ctx.security_event_type = 'rate_limited'
+  ngx.ctx.security_rule_id = tostring(rule.id or '')
+  ngx.ctx.security_action = tostring(rule.action or 'block')
+  if ngx.ctx.security_action == 'block' then
+    ngx.status = 429
+    ngx.header.content_type = 'application/json'
+    ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+    ngx.header['Retry-After'] = '60'
+    ngx.say('{"error":"rate_limited","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
+    return ngx.exit(429)
+  end
+  return true
+end
+
 function M.handle()
   ensure_request_id()
   local cfg = loader.load()
@@ -83,10 +231,21 @@ function M.handle()
   if redirect then
     ngx.header['Location'] = tostring(redirect.target_url or '')
     ngx.header['X-CDNLITE-Rule'] = 'redirect'
+    ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+    ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
     return ngx.exit(tonumber(redirect.status_code) or 302)
   end
 
+  local waf_ok = apply_waf(cfg, host)
+  if not waf_ok then
+    return false, 'waf_blocked'
+  end
+
   ngx.ctx.site_id = site.site_id
+  local rate_limit_ok = apply_rate_limit(cfg, host, site.site_id)
+  if not rate_limit_ok then
+    return false, 'rate_limited'
+  end
   ngx.ctx.upstream = pick_upstream(site)
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
   return proxy.forward(site)

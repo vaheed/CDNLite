@@ -17,6 +17,10 @@ end
 function M.on_log()
   local bytes_in = tonumber(ngx.var.request_length) or 0
   local bytes_out = tonumber(ngx.var.bytes_sent) or 0
+  local cache_status = tostring(ngx.var.upstream_cache_status or '')
+  if cache_status == '' then
+    cache_status = 'BYPASS'
+  end
   append_metric({
     ts = os.time(),
     site_id = tostring(ngx.ctx.site_id or ''),
@@ -26,6 +30,10 @@ function M.on_log()
     bytes_out = bytes_out,
     status = tonumber(ngx.status) or 0,
     request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
+    cache_status = cache_status,
+    security_event_type = tostring(ngx.ctx.security_event_type or ''),
+    security_action = tostring(ngx.ctx.security_action or ''),
+    security_rule_id = tostring(ngx.ctx.security_rule_id or ''),
   })
 end
 
