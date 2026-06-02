@@ -3,8 +3,9 @@
     <div class="flex items-center justify-between gap-3">
       <span class="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100">
         {{ label }}
+        <span v-if="required" class="text-red-600 dark:text-red-400" aria-label="required">*</span>
         <span class="group relative inline-flex">
-          <button type="button" class="grid h-5 w-5 place-items-center rounded-full border border-slate-300 text-xs font-bold text-slate-500 hover:border-cyan-500 hover:text-cyan-600 dark:border-slate-600 dark:text-slate-400 dark:hover:text-cyan-300" :aria-label="`${label} help`">?</button>
+          <button type="button" tabindex="-1" class="grid h-5 w-5 place-items-center rounded-full border border-slate-300 text-xs font-bold text-slate-500 hover:border-cyan-500 hover:text-cyan-600 dark:border-slate-600 dark:text-slate-400 dark:hover:text-cyan-300" :aria-label="`${label} help`">?</button>
           <span class="field-help">
             <span class="block font-semibold text-slate-900 dark:text-slate-100">{{ what }}</span>
             <span class="mt-1 block">{{ works }}</span>
@@ -12,10 +13,11 @@
           </span>
         </span>
       </span>
-      <span v-if="required" class="rounded-full bg-cyan-100 px-2 py-0.5 text-[11px] font-medium text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-200">required</span>
+      <span v-if="!required" class="text-[11px] font-medium text-slate-500 dark:text-slate-400">Optional</span>
     </div>
     <slot />
-    <p v-if="error" class="text-xs font-semibold text-red-600 dark:text-red-300">{{ error }}</p>
+    <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">{{ what }} Example: {{ example }}</p>
+    <p v-if="error" role="alert" class="text-xs font-semibold text-red-600 dark:text-red-300">{{ error }}</p>
   </label>
 </template>
 

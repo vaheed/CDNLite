@@ -1,13 +1,13 @@
 <template>
   <section class="space-y-6">
     <div>
-      <h1 class="text-3xl font-black tracking-tight text-white">Ops & Troubleshooting</h1>
-      <p class="text-slate-400">High-signal runtime diagnostics for fast triage.</p>
+      <h1 class="text-3xl font-black tracking-tight text-slate-950 dark:text-white">Ops & Troubleshooting</h1>
+      <p class="text-slate-600 dark:text-slate-400">High-signal runtime diagnostics for fast triage.</p>
     </div>
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <div v-for="card in cards" :key="card.label" class="card p-4">
-        <p class="text-sm text-slate-400">{{ card.label }}</p>
-        <p class="mt-2 text-2xl font-black text-white">{{ card.value }}</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+        <p class="mt-2 text-2xl font-black text-slate-950 dark:text-white">{{ card.value }}</p>
       </div>
     </div>
     <div class="grid gap-4 xl:grid-cols-2">

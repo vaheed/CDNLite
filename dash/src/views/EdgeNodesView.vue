@@ -1,4 +1,4 @@
-<template><section class="space-y-6"><div><h1 class="text-3xl font-black text-white">Edge Nodes</h1><p class="text-slate-400">Heartbeat freshness, region, version, and online/offline health.</p></div><DataTable title="Edge health table" :rows="rows" :columns="columns"><template #health="{ row }"><StatusBadge :status="String(row.health)" /></template></DataTable><ChartCard title="Online / Offline" :option="chart" /></section></template>
+<template><section class="space-y-6"><div><h1 class="text-3xl font-black text-slate-950 dark:text-white">Edge Nodes</h1><p class="text-slate-600 dark:text-slate-400">Heartbeat freshness, region, version, and online/offline health.</p></div><DataTable title="Edge health table" :rows="rows" :columns="columns"><template #health="{ row }"><StatusBadge :status="String(row.health)" /></template></DataTable><ChartCard title="Online / Offline" :option="chart" /></section></template>
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import DataTable from '@/components/ui/DataTable.vue'; import ChartCard from '@/components/ui/ChartCard.vue'; import StatusBadge from '@/components/ui/StatusBadge.vue';

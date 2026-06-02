@@ -2,22 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-.dark { color-scheme: dark; }
+:root {
+  color-scheme: light;
+  --app-bg: #f8fafc;
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
+  --border: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --primary-action: #2563eb;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+}
+.dark {
+  color-scheme: dark;
+  --app-bg: #09090b;
+  --sidebar-bg: #0f172a;
+  --card-bg: #111827;
+  --border: rgba(255, 255, 255, 0.08);
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --primary-action: #22c55e;
+  --secondary-accent: #3b82f6;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
 
 html, body, #app { min-height: 100%; }
-body { margin: 0; background: #f4f7fb; color: #172033; font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
-.dark body { background: #0b1120; color: #e5edf7; }
+body { margin: 0; background: var(--app-bg); color: var(--text-primary); font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
 
 @layer components {
   .app-surface {
-    @apply bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    background: var(--app-bg);
+    color: var(--text-primary);
   }
   .app-panel {
-    @apply border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/95;
+    @apply shadow-sm;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
   }
   .card {
-    @apply rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/90 dark:shadow-none;
+    @apply rounded-lg shadow-sm dark:shadow-none;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
   }
   .input {
     @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none ring-cyan-500/20 placeholder:text-slate-400 focus:border-cyan-600 focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-400;

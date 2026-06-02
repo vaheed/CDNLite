@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildUrl, apiRequest } from './client';
+import { buildUrl, apiRequest, humanizeApiError } from './client';
+import type { CdnLiteApiError } from './client';
 import { setAdminSessionToken } from '@/lib/auth/session';
 
 describe('buildUrl', () => {
@@ -20,5 +21,21 @@ describe('buildUrl', () => {
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect((init.headers as Headers).get('Authorization')).toBe('Bearer session-token');
+  });
+
+  it('maps backend error codes to human-readable messages', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"error":"domain_already_exists"}', { status: 409 }));
+
+    await expect(apiRequest('/api/v1/sites')).rejects.toMatchObject({
+      name: 'CdnLiteApiError',
+      status: 409,
+      message: 'Unable to create site. Domain already exists.',
+      code: 'domain_already_exists',
+    } satisfies Partial<CdnLiteApiError>);
+  });
+
+  it('humanizes unknown snake-case error codes', () => {
+    expect(humanizeApiError('origin_host_required')).toBe('Origin host is required.');
+    expect(humanizeApiError('custom_backend_error')).toBe('Custom backend error.');
   });
 });

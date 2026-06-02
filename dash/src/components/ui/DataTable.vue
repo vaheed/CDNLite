@@ -1,27 +1,27 @@
 <template>
   <div class="card overflow-hidden">
-    <div class="flex flex-col gap-3 border-b border-white/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div class="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
       <div>
-        <h3 class="font-semibold text-white">{{ title }}</h3>
-        <p v-if="subtitle" class="text-sm text-slate-400">{{ subtitle }}</p>
+        <h3 class="font-semibold text-slate-950 dark:text-white">{{ title }}</h3>
+        <p v-if="subtitle" class="text-sm text-slate-500 dark:text-slate-400">{{ subtitle }}</p>
       </div>
       <input v-model="search" class="input max-w-xs" placeholder="Search table…" />
     </div>
     <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-white/10 text-sm">
-        <thead class="bg-white/[0.03] text-left text-xs uppercase tracking-wide text-slate-400">
+      <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/10">
+        <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
           <tr><th v-for="column in columns" :key="column.key" class="px-4 py-3 cursor-pointer" @click="sortBy(column.key)">{{ column.label }} <span v-if="sortKey === column.key">{{ sortDir === 'asc' ? '↑' : '↓' }}</span></th></tr>
         </thead>
-        <tbody class="divide-y divide-white/5">
-          <tr v-for="row in pagedRows" :key="rowKey(row)" class="hover:bg-white/[0.03]">
-            <td v-for="column in columns" :key="column.key" class="px-4 py-3 text-slate-300">
+        <tbody class="divide-y divide-slate-100 dark:divide-white/5">
+          <tr v-for="row in pagedRows" :key="rowKey(row)" class="hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+            <td v-for="column in columns" :key="column.key" class="px-4 py-3 text-slate-700 dark:text-slate-300">
               <slot :name="column.key" :row="row" :value="row[column.key]">{{ formatCell(row[column.key]) }}</slot>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div class="flex items-center justify-between border-t border-white/10 p-3 text-xs text-slate-400">
+    <div class="flex items-center justify-between border-t border-slate-200 p-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
       <span>{{ filteredRows.length }} records</span>
       <div class="flex items-center gap-2">
         <button class="button-secondary px-2 py-1 text-xs" :disabled="page === 1" @click="page--">Prev</button>

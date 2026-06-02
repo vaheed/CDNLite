@@ -9,6 +9,14 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 - Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query for Vue.
 - Tailwind CSS, Headless UI-compatible component structure, ECharts charts.
 - Typed API clients for sites, DNS, redirects, page rules, cache, purge, WAF, rate limit, SSL, edges, usage, security events, and edge signed developer endpoints.
+- Light and dark admin themes use CSS variables for app surfaces, cards, borders, text, actions, success, warning, and danger states. The theme toggle stores `cdnlite.theme` in localStorage.
+- Forms use shared field components with red required asterisks, optional markers, inline help text, non-focusable hover help icons, field-level validation errors, and page-level alerts for API failures.
+- The Sites workflow supports create, edit with `PATCH /api/v1/sites/{id}`, proxy enable/disable, active/disabled status changes, copy ID, and delete confirmation.
+- Redirect rows support edit, enable/disable with `PATCH /api/v1/sites/{id}/redirects/{redirectId}`, and delete confirmation.
+- Purge uses a clear required scope dropdown (`url`, `prefix`, `site`, `everything`) and only requires the URL/prefix value for URL or Prefix purges.
+- Charts receive theme-aware labels, legends, axes, and tooltips. Pie charts hide outside slice labels and rely on the legend/tooltip to avoid unreadable label collisions.
+- Rate Limiting exposes the backend `enabled` flag and saves the active rule with `PUT /api/v1/sites/{id}/rate-limit`.
+- Troubleshooting includes a runnable diagnostics workflow for core readiness, edge readiness/heartbeats, schema readiness, security events, SSL certificate risk, and cache purge status, with a copyable report.
 - Dockerfile and Nginx runtime image.
 - Unit tests for env parsing, URL building, HMAC signing, formatting, diagnostics, and key forms.
 
@@ -124,6 +132,12 @@ SHA256_RAW_BODY_HEX
 ## Security notes
 
 This is a client-only admin dashboard. It supports core-backed admin login sessions, but it does not provide production RBAC. For production, place this SPA and the CDNLite API behind real authentication at the reverse proxy or platform level. Do not expose private API or edge credentials in browser logs, error toasts, analytics, or localStorage.
+
+## Error handling and accessibility
+
+The dashboard API client maps known backend error codes such as `domain_already_exists`, `origin_host_required`, `invalid_json`, and `internal_server_error` to human-readable UI messages before surfacing them in views. Form pages should keep developer console logging as secondary diagnostics only; user-facing failures belong in alerts or field errors.
+
+Tooltip help icons in shared form fields are intentionally `tabindex="-1"` so Tab navigation moves between actual inputs, selects, textareas, buttons, toggles, and submit actions. Required fields should use the shared red `*` marker rather than a separate required badge.
 
 ## API coverage map
 

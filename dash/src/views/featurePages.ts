@@ -6,7 +6,7 @@ export type FeaturePage = {
   title: string;
   subtitle: string;
   endpointSummary: string[];
-  fields: Array<{ name: string; label: string; what: string; works: string; example: string; required?: boolean; type?: 'text' | 'number' | 'select' | 'textarea' | 'checkbox' }>;
+  fields: Array<{ name: string; label: string; what: string; works: string; example: string; required?: boolean; type?: 'text' | 'number' | 'select' | 'textarea' | 'checkbox'; options?: Array<{ label: string; value: string }> }>;
 };
 
 export const featurePages: FeaturePage[] = [
@@ -54,11 +54,11 @@ export const featurePages: FeaturePage[] = [
     ],
   },
   {
-    key: 'purge', path: '/purge', title: 'Purge', subtitle: 'Invalidate cached content by URL, prefix, site, or everything.',
+    key: 'purge', path: '/purge', title: 'Purge Cache', subtitle: 'Choose a purge scope and invalidate cached content for the selected site.',
     endpointSummary: ['POST /api/v1/sites/{id}/cache/purge', 'GET /api/v1/sites/{id}/cache/purge-requests'],
     fields: [
-      { name: 'type', label: 'Type', what: 'Scope of cache invalidation.', works: 'URL purges one URL; prefix purges a path group; everything purges all cached content.', example: 'prefix', required: true },
-      { name: 'value', label: 'Value', what: 'URL or prefix to purge.', works: 'Required for url and prefix purges.', example: '/assets/' },
+      { name: 'type', label: 'Purge scope', what: 'Required. Choose what cached content to invalidate.', works: 'URL purges one exact URL; prefix purges matching paths; site purges the selected site; everything purges all cached content for the selected site.', example: 'prefix', required: true, type: 'select', options: [{ label: 'URL - one exact URL', value: 'url' }, { label: 'Prefix - paths starting with value', value: 'prefix' }, { label: 'Site - selected site', value: 'site' }, { label: 'Everything - all site cache', value: 'everything' }] },
+      { name: 'value', label: 'URL or prefix', what: 'Required only when purge scope is URL or Prefix.', works: 'Use an exact URL/path for URL purge, or a path prefix such as /assets/ for Prefix purge. Leave empty for Site or Everything.', example: '/assets/' },
     ],
   },
   {
@@ -75,7 +75,9 @@ export const featurePages: FeaturePage[] = [
     key: 'rate-limit', path: '/rate-limit', title: 'Rate Limiting', subtitle: 'Configure per-site request limiting.',
     endpointSummary: ['GET/PUT/DELETE /api/v1/sites/{id}/rate-limit'],
     fields: [
+      { name: 'enabled', label: 'Enabled', what: 'Whether the rate limit is actively enforced.', works: 'Save with enabled on to enforce. Use Disable rate limit to remove the active rule.', example: 'true', type: 'checkbox' },
       { name: 'requests_per_minute', label: 'Requests per minute', what: 'Maximum requests allowed per minute.', works: 'Requests above this threshold are blocked.', example: '120', required: true, type: 'number' },
+      { name: 'priority', label: 'Priority', what: 'Evaluation order when multiple limits exist in generated config.', works: 'Lower numbers can be evaluated earlier by the edge snapshot.', example: '100', type: 'number' },
       { name: 'key_type', label: 'Key type', what: 'How clients are grouped for limiting.', works: 'ip limits by IP; ip_path limits by IP + path.', example: 'ip_path' },
       { name: 'path_prefix', label: 'Path prefix', what: 'Path scope for the limiter.', works: 'Use / to apply site-wide, or a prefix for hot paths.', example: '/api/' },
       { name: 'action', label: 'Action', what: 'Decision when the limit is exceeded.', works: 'Usually block, but implementations may support log-only.', example: 'block' },

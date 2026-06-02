@@ -5,11 +5,13 @@ import type { ApiEnvelope } from '@/types';
 export class CdnLiteApiError extends Error {
   status: number;
   details: unknown;
-  constructor(status: number, message: string, details?: unknown) {
+  code?: string;
+  constructor(status: number, message: string, details?: unknown, code?: string) {
     super(message);
     this.name = 'CdnLiteApiError';
     this.status = status;
     this.details = details;
+    this.code = code;
   }
 }
 
@@ -63,8 +65,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const text = await response.text();
     const payload = text ? safeJson(text) : null;
     if (!response.ok) {
-      const message = (payload as { error?: string; message?: string } | null)?.error ?? (payload as { message?: string } | null)?.message ?? `HTTP ${response.status}`;
-      throw new CdnLiteApiError(response.status, message, payload);
+      const raw = extractErrorCode(payload) ?? `HTTP ${response.status}`;
+      throw new CdnLiteApiError(response.status, humanizeApiError(raw), payload, raw);
     }
     return unwrap<T>(payload);
   } catch (error) {
@@ -79,6 +81,34 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
 function safeJson(text: string): unknown {
   try { return JSON.parse(text); } catch { return text; }
+}
+
+function extractErrorCode(payload: unknown): string | undefined {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    const nested = record.error && typeof record.error === 'object' ? record.error as Record<string, unknown> : null;
+    const value = record.code ?? nested?.code ?? nested?.message ?? record.error ?? record.message;
+    return typeof value === 'string' ? value : undefined;
+  }
+  return typeof payload === 'string' ? payload : undefined;
+}
+
+export function humanizeApiError(code: string): string {
+  const normalized = code.toLowerCase().trim();
+  const messages: Record<string, string> = {
+    name_required: 'Site name is required.',
+    domain_required: 'Domain is required.',
+    origin_host_required: 'Origin host is required.',
+    origin_port_required: 'Origin port is required.',
+    domain_already_exists: 'Unable to create site. Domain already exists.',
+    invalid_json: 'The request body contains invalid JSON.',
+    internal_server_error: 'The server hit an internal error. Try again or check the core logs.',
+  };
+  if (messages[normalized]) return messages[normalized];
+  if (/^[a-z0-9_]+$/.test(normalized)) {
+    return normalized.replaceAll('_', ' ').replace(/^\w/, (char) => char.toUpperCase()) + '.';
+  }
+  return code;
 }
 
 function unwrap<T>(payload: unknown): T {
