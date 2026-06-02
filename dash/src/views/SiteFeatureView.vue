@@ -17,7 +17,11 @@
         </div>
       </div>
     </div>
-    <form class="card grid gap-4 p-5 xl:grid-cols-2" @submit.prevent="submit">
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="checkSsl">Run SSL check</button>
+      <button type="button" class="button-primary" :disabled="!siteId || saving" @click="startCreate">{{ createLabel }}</button>
+    </div>
+    <form v-if="showForm" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="submit">
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ formError }}</div>
       <template v-for="field in feature.fields" :key="field.name">
         <label v-if="field.type === 'checkbox'" class="space-y-2 rounded-lg border border-slate-200 p-4 dark:border-white/10">
@@ -41,6 +45,12 @@
         <p class="text-sm text-amber-200" v-if="feature.key === 'purge'">Purge type “everything” can invalidate all cached content for the selected site.</p>
         <div class="flex flex-wrap gap-2">
           <button v-if="editingId" type="button" class="button-secondary" @click="cancelEdit">Cancel edit</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="testRedirect">Test redirect</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="exportRedirects">Export redirects</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="importRedirects">Import current rule</button>
+          <button v-if="feature.key === 'page-rules'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="testPageRule">Test rule</button>
+          <button v-if="feature.key === 'cache'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="saveCacheRule">Save cache rule</button>
+          <button v-if="feature.key === 'security'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="loadSecurityEvents">Load events</button>
           <button class="button-primary" :disabled="!siteId || saving">{{ editingId ? 'Save changes' : submitLabel }}</button>
         </div>
       </div>
@@ -52,9 +62,10 @@
           <span v-else>{{ String(row.enabled ?? '') }}</span>
         </template>
         <template #actions="{ row }">
-          <div v-if="feature.key === 'redirects'" class="flex flex-wrap gap-2">
-            <button class="button-secondary px-2 py-1 text-xs" @click="editRedirect(row)">Edit</button>
-            <ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this redirect rule?" @confirm="deleteRedirect(row)">Delete</ConfirmDangerButton>
+          <div class="flex flex-wrap gap-2">
+            <button v-if="canEdit(row)" class="button-secondary px-2 py-1 text-xs" @click="editRow(row)">Edit</button>
+            <button v-if="feature.key === 'purge'" class="button-secondary px-2 py-1 text-xs" @click="getPurgeRequest(row)">Details</button>
+            <ConfirmDangerButton v-if="canDelete(row)" class="px-2 py-1 text-xs" :confirm-text="`Delete this ${feature.title.toLowerCase()} record?`" @confirm="deleteRow(row)">Delete</ConfirmDangerButton>
           </div>
         </template>
       </DataTable>
@@ -80,25 +91,41 @@ import { redirectsApi } from '@/lib/api/redirects';
 import { sitesApi } from '@/lib/api/sites';
 import { sslApi } from '@/lib/api/ssl';
 import { wafApi } from '@/lib/api/waf';
-import type { RedirectRule, Site } from '@/types';
-import type { FeaturePage } from './featurePages';
+import type { CacheRule, DnsRecord, PageRule, RedirectRule, Site, WafRule } from '@/types';
+import type { FeatureKey, FeaturePage } from './featurePages';
 const props = defineProps<{ feature: FeaturePage }>();
-const sites = ref<Site[]>([]); const siteId = ref(''); const rows = ref<Record<string, unknown>[]>([]); const saving = ref(false); const lastResult = ref<unknown>(null); const formError = ref(''); const editingId = ref(''); const form = reactive<Record<string, string | number | boolean>>({});
+const sites = ref<Site[]>([]); const siteId = ref(''); const rows = ref<Record<string, unknown>[]>([]); const saving = ref(false); const lastResult = ref<unknown>(null); const formError = ref(''); const editingId = ref(''); const showForm = ref(false); const form = reactive<Record<string, string | number | boolean>>({});
+const selectedSite = computed(() => sites.value.find((site) => site.id === siteId.value));
 const columns = computed(() => {
-  const base = Object.keys(rows.value[0] ?? { id: '', name: '', status: '' }).slice(0, 8).map((key) => ({ key, label: key.replaceAll('_', ' ') }));
-  return props.feature.key === 'redirects' ? [...base.filter((column) => column.key !== 'actions'), { key: 'actions', label: 'Actions' }] : base;
+  if (props.feature.columns) return props.feature.columns;
+  return Object.keys(rows.value[0] ?? { id: '', name: '', status: '' }).slice(0, 8).map((key) => ({ key, label: key.replaceAll('_', ' ') }));
 });
-const submitLabel = computed(() => props.feature.key === 'purge' ? 'Purge cache' : `Save / Run ${props.feature.title}`);
+const submitLabel = computed(() => props.feature.key === 'purge' ? 'Purge cache' : props.feature.key === 'cache' ? 'Save cache settings' : props.feature.key === 'ssl' ? 'Import certificate' : `Save ${props.feature.title}`);
+const createLabel = computed(() => props.feature.key === 'ssl' ? 'Import certificate' : props.feature.key === 'purge' ? 'New purge' : props.feature.key === 'cache' ? 'Edit cache settings' : `Add ${props.feature.title}`);
 function toHelp(field: FeaturePage['fields'][number]) { return { label: field.label, what: field.what, works: field.works, example: field.example, required: field.required }; }
-function resetForm() { props.feature.fields.forEach((field) => { form[field.name] = field.type === 'checkbox' ? field.example === 'true' : field.type === 'number' ? Number(field.example) || 0 : field.example.startsWith('{') ? field.example : ''; }); }
+function resetForm() { props.feature.fields.forEach((field) => { form[field.name] = field.type === 'checkbox' ? field.example === 'true' : field.type === 'number' ? Number(field.example) || 0 : field.type === 'select' ? field.example : field.example.startsWith('{') ? field.example : ''; }); }
 async function loadRows() {
   if (!siteId.value) return;
   const id = siteId.value;
   const data = await ({
-    dns: () => dnsApi.list(id), redirects: () => redirectsApi.list(id), 'page-rules': () => pageRulesApi.list(id), cache: async () => [...await cacheApi.rules(id), await cacheApi.settings(id), await cacheApi.analytics(id)] as unknown[], purge: () => purgeApi.list(id), security: () => wafApi.list(id), 'rate-limit': async () => [await rateLimitApi.get(id)], ssl: () => sslApi.certificates(id),
+    dns: () => dnsApi.list(id),
+    redirects: () => redirectsApi.list(id),
+    'page-rules': () => pageRulesApi.list(id),
+    cache: async () => {
+      const [rules, settings, analytics] = await Promise.all([cacheApi.rules(id), cacheApi.settings(id), cacheApi.analytics(id)]);
+      return [{ ...settings, id: 'settings', kind: 'settings' }, ...rules.map((rule) => ({ ...rule, kind: 'rule' })), { ...analytics, id: 'analytics', kind: 'analytics' }] as unknown[];
+    },
+    purge: () => purgeApi.list(id),
+    security: () => wafApi.list(id),
+    'rate-limit': async () => [await rateLimitApi.get(id)],
+    ssl: () => sslApi.certificates(id),
   }[props.feature.key]()).catch((error) => { lastResult.value = error instanceof Error ? error.message : error; return []; });
   rows.value = Array.isArray(data) ? data.filter(Boolean) as Record<string, unknown>[] : [data as Record<string, unknown>];
   if (props.feature.key === 'rate-limit' && rows.value[0]) Object.assign(form, rows.value[0]);
+  if (props.feature.key === 'cache') {
+    const settings = rows.value.find((row) => row.kind === 'settings');
+    if (settings) Object.assign(form, settings);
+  }
 }
 async function submit() {
   if (!siteId.value) return; saving.value = true; formError.value = '';
@@ -111,9 +138,17 @@ async function submit() {
   try {
     const id = siteId.value;
     lastResult.value = await ({
-      dns: () => dnsApi.create(id, input as never), redirects: () => editingId.value ? redirectsApi.update(id, editingId.value, input as Partial<RedirectRule>) : redirectsApi.create(id, input as Partial<RedirectRule>), 'page-rules': () => pageRulesApi.create(id, { ...input, actions: parseMaybeJson(String(input.actions ?? '{}')) }), cache: () => cacheApi.updateSettings(id, input as never), purge: () => purgeApi.create(id, input as { type: string; value?: string }), security: () => wafApi.create(id, input), 'rate-limit': () => rateLimitApi.save(id, input as never), ssl: () => sslApi.manualCertificate(id, input as never),
-    }[props.feature.key]());
+      dns: () => editingId.value ? dnsApi.update(id, editingId.value, input as Partial<DnsRecord>) : dnsApi.create(id, input as never),
+      redirects: () => editingId.value ? redirectsApi.update(id, editingId.value, input as Partial<RedirectRule>) : redirectsApi.create(id, input as Partial<RedirectRule>),
+      'page-rules': () => editingId.value ? pageRulesApi.update(id, editingId.value, { ...input, actions: parseMaybeJson(String(input.actions ?? '{}')) } as Partial<PageRule>) : pageRulesApi.create(id, { ...input, actions: parseMaybeJson(String(input.actions ?? '{}')) }),
+      cache: () => cacheApi.updateSettings(id, cacheSettingsInput(input)),
+      purge: () => purgeApi.create(id, input as { type: string; value?: string }),
+      security: () => editingId.value ? wafApi.update(id, editingId.value, input as Partial<WafRule>) : wafApi.create(id, input),
+      'rate-limit': () => rateLimitApi.save(id, input as never),
+      ssl: () => sslApi.manualCertificate(id, input as never),
+    }[props.feature.key] as () => Promise<unknown>)();
     if (editingId.value) cancelEdit();
+    showForm.value = false;
     await loadRows();
   } catch (error) {
     console.error('[feature-form]', error);
@@ -121,10 +156,11 @@ async function submit() {
     lastResult.value = formError.value;
   } finally { saving.value = false; }
 }
-function editRedirect(row: Record<string, unknown>) {
+function editRow(row: Record<string, unknown>) {
   editingId.value = String(row.id ?? '');
+  showForm.value = true;
   props.feature.fields.forEach((field) => {
-    const value = row[field.name];
+    const value = field.name === 'actions' && row.actions ? JSON.stringify(row.actions, null, 2) : row[field.name];
     form[field.name] = typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' ? value : '';
   });
 }
@@ -139,19 +175,91 @@ async function toggleRedirect(row: Record<string, unknown>) {
     formError.value = error instanceof Error ? error.message : 'Unable to update redirect.';
   } finally { saving.value = false; }
 }
-async function deleteRedirect(row: Record<string, unknown>) {
+function canEdit(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
+function canDelete(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
+async function deleteRow(row: Record<string, unknown>) {
   if (!siteId.value) return;
   saving.value = true; formError.value = '';
   try {
-    lastResult.value = await redirectsApi.remove(siteId.value, String(row.id));
-    if (editingId.value === String(row.id)) cancelEdit();
+    const id = siteId.value; const rowId = String(row.id);
+    const handlers: Partial<Record<FeatureKey, () => Promise<unknown>>> = {
+      dns: () => dnsApi.remove(id, rowId),
+      redirects: () => redirectsApi.remove(id, rowId),
+      'page-rules': () => pageRulesApi.remove(id, rowId),
+      cache: () => cacheApi.removeRule(id, rowId),
+      security: () => wafApi.remove(id, rowId),
+    };
+    const handler = handlers[props.feature.key];
+    if (!handler) return;
+    lastResult.value = await handler();
+    if (editingId.value === rowId) cancelEdit();
     await loadRows();
   } catch (error) {
-    console.error('[redirect-delete]', error);
-    formError.value = error instanceof Error ? error.message : 'Unable to delete redirect.';
+    formError.value = error instanceof Error ? error.message : 'Unable to delete record.';
   } finally { saving.value = false; }
 }
-function cancelEdit() { editingId.value = ''; resetForm(); }
+async function exportRedirects() { if (!siteId.value) return; lastResult.value = await redirectsApi.exportRules(siteId.value); }
+async function importRedirects() {
+  if (!siteId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    const item = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v]));
+    lastResult.value = await redirectsApi.importRules(siteId.value, { items: [item] });
+    await loadRows();
+  } catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to import redirects.'; } finally { saving.value = false; }
+}
+async function testRedirect() {
+  if (!siteId.value) return;
+  lastResult.value = await redirectsApi.test(siteId.value, { path: String(form.source_path || '/'), query: '' });
+}
+async function testPageRule() {
+  if (!siteId.value) return;
+  lastResult.value = await pageRulesApi.test(siteId.value, { path: String(form.pattern || '/') });
+}
+async function saveCacheRule() {
+  if (!siteId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    const input = { enabled: Boolean(form.enabled), path_prefix: String(form.path_prefix || '/'), ttl_seconds: Number(form.ttl_seconds || form.default_edge_ttl_seconds || 60) };
+    lastResult.value = editingId.value ? await cacheApi.updateRule(siteId.value, editingId.value, input as Partial<CacheRule>) : await cacheApi.createRule(siteId.value, input);
+    cancelEdit();
+    await loadRows();
+  } catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to save cache rule.'; } finally { saving.value = false; }
+}
+async function checkSsl() {
+  if (!siteId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
+    lastResult.value = await sslApi.check(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    await loadRows();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : 'Unable to run SSL check.';
+    lastResult.value = formError.value;
+  } finally { saving.value = false; }
+}
+async function loadSecurityEvents() {
+  if (!siteId.value) return;
+  lastResult.value = await wafApi.events(siteId.value, { type: String(form.type || ''), limit: 100 });
+}
+async function getPurgeRequest(row: Record<string, unknown>) {
+  if (!siteId.value) return;
+  lastResult.value = await purgeApi.get(siteId.value, String(row.id));
+}
+function cacheSettingsInput(input: Record<string, unknown>) {
+  const browserTtl = input.default_browser_ttl_seconds === '' || input.default_browser_ttl_seconds === null || input.default_browser_ttl_seconds === undefined ? null : Number(input.default_browser_ttl_seconds);
+  return {
+    enabled: Boolean(input.enabled),
+    default_edge_ttl_seconds: Number(input.default_edge_ttl_seconds || 3600),
+    default_browser_ttl_seconds: browserTtl,
+    cache_query_string_mode: String(input.cache_query_string_mode || 'include_all'),
+    respect_origin_cache_control: Boolean(input.respect_origin_cache_control),
+    cache_authorized_requests: Boolean(input.cache_authorized_requests),
+    stale_if_error_seconds: Number(input.stale_if_error_seconds || 0),
+  };
+}
+function startCreate() { editingId.value = ''; resetForm(); showForm.value = true; }
+function cancelEdit() { editingId.value = ''; showForm.value = false; resetForm(); }
 function parseMaybeJson(text: string) { try { return JSON.parse(text); } catch { return {}; } }
 watch(siteId, () => { cancelEdit(); loadRows(); }); watch(() => props.feature.key, () => { cancelEdit(); rows.value = []; });
 onMounted(async () => { resetForm(); sites.value = await sitesApi.list().catch(() => []); siteId.value = sites.value[0]?.id ?? ''; });

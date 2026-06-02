@@ -1,13 +1,31 @@
 <template>
   <section class="space-y-6">
     <div><h1 class="text-3xl font-black text-slate-950 dark:text-white">Sites</h1><p class="text-slate-600 dark:text-slate-400">Full lifecycle management for CDN sites, origins, and proxy state.</p></div>
-    <form class="card grid gap-4 p-5 xl:grid-cols-2" @submit.prevent="saveSite">
+    <div class="flex justify-end">
+      <button type="button" class="button-primary" @click="startCreate">Add site</button>
+    </div>
+    <form v-if="showForm" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="saveSite">
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ formError }}</div>
       <TextInput v-model="form.name" :help="{ ...help.name, error: fieldErrors.name }" />
       <TextInput v-model="form.domain" :help="{ ...help.domain, error: fieldErrors.domain }" />
-      <TextInput v-model="form.origin_scheme" :help="{ ...help.origin_scheme, error: fieldErrors.origin_scheme }" />
+      <label class="space-y-2">
+        <span class="flex items-center gap-1 text-sm font-semibold text-slate-800 dark:text-slate-100">Origin scheme <span class="text-red-600 dark:text-red-400">*</span></span>
+        <select v-model="form.origin_scheme" class="input">
+          <option value="http">HTTP</option>
+          <option value="https">HTTPS</option>
+        </select>
+        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">{{ help.origin_scheme.what }} Example: {{ help.origin_scheme.example }}</p>
+      </label>
       <TextInput v-model="form.origin_host" :help="{ ...help.origin_host, error: fieldErrors.origin_host }" />
       <TextInput v-model="form.origin_port" type="number" :help="{ ...help.origin_port, error: fieldErrors.origin_port }" />
+      <label class="space-y-2">
+        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Status</span>
+        <select v-model="form.status" class="input">
+          <option value="active">Active</option>
+          <option value="disabled">Disabled</option>
+        </select>
+        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">Controls whether the site is active in generated configuration.</p>
+      </label>
       <JsonEditorField v-model="geoOrigins" :help="help.geo_origins" />
       <TextInput v-model="form.origin_shield_header_name" :help="help.origin_shield_header_name" />
       <TextInput v-model="form.origin_shield_secret" :help="{ ...help.origin_shield_secret, error: fieldErrors.origin_shield_secret }" />
@@ -36,7 +54,7 @@ import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
 import { sitesApi } from '@/lib/api/sites';
 import { CdnLiteApiError } from '@/lib/api/client';
 import type { CreateSiteInput, Site, UpdateSiteInput } from '@/types';
-const sites = ref<Site[]>([]); const saving = ref(false); const editingId = ref(''); const formError = ref(''); const fieldErrors = reactive<Record<string, string>>({});
+const sites = ref<Site[]>([]); const saving = ref(false); const editingId = ref(''); const showForm = ref(false); const formError = ref(''); const fieldErrors = reactive<Record<string, string>>({});
 const geoOrigins = ref('{\n  "eu": "https://eu-origin.example.com",\n  "us": "https://us-origin.example.com"\n}');
 const form = reactive({ name: '', domain: '', origin_scheme: 'http', origin_host: '', origin_port: 80, proxy_enabled: true, status: 'active', origin_shield_header_name: '', origin_shield_secret: '' });
 const siteSchema = z.object({ name: z.string().min(1, 'Site name is required.'), domain: z.string().min(1, 'Domain is required.'), origin_scheme: z.string().min(1, 'Origin scheme is required.'), origin_host: z.string().min(1, 'Origin host is required.'), origin_port: z.coerce.number().int().positive('Origin port must be a positive integer.') });
@@ -69,6 +87,7 @@ async function saveSite() {
     if (editingId.value) await sitesApi.update(editingId.value, payload as UpdateSiteInput);
     else await sitesApi.create(payload as CreateSiteInput);
     resetForm();
+    showForm.value = false;
     await load();
   } catch (error) {
     console.error('[sites-form]', error);
@@ -81,11 +100,13 @@ async function toggleStatus(row: Record<string, unknown>) { await sitesApi.updat
 async function deleteSite(id: string) { await sitesApi.remove(id); await load(); }
 function editSite(row: Record<string, unknown>) {
   editingId.value = String(row.id);
+  showForm.value = true;
   Object.assign(form, { name: String(row.name ?? ''), domain: String(row.domain ?? ''), origin_scheme: String(row.origin_scheme ?? 'http'), origin_host: String(row.origin_host ?? ''), origin_port: Number(row.origin_port ?? 80), proxy_enabled: Boolean(row.proxy_enabled), status: String(row.status ?? 'active'), origin_shield_header_name: String(row.origin_shield_header_name ?? ''), origin_shield_secret: String(row.origin_shield_secret ?? '') });
   geoOrigins.value = JSON.stringify(row.geo_origins ?? {}, null, 2);
   clearErrors();
 }
-function resetForm() { editingId.value = ''; Object.assign(form, { name: '', domain: '', origin_scheme: 'http', origin_host: '', origin_port: 80, proxy_enabled: true, status: 'active', origin_shield_header_name: '', origin_shield_secret: '' }); geoOrigins.value = '{}'; clearErrors(); }
+function startCreate() { resetForm(); showForm.value = true; }
+function resetForm() { editingId.value = ''; showForm.value = false; Object.assign(form, { name: '', domain: '', origin_scheme: 'http', origin_host: '', origin_port: 80, proxy_enabled: true, status: 'active', origin_shield_header_name: '', origin_shield_secret: '' }); geoOrigins.value = '{}'; clearErrors(); }
 function clearErrors() { formError.value = ''; Object.keys(fieldErrors).forEach((key) => { delete fieldErrors[key]; }); }
 function applyValidationErrors(error: z.ZodError) { error.issues.forEach((issue) => { fieldErrors[String(issue.path[0])] = issue.message; }); formError.value = 'Fix the highlighted fields before saving the site.'; }
 function messageFor(error: unknown, fallback: string) { return error instanceof CdnLiteApiError || error instanceof Error ? error.message : fallback; }

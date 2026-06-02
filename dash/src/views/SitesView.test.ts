@@ -17,6 +17,7 @@ describe('SitesView', () => {
   it('renders non-focusable compact help and required asterisks for site fields', async () => {
     render(SitesView);
     expect((await screen.findAllByText('Sites')).length).toBeGreaterThan(0);
+    await fireEvent.click(screen.getByRole('button', { name: 'Add site' }));
     expect(screen.getByRole('button', { name: 'Name help' })).toHaveAttribute('tabindex', '-1');
     expect(screen.getAllByLabelText('required').length).toBeGreaterThan(0);
     expect(screen.getByText('Human-readable site name shown in the admin.')).toBeInTheDocument();
@@ -26,6 +27,7 @@ describe('SitesView', () => {
 
   it('shows inline validation instead of alerting on invalid create', async () => {
     render(SitesView);
+    await fireEvent.click(screen.getByRole('button', { name: 'Add site' }));
     await fireEvent.click(screen.getByRole('button', { name: 'Create site' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Fix the highlighted fields');
@@ -35,6 +37,7 @@ describe('SitesView', () => {
 
   it('shows origin shield secret as required for create', async () => {
     render(SitesView);
+    await fireEvent.click(screen.getByRole('button', { name: 'Add site' }));
     await fireEvent.update(screen.getByPlaceholderText('Main Website'), 'Main');
     await fireEvent.update(screen.getByPlaceholderText('example.com'), 'example.com');
     await fireEvent.update(screen.getByPlaceholderText('origin.example.com'), 'origin.example.com');

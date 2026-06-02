@@ -5,23 +5,23 @@
         <h3 class="font-semibold text-slate-950 dark:text-white">{{ title }}</h3>
         <p v-if="subtitle" class="text-sm text-slate-500 dark:text-slate-400">{{ subtitle }}</p>
       </div>
-      <input v-model="search" class="input max-w-xs" placeholder="Search table…" />
+      <input v-model="search" class="input sm:max-w-xs" placeholder="Search table…" />
     </div>
     <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-slate-200 text-sm dark:divide-white/10">
+      <table class="min-w-[760px] divide-y divide-slate-200 text-sm dark:divide-white/10">
         <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
           <tr><th v-for="column in columns" :key="column.key" class="px-4 py-3 cursor-pointer" @click="sortBy(column.key)">{{ column.label }} <span v-if="sortKey === column.key">{{ sortDir === 'asc' ? '↑' : '↓' }}</span></th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-white/5">
           <tr v-for="row in pagedRows" :key="rowKey(row)" class="hover:bg-slate-50 dark:hover:bg-white/[0.03]">
-            <td v-for="column in columns" :key="column.key" class="px-4 py-3 text-slate-700 dark:text-slate-300">
+            <td v-for="column in columns" :key="column.key" class="max-w-72 break-words px-4 py-3 text-slate-700 dark:text-slate-300">
               <slot :name="column.key" :row="row" :value="row[column.key]">{{ formatCell(row[column.key]) }}</slot>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <div class="flex items-center justify-between border-t border-slate-200 p-3 text-xs text-slate-500 dark:border-white/10 dark:text-slate-400">
+    <div class="flex flex-col gap-3 border-t border-slate-200 p-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:text-slate-400">
       <span>{{ filteredRows.length }} records</span>
       <div class="flex items-center gap-2">
         <button class="button-secondary px-2 py-1 text-xs" :disabled="page === 1" @click="page--">Prev</button>
