@@ -8,6 +8,8 @@ use App\Support\Uuid;
 class CollectorService
 {
     private ?bool $usageRollupCacheColumnsAvailable = null;
+    /** @var array<string,bool> */
+    private array $knownSiteIds = [];
     /** @var array<string,int> */
     private array $bucketSeconds = [
         'minute' => 60,
@@ -46,12 +48,19 @@ class CollectorService
             );
 
         $count = 0;
+        $skippedUnknownSites = 0;
         try {
             foreach ($items as $item) {
+                $siteId = (string) ($item['site_id'] ?? '');
+                if (!$this->siteExists($siteId)) {
+                    $skippedUnknownSites++;
+                    continue;
+                }
+
                 $params = [
                     ':id' => Uuid::v4(),
                     ':ts' => (int) ($item['ts'] ?? $now),
-                    ':site_id' => (string) ($item['site_id'] ?? ''),
+                    ':site_id' => $siteId,
                     ':edge_node_id' => (string) ($item['edge_node_id'] ?? ''),
                     ':requests_count' => (int) ($item['requests_count'] ?? 0),
                     ':bytes_in' => (int) ($item['bytes_in'] ?? 0),
@@ -89,6 +98,7 @@ class CollectorService
 
         return [
             'ingested' => $count,
+            'skipped_unknown_sites' => $skippedUnknownSites,
             'duplicate' => false,
             'idempotency_key' => $idempotencyKey,
         ];
@@ -108,11 +118,17 @@ class CollectorService
         }
         $pdo->beginTransaction();
         $count = 0;
+        $skippedUnknownSites = 0;
         $stmt = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
         try {
             foreach ($items as $item) {
                 $event = (string) ($item['type'] ?? '');
                 if (!in_array($event, ['waf_match', 'rate_limited'], true)) {
+                    continue;
+                }
+                $siteId = (string) ($item['site_id'] ?? '');
+                if (!$this->siteExists($siteId)) {
+                    $skippedUnknownSites++;
                     continue;
                 }
                 $stmt->execute([
@@ -122,7 +138,7 @@ class CollectorService
                     ':action' => 'inspect',
                     ':resource_type' => $event === 'waf_match' ? 'waf' : 'rate_limit',
                     ':resource_id' => (string) ($item['rule_id'] ?? ''),
-                    ':site_id' => (string) ($item['site_id'] ?? ''),
+                    ':site_id' => $siteId,
                     ':details_json' => json_encode(['decision' => (string) ($item['action'] ?? ''), 'request_id' => (string) ($item['request_id'] ?? ''), 'path' => (string) ($item['path'] ?? ''), 'method' => (string) ($item['method'] ?? ''), 'client_ip' => (string) ($item['client_ip'] ?? '')], JSON_UNESCAPED_SLASHES),
                     ':event' => $event,
                     ':created_at' => (int) ($item['ts'] ?? $now),
@@ -138,7 +154,7 @@ class CollectorService
             $pdo->rollBack();
             throw $e;
         }
-        return ['ingested' => $count, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
+        return ['ingested' => $count, 'skipped_unknown_sites' => $skippedUnknownSites, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
     }
 
     public function summary(?string $siteId = null, ?string $bucket = null): array
@@ -327,5 +343,19 @@ class CollectorService
         $stmt->execute();
         $this->usageRollupCacheColumnsAvailable = (int) $stmt->fetchColumn() === 5;
         return $this->usageRollupCacheColumnsAvailable;
+    }
+
+    private function siteExists(string $siteId): bool
+    {
+        if ($siteId === '') {
+            return false;
+        }
+        if (array_key_exists($siteId, $this->knownSiteIds)) {
+            return $this->knownSiteIds[$siteId];
+        }
+        $stmt = Database::pdo()->prepare('SELECT 1 FROM sites WHERE id = :site_id LIMIT 1');
+        $stmt->execute([':site_id' => $siteId]);
+        $this->knownSiteIds[$siteId] = $stmt->fetchColumn() !== false;
+        return $this->knownSiteIds[$siteId];
     }
 }

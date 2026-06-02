@@ -402,6 +402,8 @@ Optional query params:
 - `type`: filter by event type (exact match).
 - `limit`: max rows to return (`1..500`, default `100`).
 
+Collector security-event items with an empty or unknown `site_id` are skipped; ingest responses include `skipped_unknown_sites`.
+
 ## Cache Rules
 
 ### POST /api/v1/sites/{id}/cache-rules
@@ -509,7 +511,7 @@ Signed edge-auth body:
 Success:
 
 ```json
-{"ingested":1,"duplicate":false,"idempotency_key":"batch-1"}
+{"ingested":1,"skipped_unknown_sites":0,"duplicate":false,"idempotency_key":"batch-1"}
 ```
 
 Duplicate key:
@@ -517,6 +519,8 @@ Duplicate key:
 ```json
 {"ingested":0,"duplicate":true,"idempotency_key":"batch-1","item_count":1}
 ```
+
+Items with an empty or unknown `site_id` are skipped instead of failing the batch; `skipped_unknown_sites` reports how many were ignored.
 
 Validation errors: `items_must_be_array`, `idempotency_key_must_be_non_empty_string`.
 

@@ -45,7 +45,7 @@ export function buildOpsDiagnostic(input: {
     edges: input.edges.length,
     recentSecurityEvents: input.securityEvents?.length ?? 0,
     sslRisks: input.sslCertificates?.filter((cert) => ['critical', 'warning'].includes(sslRisk(cert))).length ?? 0,
-    totalRequests: usage.total_requests ?? usage.requests ?? 0,
+    totalRequests: usage.requests_count ?? usage.total_requests ?? usage.requests ?? 0,
     bytesIn: usage.bytes_in ?? 0,
     bytesOut: usage.bytes_out ?? 0,
     cacheHitRatio: typeof usage.cache_hit_ratio === 'number' ? usage.cache_hit_ratio : totalCache > 0 ? totalHits / totalCache : 0,

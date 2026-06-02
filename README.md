@@ -12,7 +12,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Edge agent registration, heartbeat, config pull, metrics push, and security-event push.
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
-- Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
+- Usage ingest with optional idempotency key, stale-site filtering, and minute/hour/day aggregate rebuilds.
 - Client-only Vue admin dashboard for operations, site management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
 

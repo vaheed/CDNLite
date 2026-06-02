@@ -22,6 +22,8 @@ OpenResty writes one NDJSON row per completed request:
 
 Missing fields inside an item are not rejected by the controller; service defaults are used (`ts` now, strings empty, counts/status zero). In normal workflows, send all fields.
 
+Items whose `site_id` is empty or no longer exists are skipped so stale edge config cannot fail an entire batch. The response includes `skipped_unknown_sites` with the skipped item count.
+
 ## Idempotency
 
 If a key is new, rows are inserted and the key is stored with item count. Retrying the same key returns:
