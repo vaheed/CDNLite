@@ -38,6 +38,32 @@ function truthyEnv(string $name, bool $default = false): bool
     return in_array($value, ['1', 'true', 'yes', 'on'], true);
 }
 
+function listEnv(string $name, string $default = ''): array
+{
+    $raw = getenv($name);
+    $value = $raw === false || trim($raw) === '' ? $default : (string) $raw;
+    return array_values(array_filter(array_map(static fn (string $item): string => trim($item), explode(',', $value)), static fn (string $item): bool => $item !== ''));
+}
+
+function applyCors(): void
+{
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if (!is_string($origin) || trim($origin) === '') {
+        return;
+    }
+
+    $allowed = listEnv('CDNLITE_CORS_ALLOWED_ORIGINS', 'http://localhost:8082,http://127.0.0.1:8082');
+    if (!in_array('*', $allowed, true) && !in_array($origin, $allowed, true)) {
+        return;
+    }
+
+    header('Access-Control-Allow-Origin: ' . (in_array('*', $allowed, true) ? '*' : $origin));
+    header('Vary: Origin');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-CDNLITE-Edge-Id, X-CDNLITE-Timestamp, X-CDNLITE-Nonce, X-CDNLITE-Signature');
+    header('Access-Control-Max-Age: 600');
+}
+
 function respond(array $payload, int $defaultStatus = 200): void
 {
     global $requestStartedAt, $method, $path;
@@ -112,6 +138,11 @@ function requireApiAuth(): void
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $requestStartedAt = microtime(true);
+applyCors();
+if ($method === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
 $bodyRaw = file_get_contents('php://input');
 $body = [];
 if ($bodyRaw !== false && trim($bodyRaw) !== '') {

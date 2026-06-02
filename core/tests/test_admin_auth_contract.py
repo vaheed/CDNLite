@@ -29,6 +29,9 @@ def test_admin_auth_schema_and_secret_handling_contract():
     assert "VITE_CDNLITE_CORE_URL=http://localhost:8080" in dash_env_example
     assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD" not in dash_env_example
     assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD" in compose
+    assert "CDNLITE_CORS_ALLOWED_ORIGINS" in public_index
+    assert "CDNLITE_CORS_ALLOWED_ORIGINS" in env_example
+    assert "CDNLITE_CORS_ALLOWED_ORIGINS" in compose
     assert "cdn:admin:create" not in command
     assert "--username" in command
     assert "--password" in command

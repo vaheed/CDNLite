@@ -6,6 +6,8 @@ Base URL: `http://localhost:8080`. Responses are JSON. Non-edge `/api/v1/*` endp
 
 The backend server-rendered `/dashboard/*` routes have been removed. The official dashboard is the static SPA served by the root Compose `dashboard` service.
 
+Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_ORIGINS`. Local Compose allows `http://localhost:8082` and `http://127.0.0.1:8082` by default.
+
 ## Common Errors
 
 | Status | Example | Cause |

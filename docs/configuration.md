@@ -59,6 +59,7 @@ cp dash/.env.example dash/.env
 | `CDNLITE_CACHE_DEFAULT_TTL` | `60s` | edge | No | Default NGINX proxy-cache TTL for 200, 301, and 302 responses. Supports NGINX time units such as `30s`, `5m`, or `1h`. | Not secret. |
 | `CDNLITE_API_TOKEN` | empty | core, dashboard users | No | Optional static bearer token for non-edge control-plane API routes. Admin sessions are also accepted when admin users exist. | Secret. |
 | `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
+| `CDNLITE_CORS_ALLOWED_ORIGINS` | `http://localhost:8082,http://127.0.0.1:8082` | core | No | Comma-separated browser origins allowed to call the core API. Set this to your dashboard URL when accessing CDNLite from another host. | Public endpoint; restrict in production. |
 | `CDNLITE_BOOTSTRAP_ADMIN_USER` | `1` in dev, `0` in production template | core | No | When truthy, core auto-creates or updates one local dashboard admin at startup. Useful for quickstart and volume resets. | Disable outside local development. |
 | `CDNLITE_BOOTSTRAP_ADMIN_USERNAME` | `admin` | core | No | Username for the local bootstrap dashboard admin. | Not secret. |
 | `CDNLITE_BOOTSTRAP_ADMIN_PASSWORD` | `admin` in dev, empty in production template | core | No | Password for the local bootstrap dashboard admin. | Secret; local quickstart only. |

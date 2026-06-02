@@ -93,6 +93,8 @@ The official admin dashboard is served by the `dashboard` Compose service:
 
 The dashboard is a static Vite SPA built from `dash/`. Its `VITE_*` configuration is compiled at image build time, so use browser-reachable URLs such as `http://localhost:8080` and `http://localhost:8081`, not internal Compose hostnames.
 
+When opening the dashboard from another machine, set `VITE_CDNLITE_CORE_URL` and `VITE_CDNLITE_EDGE_URL` to that server's browser-reachable host/IP before rebuilding the dashboard image, and include the dashboard origin in `CDNLITE_CORS_ALLOWED_ORIGINS`. For example: `VITE_CDNLITE_CORE_URL=http://185.1.2.3:8080`, `VITE_CDNLITE_EDGE_URL=http://185.1.2.3:8081`, and `CDNLITE_CORS_ALLOWED_ORIGINS=http://185.1.2.3:8082`.
+
 Local quickstart enables `CDNLITE_BOOTSTRAP_ADMIN_USER=1`, which creates or updates a dashboard admin when core starts. The default dev credentials are:
 
 - Username: `admin`
