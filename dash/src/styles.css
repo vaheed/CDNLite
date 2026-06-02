@@ -14,7 +14,7 @@ body { margin: 0; background: #f4f7fb; color: #172033; font-feature-settings: "c
     @apply bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
   }
   .app-panel {
-    @apply border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/92;
+    @apply border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/95;
   }
   .card {
     @apply rounded-lg border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/90 dark:shadow-none;
