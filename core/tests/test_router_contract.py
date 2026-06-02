@@ -32,6 +32,11 @@ def wait_for_server(base_url: str, timeout: float = 5.0) -> None:
     raise RuntimeError("php server did not start")
 
 
+def test_core_exposes_origin_cdn_health_route():
+    public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
+    assert "/cdn-health" in public_index
+
+
 def request_json(base_url: str, method: str, path: str, body: dict | None = None, headers: dict | None = None) -> tuple[int, dict]:
     data = None
     req_headers = {"Content-Type": "application/json"}

@@ -8,7 +8,7 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 | Script | Purpose |
 |---|---|
-| `run.sh` | Creates config/metric files, runs initial register and config initialization, then loops every 10 seconds. |
+| `run.sh` | Creates config/metric/security-event files, keeps shared queue files edge-writable, runs initial register and config initialization, then loops every 10 seconds. |
 | `init_config.sh` | Startup config initialization: pull from core first, then fall back to local cache if core is unavailable. |
 | `lib.sh` | Shared agent helpers, including public IPv4 discovery. |
 | `register.sh` | Detects public IPv4 and sends signed `POST /api/v1/edge/register`. |
@@ -23,8 +23,8 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 `EDGE_PUBLIC_IP=auto` is the default. In that mode the agent asks public IPv4 endpoints for its address and falls back to the first local IPv4 address if public detection is unavailable. Set `EDGE_PUBLIC_IP` to a concrete IPv4 address only when you want to override detection.
 
-`EDGE_AGENT_IDLE=1` is for CI and local tests only. It creates the config and
-metrics files, then keeps the container running without starting the agent
+`EDGE_AGENT_IDLE=1` is for CI and local tests only. It creates the config,
+metrics, and security-event files, then keeps the container running without starting the agent
 loop, so tests can provision the token first and execute agent scripts
 explicitly.
 
@@ -56,9 +56,11 @@ Each pull/init attempt also updates `EDGE_SYNC_STATUS_PATH` with:
 
 `run.sh` now applies exponential retry backoff with small jitter after failures, and resets to the normal 10s loop after successful cycles.
 
-## Metrics Push Flow
+## Queue Push Flow
 
 `push_metrics.sh` exits quietly if the metric file is missing or empty. Otherwise it wraps non-empty NDJSON lines as `items`, signs the body, posts to `/api/v1/collector/usage`, truncates the metric file on success, and removes the payload file.
+
+`push_security_events.sh` follows the same queue pattern for `/api/v1/collector/security-events`. After successful pushes, both queue scripts recreate the shared NDJSON file with edge-writable permissions so the OpenResty container can continue appending runtime metrics and security decisions.
 
 ## Local Examples
 
@@ -68,6 +70,7 @@ docker compose exec edge-agent sh -lc '/agent/register.sh'
 docker compose exec edge-agent sh -lc '/agent/heartbeat.sh'
 docker compose exec edge-agent sh -lc '/agent/pull_config.sh'
 docker compose exec edge-agent sh -lc '/agent/push_metrics.sh'
+docker compose exec edge-agent sh -lc '/agent/push_security_events.sh'
 docker compose exec edge-agent sh -lc '/agent/doctor.sh'
 ```
 
@@ -78,3 +81,4 @@ docker compose exec edge-agent sh -lc '/agent/doctor.sh'
 - PowerDNS still points to an old edge IP: check `cdn:edge:list`, confirm `public_ip` changed, then run `php artisan cdn:dns:sync-edge-domain` or `/agent/heartbeat.sh` to force an edge-zone sync.
 - Config not updating: inspect `edge/config/config.json`, run `/agent/pull_config.sh`, and check core logs.
 - Metrics not arriving: check `edge/config/metrics.ndjson`, then run `/agent/push_metrics.sh` and inspect core logs.
+- Security events not arriving: check `edge/config/security-events.ndjson`, then run `/agent/push_security_events.sh` and inspect core logs.

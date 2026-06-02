@@ -9,7 +9,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Site lifecycle API and CLI.
 - Site-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
 - Host-based OpenResty edge proxy using a JSON config snapshot.
-- Edge agent registration, heartbeat, config pull, and metric push.
+- Edge agent registration, heartbeat, config pull, metrics push, and security-event push.
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
@@ -18,7 +18,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 
 ## Architecture Summary
 
-`core/` is the control plane. It serves HTTP from `core/public_index.php`, registers CLI commands in `core/artisan`, stores data in PostgreSQL, builds edge config, and ingests usage. `edge/openresty/` is the data plane. It reads `/var/lib/cdnlite/config.json`, routes by `Host`, proxies to origins, and writes metrics. `edge/agent/` signs calls to core and keeps the edge registered, configured, and reporting metrics.
+`core/` is the control plane. It serves HTTP from `core/public_index.php`, registers CLI commands in `core/artisan`, stores data in PostgreSQL, builds edge config, and ingests usage and security events. `edge/openresty/` is the data plane. It reads `/var/lib/cdnlite/config.json`, routes by `Host`, proxies to origins, and writes metrics and security decisions. `edge/agent/` signs calls to core and keeps the edge registered, configured, and reporting runtime queues.
 
 ## Services And Ports
 
@@ -41,6 +41,7 @@ Health checks:
 
 ```bash
 curl -s http://localhost:8080/health
+curl -s http://localhost:8080/cdn-health
 curl -s http://localhost:8081/health
 ```
 

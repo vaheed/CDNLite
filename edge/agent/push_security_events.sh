@@ -5,6 +5,11 @@ SECURITY_EVENT_PATH="${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndj
 payload_file="${SECURITY_EVENT_PATH}.payload"
 count_file="${payload_file}.count"
 
+ensure_queue_writable() {
+  [ -f "$SECURITY_EVENT_PATH" ] || : > "$SECURITY_EVENT_PATH"
+  chmod 666 "$SECURITY_EVENT_PATH" 2>/dev/null || true
+}
+
 payload_count() {
   file="$1"
   python3 - "$file" <<'PY' 2>/dev/null || true
@@ -44,6 +49,7 @@ drop_sent() {
   tmp="${SECURITY_EVENT_PATH}.tmp.$$"
   awk -v n="$sent" 'BEGIN{sk=0} $0!="" && sk<n {sk++; next} {print}' "$SECURITY_EVENT_PATH" > "$tmp"
   mv "$tmp" "$SECURITY_EVENT_PATH"
+  ensure_queue_writable
 }
 
 [ -s "$payload_file" ] || build_payload || exit 0

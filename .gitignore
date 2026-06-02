@@ -14,3 +14,4 @@ __pycache__/
 .codex/
 .pytest_cache
 .env.bak.codex
+.env.swp

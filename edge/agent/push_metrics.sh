@@ -4,6 +4,11 @@ set -eu
 payload_file="${METRIC_PATH}.payload"
 count_file="${payload_file}.count"
 
+ensure_metric_writable() {
+  [ -f "$METRIC_PATH" ] || : > "$METRIC_PATH"
+  chmod 666 "$METRIC_PATH" 2>/dev/null || true
+}
+
 payload_count() {
   file="$1"
   python3 - "$file" <<'PY' 2>/dev/null || true
@@ -51,7 +56,7 @@ drop_sent_metrics() {
   sent_count="$1"
   tmp="${METRIC_PATH}.tmp.$$"
   if [ ! -f "$METRIC_PATH" ]; then
-    : > "$METRIC_PATH"
+    ensure_metric_writable
     return 0
   fi
 
@@ -61,6 +66,7 @@ drop_sent_metrics() {
     { print }
   ' "$METRIC_PATH" > "$tmp"
   mv "$tmp" "$METRIC_PATH"
+  ensure_metric_writable
 }
 
 if [ ! -s "$payload_file" ]; then

@@ -26,6 +26,7 @@ The backend server-rendered `/dashboard/*` routes have been removed. The officia
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | GET | `/health` | none | Core health. |
+| GET | `/cdn-health` | none | Origin health endpoint for proxied edge checks. |
 | GET | `/ready` | none | Core readiness (includes API token production guard). |
 | GET | `http://localhost:8081/ready` | none | Edge readiness (`503` only when no valid config exists). |
 | POST | `/api/v1/admin/login` | none | Create dashboard admin session. |
@@ -142,6 +143,10 @@ Success:
 ```json
 {"ok":true,"time":1710000000}
 ```
+
+## GET /cdn-health
+
+Purpose: lightweight origin health check for edge-proxied requests. Auth is not required. It returns the same JSON shape as `/health`, but is not intercepted by the edge container's own `/health` endpoint.
 
 ## Sites
 

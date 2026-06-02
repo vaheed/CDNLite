@@ -4,6 +4,7 @@ set -eu
 touch "$EDGE_CONFIG_PATH"
 touch "$METRIC_PATH"
 touch "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"
+chmod 666 "$METRIC_PATH" "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}" 2>/dev/null || true
 
 if [ "${EDGE_AGENT_IDLE:-0}" = "1" ]; then
   tail -f /dev/null

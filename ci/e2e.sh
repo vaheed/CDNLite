@@ -585,8 +585,8 @@ if [[ "$origin_log_delta" -gt 3 ]]; then
 fi
 record_step PASS "edge-redirect-no-origin" "redirect handled at edge without origin call"
 
-cache_path="/health?via=edge-cache-${RUN_KEY}"
-api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/health\",\"ttl_seconds\":1}"
+cache_path="/cdn-health?via=edge-cache-${RUN_KEY}"
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/cdn-health\",\"ttl_seconds\":1}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "site cache rule created"
@@ -602,7 +602,7 @@ assert_eq "$auth_bypass_cache" "BYPASS" "Authorization should bypass cache"
 non_matching_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/api/v1/collector/unknown?via=edge-nonmatch-${RUN_KEY}")"
 assert_eq "$non_matching_cache" "BYPASS" "non-matching path should bypass cache rule"
 
-stale_path="/health?via=edge-stale-${RUN_KEY}"
+stale_path="/cdn-health?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
