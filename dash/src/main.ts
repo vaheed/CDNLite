@@ -6,6 +6,8 @@ import { runtimeConfig } from './lib/config/env';
 import router from './router';
 import './styles.css';
 
+document.documentElement.classList.toggle('dark', localStorage.getItem('cdnlite.theme') !== 'light');
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

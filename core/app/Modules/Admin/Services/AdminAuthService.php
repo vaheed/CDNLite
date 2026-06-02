@@ -19,12 +19,22 @@ class AdminAuthService
 
     public function createOrUpdateUser(string $username, string $password, ?string $displayName = null): array
     {
+        return $this->upsertUser($username, $password, $displayName, 12);
+    }
+
+    public function bootstrapUser(string $username, string $password, ?string $displayName = null): array
+    {
+        return $this->upsertUser($username, $password, $displayName, 5);
+    }
+
+    private function upsertUser(string $username, string $password, ?string $displayName, int $minimumPasswordLength): array
+    {
         $username = $this->normalizeUsername($username);
         if ($username === '') {
             throw new \InvalidArgumentException('username_required');
         }
-        if (strlen($password) < 12) {
-            throw new \InvalidArgumentException('password_min_12');
+        if (strlen($password) < $minimumPasswordLength) {
+            throw new \InvalidArgumentException('password_min_' . $minimumPasswordLength);
         }
 
         $now = time();

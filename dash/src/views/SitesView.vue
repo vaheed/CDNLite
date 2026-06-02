@@ -1,6 +1,6 @@
 <template>
   <section class="space-y-6">
-    <div><h1 class="text-3xl font-black text-white">Sites</h1><p class="text-slate-400">Full lifecycle management for CDN sites, origins, and proxy state.</p></div>
+    <div><h1 class="text-3xl font-black text-slate-950 dark:text-white">Sites</h1><p class="text-slate-600 dark:text-slate-400">Full lifecycle management for CDN sites, origins, and proxy state.</p></div>
     <form class="card grid gap-4 p-5 xl:grid-cols-2" @submit.prevent="createSite">
       <TextInput v-model="form.name" :help="help.name" />
       <TextInput v-model="form.domain" :help="help.domain" />

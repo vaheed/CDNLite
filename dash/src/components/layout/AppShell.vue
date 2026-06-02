@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.20),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.15),transparent_35%)]">
+  <div class="app-surface min-h-screen">
     <div class="flex min-h-screen">
       <Sidebar />
       <div class="min-w-0 flex-1">

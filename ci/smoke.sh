@@ -64,6 +64,16 @@ fi
 retry 40 2 docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; App\\Support\\Database::pdo(); echo 'ok';" >/dev/null
 record_step PASS "core-db-init" "core schema initialization completed"
 
+if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
+  bootstrap_admin_code="$(curl -sS -o /tmp/smoke-bootstrap-admin.json -w '%{http_code}' \
+    -X POST "${CORE_URL}/api/v1/admin/login" \
+    -H 'Content-Type: application/json' \
+    -d '{"username":"admin","password":"admin"}')"
+  assert_eq "$bootstrap_admin_code" "200" "bootstrap admin login should return 200"
+  assert_contains "$(cat /tmp/smoke-bootstrap-admin.json)" '"username":"admin"' "bootstrap admin login should include admin user"
+  record_step PASS "bootstrap-admin-login" "default dashboard bootstrap admin can log in"
+fi
+
 required_tables=(
   sites dns_records edge_nodes edge_tokens edge_request_nonces
   admin_users admin_sessions

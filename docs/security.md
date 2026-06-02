@@ -63,7 +63,7 @@ Use a long random token for real edges, store it only in the agent environment o
 
 The Vue admin dashboard in `dash/` is a client-only SPA served by Nginx. The old server-rendered backend dashboard routes are removed.
 
-Create admin users with:
+Local quickstart can bootstrap `admin` / `admin` from `.env.dev.example` when `CDNLITE_BOOTSTRAP_ADMIN_USER=1`. The production template disables that path. Keep it disabled outside local development and create admin users with:
 
 ```bash
 php core/artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'

@@ -10,11 +10,11 @@
 ## Start
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env
 docker compose up --build
 ```
 
-Expected services are `postgres`, `core`, `edge`, and `edge-agent`. Core listens on `http://localhost:8080`; edge listens on `http://localhost:8081`; PostgreSQL is exposed on `localhost:5432`.
+Expected services are `postgres`, `core`, `edge`, `edge-agent`, and `dashboard`. Core listens on `http://localhost:8080`; edge listens on `http://localhost:8081`; the dashboard listens on `http://localhost:8082`; PostgreSQL is exposed on `localhost:5432`.
 
 ## Health Checks
 
@@ -52,10 +52,38 @@ Example output:
 {"ok":true,"edge_id":"edge-local-1"}
 ```
 
+The default dev template also enables edge-token bootstrap, so this manual command is only needed after disabling `CDNLITE_BOOTSTRAP_EDGE_TOKEN`.
+
+## Open The Admin Dashboard
+
+Visit `http://localhost:8082` and sign in with the local bootstrap admin:
+
+```text
+Username: admin
+Password: admin
+```
+
+The bootstrap account is controlled by `CDNLITE_BOOTSTRAP_ADMIN_USER`, `CDNLITE_BOOTSTRAP_ADMIN_USERNAME`, `CDNLITE_BOOTSTRAP_ADMIN_PASSWORD`, and `CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME` in `.env`. For production or shared environments, start from `.env.production.example`, keep `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, and create an operator account explicitly:
+
+```bash
+docker compose exec core php artisan cdn:admin:create \
+  --username=admin \
+  --password='replace-with-a-long-password'
+```
+
+To use the API examples below after an admin exists, create a session token:
+
+```bash
+ADMIN_SESSION_TOKEN="$(curl -s -X POST http://localhost:8080/api/v1/admin/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin"}' | jq -r '.data.token')"
+```
+
 ## Create A Site
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/sites \
+  -H "Authorization: Bearer $ADMIN_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"Demo Site","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}' | jq
 ```
@@ -74,6 +102,7 @@ SITE_ID="11111111-1111-4111-8111-111111111111"
 
 ```bash
 curl -s -X POST "http://localhost:8080/api/v1/sites/$SITE_ID/dns/records" \
+  -H "Authorization: Bearer $ADMIN_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}' | jq
 ```

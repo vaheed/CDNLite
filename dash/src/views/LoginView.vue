@@ -1,10 +1,10 @@
 <template>
-  <main class="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-slate-100">
-    <section class="w-full max-w-md rounded border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+  <main class="app-surface flex min-h-screen items-center justify-center p-4">
+    <section class="app-panel w-full max-w-md rounded-lg p-6">
       <div class="mb-6">
-        <p class="text-sm font-semibold uppercase text-cyan-300">{{ runtimeConfig.appName }}</p>
-        <h1 class="mt-2 text-2xl font-black text-white">Admin login</h1>
-        <p class="mt-2 text-sm text-slate-400">Sign in with an admin account created from the CDNLite CLI.</p>
+        <p class="text-sm font-semibold uppercase text-cyan-700 dark:text-cyan-300">{{ runtimeConfig.appName }}</p>
+        <h1 class="mt-2 text-2xl font-black text-slate-950 dark:text-white">Admin login</h1>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Sign in with a dashboard admin account.</p>
       </div>
 
       <form class="space-y-4" @submit.prevent="submit">
@@ -23,8 +23,8 @@
         </button>
       </form>
 
-      <p class="mt-5 text-xs leading-5 text-slate-500">
-        Create an admin with <code>php artisan cdn:admin:create --username=admin --password=...</code>. Session tokens stay in browser memory only.
+      <p class="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">
+        Local quickstart uses <code>admin</code> / <code>admin</code> when bootstrap admin is enabled. Session tokens stay in browser memory only.
       </p>
     </section>
   </main>

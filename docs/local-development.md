@@ -5,7 +5,7 @@
 ## Start And Stop
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env
 docker compose up --build
 docker compose down -v
 ```

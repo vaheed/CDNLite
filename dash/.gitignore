@@ -1,0 +1,13 @@
+dist/
+coverage/
+node_modules/
+.vite/
+.vitest/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.local

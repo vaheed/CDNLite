@@ -171,6 +171,19 @@ if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     }
 }
 
+if (truthyEnv('CDNLITE_BOOTSTRAP_ADMIN_USER', false)) {
+    $bootstrapAdminUsername = trim((string) (getenv('CDNLITE_BOOTSTRAP_ADMIN_USERNAME') ?: ''));
+    $bootstrapAdminPassword = (string) (getenv('CDNLITE_BOOTSTRAP_ADMIN_PASSWORD') ?: '');
+    $bootstrapAdminDisplayName = trim((string) (getenv('CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME') ?: 'Bootstrap Admin'));
+    if ($bootstrapAdminUsername !== '' && $bootstrapAdminPassword !== '') {
+        try {
+            $adminAuth->bootstrapUser($bootstrapAdminUsername, $bootstrapAdminPassword, $bootstrapAdminDisplayName);
+        } catch (\Throwable $e) {
+            Logger::warn('admin_user_bootstrap_failed', ['error' => $e->getMessage()]);
+        }
+    }
+}
+
 $router = new Router();
 $router->add('POST', '/api/v1/admin/login', static fn (Request $req): array => $adminAuthController->login($req));
 $router->add('GET', '/api/v1/admin/me', static fn (): array => $adminAuthController->me(bearerToken()), auth: true);

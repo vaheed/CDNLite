@@ -2,7 +2,34 @@
 
 [Back to docs index](index.md)
 
-Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environment variables, and a few code-level fallbacks.
+Configuration is defined by environment templates, `docker-compose.yml`, CI job environment variables, and a few code-level fallbacks.
+
+## Environment Templates
+
+| File | Purpose |
+|---|---|
+| `.env.example` | Local quickstart defaults for root Docker Compose. Equivalent to the dev template for users who expect the traditional filename. |
+| `.env.dev.example` | Explicit local development defaults, including the default dashboard admin `admin` / `admin`. |
+| `.env.production.example` | Production-oriented root Compose template. Bootstrap admin and edge token bootstrap are disabled, and secrets use `CHANGE_ME` placeholders. |
+| `dash/.env.example` | Dashboard-only Vite template for running or building `dash/` outside the root Compose flow. |
+
+Root Compose reads `.env`, so choose one root template and copy it:
+
+```bash
+cp .env.dev.example .env
+```
+
+For production:
+
+```bash
+cp .env.production.example .env
+```
+
+For dashboard-only work:
+
+```bash
+cp dash/.env.example dash/.env
+```
 
 ## Variables
 
@@ -32,6 +59,10 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 | `CDNLITE_CACHE_DEFAULT_TTL` | `60s` | edge | No | Default NGINX proxy-cache TTL for 200, 301, and 302 responses. Supports NGINX time units such as `30s`, `5m`, or `1h`. | Not secret. |
 | `CDNLITE_API_TOKEN` | empty | core, dashboard users | No | Optional static bearer token for non-edge control-plane API routes. Admin sessions are also accepted when admin users exist. | Secret. |
 | `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
+| `CDNLITE_BOOTSTRAP_ADMIN_USER` | `1` in dev, `0` in production template | core | No | When truthy, core auto-creates or updates one local dashboard admin at startup. Useful for quickstart and volume resets. | Disable outside local development. |
+| `CDNLITE_BOOTSTRAP_ADMIN_USERNAME` | `admin` | core | No | Username for the local bootstrap dashboard admin. | Not secret. |
+| `CDNLITE_BOOTSTRAP_ADMIN_PASSWORD` | `admin` in dev, empty in production template | core | No | Password for the local bootstrap dashboard admin. | Secret; local quickstart only. |
+| `CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME` | `Local Admin` | core | No | Display name for the local bootstrap dashboard admin. | Not secret. |
 | `CORE_HOST_PORT` | `8080` | Compose | No | Host port for core. | Not secret. |
 | `EDGE_HOST_PORT` | `8081` | Compose | No | Host port for edge. | Not secret. |
 | `POSTGRES_HOST_PORT` | `5432` | Compose | No | Host port for PostgreSQL. | Do not expose publicly. |

@@ -33,7 +33,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 ## Quick Start
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env
 docker compose up --build
 ```
 
@@ -92,7 +92,12 @@ The official admin dashboard is served by the `dashboard` Compose service:
 
 The dashboard is a static Vite SPA built from `dash/`. Its `VITE_*` configuration is compiled at image build time, so use browser-reachable URLs such as `http://localhost:8080` and `http://localhost:8081`, not internal Compose hostnames.
 
-Create the first dashboard admin user from the core container:
+Local quickstart enables `CDNLITE_BOOTSTRAP_ADMIN_USER=1`, which creates or updates a dashboard admin when core starts. The default dev credentials are:
+
+- Username: `admin`
+- Password: `admin`
+
+For a deliberate admin account, or when bootstrap is disabled, create the first dashboard admin user from the core container:
 
 ```bash
 docker compose exec core php artisan cdn:admin:create \
@@ -102,7 +107,14 @@ docker compose exec core php artisan cdn:admin:create \
 
 The SPA logs in with `/api/v1/admin/login` and stores the returned bearer session token in browser memory only. The removed server-rendered `/dashboard/*` backend routes now return JSON `404`.
 
-Production security note: place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA has local admin sessions but does not implement production RBAC, and edge developer tokens are kept in session memory only.
+Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any local bootstrap credentials, and place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA has local admin sessions but does not implement production RBAC, and edge developer tokens are kept in session memory only.
+
+## Environment Templates
+
+- `.env.example`: local quickstart defaults.
+- `.env.dev.example`: explicit local development defaults, including `admin` / `admin`.
+- `.env.production.example`: production-oriented defaults with bootstrap admin disabled and secret placeholders.
+- `dash/.env.example`: dashboard-only Vite variables for running `dash/` outside root Compose.
 
 ## First API Example
 

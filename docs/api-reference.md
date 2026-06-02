@@ -96,7 +96,9 @@ curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/
 
 ## Admin Auth
 
-Create or update an admin user with the CLI:
+Local quickstart can bootstrap an admin from `CDNLITE_BOOTSTRAP_ADMIN_*` settings. The default dev template credentials are `admin` / `admin`.
+
+Create or update a deliberate admin user with the CLI:
 
 ```bash
 docker compose exec core php artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'
@@ -107,7 +109,7 @@ docker compose exec core php artisan cdn:admin:create --username=admin --passwor
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"replace-with-a-long-password"}'
+  -d '{"username":"admin","password":"admin"}'
 ```
 
 Success:

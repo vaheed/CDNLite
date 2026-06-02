@@ -5,7 +5,7 @@
 Start a fresh stack:
 
 ```bash
-cp .env.example .env
+cp .env.dev.example .env
 docker compose up -d --build
 docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
 ```

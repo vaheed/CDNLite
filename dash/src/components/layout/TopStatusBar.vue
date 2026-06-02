@@ -1,18 +1,19 @@
 <template>
-  <header class="sticky top-0 z-20 border-b border-white/10 bg-slate-950/85 px-4 py-3 backdrop-blur">
+  <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-slate-950/85">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex flex-wrap items-center gap-2">
         <HealthBadge :status="coreHealth?.ok ? 'ok' : 'critical'" />
-        <span class="text-xs text-slate-400">Core health</span>
+        <span class="text-xs text-slate-500 dark:text-slate-400">Core health</span>
         <HealthBadge :status="coreReady?.ok ? 'ok' : 'warning'" />
-        <span class="text-xs text-slate-400">Core ready</span>
+        <span class="text-xs text-slate-500 dark:text-slate-400">Core ready</span>
         <HealthBadge :status="edgeReady?.ok ? 'ok' : 'warning'" />
-        <span class="text-xs text-slate-400">Edge ready</span>
-        <StatusBadge :status="auth.isAuthenticated ? 'enabled' : 'disabled'" :label="apiTokenConfigured ? 'API token configured' : 'Admin session active'" />
+        <span class="text-xs text-slate-500 dark:text-slate-400">Edge ready</span>
+      <StatusBadge :status="auth.isAuthenticated ? 'enabled' : 'disabled'" :label="apiTokenConfigured ? 'API token configured' : 'Admin session active'" />
       </div>
-      <div class="flex items-center gap-2 text-xs text-slate-400">
+      <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
         <span>Last refresh: {{ lastRefresh }}</span>
         <button class="button-secondary px-3 py-1.5 text-xs" @click="refresh">Refresh</button>
+        <button class="button-secondary px-3 py-1.5 text-xs" @click="ui.toggleDarkMode">{{ ui.darkMode ? 'Light' : 'Dark' }}</button>
         <button class="button-secondary px-3 py-1.5 text-xs" @click="ui.commandPaletteOpen = true">⌘K</button>
         <button class="button-secondary px-3 py-1.5 text-xs" @click="auth.logout">Logout</button>
       </div>

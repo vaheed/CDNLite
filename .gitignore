@@ -12,7 +12,5 @@ __pycache__/
 .env
 .agents/
 .codex/
-.gitignore
 .pytest_cache
-.gitignore
 .env.bak.codex
