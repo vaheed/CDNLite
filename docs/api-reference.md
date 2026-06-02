@@ -73,6 +73,8 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | DELETE | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
 | POST | `/api/v1/sites/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
 | GET | `/api/v1/sites/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for site hostnames. |
+| POST | `/api/v1/sites/{id}/ssl/acme/issue` | bearer when `CDNLITE_API_TOKEN` is set | Issue an ACME certificate with DNS-01 via PowerDNS for an active proxied site host. |
+| POST | `/api/v1/sites/{id}/ssl/request` | bearer when `CDNLITE_API_TOKEN` is set | Request SSL metadata provisioning for an active proxied site host. |
 | POST | `/api/v1/sites/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
 | POST | `/api/v1/sites/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
 | GET | `/api/v1/sites/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List site security events from audit log. |
@@ -391,6 +393,50 @@ Updates one WAF rule.
 ### DELETE /api/v1/sites/{id}/waf-rules/{wafId}
 
 Deletes one WAF rule.
+
+## SSL
+
+### POST /api/v1/sites/{id}/ssl/acme/issue
+
+Issues an ACME certificate for an active proxied site using DNS-01 through PowerDNS. The body may include `hostnames`; when omitted, core uses the site domain. Hostnames must be the site domain or a subdomain of it.
+
+Required runtime settings: `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ACME_DIRECTORY_URL`, `CDNLITE_ACME_CONTACT_EMAIL`, `POWERDNS_ENABLED=1`, `POWERDNS_API_URL`, and `POWERDNS_API_KEY`.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/acme/issue \
+  -H 'Content-Type: application/json' \
+  -d '{"hostnames":["demo.local"]}'
+```
+
+Success returns active certificate metadata; private key material is never returned:
+
+```json
+{"data":[{"hostname":"demo.local","provider":"acme","status":"active","last_error":null}]}
+```
+
+### POST /api/v1/sites/{id}/ssl/request
+
+Requests SSL metadata provisioning for an active proxied site. The body may include `hostnames`; when omitted, core uses the site domain. If the site is not active and proxied, the endpoint returns `422 {"error":"proxy_required"}`.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/request \
+  -H 'Content-Type: application/json' \
+  -d '{"hostnames":["demo.local"]}'
+```
+
+Example pending response:
+
+```json
+{"data":[{"hostname":"demo.local","provider":"cdnlite","status":"pending","last_error":null}]}
+```
+
+### POST /api/v1/sites/{id}/ssl/check
+
+Refreshes or creates SSL metadata rows for `hostnames`. Missing certificates are marked with `status:"missing"` and `last_error:"certificate_not_provisioned"`.
+
+### POST /api/v1/sites/{id}/ssl/manual-certificate
+
+Imports PEM certificate material for a hostname. `CDNLITE_SSL_SECRET_KEY` must be configured so the private key can be encrypted at rest.
 
 ## Security Events
 

@@ -338,3 +338,13 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
 
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS private_key_pem TEXT NULL;
+
+CREATE TABLE IF NOT EXISTS ssl_acme_accounts (
+  id TEXT PRIMARY KEY,
+  directory_url TEXT NOT NULL UNIQUE,
+  kid TEXT NOT NULL,
+  account_key_pem TEXT NOT NULL,
+  contact_email TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);

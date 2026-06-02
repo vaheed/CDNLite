@@ -165,7 +165,7 @@ The CI scripts expect the Compose stack to be running.
 
 ## Current Limitations And Non-Goals
 
-- No user account system, TLS automation, advanced cache policy engine, or billing system is implemented.
+- No user account system, background certificate renewal scheduler, advanced cache policy engine, or billing system is implemented. ACME DNS-01 issuance and manual certificate import are supported for active proxied sites.
 - Dashboard admin auth is username/password plus in-memory browser session token; it is not multi-user RBAC.
 - The Vue dashboard is client-only. Any `VITE_CDNLITE_API_TOKEN` value is compiled into browser assets, so use it only for local/private deployments and prefer external auth in production.
 - Control-plane API auth is optional: when `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`.

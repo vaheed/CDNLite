@@ -42,12 +42,13 @@ When PowerDNS sync is enabled, API writes can propagate to DNS automatically.
 
 ## TLS Status
 
-CDNLite currently does not provide full certificate lifecycle automation for end-user domains.
+CDNLite can issue end-user certificates with ACME DNS-01 when PowerDNS is enabled and the customer zone is managed by CDNLite.
 
-- No built-in ACME certificate automation for managed domains yet.
-- SSL metadata tracking and lifecycle APIs are roadmap items.
+- Use the production ACME directory only after validating against staging.
+- Set `CDNLITE_ACME_DNS_PROPAGATION_SECONDS` high enough for your authoritative DNS path.
+- Renewal scheduling and background retry queueing are not implemented yet; operators should reissue before expiry or run an external scheduler.
 
-Use external TLS termination or controlled manual cert handling for now.
+Manual certificate import and external TLS termination remain supported fallback paths.
 
 ## Cache/Purge Status
 

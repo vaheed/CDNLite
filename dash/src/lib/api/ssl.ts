@@ -2,6 +2,8 @@ import { api } from './client';
 import type { ManualCertificateInput, SslCertificate } from '@/types';
 export const sslApi = {
   certificates: (siteId: string) => api.get<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/certificates`),
+  request: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/request`, input ?? {}),
+  issueAcme: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/acme/issue`, input ?? {}),
   check: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/check`, input ?? {}),
   manualCertificate: (siteId: string, input: ManualCertificateInput) => api.post<SslCertificate>(`/api/v1/sites/${siteId}/ssl/manual-certificate`, input),
 };

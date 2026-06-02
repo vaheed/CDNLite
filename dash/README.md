@@ -15,7 +15,7 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 - DNS, redirects, page rules, WAF rules, cache rules, and purge requests expose their useful API fields in explicit table columns instead of relying on raw object ordering.
 - Redirect rows support edit, enable/disable with `PATCH /api/v1/sites/{id}/redirects/{redirectId}`, delete confirmation, export, import of the current rule, and test.
 - DNS, page rule, WAF, and cache rule rows support edit/delete actions where the API supports them.
-- Feature pages open on their records list and reveal input details only after an add/edit/import action. Page rules include a test action, SSL includes a check action using the API `hostnames` array payload, and purge history includes detail lookup.
+- Feature pages open on their records list and reveal input details only after an add/edit/import action. Page rules include a test action, SSL includes ACME issue, request, and check actions using the API `hostnames` array payload, and purge history includes detail lookup.
 - Purge uses a clear required scope dropdown (`url`, `prefix`, `site`, `everything`) and only requires the URL/prefix value for URL or Prefix purges.
 - Charts receive theme-aware labels, legends, axes, and tooltips. Pie charts hide outside slice labels and rely on the legend/tooltip to avoid unreadable label collisions.
 - Known API enum values are rendered as selects, including DNS type, redirect status/match type, cache query mode, WAF type/action, rate-limit key type/action, and usage bucket.
@@ -161,6 +161,8 @@ The dashboard has typed modules for:
 - `/api/v1/sites/{id}/waf-rules`
 - `/api/v1/sites/{id}/rate-limit`
 - `/api/v1/sites/{id}/ssl/certificates`
+- `/api/v1/sites/{id}/ssl/acme/issue`
+- `/api/v1/sites/{id}/ssl/request`
 - `/api/v1/sites/{id}/ssl/check`
 - `/api/v1/sites/{id}/ssl/manual-certificate`
 - `/api/v1/edge/nodes`

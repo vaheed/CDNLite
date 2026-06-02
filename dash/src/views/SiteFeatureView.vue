@@ -18,6 +18,8 @@
       </div>
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
+      <button v-if="feature.key === 'ssl'" type="button" class="button-primary" :disabled="!siteId || saving || !selectedSite?.proxy_enabled" @click="issueAcme">Issue ACME SSL</button>
+      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!siteId || saving || !selectedSite?.proxy_enabled" @click="requestSsl">Create SSL request</button>
       <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="checkSsl">Run SSL check</button>
       <button type="button" class="button-primary" :disabled="!siteId || saving" @click="startCreate">{{ createLabel }}</button>
     </div>
@@ -235,6 +237,30 @@ async function checkSsl() {
     await loadRows();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : 'Unable to run SSL check.';
+    lastResult.value = formError.value;
+  } finally { saving.value = false; }
+}
+async function requestSsl() {
+  if (!siteId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
+    lastResult.value = await sslApi.request(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    await loadRows();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : 'Unable to request SSL.';
+    lastResult.value = formError.value;
+  } finally { saving.value = false; }
+}
+async function issueAcme() {
+  if (!siteId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
+    lastResult.value = await sslApi.issueAcme(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    await loadRows();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : 'Unable to issue ACME SSL.';
     lastResult.value = formError.value;
   } finally { saving.value = false; }
 }

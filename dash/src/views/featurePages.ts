@@ -100,8 +100,8 @@ export const featurePages: FeaturePage[] = [
     ],
   },
   {
-    key: 'ssl', path: '/ssl', title: 'SSL', subtitle: 'Inspect certificates, run SSL checks, and import manual PEM material.',
-    endpointSummary: ['GET /api/v1/sites/{id}/ssl/certificates', 'POST /ssl/check', 'POST /ssl/manual-certificate'],
+    key: 'ssl', path: '/ssl', title: 'SSL', subtitle: 'Issue ACME certificates for proxied hosts, inspect certificates, run checks, and import manual PEM material.',
+    endpointSummary: ['GET /api/v1/sites/{id}/ssl/certificates', 'POST /ssl/acme/issue', 'POST /ssl/request', 'POST /ssl/check', 'POST /ssl/manual-certificate'],
     columns: [{ key: 'hostname', label: 'Hostname' }, { key: 'provider', label: 'Provider' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'serial_number', label: 'Serial' }, { key: 'not_before', label: 'Valid from' }, { key: 'not_after', label: 'Expires' }, { key: 'days_until_expiry', label: 'Days left' }, { key: 'last_checked_at', label: 'Checked' }, { key: 'last_error', label: 'Error' }],
     fields: [
       { name: 'hostname', label: 'Hostname', what: 'Hostname the certificate secures.', works: 'Edge uses SNI to select certificate.', example: 'example.com', required: true },

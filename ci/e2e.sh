@@ -574,14 +574,15 @@ assert_eq "$redirect_edge_header" "$EDGE_ID" "redirect response should expose ed
 rm -f "$redirect_headers"
 record_step PASS "edge-redirect-response" "status/location/rule header verified"
 
-origin_logs_before="$(docker compose logs --no-color core | wc -l | tr -d ' ')"
+redirect_origin_path="/redirect-me?origin-check=${RUN_KEY}"
+origin_redirect_hits_before="$(docker compose logs --no-color core | awk 'index($0, "\"path\":\"/redirect-me\"") { count++ } END { print count + 0 }')"
 for _ in 1 2 3; do
-  curl -sS -o /dev/null "${EDGE_URL}/redirect-me" -H "Host: ${TEST_DOMAIN}"
+  curl -sS -o /dev/null "${EDGE_URL}${redirect_origin_path}" -H "Host: ${TEST_DOMAIN}"
 done
-origin_logs_after="$(docker compose logs --no-color core | wc -l | tr -d ' ')"
-origin_log_delta=$((origin_logs_after - origin_logs_before))
-if [[ "$origin_log_delta" -gt 3 ]]; then
-  fail "origin should not be called for redirect requests (log delta too high: before=${origin_logs_before} after=${origin_logs_after} delta=${origin_log_delta})"
+origin_redirect_hits_after="$(docker compose logs --no-color core | awk 'index($0, "\"path\":\"/redirect-me\"") { count++ } END { print count + 0 }')"
+origin_redirect_delta=$((origin_redirect_hits_after - origin_redirect_hits_before))
+if [[ "$origin_redirect_delta" -ne 0 ]]; then
+  fail "origin should not be called for redirect requests (redirect origin hits: before=${origin_redirect_hits_before} after=${origin_redirect_hits_after} delta=${origin_redirect_delta})"
 fi
 record_step PASS "edge-redirect-no-origin" "redirect handled at edge without origin call"
 

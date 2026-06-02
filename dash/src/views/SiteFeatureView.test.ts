@@ -5,14 +5,14 @@ import { featurePages } from './featurePages';
 import { redirectsApi } from '@/lib/api/redirects';
 import { sslApi } from '@/lib/api/ssl';
 
-vi.mock('@/lib/api/sites', () => ({ sitesApi: { list: vi.fn().mockResolvedValue([{ id: 'site-1', name: 'Main', domain: 'example.com' }]) } }));
+vi.mock('@/lib/api/sites', () => ({ sitesApi: { list: vi.fn().mockResolvedValue([{ id: 'site-1', name: 'Main', domain: 'example.com', proxy_enabled: true }]) } }));
 vi.mock('@/lib/api/rateLimit', () => ({ rateLimitApi: { get: vi.fn().mockResolvedValue({ enabled: true, requests_per_minute: 120, path_prefix: '/api/', key_type: 'ip_path', action: 'block' }), save: vi.fn(), remove: vi.fn() } }));
 vi.mock('@/lib/api/cache', () => ({ cacheApi: { rules: vi.fn().mockResolvedValue([]), settings: vi.fn().mockResolvedValue({ enabled: true, default_edge_ttl_seconds: 3600, cache_query_string_mode: 'include_all' }), analytics: vi.fn().mockResolvedValue({ hit_ratio: 0 }), updateSettings: vi.fn(), createRule: vi.fn(), updateRule: vi.fn(), removeRule: vi.fn() } }));
 vi.mock('@/lib/api/dns', () => ({ dnsApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn(), remove: vi.fn() } }));
 vi.mock('@/lib/api/pageRules', () => ({ pageRulesApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn(), remove: vi.fn(), test: vi.fn() } }));
 vi.mock('@/lib/api/purge', () => ({ purgeApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), get: vi.fn() } }));
 vi.mock('@/lib/api/redirects', () => ({ redirectsApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn(), remove: vi.fn(), importRules: vi.fn(), exportRules: vi.fn(), test: vi.fn() } }));
-vi.mock('@/lib/api/ssl', () => ({ sslApi: { certificates: vi.fn().mockResolvedValue([]), check: vi.fn(), manualCertificate: vi.fn() } }));
+vi.mock('@/lib/api/ssl', () => ({ sslApi: { certificates: vi.fn().mockResolvedValue([]), request: vi.fn(), issueAcme: vi.fn(), check: vi.fn(), manualCertificate: vi.fn() } }));
 vi.mock('@/lib/api/waf', () => ({ wafApi: { list: vi.fn().mockResolvedValue([]), create: vi.fn(), update: vi.fn(), remove: vi.fn(), events: vi.fn() } }));
 
 describe('SiteFeatureView rate limiting', () => {
@@ -31,6 +31,28 @@ describe('SiteFeatureView rate limiting', () => {
 });
 
 describe('SiteFeatureView SSL', () => {
+  it('issues ACME SSL with the selected proxied site domain by default', async () => {
+    vi.mocked(sslApi.issueAcme).mockResolvedValue([]);
+    const feature = featurePages.find((item) => item.key === 'ssl');
+    if (!feature) throw new Error('ssl feature missing');
+    render(SiteFeatureView, { props: { feature } });
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Issue ACME SSL' }));
+
+    await waitFor(() => expect(sslApi.issueAcme).toHaveBeenCalledWith('site-1', { hostnames: ['example.com'] }));
+  });
+
+  it('requests SSL metadata with the selected proxied site domain by default', async () => {
+    vi.mocked(sslApi.request).mockResolvedValue([]);
+    const feature = featurePages.find((item) => item.key === 'ssl');
+    if (!feature) throw new Error('ssl feature missing');
+    render(SiteFeatureView, { props: { feature } });
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Create SSL request' }));
+
+    await waitFor(() => expect(sslApi.request).toHaveBeenCalledWith('site-1', { hostnames: ['example.com'] }));
+  });
+
   it('runs SSL check with the selected site domain by default', async () => {
     vi.mocked(sslApi.check).mockResolvedValue([]);
     const feature = featurePages.find((item) => item.key === 'ssl');

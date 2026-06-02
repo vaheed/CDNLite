@@ -304,6 +304,8 @@ $router->add('PATCH', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (R
 $router->add('DELETE', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
 $router->add('POST', '/api/v1/sites/{siteId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['siteId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/ssl/certificates', static fn (Request $req, array $p) => Response::json($rulesController->listSslCertificates((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/ssl/request', static fn (Request $req, array $p) => Response::json($rulesController->requestSslCertificate((string) $p['siteId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/sites/{siteId}/ssl/acme/issue', static fn (Request $req, array $p) => Response::json($rulesController->issueAcmeCertificate((string) $p['siteId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/sites/{siteId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['siteId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/sites/{siteId}/ssl/manual-certificate', static fn (Request $req, array $p) => Response::json($rulesController->importManualSslCertificate((string) $p['siteId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/sites/{siteId}/security/events', static fn (Request $req, array $p) => Response::json($rulesController->listSecurityEvents((string) $p['siteId'], $req->query)), auth: true);

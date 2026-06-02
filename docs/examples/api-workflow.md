@@ -65,6 +65,28 @@ curl -s -H 'Host: api-demo.local' http://localhost:8081/health
 {"ok":true}
 ```
 
+## SSL Request
+
+For an active proxied site, create a pending SSL metadata request for the site host:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/request -H 'Content-Type: application/json' -d '{"hostnames":["api-demo.local"]}'
+```
+
+```json
+{"data":[{"hostname":"api-demo.local","provider":"cdnlite","status":"pending"}]}
+```
+
+With PowerDNS enabled and ACME settings configured, issue a real DNS-01 certificate:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/acme/issue -H 'Content-Type: application/json' -d '{"hostnames":["api-demo.local"]}'
+```
+
+```json
+{"data":[{"hostname":"api-demo.local","provider":"acme","status":"active"}]}
+```
+
 ## Usage With Auth
 
 Use [Edge Auth Signing](edge-auth-signing.md) to build headers. Example body:

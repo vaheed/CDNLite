@@ -3,6 +3,7 @@
 namespace App\Modules\Proxy\Http\Controllers;
 
 use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Modules\Proxy\Services\AcmeIssuerService;
 use App\Support\Secrets;
 use App\Support\Validator;
 
@@ -246,6 +247,27 @@ class TrafficRulesController
         return ['data' => $this->service->testPageRule($siteId, (string) $path['value'])];
     }
     public function listSslCertificates(string $siteId): array { return ['data' => $this->service->listSslCertificates($siteId)]; }
+    public function requestSslCertificate(string $siteId, array $body): array {
+        $hostnames = [];
+        if (array_key_exists('hostnames', $body)) {
+            if (!is_array($body['hostnames'])) {
+                return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array', 'status' => 422];
+            }
+            foreach ($body['hostnames'] as $h) {
+                if (!is_string($h) || trim($h) === '') {
+                    return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_non_empty_string_array', 'status' => 422];
+                }
+                $hostnames[] = strtolower(trim($h));
+            }
+        }
+        try {
+            return ['data' => $this->service->requestSslCertificate($siteId, $hostnames)];
+        } catch (\OutOfBoundsException) {
+            return ['error' => 'site_not_found', 'status' => 404];
+        } catch (\DomainException $e) {
+            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+        }
+    }
     public function checkSslCertificates(string $siteId, array $body): array {
         $hostnames = [];
         if (array_key_exists('hostnames', $body)) {
@@ -260,6 +282,31 @@ class TrafficRulesController
             }
         }
         return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
+    }
+    public function issueAcmeCertificate(string $siteId, array $body): array {
+        $hostnames = [];
+        if (array_key_exists('hostnames', $body)) {
+            if (!is_array($body['hostnames'])) {
+                return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array', 'status' => 422];
+            }
+            foreach ($body['hostnames'] as $h) {
+                if (!is_string($h) || trim($h) === '') {
+                    return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_non_empty_string_array', 'status' => 422];
+                }
+                $hostnames[] = strtolower(trim($h));
+            }
+        }
+        try {
+            return ['data' => (new AcmeIssuerService($this->service))->issue($siteId, $hostnames)];
+        } catch (\OutOfBoundsException) {
+            return ['error' => 'site_not_found', 'status' => 404];
+        } catch (\DomainException $e) {
+            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+        } catch (\InvalidArgumentException $e) {
+            return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $e->getMessage(), 'status' => 422];
+        } catch (\RuntimeException $e) {
+            return ['error' => 'acme_issue_failed', 'detail' => $e->getMessage(), 'status' => 502];
+        }
     }
     public function listSecurityEvents(string $siteId, array $query): array {
         $type = null;

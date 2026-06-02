@@ -58,6 +58,11 @@ cp dash/.env.example dash/.env
 | `EDGE_VERSION` | `v1` | agent | No | Registration version string. | Not secret. |
 | `CDNLITE_CACHE_DEFAULT_TTL` | `60s` | edge | No | Default NGINX proxy-cache TTL for 200, 301, and 302 responses. Supports NGINX time units such as `30s`, `5m`, or `1h`. | Not secret. |
 | `CDNLITE_API_TOKEN` | empty | core, dashboard users | No | Optional static bearer token for non-edge control-plane API routes. Admin sessions are also accepted when admin users exist. | Secret. |
+| `CDNLITE_SSL_SECRET_KEY` | dev secret in Compose | core | Yes for SSL import/ACME | Encrypts stored private keys and ACME account keys. | Secret; rotate with care because existing encrypted keys depend on it. |
+| `CDNLITE_ACME_DIRECTORY_URL` | Let's Encrypt staging in dev, production in prod template | core | Yes for ACME | ACME directory endpoint used by `POST /ssl/acme/issue`. | Public endpoint. |
+| `CDNLITE_ACME_CONTACT_EMAIL` | `admin@example.com` in dev | core | Yes for first ACME issue | Contact email registered with the ACME account. | Personal/contact data. |
+| `CDNLITE_ACME_DNS_PROPAGATION_SECONDS` | `0` dev, `30` prod template | core | No | Delay after writing the DNS-01 TXT record before asking ACME to validate. | Not secret. |
+| `CDNLITE_ACME_POLL_ATTEMPTS` | `10` dev, `30` prod template | core | No | Number of one-second ACME authorization/order polling attempts. | Not secret. |
 | `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
 | `CDNLITE_CORS_ALLOWED_ORIGINS` | `http://localhost:8082,http://127.0.0.1:8082` | core | No | Comma-separated browser origins allowed to call the core API. Set this to your dashboard URL when accessing CDNLite from another host. | Public endpoint; restrict in production. |
 | `CDNLITE_BOOTSTRAP_ADMIN_USER` | `1` in dev, `0` in production template | core | No | When truthy, core auto-creates or updates one local dashboard admin at startup. Useful for quickstart and volume resets. | Disable outside local development. |
@@ -89,7 +94,7 @@ cp dash/.env.example dash/.env
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
 | `SECURITY_EVENT_PATH` | `/var/lib/cdnlite/security-events.ndjson` | edge, agent | No | Edge security event queue file path consumed by agent push loop. | Contains request metadata (IP/path/method). |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
-| `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. | Requires API key. |
+| `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. Required for ACME DNS-01 issuance. | Requires API key. |
 | `POWERDNS_STRICT` | `0` | core | No | Fail local operations if PowerDNS sync fails. | Operational choice. |
 | `POWERDNS_API_URL` | empty in Compose | core | If enabled | PowerDNS API base URL. | Prefer private/TLS network. |
 | `POWERDNS_PUBLIC_API_URL` | `POWERDNS_API_URL` | CI scripts | No | Host-reachable PowerDNS URL for e2e checks when core uses an internal Compose URL. | Test-only. |

@@ -148,6 +148,39 @@ class TrafficRulesService
         $s->execute([':site_id' => $siteId]);
         return array_map([$this, 'cast'], $s->fetchAll());
     }
+    public function requestSslCertificate(string $siteId, array $hostnames): array {
+        $site = $this->siteForSsl($siteId);
+        if ($site === null) {
+            throw new \OutOfBoundsException('site_not_found');
+        }
+        if ((int) $site['proxy_enabled'] !== 1 || (string) $site['status'] !== 'active') {
+            throw new \DomainException('site_proxy_must_be_active');
+        }
+
+        $targets = $hostnames === [] ? [(string) $site['domain']] : $hostnames;
+        $now = time();
+        foreach ($targets as $hostname) {
+            $h = strtolower(trim((string) $hostname));
+            if ($h === '') {
+                continue;
+            }
+            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
+            $s->execute([':site_id' => $siteId, ':hostname' => $h]);
+            $id = $s->fetchColumn();
+            if ($id === false) {
+                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
+                $i->execute([
+                    ':id' => Uuid::v4(), ':site_id' => $siteId, ':hostname' => $h, ':provider' => 'cdnlite', ':status' => 'pending',
+                    ':issuer' => null, ':serial' => null, ':not_before' => null, ':not_after' => null, ':days' => null, ':renewal' => null,
+                    ':checked' => $now, ':error' => null, ':created' => $now, ':updated' => $now,
+                ]);
+            } else {
+                $u = Database::pdo()->prepare("UPDATE ssl_certificates SET provider=:provider,status=:status,last_checked_at=:checked,last_error=NULL,updated_at=:updated WHERE id=:id AND status IN ('missing','pending')");
+                $u->execute([':provider' => 'cdnlite', ':status' => 'pending', ':checked' => $now, ':updated' => $now, ':id' => $id]);
+            }
+        }
+        return $this->listSslCertificates($siteId);
+    }
     public function checkSslCertificates(string $siteId, array $hostnames): array {
         $now = time();
         $targets = $hostnames === [] ? [''] : $hostnames;
@@ -174,6 +207,9 @@ class TrafficRulesService
         return $this->listSslCertificates($siteId);
     }
     public function importManualSslCertificate(string $siteId, string $hostname, string $certificatePem, string $privateKeyPem): array {
+        return $this->storeIssuedSslCertificate($siteId, $hostname, 'manual', $certificatePem, $privateKeyPem);
+    }
+    public function storeIssuedSslCertificate(string $siteId, string $hostname, string $provider, string $certificatePem, string $privateKeyPem): array {
         $cert = openssl_x509_read($certificatePem);
         if ($cert === false) {
             throw new \InvalidArgumentException('invalid_certificate_pem');
@@ -193,6 +229,7 @@ class TrafficRulesService
         $now = time();
         $days = $notAfter !== null ? (int) floor(($notAfter - $now) / 86400) : null;
         $status = $notAfter !== null && $notAfter < $now ? 'expired' : 'active';
+        $renewalDueAt = $notAfter !== null ? max($now, $notAfter - 30 * 86400) : null;
         if ($status !== 'active') {
             throw new \InvalidArgumentException('certificate_not_active');
         }
@@ -203,14 +240,20 @@ class TrafficRulesService
         if ($id === false) {
             $id = Uuid::v4();
             $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,certificate_pem,private_key_pem,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:cert,:key,:created,:updated)');
-            $i->execute([':id'=>$id,':site_id'=>$siteId,':hostname'=>$hostname,':provider'=>'manual',':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>null,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':created'=>$now,':updated'=>$now]);
+            $i->execute([':id'=>$id,':site_id'=>$siteId,':hostname'=>$hostname,':provider'=>$provider,':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>$renewalDueAt,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':created'=>$now,':updated'=>$now]);
         } else {
-            $u = Database::pdo()->prepare('UPDATE ssl_certificates SET provider=:provider,status=:status,issuer=:issuer,serial_number=:serial,not_before=:not_before,not_after=:not_after,days_until_expiry=:days,last_checked_at=:checked,last_error=:error,certificate_pem=:cert,private_key_pem=:key,updated_at=:updated WHERE id=:id');
-            $u->execute([':provider'=>'manual',':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':updated'=>$now,':id'=>$id]);
+            $u = Database::pdo()->prepare('UPDATE ssl_certificates SET provider=:provider,status=:status,issuer=:issuer,serial_number=:serial,not_before=:not_before,not_after=:not_after,days_until_expiry=:days,renewal_due_at=:renewal,last_checked_at=:checked,last_error=:error,certificate_pem=:cert,private_key_pem=:key,updated_at=:updated WHERE id=:id');
+            $u->execute([':provider'=>$provider,':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>$renewalDueAt,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':updated'=>$now,':id'=>$id]);
         }
         $q = Database::pdo()->prepare('SELECT * FROM ssl_certificates WHERE id=:id LIMIT 1');
         $q->execute([':id' => $id]);
         return $this->cast((array) $q->fetch());
+    }
+    private function siteForSsl(string $siteId): ?array {
+        $s = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM sites WHERE id=:id LIMIT 1');
+        $s->execute([':id' => $siteId]);
+        $row = $s->fetch();
+        return $row ? (array) $row : null;
     }
     public function listSslCertificatesForConfig(string $siteId, string $host): array {
         $s = Database::pdo()->prepare("SELECT hostname,certificate_pem,private_key_pem,status FROM ssl_certificates WHERE site_id=:site_id AND status='active' AND certificate_pem IS NOT NULL AND private_key_pem IS NOT NULL");

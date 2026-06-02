@@ -48,6 +48,10 @@ docker compose up -d --build
 
 Both scripts write reports under `ci/reports/` by default.
 
+The redirect e2e assertion verifies that the edge returns the redirect response
+and that the redirected path does not appear in core origin logs. Background
+core logs from agent polling are ignored.
+
 ## GitHub Actions
 
 `.github/workflows/ci.yml` runs jobs in this order:
