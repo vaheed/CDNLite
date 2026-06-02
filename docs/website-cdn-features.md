@@ -26,14 +26,13 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 
 ## Partially Available
 
-- Control-plane API auth: available via one bearer token (`CDNLITE_API_TOKEN`), optional unless configured.
-- Control-plane API auth: available via one bearer token (`CDNLITE_API_TOKEN`), optional unless configured.
+- Control-plane API auth: available via static bearer token (`CDNLITE_API_TOKEN`) or dashboard admin sessions.
+- Static Vue admin dashboard for non-CLI operation.
 - SSL serving path: manual certificate import + SNI serving exists for v1, but key management/rotation hardening is still in progress.
 
 ## Planned (Roadmap)
 
 - WAF and rate-limit model expansion for practical website protection.
-- Small server-rendered dashboard for non-CLI operation.
 
 ## Not In Scope For Early Versions
 

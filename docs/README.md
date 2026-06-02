@@ -14,7 +14,7 @@ If you are reading this on GitHub Pages, start here for the fastest path.
 ## Core References
 
 - [API Reference](api-reference.md)
-- [Dashboard](api-reference.md#dashboard-pages-are-server-rendered-html-and-require-the-same-bearer-auth-when-cdnlite_api_token-is-set)
+- [Admin Auth](api-reference.md#admin-auth)
 - [CLI Reference](cli-reference.md)
 - [Configuration](configuration.md)
 - [Architecture](architecture.md)

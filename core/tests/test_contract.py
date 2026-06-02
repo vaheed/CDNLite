@@ -30,4 +30,5 @@ def test_artisan_help_lists_registered_commands():
     assert "cdn:rate-limit:set" in proc.stdout
     assert "cdn:waf:create" in proc.stdout
     assert "cdn:cache-rule:create" in proc.stdout
+    assert "cdn:admin:create" in proc.stdout
     assert "cdn:migrate" in proc.stdout

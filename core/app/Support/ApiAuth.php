@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Modules\Admin\Services\AdminAuthService;
+
 final class ApiAuth
 {
     public static function expectedToken(): string
@@ -16,21 +18,23 @@ final class ApiAuth
 
     public static function requiresAuth(): bool
     {
-        return self::isConfigured();
+        return self::isConfigured() || (new AdminAuthService())->hasUsers();
     }
 
     public static function isValid(?string $token): bool
     {
         $expected = self::expectedToken();
-        if ($expected === '') {
+        $provided = (string) ($token ?? '');
+
+        if ($expected !== '' && $provided !== '' && hash_equals($expected, $provided)) {
             return true;
         }
-        $provided = (string) ($token ?? '');
-        if ($provided === '') {
-            return false;
+
+        if ((new AdminAuthService())->userForToken($provided) !== null) {
+            return true;
         }
 
-        return hash_equals($expected, $provided);
+        return $expected === '' && !(new AdminAuthService())->hasUsers();
     }
 
     public static function productionMissingToken(): bool

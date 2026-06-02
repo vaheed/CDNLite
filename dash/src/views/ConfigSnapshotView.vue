@@ -1,0 +1,9 @@
+<template><section class="space-y-6"><div><h1 class="text-3xl font-black text-white">Config Snapshot</h1><p class="text-slate-400">Signed edge endpoint browser for generated edge config.</p></div><div v-if="!enabled" class="card p-5 text-amber-200">Enable with VITE_ENABLE_EDGE_DEV_TOOLS=true.</div><div v-else class="card grid gap-4 p-5 md:grid-cols-3"><TextInput v-model="edge.edgeId" :help="edgeIdHelp" /><SecretTextarea v-model="edge.token" :help="tokenHelp" /><TextInput v-model="ifVersion" :help="versionHelp" /><button class="button-primary md:col-span-3" @click="fetchConfig">Fetch config</button></div><pre class="card overflow-auto p-5 text-xs text-slate-300">{{ JSON.stringify(snapshot, null, 2) }}</pre></section></template>
+<script setup lang="ts">
+import { ref } from 'vue'; import TextInput from '@/components/forms/TextInput.vue'; import SecretTextarea from '@/components/forms/SecretTextarea.vue'; import { runtimeConfig } from '@/lib/config/env'; import { edgeSignedApi } from '@/lib/api/edgeSigned'; import { useEdgeSessionStore } from '@/stores/edgeSession';
+const enabled = runtimeConfig.edgeDevTools; const edge = useEdgeSessionStore(); const ifVersion = ref(''); const snapshot = ref<unknown>(null);
+const edgeIdHelp = { label: 'Edge ID', what: 'Registered edge node identifier.', works: 'Used in X-CDNLITE-Edge-Id for signed requests.', example: 'edge-local-1', required: true };
+const tokenHelp = { label: 'Edge token', what: 'Registered edge secret token.', works: 'Kept in session memory and used to sign requests.', example: 'edge-dev-token', required: true };
+const versionHelp = { label: 'If version', what: 'Optional config version to check.', works: 'Returns changed config when the version differs.', example: '2026-06-02T12:00:00Z' };
+async function fetchConfig() { snapshot.value = await edgeSignedApi.config(edge.edgeId, edge.token, ifVersion.value || undefined); }
+</script>

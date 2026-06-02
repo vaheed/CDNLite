@@ -13,8 +13,8 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key and minute/hour/day aggregate rebuilds.
+- Client-only Vue admin dashboard for operations, site management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
-- Server-rendered dashboard with site operations and API action console.
 
 ## Architecture Summary
 
@@ -28,6 +28,7 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 | Core API | `core` | `8080` | `8080` | PHP API and CLI runtime. |
 | Edge proxy | `edge` | `8081` | `8081` | OpenResty proxy. |
 | Edge agent | `edge-agent` | none | none | Background sync loop. |
+| Admin dashboard | `dashboard` | `80` | `8082` | Static Vue operations dashboard. |
 
 ## Quick Start
 
@@ -85,25 +86,23 @@ Production recommendation:
 
 ## Dashboard Access
 
-Dashboard routes:
+The official admin dashboard is served by the `dashboard` Compose service:
 
-- `http://localhost:8080/dashboard/sites`
-- `http://localhost:8080/dashboard/sites/{site_id}`
-- `http://localhost:8080/dashboard/console`
+- `http://localhost:8082`
 
-Auth behavior:
+The dashboard is a static Vite SPA built from `dash/`. Its `VITE_*` configuration is compiled at image build time, so use browser-reachable URLs such as `http://localhost:8080` and `http://localhost:8081`, not internal Compose hostnames.
 
-- If `CDNLITE_API_TOKEN` is set, dashboard routes require `Authorization: Bearer <token>`.
-- For browser access, use a header-capable client/proxy (for example, local dev proxy or browser extension that injects `Authorization`).
-
-Quick check with curl:
+Create the first dashboard admin user from the core container:
 
 ```bash
-curl -i http://localhost:8080/dashboard/sites \
-  -H 'Authorization: Bearer <token>'
+docker compose exec core php artisan cdn:admin:create \
+  --username=admin \
+  --password='replace-with-a-long-password'
 ```
 
-You should receive HTML (`Content-Type: text/html`).
+The SPA logs in with `/api/v1/admin/login` and stores the returned bearer session token in browser memory only. The removed server-rendered `/dashboard/*` backend routes now return JSON `404`.
+
+Production security note: place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA has local admin sessions but does not implement production RBAC, and edge developer tokens are kept in session memory only.
 
 ## First API Example
 
@@ -142,6 +141,7 @@ Start at [docs/README.md](docs/README.md). Key pages: [quick start](docs/quick-s
 docker compose config
 find core -name '*.php' -print0 | xargs -0 -n1 php -l
 pytest -q core/tests
+cd dash && npm ci && npm run typecheck && npm test && npm run build
 ./ci/smoke.sh
 ./ci/e2e.sh
 ```
@@ -151,7 +151,8 @@ The CI scripts expect the Compose stack to be running.
 ## Current Limitations And Non-Goals
 
 - No user account system, TLS automation, advanced cache policy engine, or billing system is implemented.
-- Dashboard is currently operator-focused and token-auth based; it is not multi-user RBAC.
+- Dashboard admin auth is username/password plus in-memory browser session token; it is not multi-user RBAC.
+- The Vue dashboard is client-only. Any `VITE_CDNLITE_API_TOKEN` value is compiled into browser assets, so use it only for local/private deployments and prefer external auth in production.
 - Control-plane API auth is optional: when `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`.
 - Edge auth protects only edge registration, heartbeat, config fetch, and usage ingest.
 - Config changes reach edge nodes by polling/pull, not push.

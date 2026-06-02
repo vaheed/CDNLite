@@ -1,0 +1,16 @@
+import '@testing-library/jest-dom/vitest';
+
+Object.assign(import.meta.env, {
+  VITE_CDNLITE_CORE_URL: 'http://localhost:8080',
+  VITE_CDNLITE_EDGE_URL: 'http://localhost:8081',
+  VITE_CDNLITE_APP_NAME: 'CDNLite Admin',
+  VITE_CDNLITE_API_TOKEN: '',
+  VITE_ENABLE_EDGE_DEV_TOOLS: 'false',
+  VITE_ENABLE_USAGE_SIMULATOR: 'false',
+  VITE_ENABLE_SSL_TOOLS: 'true',
+  VITE_ENABLE_SECURITY_EVENT_VIEWER: 'true',
+  VITE_ENABLE_LOG_VIEWER: 'true',
+  VITE_DEFAULT_USAGE_BUCKET: 'minute',
+  VITE_DASHBOARD_REFRESH_SECONDS: '15',
+  VITE_REQUEST_TIMEOUT_MS: '15000',
+});

@@ -24,13 +24,13 @@ Do not keep default/example values in production.
 
 ## Control-Plane API Auth
 
-Control-plane auth is token-based and enabled by setting `CDNLITE_API_TOKEN`. When set, non-edge `/api/v1/*` routes require:
+Control-plane auth accepts either a static bearer token from `CDNLITE_API_TOKEN` or a dashboard admin session token created by `/api/v1/admin/login`. Static token auth is enabled by setting `CDNLITE_API_TOKEN`. Admin users are created with `php artisan cdn:admin:create`.
 
 ```http
 Authorization: Bearer <token>
 ```
 
-If `CDNLITE_API_TOKEN` is unset, control-plane API routes are unauthenticated. That is not safe for internet exposure.
+If `CDNLITE_API_TOKEN` is unset and no admin users exist, control-plane API routes are unauthenticated for local development. That is not safe for internet exposure. Create an admin user or set `CDNLITE_API_TOKEN` before exposing core.
 
 ## PowerDNS Risk Notes
 

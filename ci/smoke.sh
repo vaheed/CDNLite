@@ -6,9 +6,10 @@ source "$(dirname "$0")/lib.sh"
 
 CORE_URL="${CORE_URL:-http://localhost:8080}"
 EDGE_URL="${EDGE_URL:-http://localhost:8081}"
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8082}}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
 CI_ENV_NAME="${CI_ENV_NAME:-smoke}"
-export CORE_URL EDGE_URL POWERDNS_API_URL CI_ENV_NAME
+export CORE_URL EDGE_URL DASHBOARD_URL POWERDNS_API_URL CI_ENV_NAME
 
 init_report
 trap 'collect_diagnostics; write_reports' EXIT
@@ -20,7 +21,7 @@ on_error() {
   echo "smoke: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent postgres; do
+  for svc in core edge edge-agent dashboard postgres; do
     echo "----- ${svc} (tail 200) -----"
     docker compose logs --no-color --tail=200 "$svc" || true
   done
@@ -31,6 +32,16 @@ retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 record_step PASS "core-health" "core health endpoint reachable"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 record_step PASS "edge-health" "edge health endpoint reachable"
+
+docker compose ps dashboard | grep -q "Up"
+record_step PASS "dashboard-container-running" "dashboard service is up"
+
+retry 40 2 docker compose exec -T dashboard wget -qO- http://127.0.0.1/healthz >/dev/null
+record_step PASS "dashboard-healthz" "dashboard nginx health endpoint reachable"
+
+dashboard_index="$(docker compose exec -T dashboard wget -qO- http://127.0.0.1/)"
+assert_contains "$dashboard_index" '<div id="app">' "dashboard index should contain Vue app mount"
+record_step PASS "dashboard-index" "dashboard SPA index served"
 
 ./ci/agent_flow_checks.sh >/dev/null
 record_step PASS "agent-flow-checks" "config and metrics failure handling verified"
@@ -55,6 +66,7 @@ record_step PASS "core-db-init" "core schema initialization completed"
 
 required_tables=(
   sites dns_records edge_nodes edge_tokens edge_request_nonces
+  admin_users admin_sessions
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
   site_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
   rate_limit_rules_v2 audit_log

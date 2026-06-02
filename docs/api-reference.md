@@ -2,12 +2,9 @@
 
 [Back to docs index](index.md)
 
-Base URL: `http://localhost:8080`. Responses are JSON. When `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`. Edge registration, heartbeat, config, and collector usage require signed edge auth.
+Base URL: `http://localhost:8080`. Responses are JSON. Non-edge `/api/v1/*` endpoints accept either a static `CDNLITE_API_TOKEN` bearer token or a dashboard admin session bearer token. If neither `CDNLITE_API_TOKEN` nor any admin users are configured, control-plane routes remain open for local development. Edge registration, heartbeat, config, and collector usage require signed edge auth.
 
-Dashboard pages are server-rendered HTML and require the same bearer auth when `CDNLITE_API_TOKEN` is set:
-- `/dashboard/sites`
-- `/dashboard/sites/{siteId}`
-- `/dashboard/console`
+The backend server-rendered `/dashboard/*` routes have been removed. The official dashboard is the static SPA served by the root Compose `dashboard` service.
 
 ## Common Errors
 
@@ -16,6 +13,8 @@ Dashboard pages are server-rendered HTML and require the same bearer auth when `
 | 400 | `{"error":"invalid_json","detail":"Syntax error"}` | Malformed JSON body. |
 | 400 | `{"error":"invalid_json_object_expected"}` | JSON body is not an object. |
 | 401 | `{"error":"api_auth_required"}` | Missing or invalid control-plane bearer token. |
+| 401 | `{"error":"admin_invalid_credentials"}` | Dashboard admin login failed. |
+| 503 | `{"error":"admin_user_not_configured"}` | Dashboard login attempted before creating an admin user. |
 | 401 | `{"error":"edge_auth_required"}` | Missing edge auth fields. |
 | 404 | `{"error":"not_found"}` | Unknown route. |
 | 409 | `{"error":"edge_auth_replay_detected"}` | Reused nonce. |
@@ -29,6 +28,9 @@ Dashboard pages are server-rendered HTML and require the same bearer auth when `
 | GET | `/health` | none | Core health. |
 | GET | `/ready` | none | Core readiness (includes API token production guard). |
 | GET | `http://localhost:8081/ready` | none | Edge readiness (`503` only when no valid config exists). |
+| POST | `/api/v1/admin/login` | none | Create dashboard admin session. |
+| GET | `/api/v1/admin/me` | admin session bearer | Return current dashboard admin user. |
+| POST | `/api/v1/admin/logout` | admin session bearer | Revoke current dashboard admin session. |
 | POST | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | Create site. |
 | GET | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | List sites. |
 | PATCH | `/api/v1/sites/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Update site. |
@@ -91,6 +93,35 @@ Returns cache outcome totals and hit ratio for one site based on ingested usage 
 ```bash
 curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/analytics/cache
 ```
+
+## Admin Auth
+
+Create or update an admin user with the CLI:
+
+```bash
+docker compose exec core php artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'
+```
+
+### POST /api/v1/admin/login
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/admin/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"replace-with-a-long-password"}'
+```
+
+Success:
+
+```json
+{"data":{"token":"<session-token>","expires_at":1710000000,"user":{"id":"...","username":"admin","status":"active"}}}
+```
+
+Use the token as `Authorization: Bearer <session-token>` for control-plane API calls. The dashboard stores this token in browser memory only.
+
+### GET /api/v1/admin/me
+### POST /api/v1/admin/logout
+
+Both require an admin session bearer token. Logout revokes the current session token.
 
 ```json
 {"data":{"hit_ratio":0.82,"requests":10000,"hit":8200,"miss":1200,"bypass":500,"stale":100}}

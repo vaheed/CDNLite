@@ -32,6 +32,16 @@ def test_api_auth_class_contract():
     script = r'''
 require __DIR__ . '/core/app/Support/bootstrap.php';
 
+try {
+    $pdo = App\Support\Database::pdo();
+    $tables = $pdo->query("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('admin_sessions', 'admin_users')")->fetchAll(PDO::FETCH_COLUMN);
+    if ($tables) {
+        $pdo->exec("TRUNCATE TABLE " . implode(', ', $tables) . " RESTART IDENTITY CASCADE");
+    }
+} catch (Throwable $e) {
+    // ApiAuth intentionally falls back to static-token behavior when the DB is unavailable.
+}
+
 putenv('CDNLITE_API_TOKEN=');
 $open = App\Support\ApiAuth::isValid('');
 putenv('CDNLITE_API_TOKEN=secret-token');

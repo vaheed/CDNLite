@@ -56,6 +56,7 @@ services:
       CDNLITE_NS2_IP: ${CDNLITE_NS2_IP:-}
       CDNLITE_BOOTSTRAP_EDGE_DNS: ${CDNLITE_BOOTSTRAP_EDGE_DNS:-1}
       CDNLITE_SSL_SECRET_KEY: ${CDNLITE_SSL_SECRET_KEY:-dev-ssl-secret-change-me}
+      CDNLITE_ADMIN_SESSION_TTL_SECONDS: ${CDNLITE_ADMIN_SESSION_TTL_SECONDS:-28800}
     ports:
       - "${CORE_HOST_PORT:-8080}:8080"
 
@@ -97,6 +98,30 @@ services:
       EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE:-0}
     volumes:
       - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
+
+  dashboard:
+    build:
+      context: ./dash
+      dockerfile: Dockerfile
+      args:
+        VITE_CDNLITE_CORE_URL: ${VITE_CDNLITE_CORE_URL:-http://localhost:8080}
+        VITE_CDNLITE_EDGE_URL: ${VITE_CDNLITE_EDGE_URL:-http://localhost:8081}
+        VITE_CDNLITE_APP_NAME: ${VITE_CDNLITE_APP_NAME:-CDNLite Admin}
+        VITE_CDNLITE_API_TOKEN: ${VITE_CDNLITE_API_TOKEN:-}
+        VITE_ENABLE_EDGE_DEV_TOOLS: ${VITE_ENABLE_EDGE_DEV_TOOLS:-false}
+        VITE_ENABLE_USAGE_SIMULATOR: ${VITE_ENABLE_USAGE_SIMULATOR:-false}
+        VITE_ENABLE_SSL_TOOLS: ${VITE_ENABLE_SSL_TOOLS:-true}
+        VITE_ENABLE_SECURITY_EVENT_VIEWER: ${VITE_ENABLE_SECURITY_EVENT_VIEWER:-true}
+        VITE_ENABLE_LOG_VIEWER: ${VITE_ENABLE_LOG_VIEWER:-true}
+        VITE_DEFAULT_USAGE_BUCKET: ${VITE_DEFAULT_USAGE_BUCKET:-minute}
+        VITE_DASHBOARD_REFRESH_SECONDS: ${VITE_DASHBOARD_REFRESH_SECONDS:-15}
+        VITE_REQUEST_TIMEOUT_MS: ${VITE_REQUEST_TIMEOUT_MS:-15000}
+    depends_on:
+      - core
+      - edge
+    ports:
+      - "${DASHBOARD_PORT:-8082}:80"
+    restart: unless-stopped
 
   powerdns:
     image: python:3.12-alpine

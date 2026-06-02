@@ -59,6 +59,22 @@ For register and heartbeat, header edge ID must match body `edge_id` before sign
 
 Use a long random token for real edges, store it only in the agent environment or secret manager, rotate it with `cdn:edge:rotate-token`, and keep `APP_DEBUG=0` outside development. Do not use `edge-dev-token` outside local Compose.
 
+## Admin Dashboard
+
+The Vue admin dashboard in `dash/` is a client-only SPA served by Nginx. The old server-rendered backend dashboard routes are removed.
+
+Create admin users with:
+
+```bash
+php core/artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'
+```
+
+Core stores admin passwords with PHP `password_hash`. Login returns an opaque bearer session token whose SHA-256 hash is stored in `admin_sessions`; the dashboard keeps the raw session token in browser memory only. A browser refresh requires logging in again.
+
+If `VITE_CDNLITE_API_TOKEN` is set, the built browser bundle can still send `Authorization: Bearer <token>` for control-plane API requests. Because Vite embeds `VITE_*` values into static assets, treat that option as suitable only for local or otherwise private deployments. Edge developer tool tokens are session-memory only and must not be stored in localStorage.
+
+In production, put both the dashboard and the CDNLite API behind real authentication at the reverse proxy or platform layer. The dashboard admin model is not production RBAC.
+
 ## Edge Cache Enforcement
 
 The edge runtime bypasses cache storage and lookup when request risk is high:

@@ -85,4 +85,4 @@ sequenceDiagram
 
 ## Limitations And Assumptions
 
-No dashboard, purge API, TLS automation, production scheduler, or user auth layer is implemented. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers. Cache behavior supports simple per-site `cache_rules` by `path_prefix` + `ttl_seconds`, while advanced purge and richer policy management are intentionally not implemented yet.
+No TLS automation, production scheduler, enterprise RBAC, or billing layer is implemented. The official dashboard is a static Vue SPA served by the `dashboard` Compose service and backed by admin session auth APIs. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers.

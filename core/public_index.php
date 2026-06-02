@@ -4,7 +4,8 @@ require __DIR__ . '/app/Support/bootstrap.php';
 
 use App\Modules\Collector\Http\Controllers\CollectorController;
 use App\Modules\Collector\Services\CollectorService;
-use App\Modules\Dashboard\Http\Controllers\DashboardController;
+use App\Modules\Admin\Http\Controllers\AdminAuthController;
+use App\Modules\Admin\Services\AdminAuthService;
 use App\Modules\Dns\Http\Controllers\DnsController;
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
@@ -22,7 +23,7 @@ use App\Support\Response;
 use App\Support\Router;
 
 $requestedPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-header('Content-Type: ' . (str_starts_with($requestedPath, '/dashboard') ? 'text/html; charset=utf-8' : 'application/json'));
+header('Content-Type: application/json');
 ini_set('log_errors', '1');
 ini_set('error_log', 'php://stderr');
 
@@ -155,7 +156,8 @@ $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($siteService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
-$dashboardController = new DashboardController($siteService, $edgeService, new CollectorService(), new TrafficRulesService(), $dnsService);
+$adminAuth = new AdminAuthService();
+$adminAuthController = new AdminAuthController($adminAuth);
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -170,21 +172,9 @@ if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
 }
 
 $router = new Router();
-$router->add('GET', '/dashboard/sites', static fn (): array => $dashboardController->sitesPage(), auth: true);
-$router->add('GET', '/dashboard/ops', static fn (): array => $dashboardController->opsPage(), auth: true);
-$router->add('GET', '/dashboard/sites/{siteId}', static fn (Request $req, array $p): array => $dashboardController->sitePage((string) $p['siteId']), auth: true);
-$router->add('GET', '/dashboard/console', static fn (): array => $dashboardController->consolePage(), auth: true);
-$router->add('POST', '/dashboard/console/run', static fn (Request $req): array => $dashboardController->consoleRun($req), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/proxy', static fn (Request $req, array $p): array => $dashboardController->proxyAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/purge', static fn (Request $req, array $p): array => $dashboardController->purgeAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/waf', static fn (Request $req, array $p): array => $dashboardController->wafAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/ssl/check', static fn (Request $req, array $p): array => $dashboardController->sslCheckAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/ssl/import', static fn (Request $req, array $p): array => $dashboardController->sslImportAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/dns/create', static fn (Request $req, array $p): array => $dashboardController->dnsCreateAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/redirect/create', static fn (Request $req, array $p): array => $dashboardController->redirectCreateAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/cache-rule/create', static fn (Request $req, array $p): array => $dashboardController->cacheRuleCreateAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/page-rule/create', static fn (Request $req, array $p): array => $dashboardController->pageRuleCreateAction($req, (string) $p['siteId']), auth: true);
-$router->add('POST', '/dashboard/sites/{siteId}/rate-limit/set', static fn (Request $req, array $p): array => $dashboardController->rateLimitSetAction($req, (string) $p['siteId']), auth: true);
+$router->add('POST', '/api/v1/admin/login', static fn (Request $req): array => $adminAuthController->login($req));
+$router->add('GET', '/api/v1/admin/me', static fn (): array => $adminAuthController->me(bearerToken()), auth: true);
+$router->add('POST', '/api/v1/admin/logout', static fn (): array => $adminAuthController->logout(bearerToken()), auth: true);
 $router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
 $router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];

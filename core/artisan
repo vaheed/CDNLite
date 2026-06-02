@@ -39,8 +39,10 @@ use App\Console\Commands\CdnCacheRuleListCommand;
 use App\Console\Commands\CdnCacheRuleUpdateCommand;
 use App\Console\Commands\CdnCacheRuleDeleteCommand;
 use App\Console\Commands\CdnMigrateCommand;
+use App\Console\Commands\CdnAdminCreateCommand;
 
 $runner = new CommandRunner();
+$runner->register('cdn:admin:create', new CdnAdminCreateCommand());
 $runner->register('cdn:site:create', new CdnSiteCreateCommand());
 $runner->register('cdn:site:list', new CdnSiteListCommand());
 $runner->register('cdn:site:update', new CdnSiteUpdateCommand());

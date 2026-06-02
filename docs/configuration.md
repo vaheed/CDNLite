@@ -30,9 +30,24 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 | `EDGE_REGION` | `local` | edge, agent | No | Region slug used for platform edge hostnames such as `ir.edge.example.com`. | Not secret. |
 | `EDGE_VERSION` | `v1` | agent | No | Registration version string. | Not secret. |
 | `CDNLITE_CACHE_DEFAULT_TTL` | `60s` | edge | No | Default NGINX proxy-cache TTL for 200, 301, and 302 responses. Supports NGINX time units such as `30s`, `5m`, or `1h`. | Not secret. |
+| `CDNLITE_API_TOKEN` | empty | core, dashboard users | No | Optional static bearer token for non-edge control-plane API routes. Admin sessions are also accepted when admin users exist. | Secret. |
+| `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
 | `CORE_HOST_PORT` | `8080` | Compose | No | Host port for core. | Not secret. |
 | `EDGE_HOST_PORT` | `8081` | Compose | No | Host port for edge. | Not secret. |
 | `POSTGRES_HOST_PORT` | `5432` | Compose | No | Host port for PostgreSQL. | Do not expose publicly. |
+| `DASHBOARD_PORT` | `8082` | Compose | No | Host port for the static Vue admin dashboard. | Protect behind auth in production. |
+| `VITE_CDNLITE_CORE_URL` | `http://localhost:8080` | dashboard build | Yes | Browser-reachable core API URL compiled into the Vite dashboard bundle. Do not use internal Compose hostnames unless browsers can resolve them. | Public endpoint; may imply environment. |
+| `VITE_CDNLITE_EDGE_URL` | `http://localhost:8081` | dashboard build | Yes | Browser-reachable edge URL compiled into the Vite dashboard bundle. | Public endpoint; may imply environment. |
+| `VITE_CDNLITE_APP_NAME` | `CDNLite Admin` | dashboard build | No | Dashboard display name. | Not secret. |
+| `VITE_CDNLITE_API_TOKEN` | empty | dashboard build | No | Optional bearer token sent by the browser to control-plane API requests. | Secret if set, but exposed to browser assets; prefer external auth in production. |
+| `VITE_ENABLE_EDGE_DEV_TOOLS` | `false` | dashboard build | No | Enables signed edge developer tools. Edge tokens entered there stay in session memory only. | Avoid enabling broadly. |
+| `VITE_ENABLE_USAGE_SIMULATOR` | `false` | dashboard build | No | Enables usage collector simulator tools. | Operationally sensitive. |
+| `VITE_ENABLE_SSL_TOOLS` | `true` | dashboard build | No | Shows SSL certificate tooling. | Certificate material must not be logged. |
+| `VITE_ENABLE_SECURITY_EVENT_VIEWER` | `true` | dashboard build | No | Shows security event viewer pages. | Events may contain request metadata. |
+| `VITE_ENABLE_LOG_VIEWER` | `true` | dashboard build | No | Shows log-oriented dashboard affordances where available. | Logs may contain diagnostics. |
+| `VITE_DEFAULT_USAGE_BUCKET` | `minute` | dashboard build | No | Default usage analytics bucket: `minute`, `hour`, or `day`. | Not secret. |
+| `VITE_DASHBOARD_REFRESH_SECONDS` | `15` | dashboard build | No | Dashboard polling interval. | Not secret. |
+| `VITE_REQUEST_TIMEOUT_MS` | `15000` | dashboard build | No | Browser API request timeout. | Not secret. |
 | `CORE_URL` | `http://core:8080` | agent | Yes | Core base URL. | Use trusted network. |
 | `EDGE_CONFIG_DIR` | `./edge/config` | Compose | No | Host directory mounted into edge and edge-agent at `/var/lib/cdnlite`. | Contains config and metrics. |
 | `EDGE_CONFIG_PATH` | `/var/lib/cdnlite/config.json` | agent | Yes | Snapshot write path. | Agent-writable. |
@@ -85,3 +100,5 @@ Configuration is defined by `.env.example`, `docker-compose.yml`, CI job environ
 The edge container also uses `/var/cache/cdnlite` inside the container for the OpenResty proxy cache.
 
 Compose starts `core` only after the PostgreSQL healthcheck passes, so edge-agent startup should not emit transient config-pull 500s from a database that is still booting.
+
+The dashboard is a Vite static SPA. Its `VITE_*` values are build-time values baked into the generated assets by `docker compose build dashboard`.

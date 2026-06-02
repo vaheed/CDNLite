@@ -1,0 +1,151 @@
+# CDNLite Admin Dashboard
+
+A client-only Vue 3 + TypeScript + Vite admin dashboard for operating CDNLite.
+
+This folder is the official CDNLite admin dashboard. It lives in the repository root as `dash/` and is wired into the root `docker-compose.yml` as the `dashboard` service.
+
+## Included
+
+- Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query for Vue.
+- Tailwind CSS, Headless UI-compatible component structure, ECharts charts.
+- Typed API clients for sites, DNS, redirects, page rules, cache, purge, WAF, rate limit, SSL, edges, usage, security events, and edge signed developer endpoints.
+- Dockerfile and Nginx runtime image.
+- Unit tests for env parsing, URL building, HMAC signing, formatting, diagnostics, and key forms.
+
+Generated `dist/` output is intentionally not committed. Build artifacts are produced by `npm run build` or the dashboard Docker image build.
+
+## Install
+
+```bash
+cp .env.example .env
+npm install
+```
+
+## Development
+
+```bash
+npm run dev
+```
+
+Open <http://localhost:5173>.
+
+## Build
+
+```bash
+npm run typecheck
+npm run build
+```
+
+## Preview
+
+```bash
+npm run preview
+```
+
+## Test
+
+```bash
+npm test
+```
+
+## Docker
+
+From the project root, build and run the whole CDNLite stack including the dashboard:
+
+```bash
+docker compose up --build
+```
+
+Open <http://localhost:8082>.
+
+Before logging in, create an admin user:
+
+```bash
+docker compose exec core php artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'
+```
+
+Build only the dashboard image:
+
+```bash
+docker compose build dashboard
+```
+
+Because this is a Vite static SPA, `VITE_*` values are build-time values. Use browser-reachable URLs such as `http://localhost:8080` for core and `http://localhost:8081` for edge.
+
+The old dashboard-local compose templates were removed. Use the repository root `docker-compose.yml` so the dashboard, core, edge, database, and agent run as one product surface.
+
+## Environment
+
+All runtime configuration comes from `import.meta.env` and is validated at startup.
+
+```bash
+VITE_CDNLITE_CORE_URL=http://localhost:8080
+VITE_CDNLITE_EDGE_URL=http://localhost:8081
+VITE_CDNLITE_APP_NAME=CDNLite Admin
+VITE_CDNLITE_API_TOKEN=
+VITE_ENABLE_EDGE_DEV_TOOLS=false
+VITE_ENABLE_USAGE_SIMULATOR=false
+VITE_ENABLE_SSL_TOOLS=true
+VITE_ENABLE_SECURITY_EVENT_VIEWER=true
+VITE_ENABLE_LOG_VIEWER=true
+VITE_DEFAULT_USAGE_BUCKET=minute
+VITE_DASHBOARD_REFRESH_SECONDS=15
+VITE_REQUEST_TIMEOUT_MS=15000
+```
+
+By default, the dashboard shows an admin login form and sends credentials to `/api/v1/admin/login`. The returned session token is kept in browser memory only. When `VITE_CDNLITE_API_TOKEN` is set, the control-plane API client can also send `Authorization: Bearer <token>` and skip the login screen for private/local deployments.
+
+## Edge developer tools
+
+Set this before build/dev:
+
+```bash
+VITE_ENABLE_EDGE_DEV_TOOLS=true
+```
+
+The edge token is session-memory only and is never stored in localStorage. Signed requests use:
+
+- `Authorization: Bearer <token>`
+- `X-CDNLITE-Edge-Id`
+- `X-CDNLITE-Timestamp`
+- `X-CDNLITE-Nonce`
+- `X-CDNLITE-Signature`
+
+Canonical string:
+
+```text
+UPPERCASE_METHOD
+PATH_WITHOUT_QUERY
+UNIX_TIMESTAMP
+NONCE
+SHA256_RAW_BODY_HEX
+```
+
+## Security notes
+
+This is a client-only admin dashboard. It supports core-backed admin login sessions, but it does not provide production RBAC. For production, place this SPA and the CDNLite API behind real authentication at the reverse proxy or platform level. Do not expose private API or edge credentials in browser logs, error toasts, analytics, or localStorage.
+
+## API coverage map
+
+The dashboard has typed modules for:
+
+- `/health`, `/ready`, and edge `/ready`
+- `/api/v1/admin/login`, `/api/v1/admin/me`, `/api/v1/admin/logout`
+- `/api/v1/sites`
+- `/api/v1/sites/{id}/dns/records`
+- `/api/v1/sites/{id}/redirects`
+- `/api/v1/sites/{id}/page-rules`
+- `/api/v1/sites/{id}/cache/settings`
+- `/api/v1/sites/{id}/cache-rules`
+- `/api/v1/sites/{id}/cache/purge`
+- `/api/v1/sites/{id}/cache/purge-requests`
+- `/api/v1/sites/{id}/waf-rules`
+- `/api/v1/sites/{id}/rate-limit`
+- `/api/v1/sites/{id}/ssl/certificates`
+- `/api/v1/sites/{id}/ssl/check`
+- `/api/v1/sites/{id}/ssl/manual-certificate`
+- `/api/v1/edge/nodes`
+- `/api/v1/usage/summary`
+- `/api/v1/usage/recalculate`
+- `/api/v1/edge/register`, `/api/v1/edge/heartbeat`, `/api/v1/edge/config`
+- `/api/v1/collector/usage`, `/api/v1/collector/security-events` when simulator tools are enabled

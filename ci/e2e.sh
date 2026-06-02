@@ -6,6 +6,7 @@ source "$(dirname "$0")/lib.sh"
 
 CORE_URL="${CORE_URL:-http://localhost:${CORE_HOST_PORT:-8080}}"
 EDGE_URL="${EDGE_URL:-http://localhost:${EDGE_HOST_PORT:-8081}}"
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8082}}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
 POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
 POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
@@ -14,7 +15,10 @@ EDGE_TOKEN="${EDGE_TOKEN:-edge-dev-token}"
 EDGE_TLS_URL="${EDGE_TLS_URL:-https://localhost:${EDGE_TLS_HOST_PORT:-8443}}"
 CDNLITE_SSL_SECRET_KEY="${CDNLITE_SSL_SECRET_KEY:-e2e-ssl-secret}"
 CI_ENV_NAME="${CI_ENV_NAME:-e2e}"
-export CORE_URL EDGE_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin-e2e}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin-e2e-password-12345}"
+ADMIN_SESSION_TOKEN=""
+export CORE_URL EDGE_URL DASHBOARD_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME ADMIN_SESSION_TOKEN
 
 RUN_KEY="${GITHUB_RUN_ID:-local}-$RANDOM"
 TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
@@ -41,7 +45,7 @@ on_error() {
   fi
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent postgres powerdns; do
+  for svc in core edge edge-agent dashboard postgres powerdns; do
     if compose_has_service "$svc"; then
       echo "----- ${svc} (tail 200) -----"
       docker compose logs --no-color --tail=200 "$svc" || true
@@ -217,9 +221,23 @@ edge_wait_cache_header() {
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
+retry 40 2 docker compose exec -T dashboard wget -qO- http://127.0.0.1/healthz >/dev/null
 wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
-record_step PASS "stack-ready" "core and edge health passed (readiness waits for config)"
+record_step PASS "stack-ready" "core, edge, and dashboard health passed (readiness waits for config)"
+
+docker compose exec -T core php artisan cdn:admin:create --username="$ADMIN_USERNAME" --password="$ADMIN_PASSWORD" --display_name="E2E Admin" >/dev/null
+admin_login_code="$(curl -sS -o /tmp/e2e-admin-login.json -w '%{http_code}' \
+  -X POST "${CORE_URL}/api/v1/admin/login" \
+  -H 'Content-Type: application/json' \
+  -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
+assert_eq "$admin_login_code" "200" "admin login should return 200"
+ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/e2e-admin-login.json)" '.data.token')"
+export ADMIN_SESSION_TOKEN
+api_get "${CORE_URL}/api/v1/admin/me"
+assert_http_status "$HTTP_CODE" "200" "admin me failed"
+assert_contains "$HTTP_BODY" "$ADMIN_USERNAME" "admin me should include username"
+record_step PASS "admin-login" "admin session established"
 
 ssl_key_present="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
 if [[ "$ssl_key_present" != "set" ]]; then
@@ -259,48 +277,37 @@ assert_http_status "$HTTP_CODE" "200" "site list failed"
 assert_contains "$HTTP_BODY" "$TEST_DOMAIN" "site not listed"
 record_step PASS "site-list" "site listed"
 
-# Dashboard HTML and console action execution
-dashboard_headers="$(mktemp)"
-dashboard_code="$(curl -sS -D "$dashboard_headers" -o /tmp/e2e-dashboard-sites.html -w '%{http_code}' "${CORE_URL}/dashboard/sites" $(api_auth_header_args))"
-assert_eq "$dashboard_code" "200" "dashboard sites page should return 200"
-dashboard_sites_html="$(cat /tmp/e2e-dashboard-sites.html)"
-dashboard_content_type="$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {sub(/\r$/,"",$2); print tolower($2)}' "$dashboard_headers" | tail -n1)"
-if [[ "$dashboard_content_type" != text/html* ]]; then
-  fail "dashboard sites content-type mismatch (got '${dashboard_content_type:-missing}') body='$(tr '\n' ' ' </tmp/e2e-dashboard-sites.html | cut -c 1-220)'"
-fi
-if [[ "$dashboard_sites_html" != *"<!doctype html>"* && "$dashboard_sites_html" != *"<!DOCTYPE html>"* ]]; then
-  fail "dashboard sites html marker missing (doctype not found) body='$(tr '\n' ' ' </tmp/e2e-dashboard-sites.html | cut -c 1-220)'"
-fi
-rm -f "$dashboard_headers"
-record_step PASS "dashboard-sites-html" "dashboard sites rendered"
+# Static Vue dashboard runtime
+spa_headers="$(mktemp)"
+spa_code="$(docker compose exec -T dashboard wget -S -qO /tmp/e2e-dashboard-index.html http://127.0.0.1/ 2>"$spa_headers"; printf '%s' "$?")"
+assert_eq "$spa_code" "0" "dashboard SPA root should be served"
+spa_index="$(docker compose exec -T dashboard cat /tmp/e2e-dashboard-index.html)"
+assert_contains "$spa_index" '<div id="app">' "dashboard SPA root should contain Vue app mount"
+assert_contains "$spa_index" '/assets/index-' "dashboard SPA root should reference built assets"
+rm -f "$spa_headers"
+record_step PASS "dashboard-spa-root" "Vue dashboard root served"
 
-dashboard_console_headers="$(mktemp)"
-dashboard_console_code="$(curl -sS -D "$dashboard_console_headers" -o /tmp/e2e-dashboard-console.html -w '%{http_code}' "${CORE_URL}/dashboard/console" $(api_auth_header_args))"
-assert_eq "$dashboard_console_code" "200" "dashboard console page should return 200"
-dashboard_console_ct="$(awk 'BEGIN{IGNORECASE=1} /^Content-Type:/ {sub(/\r$/,"",$2); print tolower($2)}' "$dashboard_console_headers" | tail -n1)"
-if [[ "$dashboard_console_ct" != text/html* ]]; then
-  fail "dashboard console content-type mismatch (got '${dashboard_console_ct:-missing}') body='$(tr '\n' ' ' </tmp/e2e-dashboard-console.html | cut -c 1-220)'"
+spa_fallback="$(docker compose exec -T dashboard wget -qO- http://127.0.0.1/sites)"
+assert_contains "$spa_fallback" '<div id="app">' "dashboard SPA fallback route should serve index"
+record_step PASS "dashboard-spa-fallback" "Vue dashboard route fallback served"
+
+asset_path="$(printf '%s\n' "$spa_index" | sed -n 's/.*src="\([^"]*\/assets\/index-[^"]*\.js\)".*/\1/p' | head -n1)"
+if [[ -z "$asset_path" ]]; then
+  fail "dashboard JS asset path missing from index"
 fi
-assert_contains "$(cat /tmp/e2e-dashboard-console.html)" "API Action Console" "dashboard console html marker missing"
-rm -f "$dashboard_console_headers"
-record_step PASS "dashboard-console-html" "dashboard console rendered"
+asset_headers="$(docker compose exec -T dashboard wget -S -qO- "http://127.0.0.1${asset_path}" 2>&1 >/dev/null)"
+assert_contains "$asset_headers" "Cache-Control: public, immutable" "dashboard asset should use immutable cache headers"
+record_step PASS "dashboard-static-asset-cache" "Vue dashboard static asset cache headers verified"
+
+backend_dashboard_code="$(curl -sS -o /tmp/e2e-backend-dashboard.json -w '%{http_code}' "${CORE_URL}/dashboard/sites" $(api_auth_header_args))"
+assert_eq "$backend_dashboard_code" "404" "backend dashboard routes should be removed"
+record_step PASS "backend-dashboard-removed" "legacy /dashboard routes return 404"
 
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"name":"e2e-site-updated","origin_host":"core","origin_port":8080}'
 assert_http_status "$HTTP_CODE" "200" "site update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"
 assert_eq "$updated_name" "e2e-site-updated" "site name update mismatch"
 record_step PASS "site-update" "site updated"
-
-dashboard_run_code="$(curl -sS -o /tmp/e2e-dashboard-console-run.html -w '%{http_code}' \
-  -X POST "${CORE_URL}/dashboard/console/run" \
-  $(api_auth_header_args) \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  --data-urlencode "method=GET" \
-  --data-urlencode "path=/api/v1/sites/${SITE_ID}/security/events?limit=1" \
-  --data-urlencode 'body={}')"
-assert_eq "$dashboard_run_code" "200" "dashboard console run should return 200"
-assert_contains "$(cat /tmp/e2e-dashboard-console-run.html)" "HTTP 200" "dashboard console run should show live HTTP status"
-record_step PASS "dashboard-console-run" "dashboard console executed api action"
 
 api_patch "${CORE_URL}/api/v1/sites/${SITE_ID}" '{"origin_shield_header_name":"X-CDNLITE-Origin-Secret","origin_shield_secret":"stage9-origin-secret"}'
 assert_http_status "$HTTP_CODE" "200" "origin shield update failed"
