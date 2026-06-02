@@ -129,7 +129,9 @@ edge_api() {
 
 edge_status_for_host() {
   local host="$1"
-  curl -s -o /tmp/e2e-edge-status.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" -H "Host: ${host}"
+  curl -s -o /tmp/e2e-edge-status.txt -w '%{http_code}' "${EDGE_URL}/api/v1/sites" \
+    -H "Host: ${host}" \
+    -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}"
 }
 
 edge_status_is() {
@@ -465,7 +467,7 @@ edge_id_header_health="$(edge_header_for_host "${TEST_DOMAIN}" "/api/v1/sites?vi
 assert_eq "$edge_id_header_health" "$EDGE_ID" "proxied response should expose edge id header"
 record_step PASS "edge-proxy-health" "health endpoint proxied"
 
-edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/api/v1/sites?via=edge")"
+edge_sites_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" "${EDGE_URL}/api/v1/sites?via=edge")"
 assert_contains "$edge_sites_body" "$TEST_DOMAIN" "edge proxied sites list missing test domain"
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
 
@@ -529,7 +531,7 @@ for row in data.get('ssl_certificates', []):
 PY
 ")"
 assert_eq "$snapshot_ssl_host" "$TEST_DOMAIN" "ssl certificate missing from edge snapshot"
-tls_code="$(curl -k -s -o /tmp/e2e-edge-tls.txt -w '%{http_code}' "${EDGE_TLS_URL}/api/v1/sites?via=edge-tls" -H "Host: ${TEST_DOMAIN}")"
+tls_code="$(curl -k -s -o /tmp/e2e-edge-tls.txt -w '%{http_code}' "${EDGE_TLS_URL}/api/v1/sites?via=edge-tls" -H "Host: ${TEST_DOMAIN}" -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}")"
 assert_eq "$tls_code" "200" "tls proxy request through edge failed"
 record_step PASS "ssl-manual-import-and-tls-proxy" "manual cert imported and https proxy works on ${EDGE_TLS_URL}"
 rm -rf "$tmpdir"
@@ -583,8 +585,8 @@ if [[ "$origin_log_delta" -gt 3 ]]; then
 fi
 record_step PASS "edge-redirect-no-origin" "redirect handled at edge without origin call"
 
-cache_path="/api/v1/sites?via=edge-cache-${RUN_KEY}"
-api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/api/v1/sites\",\"ttl_seconds\":1}"
+cache_path="/health?via=edge-cache-${RUN_KEY}"
+api_post "${CORE_URL}/api/v1/sites/${SITE_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/health\",\"ttl_seconds\":1}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "site cache rule created"
@@ -600,7 +602,7 @@ assert_eq "$auth_bypass_cache" "BYPASS" "Authorization should bypass cache"
 non_matching_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/api/v1/collector/unknown?via=edge-nonmatch-${RUN_KEY}")"
 assert_eq "$non_matching_cache" "BYPASS" "non-matching path should bypass cache rule"
 
-stale_path="/api/v1/sites?via=edge-stale-${RUN_KEY}"
+stale_path="/health?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
@@ -624,6 +626,7 @@ record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verifi
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
   -X POST "${EDGE_URL}/api/v1/sites" \
   -H "Host: ${TEST_DOMAIN}" \
+  -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"name":"edge-proxy-validation","origin_host":"core"}')"
 assert_eq "$edge_post_code" "422" "edge proxy POST/body forwarding failed"
@@ -631,7 +634,8 @@ record_step PASS "edge-proxy-post-body" "POST with json body proxied"
 
 edge_delete_code="$(curl -s -o /tmp/e2e-edge-delete.txt -w '%{http_code}' \
   -X DELETE "${EDGE_URL}/api/v1/sites/99999999" \
-  -H "Host: ${TEST_DOMAIN}")"
+  -H "Host: ${TEST_DOMAIN}" \
+  -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}")"
 assert_eq "$edge_delete_code" "404" "edge proxy DELETE forwarding failed"
 record_step PASS "edge-proxy-delete" "DELETE proxied"
 
