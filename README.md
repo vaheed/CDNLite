@@ -1,11 +1,10 @@
 # CDNLite
 
+[![CI](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml)
+[![Latest tag](https://img.shields.io/github/v/tag/vaheed/CDNLite?label=release)](https://github.com/vaheed/CDNLite/tags)
 [![Docs](https://img.shields.io/badge/docs-available-blue)](docs/)
-[![Release](https://img.shields.io/github/v/release/OWNER/CDNLite?label=release)](https://github.com/OWNER/CDNLite/releases)
-[![Tests](https://github.com/OWNER/CDNLite/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/CDNLite/actions/workflows/ci.yml)
-[![PHP](https://img.shields.io/badge/PHP-control%20plane-777bb4)](https://www.php.net/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-database-336791)](https://www.postgresql.org/)
-[![OpenResty](https://img.shields.io/badge/OpenResty-edge%20proxy-00a651)](https://openresty.org/)
+[![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
+[![GHCR](https://img.shields.io/badge/images-GHCR-blue)](https://github.com/vaheed/CDNLite/pkgs/container/cdnlite-core)
 
 CDNLite is a lightweight modular CDN platform with a PHP control plane, PostgreSQL database, OpenResty/Lua edge proxy, and shell-based edge agent.
 
