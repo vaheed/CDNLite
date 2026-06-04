@@ -16,6 +16,10 @@ It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, 
 - Client-only Vue admin dashboard for operations, site management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
 
+## Screenshot
+
+![CDNLite screenshot](docs/ScreenShot.png)
+
 ## Architecture Summary
 
 `core/` is the control plane. It serves HTTP from `core/public_index.php`, registers CLI commands in `core/artisan`, stores data in PostgreSQL, builds edge config, and ingests usage and security events. `edge/openresty/` is the data plane. It reads `/var/lib/cdnlite/config.json`, routes by `Host`, proxies to origins, and writes metrics and security decisions. `edge/agent/` signs calls to core and keeps the edge registered, configured, and reporting runtime queues.
