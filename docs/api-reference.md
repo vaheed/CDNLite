@@ -586,7 +586,9 @@ Validation errors: `items_must_be_array`, `idempotency_key_must_be_non_empty_str
 Optional query: `domain_id`, `bucket=minute|hour|day`.
 
 ```json
-{"data":{"bucket":"minute","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1}}
+{"data":{"bucket":"minute","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1,"points":[{"bucket_ts":1710000000,"requests_count":10,"bytes_in":1000,"bytes_out":5000}]}}
+
+When `bucket=minute|hour|day` is present, `points` contains the ordered time series used by the dashboard bandwidth and request graphs. Each point combines all status, cache-status, and edge rows sharing the same `bucket_ts`.
 ```
 
 Invalid bucket returns `422 {"error":"bucket_must_be_one_of_minute_hour_day"}`.

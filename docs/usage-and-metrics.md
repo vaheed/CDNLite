@@ -42,11 +42,13 @@ Without `bucket`, summaries read raw `usage_rollups`:
 {"data":{"requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1}}
 ```
 
-With `bucket=minute|hour|day`, summaries read `usage_aggregates` and include the bucket name:
+With `bucket=minute|hour|day`, summaries read `usage_aggregates`, include the bucket name, and return ordered graph points:
 
 ```json
-{"data":{"bucket":"hour","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1}}
+{"data":{"bucket":"hour","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1,"points":[{"bucket_ts":1710000000,"requests_count":10,"bytes_in":1000,"bytes_out":5000}]}}
 ```
+
+Points combine all aggregate dimensions for each timestamp, so status, cache status, and edge rows do not create duplicate graph labels.
 
 ## Recalculate Behavior
 

@@ -56,7 +56,7 @@ const edgeColumns = [{ key: 'edge_id', label: 'Edge' }, { key: 'region', label: 
 const securityColumns = [{ key: 'domain', label: 'Domain' }, { key: 'type', label: 'Type' }, { key: 'decision', label: 'Decision' }, { key: 'time', label: 'Time' }];
 const sslColumns = [{ key: 'domain', label: 'Domain' }, { key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'days_left', label: 'Days Left' }, { key: 'risk', label: 'Risk' }];
 const purgeColumns = [{ key: 'domain', label: 'Domain' }, { key: 'type', label: 'Type' }, { key: 'status', label: 'Status' }, { key: 'time', label: 'Time' }];
-const requestChart = computed(() => ({ tooltip: {}, grid: { left: 40, right: 20, top: 20, bottom: 40 }, xAxis: { type: 'category', data: (usage.value?.points ?? []).map((p) => String(p.bucket ?? p.time ?? 'now')) }, yAxis: { type: 'value' }, series: [{ type: 'line', smooth: true, data: (usage.value?.points ?? []).map((p) => Number(p.requests ?? 0)) }] }));
+const requestChart = computed(() => ({ tooltip: { trigger: 'axis' }, grid: { left: 48, right: 20, top: 20, bottom: 48 }, xAxis: { type: 'category', data: (usage.value?.points ?? []).map((p) => new Date(p.bucket_ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), axisLabel: { rotate: 30 } }, yAxis: { type: 'value' }, series: [{ name: 'Requests', type: 'line', smooth: true, data: (usage.value?.points ?? []).map((p) => p.requests_count) }] }));
 const cachePie = computed(() => {
   const totals = summarizeCacheAnalytics(cache.value);
   return {
@@ -67,7 +67,7 @@ const cachePie = computed(() => {
 });
 async function load() {
   domains.value = await domainsApi.list().catch(() => []);
-  const [edgeList, usageSummary, eventList] = await Promise.all([edgesApi.list().catch(() => []), usageApi.summary().catch(() => null), loadSecurityEventsForDomains(domains.value).catch(() => [])]);
+  const [edgeList, usageSummary, eventList] = await Promise.all([edgesApi.list().catch(() => []), usageApi.summary({ bucket: 'minute' }).catch(() => null), loadSecurityEventsForDomains(domains.value).catch(() => [])]);
   edges.value = edgeList; usage.value = usageSummary; security.value = eventList;
   const perDomain = await Promise.allSettled(domains.value.map(async (domain) => ({ certs: await sslApi.certificates(domain.id).catch(() => []), purges: await purgeApi.list(domain.id).catch(() => []), cache: await cacheApi.analytics(domain.id).catch(() => null) })));
   certs.value = perDomain.flatMap((r) => r.status === 'fulfilled' ? r.value.certs : []);

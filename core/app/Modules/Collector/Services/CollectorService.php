@@ -200,12 +200,36 @@ class CollectorService
                 $stmt->execute([':bucket' => $bucket]);
             }
             $row = (array) $stmt->fetch();
+            $pointsSql = 'SELECT bucket_ts,
+                                 COALESCE(SUM(requests_count),0) requests_count,
+                                 COALESCE(SUM(bytes_in),0) bytes_in,
+                                 COALESCE(SUM(bytes_out),0) bytes_out
+                          FROM usage_aggregates
+                          WHERE bucket = :bucket';
+            $pointParams = [':bucket' => $bucket];
+            if ($domainId !== null) {
+                $pointsSql .= ' AND domain_id = :domain_id';
+                $pointParams[':domain_id'] = $domainId;
+            }
+            $pointsSql .= ' GROUP BY bucket_ts ORDER BY bucket_ts ASC';
+            $pointsStmt = $pdo->prepare($pointsSql);
+            $pointsStmt->execute($pointParams);
+            $points = [];
+            foreach ($pointsStmt->fetchAll() as $point) {
+                $points[] = [
+                    'bucket_ts' => (int) $point['bucket_ts'],
+                    'requests_count' => (int) $point['requests_count'],
+                    'bytes_in' => (int) $point['bytes_in'],
+                    'bytes_out' => (int) $point['bytes_out'],
+                ];
+            }
             return [
                 'bucket' => $bucket,
                 'requests_count' => (int) $row['requests_count'],
                 'bytes_in' => (int) $row['bytes_in'],
                 'bytes_out' => (int) $row['bytes_out'],
                 'records' => (int) $row['records'],
+                'points' => $points,
             ];
         }
 

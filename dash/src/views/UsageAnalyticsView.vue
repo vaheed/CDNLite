@@ -82,23 +82,26 @@ const cacheAnalytics = ref<CacheAnalytics | null>(null);
 const points = computed(() => summary.value?.points ?? []);
 const cacheSummary = computed(() => summarizeCacheAnalytics(cacheAnalytics.value));
 const requestTotal = computed(() => summary.value?.requests_count ?? summary.value?.total_requests ?? summary.value?.requests ?? 0);
+const timeLabels = computed(() => points.value.map((point) => formatBucketTime(point.bucket_ts)));
 
 const bandwidth = computed(() => ({
-  tooltip: {},
-  legend: {},
-  xAxis: { type: 'category', data: points.value.map((p) => String(p.bucket ?? p.time ?? '')) },
-  yAxis: { type: 'value' },
+  tooltip: { trigger: 'axis', valueFormatter: (value: unknown) => formatBytes(Number(value)) },
+  legend: { data: ['Bandwidth in', 'Bandwidth out'] },
+  grid: { left: 72, right: 24, bottom: 56, top: 44 },
+  xAxis: { type: 'category', data: timeLabels.value, axisLabel: { rotate: 30 } },
+  yAxis: { type: 'value', axisLabel: { formatter: (value: number) => formatBytes(value) } },
   series: [
-    { name: 'bytes_in', type: 'line', data: points.value.map((p) => Number(p.bytes_in ?? 0)) },
-    { name: 'bytes_out', type: 'line', data: points.value.map((p) => Number(p.bytes_out ?? 0)) },
+    { name: 'Bandwidth in', type: 'line', smooth: true, showSymbol: points.value.length < 40, data: points.value.map((p) => p.bytes_in) },
+    { name: 'Bandwidth out', type: 'line', smooth: true, showSymbol: points.value.length < 40, data: points.value.map((p) => p.bytes_out) },
   ],
 }));
 
 const requests = computed(() => ({
-  tooltip: {},
-  xAxis: { type: 'category', data: points.value.map((p) => String(p.bucket ?? p.time ?? '')) },
+  tooltip: { trigger: 'axis' },
+  grid: { left: 64, right: 24, bottom: 56, top: 24 },
+  xAxis: { type: 'category', data: timeLabels.value, axisLabel: { rotate: 30 } },
   yAxis: { type: 'value' },
-  series: [{ type: 'bar', data: points.value.map((p) => Number(p.requests ?? 0)) }],
+  series: [{ name: 'Requests', type: 'bar', data: points.value.map((p) => p.requests_count) }],
 }));
 
 const cacheStates = computed(() => ({
@@ -125,6 +128,13 @@ async function load() {
 async function recalculate() {
   await usageApi.recalculate();
   await load();
+}
+
+function formatBucketTime(timestamp: number) {
+  const date = new Date(timestamp * 1000);
+  if (bucket.value === 'day') return date.toLocaleDateString();
+  if (bucket.value === 'hour') return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit' });
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 onMounted(load);
