@@ -190,10 +190,10 @@ BEGIN
     WHERE rel.relname = 'usage_aggregates'
       AND c.contype = 'u'
       AND (
-        SELECT array_agg(att.attname ORDER BY u.ord)
+        SELECT string_agg(att.attname, ',' ORDER BY u.ord)
         FROM unnest(c.conkey) WITH ORDINALITY AS u(attnum, ord)
         JOIN pg_attribute att ON att.attrelid = rel.oid AND att.attnum = u.attnum
-      ) = ARRAY['bucket', 'bucket_ts', 'domain_id', 'edge_node_id', 'status']
+      ) = 'bucket,bucket_ts,domain_id,edge_node_id,status'
   LOOP
     EXECUTE format('ALTER TABLE usage_aggregates DROP CONSTRAINT %I', constraint_name);
   END LOOP;
