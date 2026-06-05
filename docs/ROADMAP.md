@@ -1,11 +1,19 @@
 # CDNLite Roadmap
 
 **Repo:** `vaheed/CDNLite`
-**Date:** 2026-06-05
+**Date:** 2026-06-06
 **Strategy:** Greenfield reset. No backward compatibility. DB can be dropped and recreated. Each phase is one coding-agent shot.
 **Audience:** Admin / ops only.
 
 ---
+
+## Status
+
+| Phase | State | Verification |
+|---|---|---|
+| Phase 1 — Schema and naming reset | Complete | Clean Compose rebuild, 33 core tests, 8 dashboard tests, smoke, and E2E passed |
+| Phase 2 — Cache metrics fix | Next | Not started |
+| Phase 3+ | Planned | Not started |
 
 ## Rules
 
@@ -31,7 +39,17 @@ Every phase adds test files to these folders. CI must pass before phase is consi
 
 ## Phase 1 — Schema and naming reset
 
+**Status:** Complete (2026-06-06)
+
 **Goal:** Replace `sites` with `domains` everywhere. All subsequent phases depend on this.
+
+### Completion record
+
+- Recreated PostgreSQL from a clean Compose volume with the domain-only schema.
+- Removed active `site` / `site_id` API, CLI, backend, edge, dashboard, CI, and documentation contracts.
+- Consolidated rate limits into the canonical v2-shaped `rate_limit_rules` table.
+- Removed the `geo_policies` table and its runtime database dependency.
+- Verified `docker compose up -d --build`, PHP lint, shell syntax, 33 core tests, 8 dashboard tests, dashboard typecheck/build, smoke, and E2E.
 
 ### What changes
 
@@ -107,6 +125,8 @@ Return list of every file changed.
 ---
 
 ## Phase 2 — Cache metrics fix
+
+**Status:** Next
 
 **Goal:** Make the cache hit ratio real. Currently `upstream_cache_status` is not sent with metrics, so the dashboard always shows 0 HIT.
 
