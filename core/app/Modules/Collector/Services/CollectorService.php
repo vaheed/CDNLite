@@ -252,7 +252,7 @@ class CollectorService
 
             $inserted = [];
             foreach ($this->bucketSeconds as $bucket => $seconds) {
-                $where = $domainId !== null ? 'WHERE domain_id = :domain_id' : '';
+                $where = $domainId !== null ? 'WHERE domain_id = :domain_id_filter' : '';
                 $sql = sprintf(
                     "WITH source AS (
                         SELECT
@@ -269,8 +269,8 @@ class CollectorService
                     )
                     INSERT INTO usage_aggregates
                     (id, bucket, bucket_ts, domain_id, edge_node_id, status, cache_status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT md5((:bucket || ':' || bucket_ts || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || cache_status)::text),
-                           :bucket,
+                    SELECT md5((:bucket_hash || ':' || bucket_ts || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || cache_status)::text),
+                           :bucket_value,
                            bucket_ts,
                            domain_id,
                            edge_node_id,
@@ -279,20 +279,23 @@ class CollectorService
                            COALESCE(SUM(requests_count),0) AS requests_count,
                            COALESCE(SUM(bytes_in),0) AS bytes_in,
                            COALESCE(SUM(bytes_out),0) AS bytes_out,
-                           :now,
-                           :now
+                           :created_at,
+                           :updated_at
                     FROM source
                     GROUP BY bucket_ts, domain_id, edge_node_id, status, cache_status",
-                    $seconds,
-                    $seconds,
                     $seconds,
                     $seconds,
                     $where
                 );
                 $stmt = $pdo->prepare($sql);
-                $params = [':bucket' => $bucket, ':now' => $now];
+                $params = [
+                    ':bucket_hash' => $bucket,
+                    ':bucket_value' => $bucket,
+                    ':created_at' => $now,
+                    ':updated_at' => $now,
+                ];
                 if ($domainId !== null) {
-                    $params[':domain_id'] = $domainId;
+                    $params[':domain_id_filter'] = $domainId;
                 }
                 $stmt->execute($params);
                 $inserted[$bucket] = $stmt->rowCount();
