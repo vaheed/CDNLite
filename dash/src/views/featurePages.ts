@@ -89,7 +89,8 @@ export const featurePages: FeaturePage[] = [
   },
   {
     key: 'rate-limit', path: '/rate-limit', title: 'Rate Limiting', subtitle: 'Configure per-domain request limiting.',
-    endpointSummary: ['GET/PUT/DELETE /api/v1/domains/{id}/rate-limit'],
+    endpointSummary: ['GET/POST /api/v1/domains/{id}/rate-limits', 'PATCH/DELETE /api/v1/domains/{id}/rate-limits/{ruleId}'],
+    columns: [{ key: 'enabled', label: 'Enabled' }, { key: 'path_prefix', label: 'Path prefix' }, { key: 'requests_per_minute', label: 'Requests/min' }, { key: 'key_type', label: 'Key type' }, { key: 'priority', label: 'Priority' }, { key: 'action', label: 'Action' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether the rate limit is actively enforced.', works: 'Save with enabled on to enforce. Use Disable rate limit to remove the active rule.', example: 'true', type: 'checkbox' },
       { name: 'requests_per_minute', label: 'Requests per minute', what: 'Maximum requests allowed per minute.', works: 'Requests above this threshold are blocked.', example: '120', required: true, type: 'number' },

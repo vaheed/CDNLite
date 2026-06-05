@@ -54,6 +54,10 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | PUT | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Create/update domain rate limit rule. |
 | GET | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Get domain rate limit rule. |
 | DELETE | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Disable domain rate limit rule. |
+| POST | `/api/v1/domains/{id}/rate-limits` | bearer when `CDNLITE_API_TOKEN` is set | Create a rate limit rule. |
+| GET | `/api/v1/domains/{id}/rate-limits` | bearer when `CDNLITE_API_TOKEN` is set | List all rate limit rules. |
+| PATCH | `/api/v1/domains/{id}/rate-limits/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update or enable/disable one rule. |
+| DELETE | `/api/v1/domains/{id}/rate-limits/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete one rule. |
 | POST | `/api/v1/domains/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create WAF rule. |
 | GET | `/api/v1/domains/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | List WAF rules. |
 | PATCH | `/api/v1/domains/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Update WAF rule. |
@@ -337,6 +341,12 @@ Returns the current domain rate-limit rule.
 ### DELETE /api/v1/domains/{id}/rate-limit
 
 Disables/removes the active domain rate-limit rule.
+
+### Rate-limit collection CRUD
+
+`POST /api/v1/domains/{id}/rate-limits` creates a rule and `GET` lists every rule ordered by priority. Use `PATCH /api/v1/domains/{id}/rate-limits/{ruleId}` to edit fields or toggle `enabled`; `DELETE` permanently removes that rule. The rule shape is `enabled`, `priority`, `path_prefix`, `key_type`, `requests_per_minute`, and `action`.
+
+The singular `/rate-limit` endpoints remain available for CLI compatibility and address the first rule by priority.
 
 ## WAF Rules
 

@@ -13,7 +13,8 @@
 |---|---|---|
 | Phase 1 — Schema and naming reset | Complete | Clean Compose rebuild, 33 core tests, 8 dashboard tests, smoke, and E2E passed |
 | Phase 2 — Cache metrics fix | Complete | Focused pytest, dashboard Vitest, and dashboard build passed; Docker-backed smoke/E2E could not run in this sandbox |
-| Phase 3+ | Planned | Not started |
+| Phase 3 — Rate limit full CRUD | Complete | PHP lint, shell syntax, focused pytest, dashboard typecheck/build, Compose smoke, and E2E passed |
+| Phase 4+ | Planned | Not started |
 
 ## Rules
 
@@ -182,6 +183,15 @@ Fix CDNLite cache metrics so HIT/MISS/BYPASS are tracked correctly.
 ---
 
 ## Phase 3 — Rate limit full CRUD
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Added per-domain rate-limit collection create, list, update, toggle, and delete APIs while preserving singular CLI-compatible endpoints.
+- Updated config snapshots to publish every enabled rule, not only the first rule.
+- Added dashboard table CRUD with edit, enable/disable, and delete confirmation.
+- Added focused contracts and an E2E CRUD cycle that verifies deletion is reflected in the next snapshot.
 
 **Goal:** Admins can create, edit, disable, and delete rate limit rules. Currently only create exists.
 

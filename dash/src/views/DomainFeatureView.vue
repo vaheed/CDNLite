@@ -61,6 +61,7 @@
       <DataTable :title="`${feature.title} Records`" :rows="rows" :columns="columns">
         <template #enabled="{ row }">
           <button v-if="feature.key === 'redirects'" class="button-secondary px-2 py-1 text-xs" @click="toggleRedirect(row)">{{ row.enabled ? 'Disable' : 'Enable' }}</button>
+          <button v-else-if="feature.key === 'rate-limit'" class="button-secondary px-2 py-1 text-xs" @click="toggleRateLimit(row)">{{ row.enabled ? 'Disable' : 'Enable' }}</button>
           <span v-else>{{ String(row.enabled ?? '') }}</span>
         </template>
         <template #actions="{ row }">
@@ -119,11 +120,10 @@ async function loadRows() {
     },
     purge: () => purgeApi.list(id),
     security: () => wafApi.list(id),
-    'rate-limit': async () => [await rateLimitApi.get(id)],
+    'rate-limit': () => rateLimitApi.list(id),
     ssl: () => sslApi.certificates(id),
   }[props.feature.key]()).catch((error) => { lastResult.value = error instanceof Error ? error.message : error; return []; });
   rows.value = Array.isArray(data) ? data.filter(Boolean) as Record<string, unknown>[] : [data as Record<string, unknown>];
-  if (props.feature.key === 'rate-limit' && rows.value[0]) Object.assign(form, rows.value[0]);
   if (props.feature.key === 'cache') {
     const settings = rows.value.find((row) => row.kind === 'settings');
     if (settings) Object.assign(form, settings);
@@ -146,7 +146,7 @@ async function submit() {
       cache: () => cacheApi.updateSettings(id, cacheSettingsInput(input)),
       purge: () => purgeApi.create(id, input as { type: string; value?: string }),
       security: () => editingId.value ? wafApi.update(id, editingId.value, input as Partial<WafRule>) : wafApi.create(id, input),
-      'rate-limit': () => rateLimitApi.save(id, input as never),
+      'rate-limit': () => editingId.value ? rateLimitApi.update(id, editingId.value, input) : rateLimitApi.create(id, input as never),
       ssl: () => sslApi.manualCertificate(id, input as never),
     }[props.feature.key] as () => Promise<unknown>)();
     if (editingId.value) cancelEdit();
@@ -177,8 +177,8 @@ async function toggleRedirect(row: Record<string, unknown>) {
     formError.value = error instanceof Error ? error.message : 'Unable to update redirect.';
   } finally { saving.value = false; }
 }
-function canEdit(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
-function canDelete(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
+function canEdit(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security', 'rate-limit'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
+function canDelete(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security', 'rate-limit'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
 async function deleteRow(row: Record<string, unknown>) {
   if (!domainId.value) return;
   saving.value = true; formError.value = '';
@@ -190,6 +190,7 @@ async function deleteRow(row: Record<string, unknown>) {
       'page-rules': () => pageRulesApi.remove(id, rowId),
       cache: () => cacheApi.removeRule(id, rowId),
       security: () => wafApi.remove(id, rowId),
+      'rate-limit': () => rateLimitApi.delete(id, rowId),
     };
     const handler = handlers[props.feature.key];
     if (!handler) return;
@@ -198,6 +199,16 @@ async function deleteRow(row: Record<string, unknown>) {
     await loadRows();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : 'Unable to delete record.';
+  } finally { saving.value = false; }
+}
+async function toggleRateLimit(row: Record<string, unknown>) {
+  if (!domainId.value) return;
+  saving.value = true; formError.value = '';
+  try {
+    lastResult.value = await rateLimitApi.update(domainId.value, String(row.id), { enabled: !row.enabled });
+    await loadRows();
+  } catch (error) {
+    formError.value = error instanceof Error ? error.message : 'Unable to update rate limit.';
   } finally { saving.value = false; }
 }
 async function exportRedirects() { if (!domainId.value) return; lastResult.value = await redirectsApi.exportRules(domainId.value); }

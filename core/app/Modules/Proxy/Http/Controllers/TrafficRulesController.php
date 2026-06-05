@@ -76,8 +76,37 @@ class TrafficRulesController
     }
 
     public function setRateLimit(string $domainId, array $body): array {
+        $error = $this->validateRateLimit($body, false);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->setRateLimit($domainId, $body)];
+    }
+    public function createRateLimit(string $domainId, array $body): array {
+        $error = $this->validateRateLimit($body, false);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->createRateLimit($domainId, $body)];
+    }
+    public function listRateLimits(string $domainId): array { return ['data' => $this->service->listRateLimits($domainId)]; }
+    public function updateRateLimit(string $domainId, string $id, array $body): array {
+        $error = $this->validateRateLimit($body, true);
+        if ($error !== null) { return $error; }
+        $rule = $this->service->updateRateLimit($domainId, $id, $body);
+        return $rule ? ['data' => $rule] : ['error' => 'rate_limit_not_found', 'status' => 404];
+    }
+    public function deleteRateLimit(string $domainId, string $id): array {
+        return $this->service->deleteRateLimit($domainId, $id) ? ['ok' => true] : ['error' => 'rate_limit_not_found', 'status' => 404];
+    }
+    private function validateRateLimit(array $body, bool $partial): ?array {
+        if ($partial && $body === []) {
+            return ['error' => 'invalid_request', 'detail' => 'at_least_one_field_required', 'status' => 422];
+        }
+        if (!$partial || array_key_exists('requests_per_minute', $body)) {
         $rpm = Validator::intRange($body, 'requests_per_minute', 1, 100000, 60);
         if (($rpm['ok'] ?? false) !== true) { return $rpm; }
+        }
+        if (array_key_exists('enabled', $body)) {
+            $enabled = Validator::bool($body, 'enabled');
+            if (($enabled['ok'] ?? false) !== true) { return $enabled; }
+        }
         if (array_key_exists('priority', $body)) {
             $priority = Validator::intRange($body, 'priority', 1, 100000);
             if (($priority['ok'] ?? false) !== true) { return $priority; }
@@ -97,7 +126,7 @@ class TrafficRulesController
             $action = Validator::enum($body, 'action', ['block']);
             if (($action['ok'] ?? false) !== true) { return $action; }
         }
-        return ['data' => $this->service->setRateLimit($domainId, $body)];
+        return null;
     }
     public function getRateLimit(string $domainId): array { $r=$this->service->getRateLimit($domainId); return $r?['data'=>$r]:['error'=>'rate_limit_not_found','status'=>404]; }
     public function disableRateLimit(string $domainId): array { return $this->service->disableRateLimit($domainId)?['ok'=>true]:['error'=>'rate_limit_not_found','status'=>404]; }

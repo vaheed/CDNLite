@@ -40,7 +40,7 @@ export interface CacheSettings { enabled: boolean; default_edge_ttl_seconds: num
 export interface CacheRule { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
-export interface RateLimitRule { enabled?: boolean; requests_per_minute: number; priority?: number; path_prefix?: string; key_type?: 'ip' | 'ip_path' | string; action?: string; }
+export interface RateLimitRule { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
 export interface SslCertificate { id: Id; hostname: string; status?: string; days_left?: number; expires_at?: number | string; issuer?: string; subject?: string; created_at?: number | string; }
 export interface ManualCertificateInput { hostname: string; certificate_pem: string; private_key_pem: string; }
 export interface EdgeNode { edge_id: string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }

@@ -56,7 +56,7 @@ class ConfigService
         foreach ($hosts as $host => $domainCfg) {
             $domainId = (string) $domainCfg['domain_id'];
             foreach ($this->rules->listRedirects($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
-            $rl = $this->rules->getRateLimit($domainId); if ($rl !== null && !empty($rl['enabled'])) { $rl['host'] = $host; $rateLimits[] = $rl; }
+            foreach ($this->rules->listRateLimits($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $rateLimits[] = $row; } }
             foreach ($this->rules->listWaf($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
             foreach ($this->rules->listCacheRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
             foreach ($this->rules->listCachePurgeVersionsForConfig($domainId, $host) as $row) { $cachePurgeVersions[] = $row; }

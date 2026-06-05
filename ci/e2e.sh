@@ -343,6 +343,30 @@ rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
 assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
 record_step PASS "rate-limit-v2" "path_prefix=/login key_type=ip_path"
 
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":15,"path_prefix":"/api/","key_type":"ip_path","priority":20,"action":"block"}'
+assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
+RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits"
+assert_http_status "$HTTP_CODE" "200" "rate-limit list failed"
+assert_contains "$HTTP_BODY" '"path_prefix":"/api/"' "created rate-limit missing from list"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${RATE_LIMIT_RULE_ID}" '{"requests_per_minute":25,"enabled":false}'
+assert_http_status "$HTTP_CODE" "200" "rate-limit update failed"
+assert_contains "$HTTP_BODY" '"requests_per_minute":25' "rate-limit update not returned"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${RATE_LIMIT_RULE_ID}" '{"enabled":true}'
+assert_http_status "$HTTP_CODE" "200" "rate-limit enable failed"
+edge_api GET "/api/v1/edge/config" ""
+assert_http_status "$HTTP_CODE" "200" "rate-limit snapshot fetch failed"
+assert_contains "$HTTP_BODY" "$RATE_LIMIT_RULE_ID" "enabled rate-limit missing from snapshot"
+api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${RATE_LIMIT_RULE_ID}"
+assert_http_status "$HTTP_CODE" "200" "rate-limit delete failed"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits"
+assert_http_status "$HTTP_CODE" "200" "rate-limit list after delete failed"
+if [[ "$HTTP_BODY" == *"$RATE_LIMIT_RULE_ID"* ]]; then fail "deleted rate-limit still listed"; fi
+edge_api GET "/api/v1/edge/config" ""
+assert_http_status "$HTTP_CODE" "200" "rate-limit post-delete snapshot fetch failed"
+if [[ "$HTTP_BODY" == *"$RATE_LIMIT_RULE_ID"* ]]; then fail "deleted rate-limit still present in snapshot"; fi
+record_step PASS "rate-limit-crud" "create, edit, toggle, delete, and snapshot removal verified"
+
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules" '{"enabled":true,"name":"block-admin","priority":20,"type":"path_prefix","pattern":"/admin","action":"block","description":"block admin path"}'
 assert_http_status "$HTTP_CODE" "201" "waf v2 create failed"
 WAF_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
