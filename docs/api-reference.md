@@ -78,6 +78,7 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | POST | `/api/v1/domains/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
 | POST | `/api/v1/domains/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
 | GET | `/api/v1/domains/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List domain security events from audit log. |
+| GET | `/api/v1/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for all domains or one `domain_id`. |
 | GET | `/api/v1/domains/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one domain. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
@@ -93,10 +94,10 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 
 ### GET /api/v1/domains/{id}/analytics/cache
 
-Returns cache outcome totals and hit ratio for one domain based on ingested usage rows.
+Returns cache-status breakdown rows and summary totals for all domains or one domain.
 
 ```bash
-curl -s http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/analytics/cache
+curl -s "http://localhost:8080/api/v1/analytics/cache?domain_id=11111111-1111-4111-8111-111111111111"
 ```
 
 ## Admin Auth
@@ -131,7 +132,7 @@ Use the token as `Authorization: Bearer <session-token>` for control-plane API c
 Both require an admin session bearer token. Logout revokes the current session token.
 
 ```json
-{"data":{"hit_ratio":0.82,"requests":10000,"hit":8200,"miss":1200,"bypass":500,"stale":100}}
+{"data":{"rows":[{"cache_status":"HIT","count":8200,"bytes_out":60108},{"cache_status":"MISS","count":1200,"bytes_out":12000},{"cache_status":"BYPASS","count":500,"bytes_out":2048},{"cache_status":"STALE","count":100,"bytes_out":512}],"total_requests":10000,"bytes_out":74668,"hit":8200,"miss":1200,"expired":0,"stale":100,"bypass":500,"unknown":0,"hit_ratio":0.82}}
 ```
 
 ## GET /health

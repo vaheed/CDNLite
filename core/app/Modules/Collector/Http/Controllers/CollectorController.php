@@ -69,11 +69,11 @@ class CollectorController
         return $this->service->rebuildAggregates($domainId);
     }
 
-    public function cacheAnalytics(string $domainId): array
+    public function cacheAnalytics(?string $domainId = null): array
     {
-        if (trim($domainId) === '') {
+        if ($domainId !== null && trim($domainId) === '') {
             return ['error' => 'domain_id_must_be_non_empty_string', 'status' => 422];
         }
-        return ['data' => $this->service->cacheAnalytics($domainId)];
+        return ['data' => $this->service->cacheAnalytics($domainId ?? '')];
     }
 }

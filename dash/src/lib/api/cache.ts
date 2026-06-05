@@ -7,5 +7,5 @@ export const cacheApi = {
   createRule: (domainId: string, input: Partial<CacheRule>) => api.post<CacheRule>(`/api/v1/domains/${domainId}/cache-rules`, input),
   updateRule: (domainId: string, ruleId: string, input: Partial<CacheRule>) => api.patch<CacheRule>(`/api/v1/domains/${domainId}/cache-rules/${ruleId}`, input),
   removeRule: (domainId: string, ruleId: string) => api.delete<{ ok: boolean }>(`/api/v1/domains/${domainId}/cache-rules/${ruleId}`),
-  analytics: (domainId: string) => api.get<CacheAnalytics>(`/api/v1/domains/${domainId}/analytics/cache`),
+  analytics: (domainId?: string) => api.get<CacheAnalytics>(domainId ? `/api/v1/domains/${domainId}/analytics/cache` : '/api/v1/analytics/cache'),
 };

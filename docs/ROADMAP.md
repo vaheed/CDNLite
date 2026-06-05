@@ -12,7 +12,7 @@
 | Phase | State | Verification |
 |---|---|---|
 | Phase 1 — Schema and naming reset | Complete | Clean Compose rebuild, 33 core tests, 8 dashboard tests, smoke, and E2E passed |
-| Phase 2 — Cache metrics fix | Next | Not started |
+| Phase 2 — Cache metrics fix | Complete | Focused pytest, dashboard Vitest, and dashboard build passed; Docker-backed smoke/E2E could not run in this sandbox |
 | Phase 3+ | Planned | Not started |
 
 ## Rules
@@ -126,7 +126,7 @@ Return list of every file changed.
 
 ## Phase 2 — Cache metrics fix
 
-**Status:** Next
+**Status:** Complete (2026-06-06)
 
 **Goal:** Make the cache hit ratio real. Currently `upstream_cache_status` is not sent with metrics, so the dashboard always shows 0 HIT.
 

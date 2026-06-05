@@ -45,7 +45,8 @@ export interface SslCertificate { id: Id; hostname: string; status?: string; day
 export interface ManualCertificateInput { hostname: string; certificate_pem: string; private_key_pem: string; }
 export interface EdgeNode { edge_id: string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: Array<Record<string, unknown>>; }
-export interface CacheAnalytics { hit?: number; miss?: number; bypass?: number; stale?: number; hit_ratio?: number; points?: Array<Record<string, unknown>>; }
+export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }
+export interface CacheAnalytics { rows?: CacheAnalyticsRow[]; total_requests?: number; bytes_out?: number; hit?: number; miss?: number; expired?: number; stale?: number; bypass?: number; unknown?: number; hit_ratio?: number; }
 export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; type?: string; decision?: string; action?: string; severity?: Severity | string; timestamp?: number | string; created_at?: number | string; payload?: unknown; }
 export interface ConfigSnapshot { version?: string; generated_at?: number | string; hosts?: unknown[]; upstreams?: unknown[]; geo_upstreams?: unknown[]; headers?: unknown; dns_records?: unknown[]; cache_rules?: unknown[]; [key: string]: unknown; }
 

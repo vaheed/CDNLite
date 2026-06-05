@@ -42,8 +42,8 @@ Nginx forwards:
 - `X-Forwarded-For: $proxy_add_x_forwarded_for`
 - `X-Forwarded-Proto: $scheme`
 
-Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (from `EDGE_ID`, fallback `edge-local-1`), `X-CDNLITE-Domain`, and `X-CDNLITE-Request-Id` when proxying.
-Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HIT`, `BYPASS`, or `STALE`.
+Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (from `EDGE_ID`, fallback `edge-local-1`), `X-CDNLITE-Domain`, `X-CDNLITE-Request-Id`, and `X-CDNLITE-Cache`.
+`X-CDNLITE-Cache` reflects the upstream cache status when OpenResty exposes one, and falls back to `UNKNOWN` when the upstream status is empty.
 
 ## Lua Modules
 
@@ -57,7 +57,7 @@ Nginx adds `X-CDNLITE-Cache` with the upstream cache status, such as `MISS`, `HI
 
 ## Metrics Lifecycle
 
-`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `domain_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, `status`, `request_id`, `cache_status` (`HIT`, `MISS`, `BYPASS`, `STALE`, or other upstream cache labels), plus security decision fields: `security_event_type`, `security_action`, and `security_rule_id` (for WAF and rate-limit matches).
+`metrics.on_log()` writes JSON lines to `/var/lib/cdnlite/metrics.ndjson` with `ts`, `domain_id`, `edge_node_id`, `requests_count`, `bytes_in`, `bytes_out`, `status`, `request_id`, `cache_status` (`HIT`, `MISS`, `EXPIRED`, `STALE`, `BYPASS`, `UNKNOWN`, or other upstream cache labels), plus security decision fields: `security_event_type`, `security_action`, and `security_rule_id` (for WAF and rate-limit matches).
 
 ## Upstream Failures
 

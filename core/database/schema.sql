@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   bytes_in BIGINT NOT NULL,
   bytes_out BIGINT NOT NULL,
   status INTEGER NOT NULL,
-  cache_status TEXT NULL,
+  cache_status TEXT NOT NULL DEFAULT 'UNKNOWN',
   rule_id TEXT NULL,
   request_id TEXT NULL,
   origin_status INTEGER NULL,
@@ -167,12 +167,13 @@ CREATE TABLE IF NOT EXISTS usage_aggregates (
   domain_id TEXT NOT NULL,
   edge_node_id TEXT NOT NULL,
   status INTEGER NOT NULL,
+  cache_status TEXT NOT NULL DEFAULT 'UNKNOWN',
   requests_count BIGINT NOT NULL,
   bytes_in BIGINT NOT NULL,
   bytes_out BIGINT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(bucket, bucket_ts, domain_id, edge_node_id, status),
+  UNIQUE(bucket, bucket_ts, domain_id, edge_node_id, status, cache_status),
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 

@@ -39,6 +39,7 @@ import { purgeApi } from '@/lib/api/purge';
 import { sslApi } from '@/lib/api/ssl';
 import { loadSecurityEventsForDomains } from '@/lib/api/securityEvents';
 import { buildOpsDiagnostic, heartbeatStatus, sslRisk } from '@/lib/utils/diagnostics';
+import { summarizeCacheAnalytics } from '@/lib/utils/cacheAnalytics';
 import { formatBytes, formatDate, formatPercent } from '@/lib/utils/format';
 import type { CacheAnalytics, EdgeNode, PurgeRequest, SecurityEvent, Domain, SslCertificate, UsageSummary } from '@/types';
 const domains = ref<Domain[]>([]); const edges = ref<EdgeNode[]>([]); const usage = ref<UsageSummary | null>(null); const security = ref<SecurityEvent[]>([]); const certs = ref<SslCertificate[]>([]); const purges = ref<PurgeRequest[]>([]); const cache = ref<CacheAnalytics[]>([]);
@@ -56,7 +57,14 @@ const securityColumns = [{ key: 'domain', label: 'Domain' }, { key: 'type', labe
 const sslColumns = [{ key: 'domain', label: 'Domain' }, { key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'days_left', label: 'Days Left' }, { key: 'risk', label: 'Risk' }];
 const purgeColumns = [{ key: 'domain', label: 'Domain' }, { key: 'type', label: 'Type' }, { key: 'status', label: 'Status' }, { key: 'time', label: 'Time' }];
 const requestChart = computed(() => ({ tooltip: {}, grid: { left: 40, right: 20, top: 20, bottom: 40 }, xAxis: { type: 'category', data: (usage.value?.points ?? []).map((p) => String(p.bucket ?? p.time ?? 'now')) }, yAxis: { type: 'value' }, series: [{ type: 'line', smooth: true, data: (usage.value?.points ?? []).map((p) => Number(p.requests ?? 0)) }] }));
-const cachePie = computed(() => { const totals = cache.value.reduce<{ hit: number; miss: number; bypass: number; stale: number }>((acc, item) => ({ hit: acc.hit + (item.hit ?? 0), miss: acc.miss + (item.miss ?? 0), bypass: acc.bypass + (item.bypass ?? 0), stale: acc.stale + (item.stale ?? 0) }), { hit: 0, miss: 0, bypass: 0, stale: 0 }); return { tooltip: {}, legend: {}, series: [{ type: 'pie', radius: ['45%', '70%'], data: Object.entries(totals).map(([name, value]) => ({ name, value })) }] }; });
+const cachePie = computed(() => {
+  const totals = summarizeCacheAnalytics(cache.value);
+  return {
+    tooltip: {},
+    legend: {},
+    series: [{ type: 'pie', radius: ['45%', '70%'], data: totals.rows.map((row) => ({ name: row.cache_status, value: row.count })) }],
+  };
+});
 async function load() {
   domains.value = await domainsApi.list().catch(() => []);
   const [edgeList, usageSummary, eventList] = await Promise.all([edgesApi.list().catch(() => []), usageApi.summary().catch(() => null), loadSecurityEventsForDomains(domains.value).catch(() => [])]);

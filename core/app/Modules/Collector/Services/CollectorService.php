@@ -16,6 +16,15 @@ class CollectorService
         'hour' => 3600,
         'day' => 86400,
     ];
+    /** @var array<int,string> */
+    private array $cacheStatusOrder = [
+        'HIT',
+        'MISS',
+        'EXPIRED',
+        'STALE',
+        'BYPASS',
+        'UNKNOWN',
+    ];
 
     public function ingest(array $items, ?string $idempotencyKey = null): array
     {
@@ -68,7 +77,7 @@ class CollectorService
                     ':status' => (int) ($item['status'] ?? 0),
                 ];
                 if ($this->usageRollupCacheColumnsAvailable()) {
-                    $params[':cache_status'] = (string) ($item['cache_status'] ?? 'BYPASS');
+                    $params[':cache_status'] = (string) ($item['cache_status'] ?? 'UNKNOWN');
                     $params[':rule_id'] = isset($item['rule_id']) ? (string) $item['rule_id'] : null;
                     $params[':request_id'] = isset($item['request_id']) ? (string) $item['request_id'] : null;
                     $params[':origin_status'] = isset($item['origin_status']) ? (int) $item['origin_status'] : null;
@@ -245,14 +254,15 @@ class CollectorService
             foreach ($this->bucketSeconds as $bucket => $seconds) {
                 $where = $domainId !== null ? 'WHERE domain_id = :domain_id' : '';
                 $sql = sprintf(
-                    'INSERT INTO usage_aggregates
-                    (id, bucket, bucket_ts, domain_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT md5((:bucket || \':\' || ((ts / %d) * %d) || \':\' || domain_id || \':\' || edge_node_id || \':\' || status)::text),
+                    "INSERT INTO usage_aggregates
+                    (id, bucket, bucket_ts, domain_id, edge_node_id, status, cache_status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+                    SELECT md5((:bucket || ':' || ((ts / %d) * %d) || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || COALESCE(cache_status, 'UNKNOWN'))::text),
                            :bucket,
                            (ts / %d) * %d AS bucket_ts,
                            domain_id,
                            edge_node_id,
                            status,
+                           COALESCE(cache_status, 'UNKNOWN') AS cache_status,
                            COALESCE(SUM(requests_count),0) AS requests_count,
                            COALESCE(SUM(bytes_in),0) AS bytes_in,
                            COALESCE(SUM(bytes_out),0) AS bytes_out,
@@ -260,7 +270,7 @@ class CollectorService
                            :now
                     FROM usage_rollups
                     %s
-                    GROUP BY bucket_ts, domain_id, edge_node_id, status',
+                    GROUP BY bucket_ts, domain_id, edge_node_id, status, COALESCE(cache_status, 'UNKNOWN')",
                     $seconds,
                     $seconds,
                     $seconds,
@@ -288,45 +298,99 @@ class CollectorService
         }
     }
 
-    public function cacheAnalytics(string $domainId): array
+    public function cacheAnalytics(?string $domainId = null): array
     {
         $pdo = Database::pdo();
         if (!$this->usageRollupCacheColumnsAvailable()) {
-            return ['hit_ratio' => 0.0, 'requests' => 0, 'hit' => 0, 'miss' => 0, 'bypass' => 0, 'stale' => 0];
+            return [
+                'rows' => [],
+                'total_requests' => 0,
+                'bytes_out' => 0,
+                'hit' => 0,
+                'miss' => 0,
+                'expired' => 0,
+                'stale' => 0,
+                'bypass' => 0,
+                'unknown' => 0,
+                'hit_ratio' => 0.0,
+            ];
         }
 
-        $stmt = $pdo->prepare(
-            'SELECT
-                COUNT(*) AS requests,
-                SUM(CASE WHEN cache_status = :hit THEN requests_count ELSE 0 END) AS hit,
-                SUM(CASE WHEN cache_status = :miss THEN requests_count ELSE 0 END) AS miss,
-                SUM(CASE WHEN cache_status = :bypass THEN requests_count ELSE 0 END) AS bypass,
-                SUM(CASE WHEN cache_status = :stale THEN requests_count ELSE 0 END) AS stale
-             FROM usage_rollups
-             WHERE domain_id = :domain_id'
-        );
-        $stmt->execute([
-            ':hit' => 'HIT',
-            ':miss' => 'MISS',
-            ':bypass' => 'BYPASS',
-            ':stale' => 'STALE',
-            ':domain_id' => $domainId,
-        ]);
-        $row = (array) $stmt->fetch();
-        $requests = (int) ($row['requests'] ?? 0);
-        $hit = (int) ($row['hit'] ?? 0);
-        $miss = (int) ($row['miss'] ?? 0);
-        $bypass = (int) ($row['bypass'] ?? 0);
-        $stale = (int) ($row['stale'] ?? 0);
-        $ratio = $requests > 0 ? round($hit / $requests, 4) : 0.0;
+        $sql = "SELECT COALESCE(cache_status, 'UNKNOWN') AS cache_status,
+                       COALESCE(SUM(requests_count), 0) AS count,
+                       COALESCE(SUM(bytes_out), 0) AS bytes_out
+                FROM usage_rollups";
+        $params = [];
+        if ($domainId !== null && trim($domainId) !== '') {
+            $sql .= ' WHERE domain_id = :domain_id';
+            $params[':domain_id'] = trim($domainId);
+        }
+        $sql .= " GROUP BY COALESCE(cache_status, 'UNKNOWN')";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = [];
+        $rowMap = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $status = strtoupper(trim((string) ($row['cache_status'] ?? 'UNKNOWN')));
+            $rowMap[$status] = [
+                'cache_status' => $status,
+                'count' => (int) ($row['count'] ?? 0),
+                'bytes_out' => (int) ($row['bytes_out'] ?? 0),
+            ];
+        }
+
+        foreach ($this->cacheStatusOrder as $status) {
+            $rows[] = $rowMap[$status] ?? [
+                'cache_status' => $status,
+                'count' => 0,
+                'bytes_out' => 0,
+            ];
+            unset($rowMap[$status]);
+        }
+        foreach ($rowMap as $row) {
+            $rows[] = $row;
+        }
+
+        $hit = 0;
+        $miss = 0;
+        $expired = 0;
+        $stale = 0;
+        $bypass = 0;
+        $unknown = 0;
+        $totalRequests = 0;
+        $bytesOut = 0;
+        foreach ($rows as $row) {
+            $status = (string) $row['cache_status'];
+            $count = (int) $row['count'];
+            $bytes = (int) $row['bytes_out'];
+            $totalRequests += $count;
+            $bytesOut += $bytes;
+            match ($status) {
+                'HIT' => $hit += $count,
+                'MISS' => $miss += $count,
+                'EXPIRED' => $expired += $count,
+                'STALE' => $stale += $count,
+                'BYPASS' => $bypass += $count,
+                'UNKNOWN' => $unknown += $count,
+                default => $unknown += $count,
+            };
+        }
+
+        $denominator = $hit + $miss + $expired + $stale;
+        $ratio = $denominator > 0 ? round($hit / $denominator, 4) : 0.0;
 
         return [
-            'hit_ratio' => $ratio,
-            'requests' => $requests,
+            'rows' => $rows,
+            'total_requests' => $totalRequests,
+            'bytes_out' => $bytesOut,
             'hit' => $hit,
             'miss' => $miss,
-            'bypass' => $bypass,
+            'expired' => $expired,
             'stale' => $stale,
+            'bypass' => $bypass,
+            'unknown' => $unknown,
+            'hit_ratio' => $ratio,
         ];
     }
 
