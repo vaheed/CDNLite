@@ -254,23 +254,35 @@ class CollectorService
             foreach ($this->bucketSeconds as $bucket => $seconds) {
                 $where = $domainId !== null ? 'WHERE domain_id = :domain_id' : '';
                 $sql = sprintf(
-                    "INSERT INTO usage_aggregates
+                    "WITH source AS (
+                        SELECT
+                            ((ts / %d) * %d) AS bucket_ts,
+                            domain_id,
+                            edge_node_id,
+                            status,
+                            COALESCE(cache_status, 'UNKNOWN') AS cache_status,
+                            requests_count,
+                            bytes_in,
+                            bytes_out
+                        FROM usage_rollups
+                        %s
+                    )
+                    INSERT INTO usage_aggregates
                     (id, bucket, bucket_ts, domain_id, edge_node_id, status, cache_status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT md5((:bucket || ':' || ((ts / %d) * %d) || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || COALESCE(cache_status, 'UNKNOWN'))::text),
+                    SELECT md5((:bucket || ':' || bucket_ts || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || cache_status)::text),
                            :bucket,
-                           (ts / %d) * %d AS bucket_ts,
+                           bucket_ts,
                            domain_id,
                            edge_node_id,
                            status,
-                           COALESCE(cache_status, 'UNKNOWN') AS cache_status,
+                           cache_status,
                            COALESCE(SUM(requests_count),0) AS requests_count,
                            COALESCE(SUM(bytes_in),0) AS bytes_in,
                            COALESCE(SUM(bytes_out),0) AS bytes_out,
                            :now,
                            :now
-                    FROM usage_rollups
-                    %s
-                    GROUP BY bucket_ts, domain_id, edge_node_id, status, COALESCE(cache_status, 'UNKNOWN')",
+                    FROM source
+                    GROUP BY bucket_ts, domain_id, edge_node_id, status, cache_status",
                     $seconds,
                     $seconds,
                     $seconds,

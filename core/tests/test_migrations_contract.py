@@ -24,6 +24,7 @@ def test_stage5_migration_files_exist_in_order():
             "015_usage_rollups_cache_analytics.sql",
             "016_admin_users.sql",
             "017_ssl_acme_accounts.sql",
+            "018_usage_aggregates_cache_status.sql",
         ]
 
 

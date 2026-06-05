@@ -44,7 +44,9 @@ class EdgeAuthService
         try {
             $stmt = Database::pdo()->prepare(
                 'INSERT INTO edge_request_nonces (id, edge_id, nonce, created_at, expires_at)
-                 VALUES (:id, :edge_id, :nonce, :created_at, :expires_at)'
+                 VALUES (:id, :edge_id, :nonce, :created_at, :expires_at)
+                 ON CONFLICT (edge_id, nonce) DO NOTHING
+                 RETURNING id'
             );
             $now = time();
             $stmt->execute([
@@ -54,11 +56,10 @@ class EdgeAuthService
                 ':created_at' => $now,
                 ':expires_at' => $now + self::NONCE_TTL_SECONDS,
             ]);
-        } catch (PDOException $e) {
-            $sqlState = (string) $e->getCode();
-            if ($sqlState === '23000' || $sqlState === '23505') {
+            if ($stmt->fetchColumn() === false) {
                 return ['ok' => false, 'error' => 'edge_auth_replay_detected', 'status' => 409];
             }
+        } catch (PDOException $e) {
             throw $e;
         }
 
