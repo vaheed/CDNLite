@@ -11,7 +11,7 @@ class CdnUsageIngestCommand
     {
         $opts = CommandIO::parseOptions($argv);
 
-        $required = ['site_id', 'edge_node_id', 'requests_count', 'bytes_in', 'bytes_out', 'status'];
+        $required = ['domain_id', 'edge_node_id', 'requests_count', 'bytes_in', 'bytes_out', 'status'];
         foreach ($required as $key) {
             if (!isset($opts[$key])) {
                 fwrite(STDERR, "Missing --{$key} option\n");
@@ -21,7 +21,7 @@ class CdnUsageIngestCommand
 
         $item = [
             'ts' => isset($opts['ts']) ? (int) $opts['ts'] : time(),
-            'site_id' => (string) $opts['site_id'],
+            'domain_id' => (string) $opts['domain_id'],
             'edge_node_id' => (string) $opts['edge_node_id'],
             'requests_count' => (int) $opts['requests_count'],
             'bytes_in' => (int) $opts['bytes_in'],

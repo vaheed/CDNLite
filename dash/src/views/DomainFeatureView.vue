@@ -7,9 +7,9 @@
     <div class="card p-5">
       <div class="grid gap-4 md:grid-cols-[280px_1fr]">
         <label class="space-y-2">
-          <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Site</span>
-          <select v-model="siteId" class="input"><option value="">Select a site…</option><option v-for="site in sites" :key="site.id" :value="site.id">{{ site.name }} — {{ site.domain }}</option></select>
-          <p class="text-xs text-slate-500 dark:text-slate-400">All APIs in this section are site-scoped. Select the site first.</p>
+          <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Domain</span>
+          <select v-model="domainId" class="input"><option value="">Select a domain…</option><option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.name }} — {{ domain.domain }}</option></select>
+          <p class="text-xs text-slate-500 dark:text-slate-400">All APIs in this section are domain-scoped. Select the domain first.</p>
         </label>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50">
           <p class="mb-2 text-sm font-semibold text-slate-800 dark:text-slate-200">Supported endpoints</p>
@@ -18,10 +18,10 @@
       </div>
     </div>
     <div class="flex flex-wrap items-center justify-end gap-2">
-      <button v-if="feature.key === 'ssl'" type="button" class="button-primary" :disabled="!siteId || saving || !selectedSite?.proxy_enabled" @click="issueAcme">Issue ACME SSL</button>
-      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!siteId || saving || !selectedSite?.proxy_enabled" @click="requestSsl">Create SSL request</button>
-      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="checkSsl">Run SSL check</button>
-      <button type="button" class="button-primary" :disabled="!siteId || saving" @click="startCreate">{{ createLabel }}</button>
+      <button v-if="feature.key === 'ssl'" type="button" class="button-primary" :disabled="!domainId || saving || !selectedDomain?.proxy_enabled" @click="issueAcme">Issue ACME SSL</button>
+      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!domainId || saving || !selectedDomain?.proxy_enabled" @click="requestSsl">Create SSL request</button>
+      <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="checkSsl">Run SSL check</button>
+      <button type="button" class="button-primary" :disabled="!domainId || saving" @click="startCreate">{{ createLabel }}</button>
     </div>
     <form v-if="showForm" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="submit">
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ formError }}</div>
@@ -44,16 +44,16 @@
         <TextInput v-else v-model="form[field.name]" :type="field.type === 'number' ? 'number' : 'text'" :help="toHelp(field)" />
       </template>
       <div class="xl:col-span-2 flex flex-wrap items-center justify-between gap-3">
-        <p class="text-sm text-amber-200" v-if="feature.key === 'purge'">Purge type “everything” can invalidate all cached content for the selected site.</p>
+        <p class="text-sm text-amber-200" v-if="feature.key === 'purge'">Purge type “everything” can invalidate all cached content for the selected domain.</p>
         <div class="flex flex-wrap gap-2">
           <button v-if="editingId" type="button" class="button-secondary" @click="cancelEdit">Cancel edit</button>
-          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="testRedirect">Test redirect</button>
-          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="exportRedirects">Export redirects</button>
-          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="importRedirects">Import current rule</button>
-          <button v-if="feature.key === 'page-rules'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="testPageRule">Test rule</button>
-          <button v-if="feature.key === 'cache'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="saveCacheRule">Save cache rule</button>
-          <button v-if="feature.key === 'security'" type="button" class="button-secondary" :disabled="!siteId || saving" @click="loadSecurityEvents">Load events</button>
-          <button class="button-primary" :disabled="!siteId || saving">{{ editingId ? 'Save changes' : submitLabel }}</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="testRedirect">Test redirect</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="exportRedirects">Export redirects</button>
+          <button v-if="feature.key === 'redirects'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="importRedirects">Import current rule</button>
+          <button v-if="feature.key === 'page-rules'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="testPageRule">Test rule</button>
+          <button v-if="feature.key === 'cache'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="saveCacheRule">Save cache rule</button>
+          <button v-if="feature.key === 'security'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="loadSecurityEvents">Load events</button>
+          <button class="button-primary" :disabled="!domainId || saving">{{ editingId ? 'Save changes' : submitLabel }}</button>
         </div>
       </div>
     </form>
@@ -90,14 +90,14 @@ import { pageRulesApi } from '@/lib/api/pageRules';
 import { purgeApi } from '@/lib/api/purge';
 import { rateLimitApi } from '@/lib/api/rateLimit';
 import { redirectsApi } from '@/lib/api/redirects';
-import { sitesApi } from '@/lib/api/sites';
+import { domainsApi } from '@/lib/api/domains';
 import { sslApi } from '@/lib/api/ssl';
 import { wafApi } from '@/lib/api/waf';
-import type { CacheRule, DnsRecord, PageRule, RedirectRule, Site, WafRule } from '@/types';
+import type { CacheRule, DnsRecord, PageRule, RedirectRule, Domain, WafRule } from '@/types';
 import type { FeatureKey, FeaturePage } from './featurePages';
 const props = defineProps<{ feature: FeaturePage }>();
-const sites = ref<Site[]>([]); const siteId = ref(''); const rows = ref<Record<string, unknown>[]>([]); const saving = ref(false); const lastResult = ref<unknown>(null); const formError = ref(''); const editingId = ref(''); const showForm = ref(false); const form = reactive<Record<string, string | number | boolean>>({});
-const selectedSite = computed(() => sites.value.find((site) => site.id === siteId.value));
+const domains = ref<Domain[]>([]); const domainId = ref(''); const rows = ref<Record<string, unknown>[]>([]); const saving = ref(false); const lastResult = ref<unknown>(null); const formError = ref(''); const editingId = ref(''); const showForm = ref(false); const form = reactive<Record<string, string | number | boolean>>({});
+const selectedDomain = computed(() => domains.value.find((domain) => domain.id === domainId.value));
 const columns = computed(() => {
   if (props.feature.columns) return props.feature.columns;
   return Object.keys(rows.value[0] ?? { id: '', name: '', status: '' }).slice(0, 8).map((key) => ({ key, label: key.replaceAll('_', ' ') }));
@@ -107,8 +107,8 @@ const createLabel = computed(() => props.feature.key === 'ssl' ? 'Import certifi
 function toHelp(field: FeaturePage['fields'][number]) { return { label: field.label, what: field.what, works: field.works, example: field.example, required: field.required }; }
 function resetForm() { props.feature.fields.forEach((field) => { form[field.name] = field.type === 'checkbox' ? field.example === 'true' : field.type === 'number' ? Number(field.example) || 0 : field.type === 'select' ? field.example : field.example.startsWith('{') ? field.example : ''; }); }
 async function loadRows() {
-  if (!siteId.value) return;
-  const id = siteId.value;
+  if (!domainId.value) return;
+  const id = domainId.value;
   const data = await ({
     dns: () => dnsApi.list(id),
     redirects: () => redirectsApi.list(id),
@@ -130,7 +130,7 @@ async function loadRows() {
   }
 }
 async function submit() {
-  if (!siteId.value) return; saving.value = true; formError.value = '';
+  if (!domainId.value) return; saving.value = true; formError.value = '';
   const input = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v]));
   if (props.feature.key === 'purge' && ['url', 'prefix'].includes(String(input.type)) && !String(input.value ?? '').trim()) {
     formError.value = 'URL or prefix is required for this purge scope.';
@@ -138,7 +138,7 @@ async function submit() {
     return;
   }
   try {
-    const id = siteId.value;
+    const id = domainId.value;
     lastResult.value = await ({
       dns: () => editingId.value ? dnsApi.update(id, editingId.value, input as Partial<DnsRecord>) : dnsApi.create(id, input as never),
       redirects: () => editingId.value ? redirectsApi.update(id, editingId.value, input as Partial<RedirectRule>) : redirectsApi.create(id, input as Partial<RedirectRule>),
@@ -167,10 +167,10 @@ function editRow(row: Record<string, unknown>) {
   });
 }
 async function toggleRedirect(row: Record<string, unknown>) {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
-    lastResult.value = await redirectsApi.update(siteId.value, String(row.id), { enabled: !row.enabled });
+    lastResult.value = await redirectsApi.update(domainId.value, String(row.id), { enabled: !row.enabled });
     await loadRows();
   } catch (error) {
     console.error('[redirect-toggle]', error);
@@ -180,10 +180,10 @@ async function toggleRedirect(row: Record<string, unknown>) {
 function canEdit(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
 function canDelete(row: Record<string, unknown>) { return ['dns', 'redirects', 'page-rules', 'security'].includes(props.feature.key) || (props.feature.key === 'cache' && row.kind === 'rule'); }
 async function deleteRow(row: Record<string, unknown>) {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
-    const id = siteId.value; const rowId = String(row.id);
+    const id = domainId.value; const rowId = String(row.id);
     const handlers: Partial<Record<FeatureKey, () => Promise<unknown>>> = {
       dns: () => dnsApi.remove(id, rowId),
       redirects: () => redirectsApi.remove(id, rowId),
@@ -200,40 +200,40 @@ async function deleteRow(row: Record<string, unknown>) {
     formError.value = error instanceof Error ? error.message : 'Unable to delete record.';
   } finally { saving.value = false; }
 }
-async function exportRedirects() { if (!siteId.value) return; lastResult.value = await redirectsApi.exportRules(siteId.value); }
+async function exportRedirects() { if (!domainId.value) return; lastResult.value = await redirectsApi.exportRules(domainId.value); }
 async function importRedirects() {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
     const item = Object.fromEntries(Object.entries(form).map(([k, v]) => [k, typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : v]));
-    lastResult.value = await redirectsApi.importRules(siteId.value, { items: [item] });
+    lastResult.value = await redirectsApi.importRules(domainId.value, { items: [item] });
     await loadRows();
   } catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to import redirects.'; } finally { saving.value = false; }
 }
 async function testRedirect() {
-  if (!siteId.value) return;
-  lastResult.value = await redirectsApi.test(siteId.value, { path: String(form.source_path || '/'), query: '' });
+  if (!domainId.value) return;
+  lastResult.value = await redirectsApi.test(domainId.value, { path: String(form.source_path || '/'), query: '' });
 }
 async function testPageRule() {
-  if (!siteId.value) return;
-  lastResult.value = await pageRulesApi.test(siteId.value, { path: String(form.pattern || '/') });
+  if (!domainId.value) return;
+  lastResult.value = await pageRulesApi.test(domainId.value, { path: String(form.pattern || '/') });
 }
 async function saveCacheRule() {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
     const input = { enabled: Boolean(form.enabled), path_prefix: String(form.path_prefix || '/'), ttl_seconds: Number(form.ttl_seconds || form.default_edge_ttl_seconds || 60) };
-    lastResult.value = editingId.value ? await cacheApi.updateRule(siteId.value, editingId.value, input as Partial<CacheRule>) : await cacheApi.createRule(siteId.value, input);
+    lastResult.value = editingId.value ? await cacheApi.updateRule(domainId.value, editingId.value, input as Partial<CacheRule>) : await cacheApi.createRule(domainId.value, input);
     cancelEdit();
     await loadRows();
   } catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to save cache rule.'; } finally { saving.value = false; }
 }
 async function checkSsl() {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
-    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
-    lastResult.value = await sslApi.check(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    const hostname = String(form.hostname || selectedDomain.value?.domain || '').trim();
+    lastResult.value = await sslApi.check(domainId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
     await loadRows();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : 'Unable to run SSL check.';
@@ -241,11 +241,11 @@ async function checkSsl() {
   } finally { saving.value = false; }
 }
 async function requestSsl() {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
-    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
-    lastResult.value = await sslApi.request(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    const hostname = String(form.hostname || selectedDomain.value?.domain || '').trim();
+    lastResult.value = await sslApi.request(domainId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
     await loadRows();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : 'Unable to request SSL.';
@@ -253,11 +253,11 @@ async function requestSsl() {
   } finally { saving.value = false; }
 }
 async function issueAcme() {
-  if (!siteId.value) return;
+  if (!domainId.value) return;
   saving.value = true; formError.value = '';
   try {
-    const hostname = String(form.hostname || selectedSite.value?.domain || '').trim();
-    lastResult.value = await sslApi.issueAcme(siteId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
+    const hostname = String(form.hostname || selectedDomain.value?.domain || '').trim();
+    lastResult.value = await sslApi.issueAcme(domainId.value, hostname ? { hostnames: [hostname] } : { hostnames: [] });
     await loadRows();
   } catch (error) {
     formError.value = error instanceof Error ? error.message : 'Unable to issue ACME SSL.';
@@ -265,12 +265,12 @@ async function issueAcme() {
   } finally { saving.value = false; }
 }
 async function loadSecurityEvents() {
-  if (!siteId.value) return;
-  lastResult.value = await wafApi.events(siteId.value, { type: String(form.type || ''), limit: 100 });
+  if (!domainId.value) return;
+  lastResult.value = await wafApi.events(domainId.value, { type: String(form.type || ''), limit: 100 });
 }
 async function getPurgeRequest(row: Record<string, unknown>) {
-  if (!siteId.value) return;
-  lastResult.value = await purgeApi.get(siteId.value, String(row.id));
+  if (!domainId.value) return;
+  lastResult.value = await purgeApi.get(domainId.value, String(row.id));
 }
 function cacheSettingsInput(input: Record<string, unknown>) {
   const browserTtl = input.default_browser_ttl_seconds === '' || input.default_browser_ttl_seconds === null || input.default_browser_ttl_seconds === undefined ? null : Number(input.default_browser_ttl_seconds);
@@ -287,6 +287,6 @@ function cacheSettingsInput(input: Record<string, unknown>) {
 function startCreate() { editingId.value = ''; resetForm(); showForm.value = true; }
 function cancelEdit() { editingId.value = ''; showForm.value = false; resetForm(); }
 function parseMaybeJson(text: string) { try { return JSON.parse(text); } catch { return {}; } }
-watch(siteId, () => { cancelEdit(); loadRows(); }); watch(() => props.feature.key, () => { cancelEdit(); rows.value = []; });
-onMounted(async () => { resetForm(); sites.value = await sitesApi.list().catch(() => []); siteId.value = sites.value[0]?.id ?? ''; });
+watch(domainId, () => { cancelEdit(); loadRows(); }); watch(() => props.feature.key, () => { cancelEdit(); rows.value = []; });
+onMounted(async () => { resetForm(); domains.value = await domainsApi.list().catch(() => []); domainId.value = domains.value[0]?.id ?? ''; });
 </script>

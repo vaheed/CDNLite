@@ -5,14 +5,14 @@ local cjson = require('cjson.safe')
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
 
-local function append_security_event(site_id)
+local function append_security_event(domain_id)
   local t = tostring(ngx.ctx.security_event_type or '')
   if t == '' then
     return
   end
   local line = cjson.encode({
     ts = os.time(),
-    site_id = tostring(site_id or ngx.ctx.site_id or ''),
+    domain_id = tostring(domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
     request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
     type = t,
@@ -52,8 +52,8 @@ local function request_country()
   return country
 end
 
-local function pick_upstream(site)
-  local geo = site.geo_upstreams or {}
+local function pick_upstream(domain)
+  local geo = domain.geo_upstreams or {}
   local country = request_country()
   if geo[country] then
     return geo[country]
@@ -61,7 +61,7 @@ local function pick_upstream(site)
   if geo['DEFAULT'] then
     return geo['DEFAULT']
   end
-  return site.upstream
+  return domain.upstream
 end
 
 local function match_cache_rule(cfg, host)
@@ -196,7 +196,7 @@ local function match_rate_limit(cfg, host)
   return best
 end
 
-local function apply_rate_limit(cfg, host, site_id)
+local function apply_rate_limit(cfg, host, domain_id)
   local rule = match_rate_limit(cfg, host)
   if not rule then
     return true
@@ -213,7 +213,7 @@ local function apply_rate_limit(cfg, host, site_id)
     key = client_ip .. '|' .. (ngx.var.uri or '/')
   end
   local bucket = tostring(math.floor(ngx.now() / 60))
-  local counter_key = tostring(site_id) .. '|' .. tostring(rule.id or '') .. '|' .. key .. '|' .. bucket
+  local counter_key = tostring(domain_id) .. '|' .. tostring(rule.id or '') .. '|' .. key .. '|' .. bucket
   local dict = ngx.shared.cdnlite_limits
   if not dict then
     return true
@@ -231,7 +231,7 @@ local function apply_rate_limit(cfg, host, site_id)
   ngx.ctx.security_rule_id = tostring(rule.id or '')
   ngx.ctx.security_action = tostring(rule.action or 'block')
   if ngx.ctx.security_action == 'block' then
-    append_security_event(site_id)
+    append_security_event(domain_id)
     ngx.status = 429
     ngx.header.content_type = 'application/json'
     ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
@@ -250,11 +250,11 @@ function M.handle()
     return false, 'missing_host'
   end
 
-  local site = cfg.hosts[host]
-  if not site then
-    return false, 'site_not_configured'
+  local domain = cfg.hosts[host]
+  if not domain then
+    return false, 'domain_not_configured'
   end
-  ngx.ctx.site_id = site.site_id
+  ngx.ctx.domain_id = domain.domain_id
 
   local redirect = match_redirect_rule(cfg, host)
   if redirect then
@@ -270,13 +270,13 @@ function M.handle()
     return false, 'waf_blocked'
   end
 
-  local rate_limit_ok = apply_rate_limit(cfg, host, site.site_id)
+  local rate_limit_ok = apply_rate_limit(cfg, host, domain.domain_id)
   if not rate_limit_ok then
     return false, 'rate_limited'
   end
-  ngx.ctx.upstream = pick_upstream(site)
+  ngx.ctx.upstream = pick_upstream(domain)
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
-  return proxy.forward(site)
+  return proxy.forward(domain)
 end
 
 return M

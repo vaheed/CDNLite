@@ -96,11 +96,11 @@ function extractErrorCode(payload: unknown): string | undefined {
 export function humanizeApiError(code: string): string {
   const normalized = code.toLowerCase().trim();
   const messages: Record<string, string> = {
-    name_required: 'Site name is required.',
+    name_required: 'Domain name is required.',
     domain_required: 'Domain is required.',
     origin_host_required: 'Origin host is required.',
     origin_port_required: 'Origin port is required.',
-    domain_already_exists: 'Unable to create site. Domain already exists.',
+    domain_already_exists: 'Unable to create domain. Domain already exists.',
     invalid_json: 'The request body contains invalid JSON.',
     internal_server_error: 'The server hit an internal error. Try again or check the core logs.',
   };

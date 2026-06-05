@@ -12,12 +12,12 @@ class DnsController
     {
     }
 
-    public function list(string $siteId): array
+    public function list(string $domainId): array
     {
-        return ['data' => $this->service->listBySite($siteId)];
+        return ['data' => $this->service->listByDomain($domainId)];
     }
 
-    public function create(string $siteId, array $input): array
+    public function create(string $domainId, array $input): array
     {
         $type = Validator::requiredString($input, 'type', 16);
         if (($type['ok'] ?? false) !== true) {
@@ -46,11 +46,11 @@ class DnsController
         $input['ttl'] = $ttl['value'];
 
         try {
-            return ['data' => $this->service->create($siteId, $input)];
+            return ['data' => $this->service->create($domainId, $input)];
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            if ($message === 'site_not_found') {
-                return ['error' => 'site_not_found', 'status' => 404];
+            if ($message === 'domain_not_found') {
+                return ['error' => 'domain_not_found', 'status' => 404];
             }
             $payload = ['error' => $message, 'status' => 502];
             if (Logger::isDebug()) {
@@ -60,7 +60,7 @@ class DnsController
         }
     }
 
-    public function update(string $siteId, string $recordId, array $input): array
+    public function update(string $domainId, string $recordId, array $input): array
     {
         if ($input === []) {
             return ['error' => 'dns_record_update_body_required', 'status' => 422];
@@ -104,7 +104,7 @@ class DnsController
         }
 
         try {
-            $record = $this->service->update($siteId, $recordId, $input);
+            $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $payload = ['error' => $e->getMessage(), 'status' => 502];
             if (Logger::isDebug()) {
@@ -118,9 +118,9 @@ class DnsController
             : ['data' => $record];
     }
 
-    public function delete(string $siteId, string $recordId): array
+    public function delete(string $domainId, string $recordId): array
     {
-        return $this->service->delete($siteId, $recordId)
+        return $this->service->delete($domainId, $recordId)
             ? ['ok' => true]
             : ['error' => 'record_not_found', 'status' => 404];
     }

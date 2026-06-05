@@ -10,14 +10,14 @@ describe('buildUrl', () => {
   });
 
   it('builds paths and skips empty query values', () => {
-    expect(buildUrl('http://localhost:8080/', '/api/v1/sites', { bucket: 'minute', site_id: '' })).toBe('http://localhost:8080/api/v1/sites?bucket=minute');
+    expect(buildUrl('http://localhost:8080/', '/api/v1/domains', { bucket: 'minute', domain_id: '' })).toBe('http://localhost:8080/api/v1/domains?bucket=minute');
   });
 
   it('sends the in-memory admin session bearer token', async () => {
     setAdminSessionToken('session-token');
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"ok":true}', { status: 200 }));
 
-    await apiRequest('/api/v1/sites');
+    await apiRequest('/api/v1/domains');
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect((init.headers as Headers).get('Authorization')).toBe('Bearer session-token');
@@ -26,10 +26,10 @@ describe('buildUrl', () => {
   it('maps backend error codes to human-readable messages', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"error":"domain_already_exists"}', { status: 409 }));
 
-    await expect(apiRequest('/api/v1/sites')).rejects.toMatchObject({
+    await expect(apiRequest('/api/v1/domains')).rejects.toMatchObject({
       name: 'CdnLiteApiError',
       status: 409,
-      message: 'Unable to create site. Domain already exists.',
+      message: 'Unable to create domain. Domain already exists.',
       code: 'domain_already_exists',
     } satisfies Partial<CdnLiteApiError>);
   });

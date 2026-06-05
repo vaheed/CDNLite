@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Modules\Sites\Services;
+namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\PowerDnsService;
 use App\Support\Database;
 use App\Support\Logger;
 use App\Support\Uuid;
 
-class SiteService
+class DomainService
 {
     private PowerDnsService $powerDns;
 
@@ -18,7 +18,7 @@ class SiteService
 
     public function all(): array
     {
-        $stmt = Database::pdo()->query('SELECT * FROM sites ORDER BY id ASC');
+        $stmt = Database::pdo()->query('SELECT * FROM domains ORDER BY id ASC');
         $rows = $stmt->fetchAll();
         return array_map([$this, 'castRow'], $rows);
     }
@@ -28,7 +28,7 @@ class SiteService
         $now = time();
         $id = Uuid::v4();
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO sites (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, created_at, updated_at)
+            'INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, created_at, updated_at)
              VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :origin_shield_header_name, :origin_shield_header_value_hash, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
         );
         $stmt->execute([
@@ -48,18 +48,18 @@ class SiteService
             ':updated_at' => $now,
         ]);
 
-        $site = $this->find($id);
-        if ($site === null) {
-            throw new \RuntimeException('site_create_failed');
+        $domain = $this->find($id);
+        if ($domain === null) {
+            throw new \RuntimeException('domain_create_failed');
         }
 
-        $this->syncPowerDnsZoneCreate($site);
-        return $site;
+        $this->syncPowerDnsZoneCreate($domain);
+        return $domain;
     }
 
-    public function update(string $siteId, array $input): ?array
+    public function update(string $domainId, array $input): ?array
     {
-        $existing = $this->find($siteId);
+        $existing = $this->find($domainId);
         if ($existing === null) {
             return null;
         }
@@ -93,7 +93,7 @@ class SiteService
         }
 
         $stmt = Database::pdo()->prepare(
-            'UPDATE sites SET
+            'UPDATE domains SET
                 name = :name,
                 domain = :domain,
                 origin_scheme = :origin_scheme,
@@ -108,7 +108,7 @@ class SiteService
              WHERE id = :id'
         );
         $stmt->execute([
-            ':id' => $siteId,
+            ':id' => $domainId,
             ':name' => $patch['name'],
             ':domain' => $patch['domain'],
             ':origin_scheme' => $patch['origin_scheme'],
@@ -122,32 +122,32 @@ class SiteService
             ':updated_at' => time(),
         ]);
 
-        return $this->find($siteId);
+        return $this->find($domainId);
     }
 
-    public function delete(string $siteId): bool
+    public function delete(string $domainId): bool
     {
-        $stmt = Database::pdo()->prepare('DELETE FROM sites WHERE id = :id');
-        $stmt->execute([':id' => $siteId]);
+        $stmt = Database::pdo()->prepare('DELETE FROM domains WHERE id = :id');
+        $stmt->execute([':id' => $domainId]);
         return $stmt->rowCount() > 0;
     }
 
-    public function setProxy(string $siteId, bool $enabled): ?array
+    public function setProxy(string $domainId, bool $enabled): ?array
     {
-        return $this->update($siteId, ['proxy_enabled' => $enabled]);
+        return $this->update($domainId, ['proxy_enabled' => $enabled]);
     }
 
-    public function find(string $siteId): ?array
+    public function find(string $domainId): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT * FROM sites WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $siteId]);
+        $stmt = Database::pdo()->prepare('SELECT * FROM domains WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $domainId]);
         $row = $stmt->fetch();
         return $row ? $this->castRow($row) : null;
     }
 
     public function findByDomain(string $domain): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT * FROM sites WHERE lower(domain) = lower(:domain) LIMIT 1');
+        $stmt = Database::pdo()->prepare('SELECT * FROM domains WHERE lower(domain) = lower(:domain) LIMIT 1');
         $stmt->execute([':domain' => $domain]);
         $row = $stmt->fetch();
         return $row ? $this->castRow($row) : null;
@@ -187,27 +187,27 @@ class SiteService
         return $json === false ? null : $json;
     }
 
-    private function syncPowerDnsZoneCreate(array $site): void
+    private function syncPowerDnsZoneCreate(array $domain): void
     {
         if (!$this->powerDns->isEnabled()) {
             return;
         }
 
-        $result = $this->powerDns->ensureZone((string) $site['domain']);
+        $result = $this->powerDns->ensureZone((string) $domain['domain']);
         if (($result['ok'] ?? false) === true) {
             return;
         }
 
         Logger::error('powerdns_zone_create_failed', [
-            'site_id' => (string) $site['id'],
-            'domain' => (string) $site['domain'],
+            'domain_id' => (string) $domain['id'],
+            'domain' => (string) $domain['domain'],
             'status' => (int) ($result['status'] ?? 0),
             'error' => (string) ($result['error'] ?? 'powerdns_sync_failed'),
             'response' => (string) ($result['response'] ?? ''),
         ]);
 
         if ($this->powerDns->isStrict()) {
-            $this->delete((string) $site['id']);
+            $this->delete((string) $domain['id']);
             throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
         }
     }

@@ -2,23 +2,23 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\CommandIO;
 
-class CdnSiteDeleteCommand
+class CdnDomainDeleteCommand
 {
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['id'] ?? ''));
-        if ($siteId === '') {
+        $domainId = trim((string) ($opts['id'] ?? ''));
+        if ($domainId === '') {
             fwrite(STDERR, "Missing --id\n");
             return 1;
         }
 
-        $ok = (new SiteService())->delete($siteId);
+        $ok = (new DomainService())->delete($domainId);
         if (!$ok) {
-            fwrite(STDERR, "Site not found\n");
+            fwrite(STDERR, "Domain not found\n");
             return 1;
         }
 

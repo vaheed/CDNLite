@@ -169,7 +169,7 @@ assert s.get("config_source") == "remote"
 assert isinstance(s.get("last_successful_sync_time"), int)
 PY
 
-metric_line='{"ts":1,"site_id":"site-1","edge_node_id":"edge-1","requests_count":1,"bytes_in":2,"bytes_out":3,"status":200}'
+metric_line='{"ts":1,"domain_id":"domain-1","edge_node_id":"edge-1","requests_count":1,"bytes_in":2,"bytes_out":3,"status":200}'
 printf '%s\n' "$metric_line" > "$METRIC_PATH"
 export MOCK_CURL_MODE="metrics_fail"
 if sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-fail.err"; then

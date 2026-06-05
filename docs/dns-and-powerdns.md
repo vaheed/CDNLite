@@ -4,30 +4,30 @@
 
 ## DNS Record Model
 
-DNS records are stored in `dns_records` with origin and public DNS fields. `type` and `content` keep the customer origin input. `origin_type` and `origin_content` mirror that origin explicitly. `public_type` and `public_content` hold the record CDNLite publishes to PowerDNS. Records are deleted automatically when their site is deleted.
+DNS records are stored in `dns_records` with origin and public DNS fields. `type` and `content` keep the customer origin input. `origin_type` and `origin_content` mirror that origin explicitly. `public_type` and `public_content` hold the record CDNLite publishes to PowerDNS. Records are deleted automatically when their domain is deleted.
 
 ## API Workflow
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records \
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records \
   -H 'Content-Type: application/json' \
   -d '{"type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}'
 
-curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
+curl -s -X PATCH http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
   -H 'Content-Type: application/json' \
   -d '{"content":"127.0.0.2","ttl":120}'
 
-curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records
-curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222
+curl -s http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records
+curl -s -X DELETE http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222
 ```
 
 ## CLI Workflow
 
 ```bash
-php core/artisan cdn:dns:add-record --site_id=11111111-1111-4111-8111-111111111111 --type=A --name=@ --content=127.0.0.1 --proxied=1
-php core/artisan cdn:dns:update-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
-php core/artisan cdn:dns:list-records --site_id=11111111-1111-4111-8111-111111111111
-php core/artisan cdn:dns:delete-record --site_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222
+php core/artisan cdn:dns:add-record --domain_id=11111111-1111-4111-8111-111111111111 --type=A --name=@ --content=127.0.0.1 --proxied=1
+php core/artisan cdn:dns:update-record --domain_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222 --content=127.0.0.2 --ttl=120
+php core/artisan cdn:dns:list-records --domain_id=11111111-1111-4111-8111-111111111111
+php core/artisan cdn:dns:delete-record --domain_id=11111111-1111-4111-8111-111111111111 --record_id=22222222-2222-4222-8222-222222222222
 ```
 
 ## Proxied Behavior
@@ -91,6 +91,6 @@ PowerDNS must be configured with `enable-lua-records=yes`, a resolver that does 
 | Missing API URL/key | PowerDNS result `powerdns_missing_config`. |
 | API non-2xx | PowerDNS result `powerdns_api_error`. |
 | Strict off | Local DB change remains; core logs an error. |
-| Strict on | Site create rolls back/deletes local site on zone failure; DNS create returns/raises failure. |
+| Strict on | Domain create rolls back/deletes local domain on zone failure; DNS create returns/raises failure. |
 
-TXT content is quoted before sending to PowerDNS if it is not already quoted. Record names are converted to FQDNs relative to the site domain.
+TXT content is quoted before sending to PowerDNS if it is not already quoted. Record names are converted to FQDNs relative to the domain domain.

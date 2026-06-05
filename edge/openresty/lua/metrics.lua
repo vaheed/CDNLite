@@ -23,7 +23,7 @@ function M.on_log()
   end
   append_metric({
     ts = os.time(),
-    site_id = tostring(ngx.ctx.site_id or ''),
+    domain_id = tostring(ngx.ctx.domain_id or ''),
     edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
     requests_count = 1,
     bytes_in = bytes_in,

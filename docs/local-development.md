@@ -18,7 +18,7 @@ docker compose logs -f core
 docker compose logs -f edge
 docker compose exec core php artisan list
 docker compose exec core php artisan help
-docker compose exec postgres psql -U cdnlite -d cdnlite -c 'select count(*) from sites;'
+docker compose exec postgres psql -U cdnlite -d cdnlite -c 'select count(*) from domains;'
 ```
 
 ## Working With The Core CLI
@@ -26,7 +26,7 @@ docker compose exec postgres psql -U cdnlite -d cdnlite -c 'select count(*) from
 Inside Compose, run commands from the `core` container:
 
 ```bash
-docker compose exec core php artisan cdn:site:list
+docker compose exec core php artisan cdn:domain:list
 ```
 
 From the host, `php core/artisan ...` works only if PHP has `pdo_pgsql` and can reach PostgreSQL at the configured `DB_HOST` and `DB_PORT`.

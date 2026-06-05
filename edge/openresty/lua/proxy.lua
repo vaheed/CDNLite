@@ -9,8 +9,8 @@ local function header_has_cache_directive(value)
   return value:find('no-cache', 1, true) ~= nil or value:find('no-store', 1, true) ~= nil
 end
 
-function M.forward(site)
-  local upstream = ngx.ctx.upstream or site.upstream
+function M.forward(domain)
+  local upstream = ngx.ctx.upstream or domain.upstream
   if not upstream then
     return false, 'missing_upstream'
   end
@@ -53,7 +53,7 @@ function M.forward(site)
     ngx.header['X-Accel-Expires'] = '0'
   end
   ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
-  ngx.header['X-CDNLITE-Site'] = tostring(site.site_id)
+  ngx.header['X-CDNLITE-Domain'] = tostring(domain.domain_id)
   ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   return true
 end

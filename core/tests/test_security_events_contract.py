@@ -87,32 +87,32 @@ def test_security_events_endpoint_contract():
 
     try:
         wait_for_server(base_url)
-        site_code, site = request_json(
+        domain_code, domain = request_json(
             base_url,
             "POST",
-            "/api/v1/sites",
+            "/api/v1/domains",
             body={"name": "Sec Demo", "domain": "sec-demo.local", "origin_host": "core"},
             headers={"Authorization": "Bearer stage9-token"},
         )
-        assert site_code == 201
-        site_id = site["data"]["id"]
+        assert domain_code == 201
+        domain_id = domain["data"]["id"]
 
         insert = r'''
 require __DIR__ . '/core/app/Support/bootstrap.php';
 $pdo = App\Support\Database::pdo();
 $now = time();
-$siteId = $argv[1];
-$q = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
-$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'r1',':site_id'=>$siteId,':details_json'=>'{"decision":"block"}',':event'=>'waf_match',':created_at'=>$now-1]);
-$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'rate_limit',':resource_id'=>'r2',':site_id'=>$siteId,':details_json'=>'{"decision":"block"}',':event'=>'rate_limited',':created_at'=>$now]);
+$domainId = $argv[1];
+$q = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:domain_id,:details_json,:event,:created_at)');
+$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'r1',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'waf_match',':created_at'=>$now-1]);
+$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'rate_limit',':resource_id'=>'r2',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'rate_limited',':created_at'=>$now]);
 echo "ok";
 '''
-        subprocess.run(["php", "-r", insert, site_id], cwd=str(REPO_ROOT), check=True, capture_output=True, text=True, env=env)
+        subprocess.run(["php", "-r", insert, domain_id], cwd=str(REPO_ROOT), check=True, capture_output=True, text=True, env=env)
 
         code, body = request_json(
             base_url,
             "GET",
-            f"/api/v1/sites/{site_id}/security/events?limit=1",
+            f"/api/v1/domains/{domain_id}/security/events?limit=1",
             headers={"Authorization": "Bearer stage9-token"},
         )
         assert code == 200
@@ -122,7 +122,7 @@ echo "ok";
         code2, body2 = request_json(
             base_url,
             "GET",
-            f"/api/v1/sites/{site_id}/security/events?type=waf_match",
+            f"/api/v1/domains/{domain_id}/security/events?type=waf_match",
             headers={"Authorization": "Bearer stage9-token"},
         )
         assert code2 == 200

@@ -5,7 +5,7 @@
 ## Single Row
 
 ```json
-{"idempotency_key":"usage-1","items":[{"ts":1710000000,"site_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":1,"bytes_in":421,"bytes_out":2048,"status":200}]}
+{"idempotency_key":"usage-1","items":[{"ts":1710000000,"domain_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":1,"bytes_in":421,"bytes_out":2048,"status":200}]}
 ```
 
 Response:
@@ -17,7 +17,7 @@ Response:
 ## Multiple Statuses
 
 ```json
-{"idempotency_key":"usage-2","items":[{"ts":1710000060,"site_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":25,"bytes_in":9000,"bytes_out":120000,"status":200},{"ts":1710000060,"site_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":2,"bytes_in":800,"bytes_out":1200,"status":502}]}
+{"idempotency_key":"usage-2","items":[{"ts":1710000060,"domain_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":25,"bytes_in":9000,"bytes_out":120000,"status":200},{"ts":1710000060,"domain_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":2,"bytes_in":800,"bytes_out":1200,"status":502}]}
 ```
 
 Response:
@@ -39,7 +39,7 @@ Retrying `usage-2` returns:
 After recalculate:
 
 ```json
-{"ok":true,"site_id":"11111111-1111-4111-8111-111111111111","inserted":{"minute":2,"hour":2,"day":2}}
+{"ok":true,"domain_id":"11111111-1111-4111-8111-111111111111","inserted":{"minute":2,"hour":2,"day":2}}
 ```
 
 Minute summary:

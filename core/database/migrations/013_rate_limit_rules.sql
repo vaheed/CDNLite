@@ -1,6 +1,6 @@
-CREATE TABLE IF NOT EXISTS rate_limit_rules_v2 (
+CREATE TABLE IF NOT EXISTS rate_limit_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   enabled BOOLEAN NOT NULL DEFAULT true,
   priority INTEGER NOT NULL DEFAULT 100,
   path_prefix TEXT NOT NULL DEFAULT '/',
@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules_v2 (
   updated_at BIGINT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_rate_limit_rules_v2_site_enabled_priority
-  ON rate_limit_rules_v2(site_id, enabled, priority);
+CREATE INDEX IF NOT EXISTS idx_rate_limit_rules_domain_enabled_priority
+  ON rate_limit_rules(domain_id, enabled, priority);

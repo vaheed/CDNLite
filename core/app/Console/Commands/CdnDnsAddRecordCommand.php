@@ -10,20 +10,20 @@ class CdnDnsAddRecordCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['site_id'] ?? ''));
+        $domainId = trim((string) ($opts['domain_id'] ?? ''));
         foreach (['type', 'name', 'content'] as $r) {
             if (empty($opts[$r])) {
                 fwrite(STDERR, "Missing --{$r}\n");
                 return 1;
             }
         }
-        if ($siteId === '') {
-            fwrite(STDERR, "Missing --site_id\n");
+        if ($domainId === '') {
+            fwrite(STDERR, "Missing --domain_id\n");
             return 1;
         }
 
         try {
-            $row = (new DnsService())->create($siteId, [
+            $row = (new DnsService())->create($domainId, [
                 'type' => $opts['type'],
                 'name' => $opts['name'],
                 'content' => $opts['content'],

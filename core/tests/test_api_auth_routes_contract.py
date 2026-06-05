@@ -28,7 +28,7 @@ $username = getenv('DB_USERNAME') ?: 'cdnlite';
 $password = getenv('DB_PASSWORD') ?: 'cdnlite';
 $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$tables = ['usage_aggregates','usage_ingest_keys','usage_rollups','edge_request_nonces','edge_tokens','geo_policies','edge_dns_state','edge_nodes','dns_records','sites','config_snapshots','config_state'];
+$tables = ['usage_aggregates','usage_ingest_keys','usage_rollups','edge_request_nonces','edge_tokens','edge_dns_state','edge_nodes','dns_records','domains','config_snapshots','config_state'];
 $existing = [];
 foreach ($tables as $table) {
   if ($pdo->query("SELECT to_regclass('public." . $table . "')")->fetchColumn()) {
@@ -120,32 +120,32 @@ def test_api_token_enforced_on_admin_routes_but_not_edge_auth_contract():
     try:
         wait_for_server(base_url)
 
-        site_payload = {
+        domain_payload = {
             "name": "Auth Demo",
             "domain": "auth-demo.local",
             "origin_host": "core",
             "origin_port": 8080,
         }
 
-        denied_code, denied = request_json(base_url, "POST", "/api/v1/sites", body=site_payload)
+        denied_code, denied = request_json(base_url, "POST", "/api/v1/domains", body=domain_payload)
         assert denied_code == 401
         assert denied["error"] == "api_auth_required"
 
         ok_code, created = request_json(
             base_url,
             "POST",
-            "/api/v1/sites",
-            body=site_payload,
+            "/api/v1/domains",
+            body=domain_payload,
             headers={"Authorization": "Bearer stage2-token"},
         )
         assert ok_code == 201
         assert created["data"]["domain"] == "auth-demo.local"
-        site_id = created["data"]["id"]
+        domain_id = created["data"]["id"]
 
         dns_code, dns_denied = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/dns/records",
+            f"/api/v1/domains/{domain_id}/dns/records",
             body={"type": "A", "name": "@", "content": "127.0.0.1"},
         )
         assert dns_code == 401

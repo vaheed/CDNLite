@@ -43,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"ok": True})
             return
 
-        if self.path.startswith("/api/v1/sites"):
+        if self.path.startswith("/api/v1/domains"):
             self._send(500, {"error": "forced_origin_failure"})
             return
 

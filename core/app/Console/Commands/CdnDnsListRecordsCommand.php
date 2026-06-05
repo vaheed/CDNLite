@@ -10,13 +10,13 @@ class CdnDnsListRecordsCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['site_id'] ?? ''));
-        if ($siteId === '') {
-            fwrite(STDERR, "Missing --site_id\n");
+        $domainId = trim((string) ($opts['domain_id'] ?? ''));
+        if ($domainId === '') {
+            fwrite(STDERR, "Missing --domain_id\n");
             return 1;
         }
 
-        CommandIO::printJson(['data' => (new DnsService())->listBySite($siteId)]);
+        CommandIO::printJson(['data' => (new DnsService())->listByDomain($domainId)]);
         return 0;
     }
 }

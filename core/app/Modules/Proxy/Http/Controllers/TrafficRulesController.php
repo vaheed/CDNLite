@@ -13,7 +13,7 @@ class TrafficRulesController
     {
     }
 
-    public function createRedirect(string $siteId, array $body): array {
+    public function createRedirect(string $domainId, array $body): array {
         $source = Validator::requiredString($body, 'source_path', 2048);
         if (($source['ok'] ?? false) !== true) { return $source; }
         if (!str_starts_with((string) $source['value'], '/')) {
@@ -31,10 +31,10 @@ class TrafficRulesController
         if (($matchType['ok'] ?? false) !== true) { return $matchType; }
         $preserveQuery = Validator::bool($body, 'preserve_query', true);
         if (($preserveQuery['ok'] ?? false) !== true) { return $preserveQuery; }
-        return ['data' => $this->service->createRedirect($siteId, $body)];
+        return ['data' => $this->service->createRedirect($domainId, $body)];
     }
-    public function listRedirects(string $siteId): array { return ['data' => $this->service->listRedirects($siteId)]; }
-    public function updateRedirect(string $siteId, string $id, array $body): array {
+    public function listRedirects(string $domainId): array { return ['data' => $this->service->listRedirects($domainId)]; }
+    public function updateRedirect(string $domainId, string $id, array $body): array {
         if (array_key_exists('source_path', $body) && (!is_string($body['source_path']) || !str_starts_with((string) $body['source_path'], '/'))) {
             return ['error' => 'invalid_field', 'field' => 'source_path', 'detail' => 'must_start_with_slash', 'status' => 422];
         }
@@ -53,17 +53,17 @@ class TrafficRulesController
             $preserveQuery = Validator::bool($body, 'preserve_query');
             if (($preserveQuery['ok'] ?? false) !== true) { return $preserveQuery; }
         }
-        $r=$this->service->updateRedirect($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'redirect_not_found','status'=>404];
+        $r=$this->service->updateRedirect($domainId,$id,$body); return $r?['data'=>$r]:['error'=>'redirect_not_found','status'=>404];
     }
-    public function deleteRedirect(string $siteId, string $id): array { return $this->service->deleteRedirect($siteId,$id)?['ok'=>true]:['error'=>'redirect_not_found','status'=>404]; }
-    public function importRedirects(string $siteId, array $body): array {
+    public function deleteRedirect(string $domainId, string $id): array { return $this->service->deleteRedirect($domainId,$id)?['ok'=>true]:['error'=>'redirect_not_found','status'=>404]; }
+    public function importRedirects(string $domainId, array $body): array {
         if (!isset($body['items']) || !is_array($body['items'])) {
             return ['error' => 'invalid_field', 'field' => 'items', 'detail' => 'must_be_array', 'status' => 422];
         }
-        return ['data' => $this->service->importRedirects($siteId, $body['items'])];
+        return ['data' => $this->service->importRedirects($domainId, $body['items'])];
     }
-    public function exportRedirects(string $siteId): array { return ['data' => $this->service->exportRedirects($siteId)]; }
-    public function testRedirect(string $siteId, array $body): array {
+    public function exportRedirects(string $domainId): array { return ['data' => $this->service->exportRedirects($domainId)]; }
+    public function testRedirect(string $domainId, array $body): array {
         $path = Validator::requiredString($body, 'path', 2048);
         if (($path['ok'] ?? false) !== true) { return $path; }
         if (!str_starts_with((string) $path['value'], '/')) {
@@ -71,11 +71,11 @@ class TrafficRulesController
         }
         $query = Validator::optionalString($body, 'query', 4096);
         if (($query['ok'] ?? false) !== true) { return $query; }
-        $result = $this->service->testRedirect($siteId, (string) $path['value'], (string) ($query['value'] ?? ''));
+        $result = $this->service->testRedirect($domainId, (string) $path['value'], (string) ($query['value'] ?? ''));
         return ['data' => $result ?? ['matched' => false]];
     }
 
-    public function setRateLimit(string $siteId, array $body): array {
+    public function setRateLimit(string $domainId, array $body): array {
         $rpm = Validator::intRange($body, 'requests_per_minute', 1, 100000, 60);
         if (($rpm['ok'] ?? false) !== true) { return $rpm; }
         if (array_key_exists('priority', $body)) {
@@ -97,12 +97,12 @@ class TrafficRulesController
             $action = Validator::enum($body, 'action', ['block']);
             if (($action['ok'] ?? false) !== true) { return $action; }
         }
-        return ['data' => $this->service->setRateLimit($siteId, $body)];
+        return ['data' => $this->service->setRateLimit($domainId, $body)];
     }
-    public function getRateLimit(string $siteId): array { $r=$this->service->getRateLimit($siteId); return $r?['data'=>$r]:['error'=>'rate_limit_not_found','status'=>404]; }
-    public function disableRateLimit(string $siteId): array { return $this->service->disableRateLimit($siteId)?['ok'=>true]:['error'=>'rate_limit_not_found','status'=>404]; }
+    public function getRateLimit(string $domainId): array { $r=$this->service->getRateLimit($domainId); return $r?['data'=>$r]:['error'=>'rate_limit_not_found','status'=>404]; }
+    public function disableRateLimit(string $domainId): array { return $this->service->disableRateLimit($domainId)?['ok'=>true]:['error'=>'rate_limit_not_found','status'=>404]; }
 
-    public function createWaf(string $siteId, array $body): array {
+    public function createWaf(string $domainId, array $body): array {
         $type = Validator::requiredString($body, 'type', 64);
         if (($type['ok'] ?? false) !== true) { return $type; }
         if (!in_array((string) $type['value'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
@@ -126,12 +126,12 @@ class TrafficRulesController
             $description = Validator::optionalString($body, 'description', 2048);
             if (($description['ok'] ?? false) !== true) { return $description; }
         }
-        return ['data' => $this->service->createWaf($siteId, $body)];
+        return ['data' => $this->service->createWaf($domainId, $body)];
     }
-    public function listWaf(string $siteId): array { return ['data' => $this->service->listWaf($siteId)]; }
-    public function deleteWaf(string $siteId, string $id): array { return $this->service->deleteWaf($siteId,$id)?['ok'=>true]:['error'=>'waf_not_found','status'=>404]; }
+    public function listWaf(string $domainId): array { return ['data' => $this->service->listWaf($domainId)]; }
+    public function deleteWaf(string $domainId, string $id): array { return $this->service->deleteWaf($domainId,$id)?['ok'=>true]:['error'=>'waf_not_found','status'=>404]; }
 
-    public function createCacheRule(string $siteId, array $body): array {
+    public function createCacheRule(string $domainId, array $body): array {
         if (array_key_exists('path_prefix', $body)) {
             $path = Validator::requiredString($body, 'path_prefix', 2048);
             if (($path['ok'] ?? false) !== true) { return $path; }
@@ -141,10 +141,10 @@ class TrafficRulesController
         }
         $ttl = Validator::intRange($body, 'ttl_seconds', 1, 31536000, 60);
         if (($ttl['ok'] ?? false) !== true) { return $ttl; }
-        return ['data' => $this->service->createCacheRule($siteId, $body)];
+        return ['data' => $this->service->createCacheRule($domainId, $body)];
     }
-    public function listCacheRules(string $siteId): array { return ['data' => $this->service->listCacheRules($siteId)]; }
-    public function updateWaf(string $siteId, string $id, array $body): array {
+    public function listCacheRules(string $domainId): array { return ['data' => $this->service->listCacheRules($domainId)]; }
+    public function updateWaf(string $domainId, string $id, array $body): array {
         if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
             return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains', 'status' => 422];
         }
@@ -158,10 +158,10 @@ class TrafficRulesController
             $priority = Validator::intRange($body, 'priority', 1, 100000);
             if (($priority['ok'] ?? false) !== true) { return $priority; }
         }
-        $r=$this->service->updateWaf($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'waf_not_found','status'=>404];
+        $r=$this->service->updateWaf($domainId,$id,$body); return $r?['data'=>$r]:['error'=>'waf_not_found','status'=>404];
     }
 
-    public function updateCacheRule(string $siteId, string $id, array $body): array {
+    public function updateCacheRule(string $domainId, string $id, array $body): array {
         if (array_key_exists('path_prefix', $body) && (!is_string($body['path_prefix']) || !str_starts_with((string) $body['path_prefix'], '/'))) {
             return ['error' => 'invalid_field', 'field' => 'path_prefix', 'detail' => 'must_start_with_slash', 'status' => 422];
         }
@@ -169,11 +169,11 @@ class TrafficRulesController
             $ttl = Validator::intRange($body, 'ttl_seconds', 1, 31536000);
             if (($ttl['ok'] ?? false) !== true) { return $ttl; }
         }
-        $r=$this->service->updateCacheRule($siteId,$id,$body); return $r?['data'=>$r]:['error'=>'cache_rule_not_found','status'=>404];
+        $r=$this->service->updateCacheRule($domainId,$id,$body); return $r?['data'=>$r]:['error'=>'cache_rule_not_found','status'=>404];
     }
-    public function deleteCacheRule(string $siteId, string $id): array { return $this->service->deleteCacheRule($siteId,$id)?['ok'=>true]:['error'=>'cache_rule_not_found','status'=>404]; }
-    public function getSiteCacheSettings(string $siteId): array { return ['data' => $this->service->getSiteCacheSettings($siteId)]; }
-    public function setSiteCacheSettings(string $siteId, array $body): array {
+    public function deleteCacheRule(string $domainId, string $id): array { return $this->service->deleteCacheRule($domainId,$id)?['ok'=>true]:['error'=>'cache_rule_not_found','status'=>404]; }
+    public function getDomainCacheSettings(string $domainId): array { return ['data' => $this->service->getDomainCacheSettings($domainId)]; }
+    public function setDomainCacheSettings(string $domainId, array $body): array {
         $enabled = Validator::bool($body, 'enabled', true);
         if (($enabled['ok'] ?? false) !== true) { return $enabled; }
         $edgeTtl = Validator::intRange($body, 'default_edge_ttl_seconds', 1, 31536000, 3600);
@@ -190,26 +190,26 @@ class TrafficRulesController
         if (($authorized['ok'] ?? false) !== true) { return $authorized; }
         $stale = Validator::intRange($body, 'stale_if_error_seconds', 0, 31536000, 86400);
         if (($stale['ok'] ?? false) !== true) { return $stale; }
-        return ['data' => $this->service->setSiteCacheSettings($siteId, $body)];
+        return ['data' => $this->service->setDomainCacheSettings($domainId, $body)];
     }
-    public function createCachePurgeRequest(string $siteId, array $body): array {
-        $type = Validator::enum($body, 'type', ['url', 'prefix', 'site', 'everything']);
+    public function createCachePurgeRequest(string $domainId, array $body): array {
+        $type = Validator::enum($body, 'type', ['url', 'prefix', 'domain', 'everything']);
         if (($type['ok'] ?? false) !== true || ($type['exists'] ?? false) !== true) {
-            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_url_prefix_site_everything', 'status' => 422];
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_url_prefix_domain_everything', 'status' => 422];
         }
         $value = Validator::optionalString($body, 'value', 4096);
         if (($value['ok'] ?? false) !== true) { return $value; }
         if (in_array((string) $type['value'], ['url', 'prefix'], true) && (($value['exists'] ?? false) !== true || (string) $value['value'] === '')) {
             return ['error' => 'invalid_field', 'field' => 'value', 'detail' => 'required_for_url_or_prefix', 'status' => 422];
         }
-        return ['data' => $this->service->createCachePurgeRequest($siteId, $body)];
+        return ['data' => $this->service->createCachePurgeRequest($domainId, $body)];
     }
-    public function listCachePurgeRequests(string $siteId): array { return ['data' => $this->service->listCachePurgeRequests($siteId)]; }
-    public function getCachePurgeRequest(string $siteId, string $id): array {
-        $row = $this->service->getCachePurgeRequest($siteId, $id);
+    public function listCachePurgeRequests(string $domainId): array { return ['data' => $this->service->listCachePurgeRequests($domainId)]; }
+    public function getCachePurgeRequest(string $domainId, string $id): array {
+        $row = $this->service->getCachePurgeRequest($domainId, $id);
         return $row ? ['data' => $row] : ['error' => 'cache_purge_request_not_found', 'status' => 404];
     }
-    public function createPageRule(string $siteId, array $body): array {
+    public function createPageRule(string $domainId, array $body): array {
         $pattern = Validator::requiredString($body, 'pattern', 2048);
         if (($pattern['ok'] ?? false) !== true) { return $pattern; }
         if (!str_starts_with((string) $pattern['value'], '/')) {
@@ -220,10 +220,10 @@ class TrafficRulesController
         if (!isset($body['actions']) || !is_array($body['actions'])) {
             return ['error' => 'invalid_field', 'field' => 'actions', 'detail' => 'must_be_object', 'status' => 422];
         }
-        return ['data' => $this->service->createPageRule($siteId, $body)];
+        return ['data' => $this->service->createPageRule($domainId, $body)];
     }
-    public function listPageRules(string $siteId): array { return ['data' => $this->service->listPageRules($siteId)]; }
-    public function updatePageRule(string $siteId, string $id, array $body): array {
+    public function listPageRules(string $domainId): array { return ['data' => $this->service->listPageRules($domainId)]; }
+    public function updatePageRule(string $domainId, string $id, array $body): array {
         if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || !str_starts_with((string) $body['pattern'], '/'))) {
             return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_start_with_slash', 'status' => 422];
         }
@@ -234,20 +234,20 @@ class TrafficRulesController
         if (array_key_exists('actions', $body) && !is_array($body['actions'])) {
             return ['error' => 'invalid_field', 'field' => 'actions', 'detail' => 'must_be_object', 'status' => 422];
         }
-        $row = $this->service->updatePageRule($siteId, $id, $body);
+        $row = $this->service->updatePageRule($domainId, $id, $body);
         return $row ? ['data' => $row] : ['error' => 'page_rule_not_found', 'status' => 404];
     }
-    public function deletePageRule(string $siteId, string $id): array { return $this->service->deletePageRule($siteId, $id) ? ['ok' => true] : ['error' => 'page_rule_not_found', 'status' => 404]; }
-    public function testPageRule(string $siteId, array $body): array {
+    public function deletePageRule(string $domainId, string $id): array { return $this->service->deletePageRule($domainId, $id) ? ['ok' => true] : ['error' => 'page_rule_not_found', 'status' => 404]; }
+    public function testPageRule(string $domainId, array $body): array {
         $path = Validator::requiredString($body, 'path', 2048);
         if (($path['ok'] ?? false) !== true) { return $path; }
         if (!str_starts_with((string) $path['value'], '/')) {
             return ['error' => 'invalid_field', 'field' => 'path', 'detail' => 'must_start_with_slash', 'status' => 422];
         }
-        return ['data' => $this->service->testPageRule($siteId, (string) $path['value'])];
+        return ['data' => $this->service->testPageRule($domainId, (string) $path['value'])];
     }
-    public function listSslCertificates(string $siteId): array { return ['data' => $this->service->listSslCertificates($siteId)]; }
-    public function requestSslCertificate(string $siteId, array $body): array {
+    public function listSslCertificates(string $domainId): array { return ['data' => $this->service->listSslCertificates($domainId)]; }
+    public function requestSslCertificate(string $domainId, array $body): array {
         $hostnames = [];
         if (array_key_exists('hostnames', $body)) {
             if (!is_array($body['hostnames'])) {
@@ -261,14 +261,14 @@ class TrafficRulesController
             }
         }
         try {
-            return ['data' => $this->service->requestSslCertificate($siteId, $hostnames)];
+            return ['data' => $this->service->requestSslCertificate($domainId, $hostnames)];
         } catch (\OutOfBoundsException) {
-            return ['error' => 'site_not_found', 'status' => 404];
+            return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {
             return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
         }
     }
-    public function checkSslCertificates(string $siteId, array $body): array {
+    public function checkSslCertificates(string $domainId, array $body): array {
         $hostnames = [];
         if (array_key_exists('hostnames', $body)) {
             if (!is_array($body['hostnames'])) {
@@ -281,9 +281,9 @@ class TrafficRulesController
                 $hostnames[] = strtolower(trim($h));
             }
         }
-        return ['data' => $this->service->checkSslCertificates($siteId, $hostnames)];
+        return ['data' => $this->service->checkSslCertificates($domainId, $hostnames)];
     }
-    public function issueAcmeCertificate(string $siteId, array $body): array {
+    public function issueAcmeCertificate(string $domainId, array $body): array {
         $hostnames = [];
         if (array_key_exists('hostnames', $body)) {
             if (!is_array($body['hostnames'])) {
@@ -297,9 +297,9 @@ class TrafficRulesController
             }
         }
         try {
-            return ['data' => (new AcmeIssuerService($this->service))->issue($siteId, $hostnames)];
+            return ['data' => (new AcmeIssuerService($this->service))->issue($domainId, $hostnames)];
         } catch (\OutOfBoundsException) {
-            return ['error' => 'site_not_found', 'status' => 404];
+            return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {
             return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
         } catch (\InvalidArgumentException $e) {
@@ -308,7 +308,7 @@ class TrafficRulesController
             return ['error' => 'acme_issue_failed', 'detail' => $e->getMessage(), 'status' => 502];
         }
     }
-    public function listSecurityEvents(string $siteId, array $query): array {
+    public function listSecurityEvents(string $domainId, array $query): array {
         $type = null;
         if (array_key_exists('type', $query) && is_string($query['type']) && trim((string) $query['type']) !== '') {
             $type = trim((string) $query['type']);
@@ -317,9 +317,9 @@ class TrafficRulesController
         if (array_key_exists('limit', $query) && is_string($query['limit']) && ctype_digit($query['limit'])) {
             $limit = (int) $query['limit'];
         }
-        return ['data' => $this->service->listSecurityEvents($siteId, $type, $limit)];
+        return ['data' => $this->service->listSecurityEvents($domainId, $type, $limit)];
     }
-    public function importManualSslCertificate(string $siteId, array $body): array {
+    public function importManualSslCertificate(string $domainId, array $body): array {
         if (!Secrets::isConfigured()) {
             return ['error' => 'invalid_field', 'field' => 'CDNLITE_SSL_SECRET_KEY', 'detail' => 'missing_required_env', 'status' => 422];
         }
@@ -331,7 +331,7 @@ class TrafficRulesController
         if (($key['ok'] ?? false) !== true) { return $key; }
         try {
             return ['data' => $this->service->importManualSslCertificate(
-                $siteId,
+                $domainId,
                 strtolower((string) $hostname['value']),
                 (string) $cert['value'],
                 (string) $key['value']

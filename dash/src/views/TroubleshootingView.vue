@@ -36,12 +36,12 @@ import { computed, reactive, ref } from 'vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { healthApi } from '@/lib/api/health';
 import { edgesApi } from '@/lib/api/edges';
-import { sitesApi } from '@/lib/api/sites';
+import { domainsApi } from '@/lib/api/domains';
 import { sslApi } from '@/lib/api/ssl';
 import { purgeApi } from '@/lib/api/purge';
-import { loadSecurityEventsForSites } from '@/lib/api/securityEvents';
+import { loadSecurityEventsForDomains } from '@/lib/api/securityEvents';
 import { heartbeatStatus, sslRisk } from '@/lib/utils/diagnostics';
-import type { Site } from '@/types';
+import type { Domain } from '@/types';
 
 type CheckStatus = 'unknown' | 'healthy' | 'warning' | 'critical' | 'info';
 type Check = { key: string; title: string; status: CheckStatus; summary: string; fix: string; result?: unknown };
@@ -63,14 +63,14 @@ async function runDiagnostics() {
   running.value = true;
   error.value = '';
   try {
-    const [coreHealth, coreReady, edgeReady, sitesResult, edgesResult] = await Promise.allSettled([
+    const [coreHealth, coreReady, edgeReady, domainsResult, edgesResult] = await Promise.allSettled([
       healthApi.coreHealth(),
       healthApi.coreReady(),
       healthApi.edgeReady(),
-      sitesApi.list(),
+      domainsApi.list(),
       edgesApi.list(),
     ]);
-    const sites = sitesResult.status === 'fulfilled' ? sitesResult.value : ([] as Site[]);
+    const domains = domainsResult.status === 'fulfilled' ? domainsResult.value : ([] as Domain[]);
     const edges = edgesResult.status === 'fulfilled' ? edgesResult.value : [];
     update('core', coreHealth.status === 'fulfilled' && coreReady.status === 'fulfilled' && coreHealth.value.ok && coreReady.value.ok ? 'healthy' : 'critical', `Health: ${resultSummary(coreHealth)}. Ready: ${resultSummary(coreReady)}.`, { coreHealth, coreReady });
     update('database', coreReady.status === 'fulfilled' && coreReady.value.ok ? 'healthy' : 'critical', coreReady.status === 'fulfilled' ? 'Core ready check passed.' : 'Core ready failed; database or schema may be unavailable.', coreReady);
@@ -78,9 +78,9 @@ async function runDiagnostics() {
     update('edge', edgeReady.status === 'fulfilled' && edgeReady.value.ok && staleEdges.length === 0 ? 'healthy' : 'warning', `${edges.length} edge node(s), ${staleEdges.length} stale/offline. Edge ready: ${resultSummary(edgeReady)}.`, { edgeReady, edges });
 
     const [security, ssl, purges] = await Promise.allSettled([
-      loadSecurityEventsForSites(sites),
-      loadSsl(sites),
-      loadPurges(sites),
+      loadSecurityEventsForDomains(domains),
+      loadSsl(domains),
+      loadPurges(domains),
     ]);
     const securityEvents = security.status === 'fulfilled' ? security.value : [];
     const certs = ssl.status === 'fulfilled' ? ssl.value : [];
@@ -97,13 +97,13 @@ async function runDiagnostics() {
   }
 }
 
-async function loadSsl(sites: Site[]) {
-  const results = await Promise.allSettled(sites.map((site) => sslApi.certificates(site.id)));
+async function loadSsl(domains: Domain[]) {
+  const results = await Promise.allSettled(domains.map((domain) => sslApi.certificates(domain.id)));
   return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
 }
 
-async function loadPurges(sites: Site[]) {
-  const results = await Promise.allSettled(sites.map((site) => purgeApi.list(site.id)));
+async function loadPurges(domains: Domain[]) {
+  const results = await Promise.allSettled(domains.map((domain) => purgeApi.list(domain.id)));
   return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
 }
 

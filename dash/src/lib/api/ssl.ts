@@ -1,9 +1,9 @@
 import { api } from './client';
 import type { ManualCertificateInput, SslCertificate } from '@/types';
 export const sslApi = {
-  certificates: (siteId: string) => api.get<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/certificates`),
-  request: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/request`, input ?? {}),
-  issueAcme: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/acme/issue`, input ?? {}),
-  check: (siteId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/sites/${siteId}/ssl/check`, input ?? {}),
-  manualCertificate: (siteId: string, input: ManualCertificateInput) => api.post<SslCertificate>(`/api/v1/sites/${siteId}/ssl/manual-certificate`, input),
+  certificates: (domainId: string) => api.get<SslCertificate[]>(`/api/v1/domains/${domainId}/ssl/certificates`),
+  request: (domainId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/domains/${domainId}/ssl/request`, input ?? {}),
+  issueAcme: (domainId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/domains/${domainId}/ssl/acme/issue`, input ?? {}),
+  check: (domainId: string, input?: { hostnames?: string[] }) => api.post<SslCertificate[]>(`/api/v1/domains/${domainId}/ssl/check`, input ?? {}),
+  manualCertificate: (domainId: string, input: ManualCertificateInput) => api.post<SslCertificate>(`/api/v1/domains/${domainId}/ssl/manual-certificate`, input),
 };

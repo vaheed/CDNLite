@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\CommandIO;
 
-class CdnSiteCreateCommand
+class CdnDomainCreateCommand
 {
     public function __invoke(array $argv): int
     {
@@ -17,7 +17,7 @@ class CdnSiteCreateCommand
             }
         }
 
-        $site = (new SiteService())->create([
+        $domain = (new DomainService())->create([
             'name' => $opts['name'],
             'domain' => $opts['domain'],
             'origin_host' => $opts['origin_host'],
@@ -28,7 +28,7 @@ class CdnSiteCreateCommand
             'user_id' => isset($opts['user_id']) ? (string) $opts['user_id'] : null,
         ]);
 
-        CommandIO::printJson(['data' => $site]);
+        CommandIO::printJson(['data' => $domain]);
         return 0;
     }
 

@@ -9,7 +9,7 @@ If you are reading this on GitHub Pages, start here for the fastest path.
 - [Quick Start](quick-start.md)
 - [Project Overview](project-overview.md)
 - [Production Readiness](production-readiness.md)
-- [Website CDN Features](website-cdn-features.md)
+- [Webdomain CDN Features](website-cdn-features.md)
 
 ## Core References
 

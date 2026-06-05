@@ -9,7 +9,7 @@ class CollectorService
 {
     private ?bool $usageRollupCacheColumnsAvailable = null;
     /** @var array<string,bool> */
-    private array $knownSiteIds = [];
+    private array $knownDomainIds = [];
     /** @var array<string,int> */
     private array $bucketSeconds = [
         'minute' => 60,
@@ -39,28 +39,28 @@ class CollectorService
         $pdo->beginTransaction();
         $stmt = $this->usageRollupCacheColumnsAvailable()
             ? $pdo->prepare(
-                'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status, rule_id, request_id, origin_status, origin_time_ms)
-                 VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms)'
+                'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status, rule_id, request_id, origin_status, origin_time_ms)
+                 VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms)'
             )
             : $pdo->prepare(
-                'INSERT INTO usage_rollups (id, ts, site_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
-                 VALUES (:id, :ts, :site_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
+                'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
+                 VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
             );
 
         $count = 0;
-        $skippedUnknownSites = 0;
+        $skippedUnknownDomains = 0;
         try {
             foreach ($items as $item) {
-                $siteId = (string) ($item['site_id'] ?? '');
-                if (!$this->siteExists($siteId)) {
-                    $skippedUnknownSites++;
+                $domainId = (string) ($item['domain_id'] ?? '');
+                if (!$this->domainExists($domainId)) {
+                    $skippedUnknownDomains++;
                     continue;
                 }
 
                 $params = [
                     ':id' => Uuid::v4(),
                     ':ts' => (int) ($item['ts'] ?? $now),
-                    ':site_id' => $siteId,
+                    ':domain_id' => $domainId,
                     ':edge_node_id' => (string) ($item['edge_node_id'] ?? ''),
                     ':requests_count' => (int) ($item['requests_count'] ?? 0),
                     ':bytes_in' => (int) ($item['bytes_in'] ?? 0),
@@ -98,7 +98,7 @@ class CollectorService
 
         return [
             'ingested' => $count,
-            'skipped_unknown_sites' => $skippedUnknownSites,
+            'skipped_unknown_domains' => $skippedUnknownDomains,
             'duplicate' => false,
             'idempotency_key' => $idempotencyKey,
         ];
@@ -118,17 +118,17 @@ class CollectorService
         }
         $pdo->beginTransaction();
         $count = 0;
-        $skippedUnknownSites = 0;
-        $stmt = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
+        $skippedUnknownDomains = 0;
+        $stmt = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:domain_id,:details_json,:event,:created_at)');
         try {
             foreach ($items as $item) {
                 $event = (string) ($item['type'] ?? '');
                 if (!in_array($event, ['waf_match', 'rate_limited'], true)) {
                     continue;
                 }
-                $siteId = (string) ($item['site_id'] ?? '');
-                if (!$this->siteExists($siteId)) {
-                    $skippedUnknownSites++;
+                $domainId = (string) ($item['domain_id'] ?? '');
+                if (!$this->domainExists($domainId)) {
+                    $skippedUnknownDomains++;
                     continue;
                 }
                 $stmt->execute([
@@ -138,7 +138,7 @@ class CollectorService
                     ':action' => 'inspect',
                     ':resource_type' => $event === 'waf_match' ? 'waf' : 'rate_limit',
                     ':resource_id' => (string) ($item['rule_id'] ?? ''),
-                    ':site_id' => $siteId,
+                    ':domain_id' => $domainId,
                     ':details_json' => json_encode(['decision' => (string) ($item['action'] ?? ''), 'request_id' => (string) ($item['request_id'] ?? ''), 'path' => (string) ($item['path'] ?? ''), 'method' => (string) ($item['method'] ?? ''), 'client_ip' => (string) ($item['client_ip'] ?? '')], JSON_UNESCAPED_SLASHES),
                     ':event' => $event,
                     ':created_at' => (int) ($item['ts'] ?? $now),
@@ -154,10 +154,10 @@ class CollectorService
             $pdo->rollBack();
             throw $e;
         }
-        return ['ingested' => $count, 'skipped_unknown_sites' => $skippedUnknownSites, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
+        return ['ingested' => $count, 'skipped_unknown_domains' => $skippedUnknownDomains, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
     }
 
-    public function summary(?string $siteId = null, ?string $bucket = null): array
+    public function summary(?string $domainId = null, ?string $bucket = null): array
     {
         $pdo = Database::pdo();
         if ($bucket !== null) {
@@ -169,16 +169,16 @@ class CollectorService
                     'records' => 0,
                 ];
             }
-            if ($siteId !== null) {
+            if ($domainId !== null) {
                 $stmt = $pdo->prepare(
                     'SELECT COALESCE(SUM(requests_count),0) requests_count,
                             COALESCE(SUM(bytes_in),0) bytes_in,
                             COALESCE(SUM(bytes_out),0) bytes_out,
                             COUNT(*) records
                     FROM usage_aggregates
-                    WHERE bucket = :bucket AND site_id = :site_id'
+                    WHERE bucket = :bucket AND domain_id = :domain_id'
                 );
-                $stmt->execute([':bucket' => $bucket, ':site_id' => $siteId]);
+                $stmt->execute([':bucket' => $bucket, ':domain_id' => $domainId]);
             } else {
                 $stmt = $pdo->prepare(
                     'SELECT COALESCE(SUM(requests_count),0) requests_count,
@@ -200,15 +200,15 @@ class CollectorService
             ];
         }
 
-        if ($siteId !== null) {
+        if ($domainId !== null) {
             $stmt = $pdo->prepare(
                 'SELECT COALESCE(SUM(requests_count),0) requests_count,
                         COALESCE(SUM(bytes_in),0) bytes_in,
                         COALESCE(SUM(bytes_out),0) bytes_out,
                         COUNT(*) records
-                 FROM usage_rollups WHERE site_id = :site_id'
+                 FROM usage_rollups WHERE domain_id = :domain_id'
             );
-            $stmt->execute([':site_id' => $siteId]);
+            $stmt->execute([':domain_id' => $domainId]);
         } else {
             $stmt = $pdo->query(
                 'SELECT COALESCE(SUM(requests_count),0) requests_count,
@@ -228,29 +228,29 @@ class CollectorService
         ];
     }
 
-    public function rebuildAggregates(?string $siteId = null): array
+    public function rebuildAggregates(?string $domainId = null): array
     {
         $pdo = Database::pdo();
         $now = time();
         $pdo->beginTransaction();
         try {
-            if ($siteId !== null) {
-                $deleteStmt = $pdo->prepare('DELETE FROM usage_aggregates WHERE site_id = :site_id');
-                $deleteStmt->execute([':site_id' => $siteId]);
+            if ($domainId !== null) {
+                $deleteStmt = $pdo->prepare('DELETE FROM usage_aggregates WHERE domain_id = :domain_id');
+                $deleteStmt->execute([':domain_id' => $domainId]);
             } else {
                 $pdo->exec('DELETE FROM usage_aggregates');
             }
 
             $inserted = [];
             foreach ($this->bucketSeconds as $bucket => $seconds) {
-                $where = $siteId !== null ? 'WHERE site_id = :site_id' : '';
+                $where = $domainId !== null ? 'WHERE domain_id = :domain_id' : '';
                 $sql = sprintf(
                     'INSERT INTO usage_aggregates
-                    (id, bucket, bucket_ts, site_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
-                    SELECT md5((:bucket || \':\' || ((ts / %d) * %d) || \':\' || site_id || \':\' || edge_node_id || \':\' || status)::text),
+                    (id, bucket, bucket_ts, domain_id, edge_node_id, status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+                    SELECT md5((:bucket || \':\' || ((ts / %d) * %d) || \':\' || domain_id || \':\' || edge_node_id || \':\' || status)::text),
                            :bucket,
                            (ts / %d) * %d AS bucket_ts,
-                           site_id,
+                           domain_id,
                            edge_node_id,
                            status,
                            COALESCE(SUM(requests_count),0) AS requests_count,
@@ -260,7 +260,7 @@ class CollectorService
                            :now
                     FROM usage_rollups
                     %s
-                    GROUP BY bucket_ts, site_id, edge_node_id, status',
+                    GROUP BY bucket_ts, domain_id, edge_node_id, status',
                     $seconds,
                     $seconds,
                     $seconds,
@@ -269,8 +269,8 @@ class CollectorService
                 );
                 $stmt = $pdo->prepare($sql);
                 $params = [':bucket' => $bucket, ':now' => $now];
-                if ($siteId !== null) {
-                    $params[':site_id'] = $siteId;
+                if ($domainId !== null) {
+                    $params[':domain_id'] = $domainId;
                 }
                 $stmt->execute($params);
                 $inserted[$bucket] = $stmt->rowCount();
@@ -279,7 +279,7 @@ class CollectorService
             $pdo->commit();
             return [
                 'ok' => true,
-                'site_id' => $siteId,
+                'domain_id' => $domainId,
                 'inserted' => $inserted,
             ];
         } catch (\Throwable $e) {
@@ -288,7 +288,7 @@ class CollectorService
         }
     }
 
-    public function cacheAnalytics(string $siteId): array
+    public function cacheAnalytics(string $domainId): array
     {
         $pdo = Database::pdo();
         if (!$this->usageRollupCacheColumnsAvailable()) {
@@ -303,14 +303,14 @@ class CollectorService
                 SUM(CASE WHEN cache_status = :bypass THEN requests_count ELSE 0 END) AS bypass,
                 SUM(CASE WHEN cache_status = :stale THEN requests_count ELSE 0 END) AS stale
              FROM usage_rollups
-             WHERE site_id = :site_id'
+             WHERE domain_id = :domain_id'
         );
         $stmt->execute([
             ':hit' => 'HIT',
             ':miss' => 'MISS',
             ':bypass' => 'BYPASS',
             ':stale' => 'STALE',
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
         ]);
         $row = (array) $stmt->fetch();
         $requests = (int) ($row['requests'] ?? 0);
@@ -345,17 +345,17 @@ class CollectorService
         return $this->usageRollupCacheColumnsAvailable;
     }
 
-    private function siteExists(string $siteId): bool
+    private function domainExists(string $domainId): bool
     {
-        if ($siteId === '') {
+        if ($domainId === '') {
             return false;
         }
-        if (array_key_exists($siteId, $this->knownSiteIds)) {
-            return $this->knownSiteIds[$siteId];
+        if (array_key_exists($domainId, $this->knownDomainIds)) {
+            return $this->knownDomainIds[$domainId];
         }
-        $stmt = Database::pdo()->prepare('SELECT 1 FROM sites WHERE id = :site_id LIMIT 1');
-        $stmt->execute([':site_id' => $siteId]);
-        $this->knownSiteIds[$siteId] = $stmt->fetchColumn() !== false;
-        return $this->knownSiteIds[$siteId];
+        $stmt = Database::pdo()->prepare('SELECT 1 FROM domains WHERE id = :domain_id LIMIT 1');
+        $stmt->execute([':domain_id' => $domainId]);
+        $this->knownDomainIds[$domainId] = $stmt->fetchColumn() !== false;
+        return $this->knownDomainIds[$domainId];
     }
 }

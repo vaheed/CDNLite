@@ -2,11 +2,11 @@
 
 [Back to docs index](index.md)
 
-CDNLite is a compact CDN control-plane and edge-runtime example. It solves the basic platform loop: define sites and DNS records, publish edge configuration, route traffic at the edge, collect request metrics, and summarize usage.
+CDNLite is a compact CDN control-plane and edge-runtime example. It solves the basic platform loop: define domains and DNS records, publish edge configuration, route traffic at the edge, collect request metrics, and summarize usage.
 
 ## Control Plane Vs Data Plane
 
-The control plane is `core/`. It is authoritative for sites, DNS records, edge nodes, tokens, config versions, usage rollups, and aggregate summaries. It exposes HTTP APIs and CLI commands.
+The control plane is `core/`. It is authoritative for domains, DNS records, edge nodes, tokens, config versions, usage rollups, and aggregate summaries. It exposes HTTP APIs and CLI commands.
 
 The data plane is `edge/openresty/`. It does not connect to PostgreSQL. It reads `/var/lib/cdnlite/config.json`, matches the request `Host`, selects an upstream, proxies the request, and writes metrics.
 
@@ -23,11 +23,11 @@ The data plane is `edge/openresty/`. It does not connect to PostgreSQL. It reads
 
 ## PostgreSQL State
 
-PostgreSQL stores `sites`, `dns_records`, `edge_nodes`, `edge_tokens`, replay nonces, raw usage rollups, idempotency keys, aggregate buckets, config version state, and stored config snapshots.
+PostgreSQL stores `domains`, `dns_records`, `edge_nodes`, `edge_tokens`, replay nonces, raw usage rollups, idempotency keys, aggregate buckets, config version state, and stored config snapshots.
 
 ## Config Sync
 
-Core builds a snapshot from all proxy-enabled sites. Each host entry contains `site_id`, default upstream, optional geo upstreams, headers, and DNS records. Snapshot top-level `cache_rules` contains enabled per-site cache rules with `host`, `path_prefix`, and `ttl_seconds`. Snapshots are versioned by deterministic content hash. Unchanged content reuses a previous version.
+Core builds a snapshot from all proxy-enabled domains. Each host entry contains `domain_id`, default upstream, optional geo upstreams, headers, and DNS records. Snapshot top-level `cache_rules` contains enabled per-domain cache rules with `host`, `path_prefix`, and `ttl_seconds`. Snapshots are versioned by deterministic content hash. Unchanged content reuses a previous version.
 
 ## Usage Ingest
 

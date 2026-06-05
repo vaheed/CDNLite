@@ -10,14 +10,14 @@ class CdnDnsDeleteRecordCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['site_id'] ?? ''));
+        $domainId = trim((string) ($opts['domain_id'] ?? ''));
         $recordId = trim((string) ($opts['record_id'] ?? ''));
-        if ($siteId === '' || $recordId === '') {
-            fwrite(STDERR, "Missing --site_id or --record_id\n");
+        if ($domainId === '' || $recordId === '') {
+            fwrite(STDERR, "Missing --domain_id or --record_id\n");
             return 1;
         }
 
-        $ok = (new DnsService())->delete($siteId, $recordId);
+        $ok = (new DnsService())->delete($domainId, $recordId);
         if (!$ok) {
             fwrite(STDERR, "Record not found\n");
             return 1;

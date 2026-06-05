@@ -84,7 +84,7 @@ function M.render(code)
           </ul>
         </div>
         <div class="box">
-          <h3>For Website Owners</h3>
+          <h3>For Webdomain Owners</h3>
           <ul>
             <li>Check origin server</li>
             <li>Check DNS records</li>

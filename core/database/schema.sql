@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS sites (
+CREATE TABLE IF NOT EXISTS domains (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS sites (
 
 CREATE TABLE IF NOT EXISTS dns_records (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   type TEXT NOT NULL,
   name TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS dns_records (
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS edge_nodes (
@@ -56,17 +56,6 @@ CREATE TABLE IF NOT EXISTS edge_nodes (
   health_status TEXT NOT NULL DEFAULT 'unknown',
   weight INTEGER NOT NULL DEFAULT 100,
   priority INTEGER NOT NULL DEFAULT 100,
-  created_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS geo_policies (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  type TEXT NOT NULL,
-  config_json TEXT NOT NULL,
-  policy_hash TEXT NOT NULL UNIQUE,
-  is_default BOOLEAN NOT NULL DEFAULT false,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
@@ -120,7 +109,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   action TEXT NOT NULL,
   resource_type TEXT NOT NULL,
   resource_id TEXT NULL,
-  site_id TEXT NULL,
+  domain_id TEXT NULL,
   details_json TEXT NULL,
   event TEXT NULL,
   before_json TEXT NULL,
@@ -151,7 +140,7 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
 CREATE TABLE IF NOT EXISTS usage_rollups (
   id TEXT PRIMARY KEY,
   ts BIGINT NOT NULL,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   edge_node_id TEXT NOT NULL,
   requests_count BIGINT NOT NULL,
   bytes_in BIGINT NOT NULL,
@@ -162,7 +151,7 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   request_id TEXT NULL,
   origin_status INTEGER NULL,
   origin_time_ms INTEGER NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS usage_ingest_keys (
@@ -175,7 +164,7 @@ CREATE TABLE IF NOT EXISTS usage_aggregates (
   id TEXT PRIMARY KEY,
   bucket TEXT NOT NULL,
   bucket_ts BIGINT NOT NULL,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   edge_node_id TEXT NOT NULL,
   status INTEGER NOT NULL,
   requests_count BIGINT NOT NULL,
@@ -183,8 +172,8 @@ CREATE TABLE IF NOT EXISTS usage_aggregates (
   bytes_out BIGINT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(bucket, bucket_ts, site_id, edge_node_id, status),
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  UNIQUE(bucket, bucket_ts, domain_id, edge_node_id, status),
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS config_state (
@@ -205,7 +194,7 @@ CREATE TABLE IF NOT EXISTS config_snapshots (
 
 CREATE TABLE IF NOT EXISTS redirect_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT true,
   source_path TEXT NOT NULL,
   target_url TEXT NOT NULL,
@@ -215,22 +204,12 @@ CREATE TABLE IF NOT EXISTS redirect_rules (
   preserve_query BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS rate_limit_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL UNIQUE,
-  enabled BOOLEAN NOT NULL DEFAULT true,
-  requests_per_minute INTEGER NOT NULL,
-  created_at BIGINT NOT NULL,
-  updated_at BIGINT NOT NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS rate_limit_rules_v2 (
-  id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   enabled BOOLEAN NOT NULL DEFAULT true,
   priority INTEGER NOT NULL DEFAULT 100,
   path_prefix TEXT NOT NULL DEFAULT '/',
@@ -243,7 +222,7 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules_v2 (
 
 CREATE TABLE IF NOT EXISTS waf_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT true,
   name TEXT NULL,
   priority INTEGER NOT NULL DEFAULT 100,
@@ -253,22 +232,22 @@ CREATE TABLE IF NOT EXISTS waf_rules (
   description TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS cache_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL,
+  domain_id TEXT NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT true,
   path_prefix TEXT NOT NULL,
   ttl_seconds INTEGER NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  FOREIGN KEY(site_id) REFERENCES sites(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS site_cache_settings (
-  site_id TEXT PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS domain_cache_settings (
+  domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
   enabled BOOLEAN NOT NULL DEFAULT true,
   default_edge_ttl_seconds INTEGER NOT NULL DEFAULT 3600,
   default_browser_ttl_seconds INTEGER NULL,
@@ -282,7 +261,7 @@ CREATE TABLE IF NOT EXISTS site_cache_settings (
 
 CREATE TABLE IF NOT EXISTS cache_purge_requests (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   value TEXT NULL,
   status TEXT NOT NULL,
@@ -296,17 +275,17 @@ CREATE TABLE IF NOT EXISTS cache_purge_requests (
 
 CREATE TABLE IF NOT EXISTS cache_purge_versions (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   scope TEXT NOT NULL,
   value TEXT NOT NULL,
   version BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(site_id, scope, value)
+  UNIQUE(domain_id, scope, value)
 );
 
 CREATE TABLE IF NOT EXISTS page_rules (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   enabled BOOLEAN NOT NULL DEFAULT true,
   priority INTEGER NOT NULL DEFAULT 100,
   pattern TEXT NOT NULL,
@@ -317,7 +296,7 @@ CREATE TABLE IF NOT EXISTS page_rules (
 
 CREATE TABLE IF NOT EXISTS ssl_certificates (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   hostname TEXT NOT NULL,
   provider TEXT NOT NULL DEFAULT 'manual',
   status TEXT NOT NULL,
@@ -333,7 +312,7 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
   private_key_pem TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(site_id, hostname)
+  UNIQUE(domain_id, hostname)
 );
 
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;

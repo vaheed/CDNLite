@@ -12,19 +12,19 @@ A config snapshot is the JSON payload core returns from `GET /api/v1/edge/config
   "generated_at": 1710000000,
   "hosts": {
     "demo.local": {
-      "site_id": "11111111-1111-4111-8111-111111111111",
+      "domain_id": "11111111-1111-4111-8111-111111111111",
       "upstream": "http://core:8080",
       "geo_upstreams": {
         "DEFAULT": "http://core:8080",
         "IR": "http://core:8080"
       },
       "headers": {
-        "X-CDNLITE-Site": "11111111-1111-4111-8111-111111111111"
+        "X-CDNLITE-Domain": "11111111-1111-4111-8111-111111111111"
       },
       "dns_records": [
         {
           "id": "22222222-2222-4222-8222-222222222222",
-          "site_id": "11111111-1111-4111-8111-111111111111",
+          "domain_id": "11111111-1111-4111-8111-111111111111",
           "type": "A",
           "name": "@",
           "content": "127.0.0.1",
@@ -41,9 +41,9 @@ A config snapshot is the JSON payload core returns from `GET /api/v1/edge/config
   "cache_rules": [
     {
       "id": "44444444-4444-4444-8444-444444444444",
-      "site_id": "11111111-1111-4111-8111-111111111111",
+      "domain_id": "11111111-1111-4111-8111-111111111111",
       "enabled": true,
-      "path_prefix": "/api/v1/sites",
+      "path_prefix": "/api/v1/domains",
       "ttl_seconds": 60,
       "created_at": 1710000000,
       "updated_at": 1710000000,

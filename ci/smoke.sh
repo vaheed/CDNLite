@@ -51,13 +51,13 @@ retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-connectivity" "postgres reachable"
 
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
-  no_auth_code="$(curl -sS -o /tmp/smoke-auth.txt -w '%{http_code}' "${CORE_URL}/api/v1/sites")"
+  no_auth_code="$(curl -sS -o /tmp/smoke-auth.txt -w '%{http_code}' "${CORE_URL}/api/v1/domains")"
   assert_eq "$no_auth_code" "401" "control-plane endpoint should require bearer auth when token is configured"
-  record_step PASS "api-auth-negative" "unauthenticated /api/v1/sites returned 401"
+  record_step PASS "api-auth-negative" "unauthenticated /api/v1/domains returned 401"
 
-  api_get "${CORE_URL}/api/v1/sites"
-  assert_http_status "$HTTP_CODE" "200" "authenticated site list failed"
-  record_step PASS "api-auth-positive" "authenticated /api/v1/sites returned 200"
+  api_get "${CORE_URL}/api/v1/domains"
+  assert_http_status "$HTTP_CODE" "200" "authenticated domain list failed"
+  record_step PASS "api-auth-positive" "authenticated /api/v1/domains returned 200"
 fi
 
 # Initialize core DB schema explicitly before table assertions.
@@ -75,11 +75,11 @@ if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
 fi
 
 required_tables=(
-  sites dns_records edge_nodes edge_tokens edge_request_nonces
+  domains dns_records edge_nodes edge_tokens edge_request_nonces
   admin_users admin_sessions
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
-  site_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
-  rate_limit_rules_v2 audit_log
+  domain_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
+  rate_limit_rules audit_log
 )
 for t in "${required_tables[@]}"; do
   count="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='${t}';")"

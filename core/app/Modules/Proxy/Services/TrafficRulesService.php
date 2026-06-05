@@ -11,8 +11,8 @@ class TrafficRulesService
     private ?bool $redirectV2ColumnsAvailable = null;
     private ?bool $rateLimitV2TableAvailable = null;
 
-    public function listRedirects(string $siteId): array { return $this->listRows('redirect_rules', $siteId); }
-    public function createRedirect(string $siteId, array $in): array {
+    public function listRedirects(string $domainId): array { return $this->listRows('redirect_rules', $domainId); }
+    public function createRedirect(string $domainId, array $in): array {
         $status = (int)($in['status_code'] ?? 302);
         if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
         $payload = [
@@ -26,9 +26,9 @@ class TrafficRulesService
             $payload['match_type'] = (string) ($in['match_type'] ?? 'exact_path');
             $payload['preserve_query'] = array_key_exists('preserve_query', $in) ? !empty($in['preserve_query']) : true;
         }
-        return $this->insert('redirect_rules', $siteId, $payload);
+        return $this->insert('redirect_rules', $domainId, $payload);
     }
-    public function updateRedirect(string $siteId, string $id, array $in): ?array {
+    public function updateRedirect(string $domainId, string $id, array $in): ?array {
         if (array_key_exists('status_code', $in)) {
             $status = (int) $in['status_code'];
             if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
@@ -37,24 +37,24 @@ class TrafficRulesService
         if (!$this->redirectV2Supported()) {
             unset($in['priority'], $in['match_type'], $in['preserve_query']);
         }
-        return $this->update('redirect_rules', $siteId, $id, $in);
+        return $this->update('redirect_rules', $domainId, $id, $in);
     }
-    public function deleteRedirect(string $siteId, string $id): bool { return $this->delete('redirect_rules', $siteId, $id); }
-    public function importRedirects(string $siteId, array $items): array {
+    public function deleteRedirect(string $domainId, string $id): bool { return $this->delete('redirect_rules', $domainId, $id); }
+    public function importRedirects(string $domainId, array $items): array {
         $out = [];
         foreach ($items as $item) {
             if (!is_array($item)) {
                 continue;
             }
-            $out[] = $this->createRedirect($siteId, $item);
+            $out[] = $this->createRedirect($domainId, $item);
         }
         return $out;
     }
-    public function exportRedirects(string $siteId): array {
-        return $this->listRedirects($siteId);
+    public function exportRedirects(string $domainId): array {
+        return $this->listRedirects($domainId);
     }
-    public function testRedirect(string $siteId, string $path, string $query = ''): ?array {
-        $rules = $this->listRedirects($siteId);
+    public function testRedirect(string $domainId, string $path, string $query = ''): ?array {
+        $rules = $this->listRedirects($domainId);
         usort($rules, static fn (array $a, array $b): int => ((int) ($a['priority'] ?? 100)) <=> ((int) ($b['priority'] ?? 100)));
         foreach ($rules as $rule) {
             if (empty($rule['enabled'])) {
@@ -83,13 +83,13 @@ class TrafficRulesService
         return null;
     }
 
-    public function listWaf(string $siteId): array { return $this->listRows('waf_rules', $siteId); }
-    public function createWaf(string $siteId, array $in): array {
+    public function listWaf(string $domainId): array { return $this->listRows('waf_rules', $domainId); }
+    public function createWaf(string $domainId, array $in): array {
         $type = (string)($in['type'] ?? '');
         if (!in_array($type, ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) { throw new \InvalidArgumentException('invalid_type'); }
         $action = (string)($in['action'] ?? 'block');
         if (!in_array($action, ['block', 'log', 'allow'], true)) { throw new \InvalidArgumentException('invalid_action'); }
-        return $this->insert('waf_rules', $siteId, [
+        return $this->insert('waf_rules', $domainId, [
             'enabled' => !empty($in['enabled']),
             'name' => isset($in['name']) ? (string) $in['name'] : null,
             'priority' => (int) ($in['priority'] ?? 100),
@@ -99,32 +99,32 @@ class TrafficRulesService
             'description' => isset($in['description']) ? (string) $in['description'] : null,
         ]);
     }
-    public function updateWaf(string $siteId, string $id, array $in): ?array { return $this->update('waf_rules', $siteId, $id, $in); }
-    public function deleteWaf(string $siteId, string $id): bool { return $this->delete('waf_rules', $siteId, $id); }
+    public function updateWaf(string $domainId, string $id, array $in): ?array { return $this->update('waf_rules', $domainId, $id, $in); }
+    public function deleteWaf(string $domainId, string $id): bool { return $this->delete('waf_rules', $domainId, $id); }
 
-    public function listCacheRules(string $siteId): array { return $this->listRows('cache_rules', $siteId); }
-    public function createCacheRule(string $siteId, array $in): array { return $this->insert('cache_rules', $siteId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
-    public function updateCacheRule(string $siteId, string $id, array $in): ?array { return $this->update('cache_rules', $siteId, $id, $in); }
-    public function deleteCacheRule(string $siteId, string $id): bool { return $this->delete('cache_rules', $siteId, $id); }
-    public function listPageRules(string $siteId): array { return $this->listRows('page_rules', $siteId); }
-    public function createPageRule(string $siteId, array $in): array {
-        return $this->insert('page_rules', $siteId, [
+    public function listCacheRules(string $domainId): array { return $this->listRows('cache_rules', $domainId); }
+    public function createCacheRule(string $domainId, array $in): array { return $this->insert('cache_rules', $domainId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
+    public function updateCacheRule(string $domainId, string $id, array $in): ?array { return $this->update('cache_rules', $domainId, $id, $in); }
+    public function deleteCacheRule(string $domainId, string $id): bool { return $this->delete('cache_rules', $domainId, $id); }
+    public function listPageRules(string $domainId): array { return $this->listRows('page_rules', $domainId); }
+    public function createPageRule(string $domainId, array $in): array {
+        return $this->insert('page_rules', $domainId, [
             'enabled' => !empty($in['enabled']),
             'priority' => (int) ($in['priority'] ?? 100),
             'pattern' => (string) ($in['pattern'] ?? ''),
             'actions_json' => json_encode(($in['actions'] ?? []), JSON_UNESCAPED_SLASHES),
         ]);
     }
-    public function updatePageRule(string $siteId, string $id, array $in): ?array {
+    public function updatePageRule(string $domainId, string $id, array $in): ?array {
         if (array_key_exists('actions', $in)) {
             $in['actions_json'] = json_encode($in['actions'], JSON_UNESCAPED_SLASHES);
             unset($in['actions']);
         }
-        return $this->update('page_rules', $siteId, $id, $in);
+        return $this->update('page_rules', $domainId, $id, $in);
     }
-    public function deletePageRule(string $siteId, string $id): bool { return $this->delete('page_rules', $siteId, $id); }
-    public function testPageRule(string $siteId, string $path): array {
-        $rules = array_values(array_filter($this->listPageRules($siteId), static fn (array $r): bool => !empty($r['enabled'])));
+    public function deletePageRule(string $domainId, string $id): bool { return $this->delete('page_rules', $domainId, $id); }
+    public function testPageRule(string $domainId, string $path): array {
+        $rules = array_values(array_filter($this->listPageRules($domainId), static fn (array $r): bool => !empty($r['enabled'])));
         usort($rules, static function (array $a, array $b): int {
             $p = ((int) ($a['priority'] ?? 100)) <=> ((int) ($b['priority'] ?? 100));
             if ($p !== 0) { return $p; }
@@ -143,34 +143,34 @@ class TrafficRulesService
         }
         return ['matched' => false];
     }
-    public function listSslCertificates(string $siteId): array {
-        $s = Database::pdo()->prepare('SELECT * FROM ssl_certificates WHERE site_id=:site_id ORDER BY hostname ASC');
-        $s->execute([':site_id' => $siteId]);
+    public function listSslCertificates(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM ssl_certificates WHERE domain_id=:domain_id ORDER BY hostname ASC');
+        $s->execute([':domain_id' => $domainId]);
         return array_map([$this, 'cast'], $s->fetchAll());
     }
-    public function requestSslCertificate(string $siteId, array $hostnames): array {
-        $site = $this->siteForSsl($siteId);
-        if ($site === null) {
-            throw new \OutOfBoundsException('site_not_found');
+    public function requestSslCertificate(string $domainId, array $hostnames): array {
+        $domain = $this->domainForSsl($domainId);
+        if ($domain === null) {
+            throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((int) $site['proxy_enabled'] !== 1 || (string) $site['status'] !== 'active') {
-            throw new \DomainException('site_proxy_must_be_active');
+        if ((int) $domain['proxy_enabled'] !== 1 || (string) $domain['status'] !== 'active') {
+            throw new \DomainException('domain_proxy_must_be_active');
         }
 
-        $targets = $hostnames === [] ? [(string) $site['domain']] : $hostnames;
+        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
         $now = time();
         foreach ($targets as $hostname) {
             $h = strtolower(trim((string) $hostname));
             if ($h === '') {
                 continue;
             }
-            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
-            $s->execute([':site_id' => $siteId, ':hostname' => $h]);
+            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE domain_id=:domain_id AND hostname=:hostname LIMIT 1');
+            $s->execute([':domain_id' => $domainId, ':hostname' => $h]);
             $id = $s->fetchColumn();
             if ($id === false) {
-                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
+                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,domain_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:domain_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
                 $i->execute([
-                    ':id' => Uuid::v4(), ':site_id' => $siteId, ':hostname' => $h, ':provider' => 'cdnlite', ':status' => 'pending',
+                    ':id' => Uuid::v4(), ':domain_id' => $domainId, ':hostname' => $h, ':provider' => 'cdnlite', ':status' => 'pending',
                     ':issuer' => null, ':serial' => null, ':not_before' => null, ':not_after' => null, ':days' => null, ':renewal' => null,
                     ':checked' => $now, ':error' => null, ':created' => $now, ':updated' => $now,
                 ]);
@@ -179,9 +179,9 @@ class TrafficRulesService
                 $u->execute([':provider' => 'cdnlite', ':status' => 'pending', ':checked' => $now, ':updated' => $now, ':id' => $id]);
             }
         }
-        return $this->listSslCertificates($siteId);
+        return $this->listSslCertificates($domainId);
     }
-    public function checkSslCertificates(string $siteId, array $hostnames): array {
+    public function checkSslCertificates(string $domainId, array $hostnames): array {
         $now = time();
         $targets = $hostnames === [] ? [''] : $hostnames;
         foreach ($targets as $hostname) {
@@ -189,13 +189,13 @@ class TrafficRulesService
             if ($h === '') {
                 continue;
             }
-            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
-            $s->execute([':site_id' => $siteId, ':hostname' => $h]);
+            $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE domain_id=:domain_id AND hostname=:hostname LIMIT 1');
+            $s->execute([':domain_id' => $domainId, ':hostname' => $h]);
             $id = $s->fetchColumn();
             if ($id === false) {
-                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
+                $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,domain_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:domain_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
                 $i->execute([
-                    ':id' => Uuid::v4(), ':site_id' => $siteId, ':hostname' => $h, ':provider' => 'manual', ':status' => 'missing',
+                    ':id' => Uuid::v4(), ':domain_id' => $domainId, ':hostname' => $h, ':provider' => 'manual', ':status' => 'missing',
                     ':issuer' => null, ':serial' => null, ':not_before' => null, ':not_after' => null, ':days' => null, ':renewal' => null,
                     ':checked' => $now, ':error' => 'certificate_not_provisioned', ':created' => $now, ':updated' => $now,
                 ]);
@@ -204,12 +204,12 @@ class TrafficRulesService
                 $u->execute([':checked' => $now, ':error' => 'certificate_not_provisioned', ':updated' => $now, ':id' => $id]);
             }
         }
-        return $this->listSslCertificates($siteId);
+        return $this->listSslCertificates($domainId);
     }
-    public function importManualSslCertificate(string $siteId, string $hostname, string $certificatePem, string $privateKeyPem): array {
-        return $this->storeIssuedSslCertificate($siteId, $hostname, 'manual', $certificatePem, $privateKeyPem);
+    public function importManualSslCertificate(string $domainId, string $hostname, string $certificatePem, string $privateKeyPem): array {
+        return $this->storeIssuedSslCertificate($domainId, $hostname, 'manual', $certificatePem, $privateKeyPem);
     }
-    public function storeIssuedSslCertificate(string $siteId, string $hostname, string $provider, string $certificatePem, string $privateKeyPem): array {
+    public function storeIssuedSslCertificate(string $domainId, string $hostname, string $provider, string $certificatePem, string $privateKeyPem): array {
         $cert = openssl_x509_read($certificatePem);
         if ($cert === false) {
             throw new \InvalidArgumentException('invalid_certificate_pem');
@@ -234,13 +234,13 @@ class TrafficRulesService
             throw new \InvalidArgumentException('certificate_not_active');
         }
 
-        $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE site_id=:site_id AND hostname=:hostname LIMIT 1');
-        $s->execute([':site_id' => $siteId, ':hostname' => $hostname]);
+        $s = Database::pdo()->prepare('SELECT id FROM ssl_certificates WHERE domain_id=:domain_id AND hostname=:hostname LIMIT 1');
+        $s->execute([':domain_id' => $domainId, ':hostname' => $hostname]);
         $id = $s->fetchColumn();
         if ($id === false) {
             $id = Uuid::v4();
-            $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,site_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,certificate_pem,private_key_pem,created_at,updated_at) VALUES (:id,:site_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:cert,:key,:created,:updated)');
-            $i->execute([':id'=>$id,':site_id'=>$siteId,':hostname'=>$hostname,':provider'=>$provider,':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>$renewalDueAt,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':created'=>$now,':updated'=>$now]);
+            $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,domain_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,certificate_pem,private_key_pem,created_at,updated_at) VALUES (:id,:domain_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:cert,:key,:created,:updated)');
+            $i->execute([':id'=>$id,':domain_id'=>$domainId,':hostname'=>$hostname,':provider'=>$provider,':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>$renewalDueAt,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':created'=>$now,':updated'=>$now]);
         } else {
             $u = Database::pdo()->prepare('UPDATE ssl_certificates SET provider=:provider,status=:status,issuer=:issuer,serial_number=:serial,not_before=:not_before,not_after=:not_after,days_until_expiry=:days,renewal_due_at=:renewal,last_checked_at=:checked,last_error=:error,certificate_pem=:cert,private_key_pem=:key,updated_at=:updated WHERE id=:id');
             $u->execute([':provider'=>$provider,':status'=>$status,':issuer'=>$issuer,':serial'=>$serial,':not_before'=>$notBefore,':not_after'=>$notAfter,':days'=>$days,':renewal'=>$renewalDueAt,':checked'=>$now,':error'=>null,':cert'=>$certificatePem,':key'=>Secrets::encrypt($privateKeyPem),':updated'=>$now,':id'=>$id]);
@@ -249,15 +249,15 @@ class TrafficRulesService
         $q->execute([':id' => $id]);
         return $this->cast((array) $q->fetch());
     }
-    private function siteForSsl(string $siteId): ?array {
-        $s = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM sites WHERE id=:id LIMIT 1');
-        $s->execute([':id' => $siteId]);
+    private function domainForSsl(string $domainId): ?array {
+        $s = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM domains WHERE id=:id LIMIT 1');
+        $s->execute([':id' => $domainId]);
         $row = $s->fetch();
         return $row ? (array) $row : null;
     }
-    public function listSslCertificatesForConfig(string $siteId, string $host): array {
-        $s = Database::pdo()->prepare("SELECT hostname,certificate_pem,private_key_pem,status FROM ssl_certificates WHERE site_id=:site_id AND status='active' AND certificate_pem IS NOT NULL AND private_key_pem IS NOT NULL");
-        $s->execute([':site_id' => $siteId]);
+    public function listSslCertificatesForConfig(string $domainId, string $host): array {
+        $s = Database::pdo()->prepare("SELECT hostname,certificate_pem,private_key_pem,status FROM ssl_certificates WHERE domain_id=:domain_id AND status='active' AND certificate_pem IS NOT NULL AND private_key_pem IS NOT NULL");
+        $s->execute([':domain_id' => $domainId]);
         $out = [];
         foreach ($s->fetchAll() as $r) {
             try {
@@ -275,16 +275,16 @@ class TrafficRulesService
         }
         return $out;
     }
-    public function getSiteCacheSettings(string $siteId): array {
-        $s = Database::pdo()->prepare('SELECT * FROM site_cache_settings WHERE site_id=:site_id LIMIT 1');
-        $s->execute([':site_id' => $siteId]);
+    public function getDomainCacheSettings(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM domain_cache_settings WHERE domain_id=:domain_id LIMIT 1');
+        $s->execute([':domain_id' => $domainId]);
         $row = $s->fetch();
         if ($row) {
             return $this->cast((array) $row);
         }
         $now = time();
         $defaults = [
-            'site_id' => $siteId,
+            'domain_id' => $domainId,
             'enabled' => true,
             'default_edge_ttl_seconds' => 3600,
             'default_browser_ttl_seconds' => null,
@@ -295,9 +295,9 @@ class TrafficRulesService
             'created_at' => $now,
             'updated_at' => $now,
         ];
-        $ins = Database::pdo()->prepare('INSERT INTO site_cache_settings (site_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,created_at,updated_at) VALUES (:site_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:created_at,:updated_at)');
+        $ins = Database::pdo()->prepare('INSERT INTO domain_cache_settings (domain_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,created_at,updated_at) VALUES (:domain_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:created_at,:updated_at)');
         $ins->execute([
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
             ':enabled' => 1,
             ':edge' => 3600,
             ':browser' => null,
@@ -310,10 +310,10 @@ class TrafficRulesService
         ]);
         return $this->cast($defaults);
     }
-    public function setSiteCacheSettings(string $siteId, array $in): array {
-        $existing = $this->getSiteCacheSettings($siteId);
+    public function setDomainCacheSettings(string $domainId, array $in): array {
+        $existing = $this->getDomainCacheSettings($domainId);
         $payload = [
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
             ':enabled' => (int) ($in['enabled'] ?? $existing['enabled']),
             ':edge' => (int) ($in['default_edge_ttl_seconds'] ?? $existing['default_edge_ttl_seconds']),
             ':browser' => array_key_exists('default_browser_ttl_seconds', $in) ? $in['default_browser_ttl_seconds'] : $existing['default_browser_ttl_seconds'],
@@ -323,33 +323,33 @@ class TrafficRulesService
             ':stale' => (int) ($in['stale_if_error_seconds'] ?? $existing['stale_if_error_seconds']),
             ':updated_at' => time(),
         ];
-        $u = Database::pdo()->prepare('UPDATE site_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,updated_at=:updated_at WHERE site_id=:site_id');
+        $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,updated_at=:updated_at WHERE domain_id=:domain_id');
         $u->execute($payload);
-        return $this->getSiteCacheSettings($siteId);
+        return $this->getDomainCacheSettings($domainId);
     }
-    public function createCachePurgeRequest(string $siteId, array $in): array {
-        $type = (string) ($in['type'] ?? 'site');
+    public function createCachePurgeRequest(string $domainId, array $in): array {
+        $type = (string) ($in['type'] ?? 'domain');
         $value = array_key_exists('value', $in) ? (string) $in['value'] : null;
-        $scope = $type === 'everything' ? 'site' : $type;
-        $scopeValue = $scope === 'site' ? '*' : (string) ($value ?? '*');
+        $scope = $type === 'everything' ? 'domain' : $type;
+        $scopeValue = $scope === 'domain' ? '*' : (string) ($value ?? '*');
         $now = time();
         $requestId = Uuid::v4();
 
-        $existing = Database::pdo()->prepare('SELECT * FROM cache_purge_versions WHERE site_id=:site_id AND scope=:scope AND value=:value LIMIT 1');
-        $existing->execute([':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
+        $existing = Database::pdo()->prepare('SELECT * FROM cache_purge_versions WHERE domain_id=:domain_id AND scope=:scope AND value=:value LIMIT 1');
+        $existing->execute([':domain_id' => $domainId, ':scope' => $scope, ':value' => $scopeValue]);
         $row = $existing->fetch();
         $beforeVersion = $row ? (int) $row['version'] : 1;
         $nextVersion = $beforeVersion + 1;
         if ($row) {
-            $u = Database::pdo()->prepare('UPDATE cache_purge_versions SET version=:version,updated_at=:updated_at WHERE site_id=:site_id AND scope=:scope AND value=:value');
-            $u->execute([':version' => $nextVersion, ':updated_at' => $now, ':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue]);
+            $u = Database::pdo()->prepare('UPDATE cache_purge_versions SET version=:version,updated_at=:updated_at WHERE domain_id=:domain_id AND scope=:scope AND value=:value');
+            $u->execute([':version' => $nextVersion, ':updated_at' => $now, ':domain_id' => $domainId, ':scope' => $scope, ':value' => $scopeValue]);
         } else {
-            $i = Database::pdo()->prepare('INSERT INTO cache_purge_versions (id,site_id,scope,value,version,updated_at) VALUES (:id,:site_id,:scope,:value,:version,:updated_at)');
-            $i->execute([':id' => Uuid::v4(), ':site_id' => $siteId, ':scope' => $scope, ':value' => $scopeValue, ':version' => $nextVersion, ':updated_at' => $now]);
+            $i = Database::pdo()->prepare('INSERT INTO cache_purge_versions (id,domain_id,scope,value,version,updated_at) VALUES (:id,:domain_id,:scope,:value,:version,:updated_at)');
+            $i->execute([':id' => Uuid::v4(), ':domain_id' => $domainId, ':scope' => $scope, ':value' => $scopeValue, ':version' => $nextVersion, ':updated_at' => $now]);
         }
-        $r = Database::pdo()->prepare('INSERT INTO cache_purge_requests (id,site_id,type,value,status,requested_by,edge_seen_count,error,created_at,updated_at,completed_at) VALUES (:id,:site_id,:type,:value,:status,:requested_by,:edge_seen_count,:error,:created_at,:updated_at,:completed_at)');
-        $r->execute([':id'=>$requestId,':site_id'=>$siteId,':type'=>$type,':value'=>$value,':status'=>'completed',':requested_by'=>null,':edge_seen_count'=>0,':error'=>null,':created_at'=>$now,':updated_at'=>$now,':completed_at'=>$now]);
-        $audit = Database::pdo()->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, site_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:site_id,:details_json,:event,:created_at)');
+        $r = Database::pdo()->prepare('INSERT INTO cache_purge_requests (id,domain_id,type,value,status,requested_by,edge_seen_count,error,created_at,updated_at,completed_at) VALUES (:id,:domain_id,:type,:value,:status,:requested_by,:edge_seen_count,:error,:created_at,:updated_at,:completed_at)');
+        $r->execute([':id'=>$requestId,':domain_id'=>$domainId,':type'=>$type,':value'=>$value,':status'=>'completed',':requested_by'=>null,':edge_seen_count'=>0,':error'=>null,':created_at'=>$now,':updated_at'=>$now,':completed_at'=>$now]);
+        $audit = Database::pdo()->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:domain_id,:details_json,:event,:created_at)');
         $audit->execute([
             ':id' => Uuid::v4(),
             ':actor_type' => 'system',
@@ -357,7 +357,7 @@ class TrafficRulesService
             ':action' => 'purge',
             ':resource_type' => 'cache',
             ':resource_id' => $requestId,
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
             ':details_json' => json_encode([
                 'type' => $type,
                 'value' => $value,
@@ -373,36 +373,36 @@ class TrafficRulesService
         $q->execute([':id' => $requestId]);
         return $this->cast((array) $q->fetch());
     }
-    public function listCachePurgeRequests(string $siteId): array {
-        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE site_id=:site_id ORDER BY created_at DESC');
-        $s->execute([':site_id' => $siteId]);
+    public function listCachePurgeRequests(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE domain_id=:domain_id ORDER BY created_at DESC');
+        $s->execute([':domain_id' => $domainId]);
         return array_map([$this, 'cast'], $s->fetchAll());
     }
-    public function getCachePurgeRequest(string $siteId, string $id): ?array {
-        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE site_id=:site_id AND id=:id LIMIT 1');
-        $s->execute([':site_id' => $siteId, ':id' => $id]);
+    public function getCachePurgeRequest(string $domainId, string $id): ?array {
+        $s = Database::pdo()->prepare('SELECT * FROM cache_purge_requests WHERE domain_id=:domain_id AND id=:id LIMIT 1');
+        $s->execute([':domain_id' => $domainId, ':id' => $id]);
         $r = $s->fetch();
         return $r ? $this->cast((array) $r) : null;
     }
-    public function listCachePurgeVersionsForConfig(string $siteId, string $host): array {
-        $s = Database::pdo()->prepare('SELECT scope,value,version,updated_at FROM cache_purge_versions WHERE site_id=:site_id ORDER BY scope ASC, value ASC');
-        $s->execute([':site_id' => $siteId]);
+    public function listCachePurgeVersionsForConfig(string $domainId, string $host): array {
+        $s = Database::pdo()->prepare('SELECT scope,value,version,updated_at FROM cache_purge_versions WHERE domain_id=:domain_id ORDER BY scope ASC, value ASC');
+        $s->execute([':domain_id' => $domainId]);
         $rows = [];
         foreach ($s->fetchAll() as $r) {
             $rows[] = ['host' => $host, 'scope' => (string) $r['scope'], 'value' => (string) $r['value'], 'version' => (int) $r['version'], 'updated_at' => (int) $r['updated_at']];
         }
         return $rows;
     }
-    public function listSecurityEvents(string $siteId, ?string $type = null, int $limit = 100): array {
-        $query = 'SELECT id,event,details_json,created_at FROM audit_log WHERE site_id=:site_id';
-        $params = [':site_id' => $siteId];
+    public function listSecurityEvents(string $domainId, ?string $type = null, int $limit = 100): array {
+        $query = 'SELECT id,event,details_json,created_at FROM audit_log WHERE domain_id=:domain_id';
+        $params = [':domain_id' => $domainId];
         if ($type !== null && $type !== '') {
             $query .= ' AND event=:event';
             $params[':event'] = $type;
         }
         $query .= ' ORDER BY created_at DESC LIMIT :limit';
         $stmt = Database::pdo()->prepare($query);
-        $stmt->bindValue(':site_id', $siteId);
+        $stmt->bindValue(':domain_id', $domainId);
         if (array_key_exists(':event', $params)) {
             $stmt->bindValue(':event', $params[':event']);
         }
@@ -420,13 +420,13 @@ class TrafficRulesService
         return $rows;
     }
 
-    public function getRateLimit(string $siteId): ?array {
+    public function getRateLimit(string $domainId): ?array {
         if ($this->rateLimitV2Supported()) {
-            $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules_v2 WHERE site_id=:site_id ORDER BY priority ASC, created_at ASC LIMIT 1');
-            $s->execute([':site_id'=>$siteId]); $r = $s->fetch(); return $r ? $this->cast($r):null;
+            $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE domain_id=:domain_id ORDER BY priority ASC, created_at ASC LIMIT 1');
+            $s->execute([':domain_id'=>$domainId]); $r = $s->fetch(); return $r ? $this->cast($r):null;
         }
-        $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE site_id=:site_id LIMIT 1');
-        $s->execute([':site_id'=>$siteId]); $r = $s->fetch();
+        $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE domain_id=:domain_id LIMIT 1');
+        $s->execute([':domain_id'=>$domainId]); $r = $s->fetch();
         if (!$r) { return null; }
         $row = $this->cast((array) $r);
         $row['priority'] = 100;
@@ -435,8 +435,8 @@ class TrafficRulesService
         $row['action'] = 'block';
         return $row;
     }
-    public function setRateLimit(string $siteId, array $in): array {
-        $now=time(); $existing=$this->getRateLimit($siteId); $rpm=(int)($in['requests_per_minute'] ?? 60); $enabled=!empty($in['enabled']);
+    public function setRateLimit(string $domainId, array $in): array {
+        $now=time(); $existing=$this->getRateLimit($domainId); $rpm=(int)($in['requests_per_minute'] ?? 60); $enabled=!empty($in['enabled']);
         $priority = (int)($in['priority'] ?? 100);
         $pathPrefix = (string)($in['path_prefix'] ?? '/');
         $keyType = (string)($in['key_type'] ?? 'ip');
@@ -445,43 +445,43 @@ class TrafficRulesService
             if (!$this->rateLimitV2Supported()) {
                 $s=Database::pdo()->prepare('UPDATE rate_limit_rules SET enabled=:enabled,requests_per_minute=:rpm,updated_at=:u WHERE id=:id');
                 $s->execute([':enabled'=>(int)$enabled,':rpm'=>$rpm,':u'=>$now,':id'=>$existing['id']]);
-                return $this->getRateLimit($siteId);
+                return $this->getRateLimit($domainId);
             }
-            $s=Database::pdo()->prepare('UPDATE rate_limit_rules_v2 SET enabled=:enabled,priority=:priority,path_prefix=:path_prefix,key_type=:key_type,requests_per_minute=:rpm,action=:action,updated_at=:u WHERE id=:id');
+            $s=Database::pdo()->prepare('UPDATE rate_limit_rules SET enabled=:enabled,priority=:priority,path_prefix=:path_prefix,key_type=:key_type,requests_per_minute=:rpm,action=:action,updated_at=:u WHERE id=:id');
             $s->execute([':enabled'=>(int)$enabled,':priority'=>$priority,':path_prefix'=>$pathPrefix,':key_type'=>$keyType,':rpm'=>$rpm,':action'=>$action,':u'=>$now,':id'=>$existing['id']]);
-            return $this->getRateLimit($siteId);
+            return $this->getRateLimit($domainId);
         }
         $id=Uuid::v4();
         if (!$this->rateLimitV2Supported()) {
-            $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules (id,site_id,enabled,requests_per_minute,created_at,updated_at) VALUES (:id,:site,:en,:rpm,:c,:u)');
-            $s->execute([':id'=>$id,':site'=>$siteId,':en'=>(int)$enabled,':rpm'=>$rpm,':c'=>$now,':u'=>$now]);
-            return $this->getRateLimit($siteId);
+            $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules (id,domain_id,enabled,requests_per_minute,created_at,updated_at) VALUES (:id,:domain,:en,:rpm,:c,:u)');
+            $s->execute([':id'=>$id,':domain'=>$domainId,':en'=>(int)$enabled,':rpm'=>$rpm,':c'=>$now,':u'=>$now]);
+            return $this->getRateLimit($domainId);
         }
-        $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules_v2 (id,site_id,enabled,priority,path_prefix,key_type,requests_per_minute,action,created_at,updated_at) VALUES (:id,:site,:en,:priority,:path_prefix,:key_type,:rpm,:action,:c,:u)');
-        $s->execute([':id'=>$id,':site'=>$siteId,':en'=>(int)$enabled,':priority'=>$priority,':path_prefix'=>$pathPrefix,':key_type'=>$keyType,':rpm'=>$rpm,':action'=>$action,':c'=>$now,':u'=>$now]);
-        return $this->getRateLimit($siteId);
+        $s=Database::pdo()->prepare('INSERT INTO rate_limit_rules (id,domain_id,enabled,priority,path_prefix,key_type,requests_per_minute,action,created_at,updated_at) VALUES (:id,:domain,:en,:priority,:path_prefix,:key_type,:rpm,:action,:c,:u)');
+        $s->execute([':id'=>$id,':domain'=>$domainId,':en'=>(int)$enabled,':priority'=>$priority,':path_prefix'=>$pathPrefix,':key_type'=>$keyType,':rpm'=>$rpm,':action'=>$action,':c'=>$now,':u'=>$now]);
+        return $this->getRateLimit($domainId);
     }
-    public function disableRateLimit(string $siteId): bool {
-        $table = $this->rateLimitV2Supported() ? 'rate_limit_rules_v2' : 'rate_limit_rules';
-        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE site_id=:site"); $s->execute([':site'=>$siteId]); return $s->rowCount()>0;
+    public function disableRateLimit(string $domainId): bool {
+        $table = $this->rateLimitV2Supported() ? 'rate_limit_rules' : 'rate_limit_rules';
+        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE domain_id=:domain"); $s->execute([':domain'=>$domainId]); return $s->rowCount()>0;
     }
 
-    private function listRows(string $table, string $siteId): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE site_id=:site_id ORDER BY created_at ASC"); $s->execute([':site_id'=>$siteId]); return array_map([$this,'cast'], $s->fetchAll()); }
-    private function insert(string $table, string $siteId, array $in): array {
+    private function listRows(string $table, string $domainId): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY created_at ASC"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
+    private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
-        $sql="INSERT INTO {$table} (id,site_id,{$names},created_at,updated_at) VALUES (:id,:site_id,{$bind},:created_at,:updated_at)";
-        $p=[':id'=>$id,':site_id'=>$siteId,':created_at'=>$now,':updated_at'=>$now]; foreach($in as $k=>$v){$p[':'.$k]=is_bool($v)?(int)$v:$v;}
+        $sql="INSERT INTO {$table} (id,domain_id,{$names},created_at,updated_at) VALUES (:id,:domain_id,{$bind},:created_at,:updated_at)";
+        $p=[':id'=>$id,':domain_id'=>$domainId,':created_at'=>$now,':updated_at'=>$now]; foreach($in as $k=>$v){$p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $s=Database::pdo()->prepare($sql); $s->execute($p); $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $q->execute([':id'=>$id]); return $this->cast((array)$q->fetch());
     }
-    private function update(string $table, string $siteId, string $id, array $in): ?array {
-        $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND site_id=:site LIMIT 1"); $q->execute([':id'=>$id,':site'=>$siteId]); if(!$q->fetch()){return null;}
-        $sets=[]; $p=[':id'=>$id,':site'=>$siteId,':u'=>time()];
+    private function update(string $table, string $domainId, string $id, array $in): ?array {
+        $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); if(!$q->fetch()){return null;}
+        $sets=[]; $p=[':id'=>$id,':domain'=>$domainId,':u'=>time()];
         foreach($in as $k=>$v){$sets[]="{$k}=:{$k}"; $p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $sets[]='updated_at=:u';
-        $s=Database::pdo()->prepare("UPDATE {$table} SET ".implode(',', $sets)." WHERE id=:id AND site_id=:site"); $s->execute($p);
+        $s=Database::pdo()->prepare("UPDATE {$table} SET ".implode(',', $sets)." WHERE id=:id AND domain_id=:domain"); $s->execute($p);
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
     }
-    private function delete(string $table, string $siteId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND site_id=:site"); $s->execute([':id'=>$id,':site'=>$siteId]); return $s->rowCount()>0; }
+    private function delete(string $table, string $domainId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND domain_id=:domain"); $s->execute([':id'=>$id,':domain'=>$domainId]); return $s->rowCount()>0; }
     private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
@@ -496,7 +496,7 @@ class TrafficRulesService
         if ($this->rateLimitV2TableAvailable !== null) {
             return $this->rateLimitV2TableAvailable;
         }
-        $s = Database::pdo()->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='rate_limit_rules_v2' LIMIT 1");
+        $s = Database::pdo()->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='rate_limit_rules' LIMIT 1");
         $s->execute();
         $this->rateLimitV2TableAvailable = $s->fetchColumn() !== false;
         return $this->rateLimitV2TableAvailable;

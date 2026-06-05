@@ -62,7 +62,7 @@ Current cache behavior:
 Current gaps:
 
 - No first-class control-plane purge API yet.
-- No full site-level cache policy model yet.
+- No full domain-level cache policy model yet.
 
 ## Minimum Internet-Exposure Checklist
 

@@ -1,19 +1,25 @@
 <?php
 
-namespace App\Modules\Sites\Http\Controllers;
+namespace App\Modules\Domains\Http\Controllers;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\Validator;
 
-class SiteController
+class DomainController
 {
-    public function __construct(private SiteService $service)
+    public function __construct(private DomainService $service)
     {
     }
 
     public function index(): array
     {
         return ['data' => $this->service->all()];
+    }
+
+    public function show(string $domainId): ?array
+    {
+        $domain = $this->service->find($domainId);
+        return $domain ? ['data' => $domain] : null;
     }
 
     public function store(array $input): array
@@ -72,7 +78,7 @@ class SiteController
         }
     }
 
-    public function update(string $siteId, array $input): ?array
+    public function update(string $domainId, array $input): ?array
     {
         if (array_key_exists('domain', $input)) {
             $domain = Validator::domain($input, 'domain');
@@ -118,31 +124,31 @@ class SiteController
 
         if (isset($input['domain'])) {
             $existing = $this->service->findByDomain((string) $input['domain']);
-            if ($existing !== null && (string) $existing['id'] !== $siteId) {
+            if ($existing !== null && (string) $existing['id'] !== $domainId) {
                 return ['error' => 'domain_already_exists', 'status' => 422];
             }
         }
 
-        $site = $this->service->update($siteId, $input);
-        return $site ? ['data' => $site] : null;
+        $domain = $this->service->update($domainId, $input);
+        return $domain ? ['data' => $domain] : null;
     }
 
-    public function delete(string $siteId): array
+    public function delete(string $domainId): array
     {
-        return $this->service->delete($siteId)
+        return $this->service->delete($domainId)
             ? ['ok' => true]
-            : ['error' => 'site_not_found', 'status' => 404];
+            : ['error' => 'domain_not_found', 'status' => 404];
     }
 
-    public function enableProxy(string $siteId): ?array
+    public function enableProxy(string $domainId): ?array
     {
-        $site = $this->service->setProxy($siteId, true);
-        return $site ? ['data' => $site] : null;
+        $domain = $this->service->setProxy($domainId, true);
+        return $domain ? ['data' => $domain] : null;
     }
 
-    public function disableProxy(string $siteId): ?array
+    public function disableProxy(string $domainId): ?array
     {
-        $site = $this->service->setProxy($siteId, false);
-        return $site ? ['data' => $site] : null;
+        $domain = $this->service->setProxy($domainId, false);
+        return $domain ? ['data' => $domain] : null;
     }
 }

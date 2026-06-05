@@ -2,7 +2,7 @@
 
 namespace App\Modules\Dns\Services;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\Database;
 use App\Support\Logger;
 use App\Support\Uuid;
@@ -10,28 +10,28 @@ use App\Support\Uuid;
 class DnsService
 {
     private PowerDnsService $powerDns;
-    private SiteService $sites;
+    private DomainService $domains;
     private CustomerDnsService $customerDns;
 
     public function __construct()
     {
         $this->powerDns = new PowerDnsService();
-        $this->sites = new SiteService();
+        $this->domains = new DomainService();
         $this->customerDns = new CustomerDnsService();
     }
 
-    public function listBySite(string $siteId): array
+    public function listByDomain(string $domainId): array
     {
-        $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE site_id = :site_id ORDER BY id ASC');
-        $stmt->execute([':site_id' => $siteId]);
+        $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE domain_id = :domain_id ORDER BY id ASC');
+        $stmt->execute([':domain_id' => $domainId]);
         return array_map([$this, 'castRow'], $stmt->fetchAll());
     }
 
-    public function create(string $siteId, array $input): array
+    public function create(string $domainId, array $input): array
     {
-        $site = $this->sites->find($siteId);
-        if ($site === null) {
-            throw new \RuntimeException('site_not_found');
+        $domain = $this->domains->find($domainId);
+        if ($domain === null) {
+            throw new \RuntimeException('domain_not_found');
         }
 
         $originType = strtoupper((string) $input['type']);
@@ -44,23 +44,23 @@ class DnsService
             'geo_policy_id' => $input['geo_policy_id'] ?? null,
             'edge_target' => $input['edge_target'] ?? null,
         ];
-        $public = $this->customerDns->publicRecordFor($site, $record);
+        $public = $this->customerDns->publicRecordFor($domain, $record);
 
         $now = time();
         $id = Uuid::v4();
         $stmt = Database::pdo()->prepare(
             'INSERT INTO dns_records (
-                id, site_id, type, name, content, ttl, priority, proxied, geo_policy_id, edge_target,
+                id, domain_id, type, name, content, ttl, priority, proxied, geo_policy_id, edge_target,
                 origin_type, origin_content, public_type, public_content, status, created_at, updated_at
              )
              VALUES (
-                :id, :site_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id, :edge_target,
+                :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id, :edge_target,
                 :origin_type, :origin_content, :public_type, :public_content, :status, :created_at, :updated_at
              )'
         );
         $stmt->execute([
             ':id' => $id,
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
             ':type' => $originType,
             ':name' => (string) $input['name'],
             ':content' => $originContent,
@@ -78,22 +78,22 @@ class DnsService
             ':updated_at' => $now,
         ]);
 
-        $created = $this->find($siteId, $id);
+        $created = $this->find($domainId, $id);
         if ($created === null) {
             throw new \RuntimeException('dns_record_create_failed');
         }
-        $this->syncPowerDnsCreate($site, $created);
+        $this->syncPowerDnsCreate($domain, $created);
         return $created;
     }
 
-    public function update(string $siteId, string $recordId, array $input): ?array
+    public function update(string $domainId, string $recordId, array $input): ?array
     {
-        $site = $this->sites->find($siteId);
-        if ($site === null) {
+        $domain = $this->domains->find($domainId);
+        if ($domain === null) {
             return null;
         }
 
-        $oldRecord = $this->find($siteId, $recordId);
+        $oldRecord = $this->find($domainId, $recordId);
         if ($oldRecord === null) {
             return null;
         }
@@ -133,7 +133,7 @@ class DnsService
             'geo_policy_id' => $patch['geo_policy_id'],
             'edge_target' => $patch['edge_target'],
         ];
-        $public = $this->customerDns->publicRecordFor($site, $recordForProjection);
+        $public = $this->customerDns->publicRecordFor($domain, $recordForProjection);
 
         $stmt = Database::pdo()->prepare(
             'UPDATE dns_records SET
@@ -151,10 +151,10 @@ class DnsService
                 public_content = :public_content,
                 status = :status,
                 updated_at = :updated_at
-             WHERE site_id = :site_id AND id = :id'
+             WHERE domain_id = :domain_id AND id = :id'
         );
         $stmt->execute([
-            ':site_id' => $siteId,
+            ':domain_id' => $domainId,
             ':id' => $recordId,
             ':type' => strtoupper((string) $patch['type']),
             ':name' => (string) $patch['name'],
@@ -172,35 +172,35 @@ class DnsService
             ':updated_at' => time(),
         ]);
 
-        $updated = $this->find($siteId, $recordId);
+        $updated = $this->find($domainId, $recordId);
         if ($updated === null) {
             return null;
         }
         if ($this->publicIdentity($oldRecord) !== $this->publicIdentity($updated)) {
-            $this->syncPowerDnsDelete($site, $oldRecord);
-            $this->syncReplacementForIdentity($site, $oldRecord);
+            $this->syncPowerDnsDelete($domain, $oldRecord);
+            $this->syncReplacementForIdentity($domain, $oldRecord);
         }
-        $this->syncPowerDnsCreate($site, $updated);
+        $this->syncPowerDnsCreate($domain, $updated);
         return $updated;
     }
 
-    public function delete(string $siteId, string $recordId): bool
+    public function delete(string $domainId, string $recordId): bool
     {
-        $site = $this->sites->find($siteId);
-        if ($site === null) {
+        $domain = $this->domains->find($domainId);
+        if ($domain === null) {
             return false;
         }
 
-        $record = $this->find($siteId, $recordId);
+        $record = $this->find($domainId, $recordId);
         if ($record === null) {
             return false;
         }
 
-        $stmt = Database::pdo()->prepare('DELETE FROM dns_records WHERE site_id = :site_id AND id = :id');
-        $stmt->execute([':site_id' => $siteId, ':id' => $recordId]);
+        $stmt = Database::pdo()->prepare('DELETE FROM dns_records WHERE domain_id = :domain_id AND id = :id');
+        $stmt->execute([':domain_id' => $domainId, ':id' => $recordId]);
         $deleted = $stmt->rowCount() > 0;
-        if ($deleted && !$this->syncReplacementForIdentity($site, $record)) {
-            $this->syncPowerDnsDelete($site, $record);
+        if ($deleted && !$this->syncReplacementForIdentity($domain, $record)) {
+            $this->syncPowerDnsDelete($domain, $record);
         }
         return $deleted;
     }
@@ -208,13 +208,13 @@ class DnsService
     public function rebuildCustomerZones(): array
     {
         $stmt = Database::pdo()->query(
-            'SELECT d.*, s.domain, s.id AS site_row_id FROM dns_records d JOIN sites s ON s.id = d.site_id ORDER BY d.id ASC'
+            'SELECT d.*, s.domain, s.id AS domain_row_id FROM dns_records d JOIN domains s ON s.id = d.domain_id ORDER BY d.id ASC'
         );
         $count = 0;
         foreach ($stmt->fetchAll() as $row) {
-            $site = ['id' => (string) $row['site_id'], 'domain' => (string) $row['domain']];
+            $domain = ['id' => (string) $row['domain_id'], 'domain' => (string) $row['domain']];
             $record = $this->castRow((array) $row);
-            $public = $this->customerDns->publicRecordFor($site, $record);
+            $public = $this->customerDns->publicRecordFor($domain, $record);
             $update = Database::pdo()->prepare(
                 'UPDATE dns_records SET origin_type = :origin_type, origin_content = :origin_content,
                  public_type = :public_type, public_content = :public_content, updated_at = :updated_at WHERE id = :id'
@@ -229,13 +229,13 @@ class DnsService
             ]);
             $record['public_type'] = $public['type'];
             $record['public_content'] = $public['content'];
-            $this->syncPowerDnsCreate($site, $record);
+            $this->syncPowerDnsCreate($domain, $record);
             $count++;
         }
         return ['ok' => true, 'rebuilt' => $count];
     }
 
-    private function syncPowerDnsCreate(array $site, array $record): void
+    private function syncPowerDnsCreate(array $domain, array $record): void
     {
         if (!$this->powerDns->isEnabled()) {
             return;
@@ -244,7 +244,7 @@ class DnsService
         $type = (string) ($record['public_type'] ?: $record['type']);
         $content = (string) ($record['public_content'] ?: $record['content']);
         $result = $this->powerDns->syncReplace(
-            (string) $site['domain'],
+            (string) $domain['domain'],
             (string) $record['name'],
             $type,
             (int) $record['ttl'],
@@ -252,32 +252,32 @@ class DnsService
         );
 
         if (($result['ok'] ?? false) !== true) {
-            $this->handlePowerDnsFailure('powerdns_sync_replace_failed', $site, $record, $result);
+            $this->handlePowerDnsFailure('powerdns_sync_replace_failed', $domain, $record, $result);
         }
     }
 
-    private function syncPowerDnsDelete(array $site, array $record): void
+    private function syncPowerDnsDelete(array $domain, array $record): void
     {
         if (!$this->powerDns->isEnabled()) {
             return;
         }
 
         $result = $this->powerDns->syncDelete(
-            (string) $site['domain'],
+            (string) $domain['domain'],
             (string) $record['name'],
             (string) ($record['public_type'] ?: $record['type'])
         );
 
         if (($result['ok'] ?? false) !== true) {
-            $this->handlePowerDnsFailure('powerdns_sync_delete_failed', $site, $record, $result);
+            $this->handlePowerDnsFailure('powerdns_sync_delete_failed', $domain, $record, $result);
         }
     }
 
-    private function handlePowerDnsFailure(string $event, array $site, array $record, array $result): void
+    private function handlePowerDnsFailure(string $event, array $domain, array $record, array $result): void
     {
         Logger::error($event, [
-            'site_id' => (string) $site['id'],
-            'domain' => (string) $site['domain'],
+            'domain_id' => (string) $domain['id'],
+            'domain' => (string) $domain['domain'],
             'record_name' => (string) $record['name'],
             'record_type' => (string) ($record['public_type'] ?: $record['type']),
             'status' => (int) ($result['status'] ?? 0),
@@ -289,23 +289,23 @@ class DnsService
         }
     }
 
-    private function find(string $siteId, string $recordId): ?array
+    private function find(string $domainId, string $recordId): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE site_id = :site_id AND id = :id LIMIT 1');
-        $stmt->execute([':site_id' => $siteId, ':id' => $recordId]);
+        $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE domain_id = :domain_id AND id = :id LIMIT 1');
+        $stmt->execute([':domain_id' => $domainId, ':id' => $recordId]);
         $row = $stmt->fetch();
         return $row === false ? null : $this->castRow((array) $row);
     }
 
-    private function syncReplacementForIdentity(array $site, array $record): bool
+    private function syncReplacementForIdentity(array $domain, array $record): bool
     {
         $stmt = Database::pdo()->prepare(
             'SELECT * FROM dns_records
-             WHERE site_id = :site_id AND lower(name) = lower(:name) AND upper(COALESCE(public_type, type)) = upper(:public_type)
+             WHERE domain_id = :domain_id AND lower(name) = lower(:name) AND upper(COALESCE(public_type, type)) = upper(:public_type)
              ORDER BY updated_at DESC, id DESC LIMIT 1'
         );
         $stmt->execute([
-            ':site_id' => (string) $record['site_id'],
+            ':domain_id' => (string) $record['domain_id'],
             ':name' => (string) $record['name'],
             ':public_type' => (string) ($record['public_type'] ?: $record['type']),
         ]);
@@ -314,14 +314,14 @@ class DnsService
             return false;
         }
 
-        $this->syncPowerDnsCreate($site, $this->castRow((array) $row));
+        $this->syncPowerDnsCreate($domain, $this->castRow((array) $row));
         return true;
     }
 
     private function castRow(array $row): array
     {
         $row['id'] = (string) $row['id'];
-        $row['site_id'] = (string) $row['site_id'];
+        $row['domain_id'] = (string) $row['domain_id'];
         $row['type'] = strtoupper((string) $row['type']);
         $row['content'] = (string) $row['content'];
         $row['origin_type'] = (string) ($row['origin_type'] ?: $row['type']);

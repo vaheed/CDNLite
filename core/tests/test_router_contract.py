@@ -37,6 +37,13 @@ def test_core_exposes_origin_cdn_health_route():
     assert "/cdn-health" in public_index
 
 
+def test_domain_routes_replace_legacy_resource_routes():
+    public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
+    assert "'/api/v1/domains'" in public_index
+    assert "'/api/v1/domains/{domainId}'" in public_index
+    assert "/api/v1/sites" not in public_index
+
+
 def request_json(base_url: str, method: str, path: str, body: dict | None = None, headers: dict | None = None) -> tuple[int, dict]:
     data = None
     req_headers = {"Content-Type": "application/json"}
@@ -124,7 +131,7 @@ def test_router_applies_auth_flag_on_admin_routes():
 
     try:
         wait_for_server(base_url)
-        code, body = request_json(base_url, "GET", "/api/v1/sites")
+        code, body = request_json(base_url, "GET", "/api/v1/domains")
         assert code == 401
         assert body["error"] == "api_auth_required"
     finally:

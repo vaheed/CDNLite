@@ -34,51 +34,51 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | POST | `/api/v1/admin/login` | none | Create dashboard admin session. |
 | GET | `/api/v1/admin/me` | admin session bearer | Return current dashboard admin user. |
 | POST | `/api/v1/admin/logout` | admin session bearer | Revoke current dashboard admin session. |
-| POST | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | Create site. |
-| GET | `/api/v1/sites` | bearer when `CDNLITE_API_TOKEN` is set | List sites. |
-| PATCH | `/api/v1/sites/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Update site. |
-| DELETE | `/api/v1/sites/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Delete site. |
-| POST | `/api/v1/sites/{id}/proxy/enable` | bearer when `CDNLITE_API_TOKEN` is set | Enable proxy. |
-| POST | `/api/v1/sites/{id}/proxy/disable` | bearer when `CDNLITE_API_TOKEN` is set | Disable proxy. |
-| POST | `/api/v1/sites/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | Create DNS record. |
-| GET | `/api/v1/sites/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | List DNS records. |
-| PATCH | `/api/v1/sites/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Update DNS record. |
-| DELETE | `/api/v1/sites/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete DNS record. |
-| POST | `/api/v1/sites/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | Create redirect rule. |
-| GET | `/api/v1/sites/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | List redirect rules. |
-| PATCH | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Update redirect rule. |
-| DELETE | `/api/v1/sites/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete redirect rule. |
-| POST | `/api/v1/sites/{id}/redirects/import` | bearer when `CDNLITE_API_TOKEN` is set | Bulk import redirect rules. |
-| GET | `/api/v1/sites/{id}/redirects/export` | bearer when `CDNLITE_API_TOKEN` is set | Export redirect rules. |
-| POST | `/api/v1/sites/{id}/redirects/test` | bearer when `CDNLITE_API_TOKEN` is set | Test redirect matching for a path/query. |
-| PUT | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site rate limit rule. |
-| GET | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Get site rate limit rule. |
-| DELETE | `/api/v1/sites/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Disable site rate limit rule. |
-| POST | `/api/v1/sites/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create WAF rule. |
-| GET | `/api/v1/sites/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | List WAF rules. |
-| PATCH | `/api/v1/sites/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Update WAF rule. |
-| DELETE | `/api/v1/sites/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete WAF rule. |
-| POST | `/api/v1/sites/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create cache rule. |
-| GET | `/api/v1/sites/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | List cache rules. |
-| PATCH | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update cache rule. |
-| DELETE | `/api/v1/sites/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete cache rule. |
-| GET | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Get site cache defaults and policy controls. |
-| PUT | `/api/v1/sites/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Create/update site cache defaults and policy controls. |
-| POST | `/api/v1/sites/{id}/cache/purge` | bearer when `CDNLITE_API_TOKEN` is set | Create a cache purge request and bump soft purge namespace version. |
-| GET | `/api/v1/sites/{id}/cache/purge-requests` | bearer when `CDNLITE_API_TOKEN` is set | List cache purge requests. |
-| GET | `/api/v1/sites/{id}/cache/purge-requests/{requestId}` | bearer when `CDNLITE_API_TOKEN` is set | Get one cache purge request. |
-| POST | `/api/v1/sites/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create page rule. |
-| GET | `/api/v1/sites/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | List page rules. |
-| PATCH | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update page rule. |
-| DELETE | `/api/v1/sites/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
-| POST | `/api/v1/sites/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
-| GET | `/api/v1/sites/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for site hostnames. |
-| POST | `/api/v1/sites/{id}/ssl/acme/issue` | bearer when `CDNLITE_API_TOKEN` is set | Issue an ACME certificate with DNS-01 via PowerDNS for an active proxied site host. |
-| POST | `/api/v1/sites/{id}/ssl/request` | bearer when `CDNLITE_API_TOKEN` is set | Request SSL metadata provisioning for an active proxied site host. |
-| POST | `/api/v1/sites/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
-| POST | `/api/v1/sites/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
-| GET | `/api/v1/sites/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List site security events from audit log. |
-| GET | `/api/v1/sites/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one site. |
+| POST | `/api/v1/domains` | bearer when `CDNLITE_API_TOKEN` is set | Create domain. |
+| GET | `/api/v1/domains` | bearer when `CDNLITE_API_TOKEN` is set | List domains. |
+| PATCH | `/api/v1/domains/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Update domain. |
+| DELETE | `/api/v1/domains/{id}` | bearer when `CDNLITE_API_TOKEN` is set | Delete domain. |
+| POST | `/api/v1/domains/{id}/proxy/enable` | bearer when `CDNLITE_API_TOKEN` is set | Enable proxy. |
+| POST | `/api/v1/domains/{id}/proxy/disable` | bearer when `CDNLITE_API_TOKEN` is set | Disable proxy. |
+| POST | `/api/v1/domains/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | Create DNS record. |
+| GET | `/api/v1/domains/{id}/dns/records` | bearer when `CDNLITE_API_TOKEN` is set | List DNS records. |
+| PATCH | `/api/v1/domains/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Update DNS record. |
+| DELETE | `/api/v1/domains/{id}/dns/records/{recordId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete DNS record. |
+| POST | `/api/v1/domains/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | Create redirect rule. |
+| GET | `/api/v1/domains/{id}/redirects` | bearer when `CDNLITE_API_TOKEN` is set | List redirect rules. |
+| PATCH | `/api/v1/domains/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Update redirect rule. |
+| DELETE | `/api/v1/domains/{id}/redirects/{redirectId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete redirect rule. |
+| POST | `/api/v1/domains/{id}/redirects/import` | bearer when `CDNLITE_API_TOKEN` is set | Bulk import redirect rules. |
+| GET | `/api/v1/domains/{id}/redirects/export` | bearer when `CDNLITE_API_TOKEN` is set | Export redirect rules. |
+| POST | `/api/v1/domains/{id}/redirects/test` | bearer when `CDNLITE_API_TOKEN` is set | Test redirect matching for a path/query. |
+| PUT | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Create/update domain rate limit rule. |
+| GET | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Get domain rate limit rule. |
+| DELETE | `/api/v1/domains/{id}/rate-limit` | bearer when `CDNLITE_API_TOKEN` is set | Disable domain rate limit rule. |
+| POST | `/api/v1/domains/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create WAF rule. |
+| GET | `/api/v1/domains/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | List WAF rules. |
+| PATCH | `/api/v1/domains/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Update WAF rule. |
+| DELETE | `/api/v1/domains/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete WAF rule. |
+| POST | `/api/v1/domains/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create cache rule. |
+| GET | `/api/v1/domains/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | List cache rules. |
+| PATCH | `/api/v1/domains/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update cache rule. |
+| DELETE | `/api/v1/domains/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete cache rule. |
+| GET | `/api/v1/domains/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Get domain cache defaults and policy controls. |
+| PUT | `/api/v1/domains/{id}/cache/settings` | bearer when `CDNLITE_API_TOKEN` is set | Create/update domain cache defaults and policy controls. |
+| POST | `/api/v1/domains/{id}/cache/purge` | bearer when `CDNLITE_API_TOKEN` is set | Create a cache purge request and bump soft purge namespace version. |
+| GET | `/api/v1/domains/{id}/cache/purge-requests` | bearer when `CDNLITE_API_TOKEN` is set | List cache purge requests. |
+| GET | `/api/v1/domains/{id}/cache/purge-requests/{requestId}` | bearer when `CDNLITE_API_TOKEN` is set | Get one cache purge request. |
+| POST | `/api/v1/domains/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create page rule. |
+| GET | `/api/v1/domains/{id}/page-rules` | bearer when `CDNLITE_API_TOKEN` is set | List page rules. |
+| PATCH | `/api/v1/domains/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update page rule. |
+| DELETE | `/api/v1/domains/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
+| POST | `/api/v1/domains/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
+| GET | `/api/v1/domains/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for domain hostnames. |
+| POST | `/api/v1/domains/{id}/ssl/acme/issue` | bearer when `CDNLITE_API_TOKEN` is set | Issue an ACME certificate with DNS-01 via PowerDNS for an active proxied domain host. |
+| POST | `/api/v1/domains/{id}/ssl/request` | bearer when `CDNLITE_API_TOKEN` is set | Request SSL metadata provisioning for an active proxied domain host. |
+| POST | `/api/v1/domains/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
+| POST | `/api/v1/domains/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
+| GET | `/api/v1/domains/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List domain security events from audit log. |
+| GET | `/api/v1/domains/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one domain. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
 | POST | `/api/v1/edge/heartbeat` | edge signed | Mark edge online. |
@@ -87,16 +87,16 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | POST | `/api/v1/collector/usage` | edge signed | Ingest usage rows. |
 | POST | `/api/v1/collector/security-events` | edge signed | Ingest edge security events (`waf_match`, `rate_limited`) into audit log. |
 | GET | `/api/v1/usage/summary` | bearer when `CDNLITE_API_TOKEN` is set | Summarize raw usage. |
-| GET | `/api/v1/usage/summary?site_id=...` | bearer when `CDNLITE_API_TOKEN` is set | Summarize one site. |
+| GET | `/api/v1/usage/summary?domain_id=...` | bearer when `CDNLITE_API_TOKEN` is set | Summarize one domain. |
 | GET | `/api/v1/usage/summary?bucket=minute|hour|day` | bearer when `CDNLITE_API_TOKEN` is set | Summarize aggregate bucket. |
 | POST | `/api/v1/usage/recalculate` | bearer when `CDNLITE_API_TOKEN` is set | Rebuild aggregates. |
 
-### GET /api/v1/sites/{id}/analytics/cache
+### GET /api/v1/domains/{id}/analytics/cache
 
-Returns cache outcome totals and hit ratio for one site based on ingested usage rows.
+Returns cache outcome totals and hit ratio for one domain based on ingested usage rows.
 
 ```bash
-curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/analytics/cache
+curl -s http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/analytics/cache
 ```
 
 ## Admin Auth
@@ -152,15 +152,15 @@ Success:
 
 Purpose: lightweight origin health check for edge-proxied requests. Auth is not required. It returns the same JSON shape as `/health`, but is not intercepted by the edge container's own `/health` endpoint.
 
-## Sites
+## Domains
 
-### POST /api/v1/sites
+### POST /api/v1/domains
 
 Required JSON fields: `name`, `domain`, `origin_host`. Optional: `user_id`, `origin_scheme` default `http`, `origin_port` default `8080`, `geo_origins`, `proxy_enabled` default `true`, `origin_shield_header_name`, `origin_shield_secret`.
 If `origin_shield_secret` is provided, core stores only its SHA-256 hash and never stores the plaintext in the database.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites \
+curl -s -X POST http://localhost:8080/api/v1/domains \
   -H 'Content-Type: application/json' \
   -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080}'
 ```
@@ -173,22 +173,22 @@ Success `201`:
 
 Errors: `name_required`, `domain_required`, `origin_host_required`, `domain_already_exists`; PowerDNS strict failures return 502 with the PowerDNS error string.
 
-### GET /api/v1/sites
+### GET /api/v1/domains
 
 ```bash
-curl -s http://localhost:8080/api/v1/sites
+curl -s http://localhost:8080/api/v1/domains
 ```
 
 ```json
 {"data":[{"id":"11111111-1111-4111-8111-111111111111","domain":"demo.local","proxy_enabled":true}]}
 ```
 
-### PATCH /api/v1/sites/{id}
+### PATCH /api/v1/domains/{id}
 
 Patchable fields: `name`, `domain`, `origin_scheme`, `origin_host`, `origin_port`, `geo_origins`, `proxy_enabled`, `status`, `origin_shield_header_name`, `origin_shield_secret`.
 
 ```bash
-curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111 \
+curl -s -X PATCH http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111 \
   -H 'Content-Type: application/json' \
   -d '{"name":"Demo Updated","proxy_enabled":false}'
 ```
@@ -197,35 +197,35 @@ curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-1111
 {"data":{"id":"11111111-1111-4111-8111-111111111111","name":"Demo Updated","proxy_enabled":false}}
 ```
 
-Errors: `site_not_found` 404, `domain_already_exists` 422.
+Errors: `domain_not_found` 404, `domain_already_exists` 422.
 
-### DELETE /api/v1/sites/{id}
+### DELETE /api/v1/domains/{id}
 
 ```bash
-curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111
+curl -s -X DELETE http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111
 ```
 
 ```json
 {"ok":true}
 ```
 
-Unknown site: `404 {"error":"site_not_found"}`.
+Unknown domain: `404 {"error":"domain_not_found"}`.
 
-### POST /api/v1/sites/{id}/proxy/enable
-### POST /api/v1/sites/{id}/proxy/disable
+### POST /api/v1/domains/{id}/proxy/enable
+### POST /api/v1/domains/{id}/proxy/disable
 
-Both return the updated site. Unknown site returns `404 {"error":"site_not_found"}`.
+Both return the updated domain. Unknown domain returns `404 {"error":"domain_not_found"}`.
 
 ## DNS Records
 
-DNS record fields: `id`, `site_id`, `type`, `name`, `content`, `origin_type`, `origin_content`, `public_type`, `public_content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, `status`, `created_at`, `updated_at`.
+DNS record fields: `id`, `domain_id`, `type`, `name`, `content`, `origin_type`, `origin_content`, `public_type`, `public_content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, `status`, `created_at`, `updated_at`.
 
-### POST /api/v1/sites/{id}/dns/records
+### POST /api/v1/domains/{id}/dns/records
 
 Required: `type`, `name`, `content`. Optional: `ttl` default `300`, `priority`, `proxied` default `false`, `geo_policy_id`, `edge_target`.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records \
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records \
   -H 'Content-Type: application/json' \
   -d '{"type":"A","name":"@","content":"127.0.0.1","ttl":300,"proxied":true}'
 ```
@@ -233,133 +233,133 @@ curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-11111
 Success `201`:
 
 ```json
-{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","origin_type":"A","origin_content":"127.0.0.1","public_type":"ALIAS","public_content":"geo.edge.vaheed.net.","ttl":300,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000000}}
+{"data":{"id":"22222222-2222-4222-8222-222222222222","domain_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.1","origin_type":"A","origin_content":"127.0.0.1","public_type":"ALIAS","public_content":"geo.edge.vaheed.net.","ttl":300,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000000}}
 ```
 
-Errors: `type_required`, `name_required`, `content_required`, `site_not_found`, PowerDNS strict 502 errors.
+Errors: `type_required`, `name_required`, `content_required`, `domain_not_found`, PowerDNS strict 502 errors.
 
-### GET /api/v1/sites/{id}/dns/records
+### GET /api/v1/domains/{id}/dns/records
 
 ```bash
-curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records
+curl -s http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records
 ```
 
 ```json
 {"data":[{"id":"22222222-2222-4222-8222-222222222222","type":"A","name":"@","proxied":true}]}
 ```
 
-Unknown site IDs return an empty `data` array because the list query filters by `site_id` only.
+Unknown domain IDs return an empty `data` array because the list query filters by `domain_id` only.
 
-### PATCH /api/v1/sites/{id}/dns/records/{recordId}
+### PATCH /api/v1/domains/{id}/dns/records/{recordId}
 
 Patchable fields: `type`, `name`, `content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, and `status`.
 
 ```bash
-curl -s -X PATCH http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
+curl -s -X PATCH http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222 \
   -H 'Content-Type: application/json' \
   -d '{"content":"127.0.0.2","ttl":120}'
 ```
 
 ```json
-{"data":{"id":"22222222-2222-4222-8222-222222222222","site_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000060}}
+{"data":{"id":"22222222-2222-4222-8222-222222222222","domain_id":"11111111-1111-4111-8111-111111111111","type":"A","name":"@","content":"127.0.0.2","ttl":120,"priority":null,"proxied":true,"status":"active","created_at":1710000000,"updated_at":1710000060}}
 ```
 
-Empty patch bodies return `422 {"error":"dns_record_update_body_required"}`. Unknown site or record IDs return `404 {"error":"record_not_found"}`.
+Empty patch bodies return `422 {"error":"dns_record_update_body_required"}`. Unknown domain or record IDs return `404 {"error":"record_not_found"}`.
 
-### DELETE /api/v1/sites/{id}/dns/records/{recordId}
+### DELETE /api/v1/domains/{id}/dns/records/{recordId}
 
 ```bash
-curl -s -X DELETE http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222
+curl -s -X DELETE http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/dns/records/22222222-2222-4222-8222-222222222222
 ```
 
 ```json
 {"ok":true}
 ```
 
-Unknown site or record: `404 {"error":"record_not_found"}`.
+Unknown domain or record: `404 {"error":"record_not_found"}`.
 
 ## Redirect Rules
 
-Redirect rule fields: `id`, `site_id`, `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`, `created_at`, `updated_at`.
+Redirect rule fields: `id`, `domain_id`, `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`, `created_at`, `updated_at`.
 
 `status_code` only allows `301`, `302`, `307`, or `308`.
 
-### POST /api/v1/sites/{id}/redirects
+### POST /api/v1/domains/{id}/redirects
 
 Required: `source_path`, `target_url`. Optional: `enabled` (default `true`), `status_code` (default `302`), `priority` (default `100`), `match_type` (`exact_path|prefix|wildcard_simple`, default `exact_path`), `preserve_query` (default `true`).
 Validation: `source_path` must start with `/`; `status_code` must be one of `301|302|307|308`.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/redirects \
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/redirects \
   -H 'Content-Type: application/json' \
   -d '{"enabled":true,"source_path":"/old-path","target_url":"https://example.com/new-path","status_code":308}'
 ```
 
-### GET /api/v1/sites/{id}/redirects
+### GET /api/v1/domains/{id}/redirects
 
 ```bash
-curl -s http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/redirects
+curl -s http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/redirects
 ```
 
-### PATCH /api/v1/sites/{id}/redirects/{redirectId}
+### PATCH /api/v1/domains/{id}/redirects/{redirectId}
 
 Patchable fields: `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`.
 
-### DELETE /api/v1/sites/{id}/redirects/{redirectId}
+### DELETE /api/v1/domains/{id}/redirects/{redirectId}
 
-Success: `{"ok":true}`. Unknown site/rule: `404 {"error":"redirect_not_found"}`.
+Success: `{"ok":true}`. Unknown domain/rule: `404 {"error":"redirect_not_found"}`.
 
-### POST /api/v1/sites/{id}/redirects/import
+### POST /api/v1/domains/{id}/redirects/import
 
 Body: `{"items":[...redirect objects...]}`.
 
-### GET /api/v1/sites/{id}/redirects/export
+### GET /api/v1/domains/{id}/redirects/export
 
-Returns the site redirects as `data`.
+Returns the domain redirects as `data`.
 
-### POST /api/v1/sites/{id}/redirects/test
+### POST /api/v1/domains/{id}/redirects/test
 
 Body: `{"path":"/old-post","query":"utm_source=x"}`.
 
 ## Rate Limit Rules
 
-### PUT /api/v1/sites/{id}/rate-limit
+### PUT /api/v1/domains/{id}/rate-limit
 
-Creates or updates a site rate-limit rule.
+Creates or updates a domain rate-limit rule.
 Validation: `requests_per_minute` must be an integer between `1` and `100000`.
 Optional fields: `priority` (`1..100000`), `path_prefix` (must start with `/`), `key_type` (`ip` or `ip_path`), `action` (`block`).
 
-### GET /api/v1/sites/{id}/rate-limit
+### GET /api/v1/domains/{id}/rate-limit
 
-Returns the current site rate-limit rule.
+Returns the current domain rate-limit rule.
 
-### DELETE /api/v1/sites/{id}/rate-limit
+### DELETE /api/v1/domains/{id}/rate-limit
 
-Disables/removes the active site rate-limit rule.
+Disables/removes the active domain rate-limit rule.
 
 ## WAF Rules
 
-### POST /api/v1/sites/{id}/waf-rules
+### POST /api/v1/domains/{id}/waf-rules
 
-Creates a WAF rule for the site.
+Creates a WAF rule for the domain.
 Validation: `type` must be one of `path_contains`, `path_prefix`, `user_agent_contains`, `ip_cidr`, `country_is`, `method_is`, `header_contains`; `action` (optional) must be one of `block`, `log`, `allow`; `priority` (optional) must be `1..100000`; `pattern` must be a non-empty string.
 Patch validation: same constraints apply to provided fields.
 
-### GET /api/v1/sites/{id}/waf-rules
+### GET /api/v1/domains/{id}/waf-rules
 
-Lists WAF rules for the site.
+Lists WAF rules for the domain.
 
-### PATCH /api/v1/sites/{id}/waf-rules/{wafId}
+### PATCH /api/v1/domains/{id}/waf-rules/{wafId}
 
-## Site Cache Settings
+## Domain Cache Settings
 
-### GET /api/v1/sites/{id}/cache/settings
+### GET /api/v1/domains/{id}/cache/settings
 
-Returns site-level cache defaults. If settings do not exist yet, defaults are created and returned.
+Returns domain-level cache defaults. If settings do not exist yet, defaults are created and returned.
 
-### PUT /api/v1/sites/{id}/cache/settings
+### PUT /api/v1/domains/{id}/cache/settings
 
-Creates/updates site-level cache defaults and policy controls.
+Creates/updates domain-level cache defaults and policy controls.
 
 Allowed fields:
 - `enabled` (boolean)
@@ -372,38 +372,38 @@ Allowed fields:
 
 ## Cache Purge Requests
 
-### POST /api/v1/sites/{id}/cache/purge
+### POST /api/v1/domains/{id}/cache/purge
 
 Creates a purge request and increments a soft purge namespace version.
 
-Allowed `type`: `url`, `prefix`, `site`, `everything`.
+Allowed `type`: `url`, `prefix`, `domain`, `everything`.
 `value` is required for `url` and `prefix`.
 Each request also writes an audit event (`cache_purge_requested`) into `audit_log` with `type`, `value`, `scope`, `scope_value`, `version_before`, and `version_after`.
 
-### GET /api/v1/sites/{id}/cache/purge-requests
+### GET /api/v1/domains/{id}/cache/purge-requests
 
-Lists purge requests for the site, newest first.
+Lists purge requests for the domain, newest first.
 
-### GET /api/v1/sites/{id}/cache/purge-requests/{requestId}
+### GET /api/v1/domains/{id}/cache/purge-requests/{requestId}
 
 Returns one purge request. Unknown ID returns `404 {"error":"cache_purge_request_not_found"}`.
 
 Updates one WAF rule.
 
-### DELETE /api/v1/sites/{id}/waf-rules/{wafId}
+### DELETE /api/v1/domains/{id}/waf-rules/{wafId}
 
 Deletes one WAF rule.
 
 ## SSL
 
-### POST /api/v1/sites/{id}/ssl/acme/issue
+### POST /api/v1/domains/{id}/ssl/acme/issue
 
-Issues an ACME certificate for an active proxied site using DNS-01 through PowerDNS. The body may include `hostnames`; when omitted, core uses the site domain. Hostnames must be the site domain or a subdomain of it.
+Issues an ACME certificate for an active proxied domain using DNS-01 through PowerDNS. The body may include `hostnames`; when omitted, core uses the domain domain. Hostnames must be the domain domain or a subdomain of it.
 
 Required runtime settings: `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ACME_DIRECTORY_URL`, `CDNLITE_ACME_CONTACT_EMAIL`, `POWERDNS_ENABLED=1`, `POWERDNS_API_URL`, and `POWERDNS_API_KEY`.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/acme/issue \
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/ssl/acme/issue \
   -H 'Content-Type: application/json' \
   -d '{"hostnames":["demo.local"]}'
 ```
@@ -414,12 +414,12 @@ Success returns active certificate metadata; private key material is never retur
 {"data":[{"hostname":"demo.local","provider":"acme","status":"active","last_error":null}]}
 ```
 
-### POST /api/v1/sites/{id}/ssl/request
+### POST /api/v1/domains/{id}/ssl/request
 
-Requests SSL metadata provisioning for an active proxied site. The body may include `hostnames`; when omitted, core uses the site domain. If the site is not active and proxied, the endpoint returns `422 {"error":"proxy_required"}`.
+Requests SSL metadata provisioning for an active proxied domain. The body may include `hostnames`; when omitted, core uses the domain domain. If the domain is not active and proxied, the endpoint returns `422 {"error":"proxy_required"}`.
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites/11111111-1111-4111-8111-111111111111/ssl/request \
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/ssl/request \
   -H 'Content-Type: application/json' \
   -d '{"hostnames":["demo.local"]}'
 ```
@@ -430,43 +430,43 @@ Example pending response:
 {"data":[{"hostname":"demo.local","provider":"cdnlite","status":"pending","last_error":null}]}
 ```
 
-### POST /api/v1/sites/{id}/ssl/check
+### POST /api/v1/domains/{id}/ssl/check
 
 Refreshes or creates SSL metadata rows for `hostnames`. Missing certificates are marked with `status:"missing"` and `last_error:"certificate_not_provisioned"`.
 
-### POST /api/v1/sites/{id}/ssl/manual-certificate
+### POST /api/v1/domains/{id}/ssl/manual-certificate
 
 Imports PEM certificate material for a hostname. `CDNLITE_SSL_SECRET_KEY` must be configured so the private key can be encrypted at rest.
 
 ## Security Events
 
-### GET /api/v1/sites/{id}/security/events
+### GET /api/v1/domains/{id}/security/events
 
-Returns recent events from `audit_log` for the site, newest first.
+Returns recent events from `audit_log` for the domain, newest first.
 
 Optional query params:
 - `type`: filter by event type (exact match).
 - `limit`: max rows to return (`1..500`, default `100`).
 
-Collector security-event items with an empty or unknown `site_id` are skipped; ingest responses include `skipped_unknown_sites`.
+Collector security-event items with an empty or unknown `domain_id` are skipped; ingest responses include `skipped_unknown_domains`.
 
 ## Cache Rules
 
-### POST /api/v1/sites/{id}/cache-rules
+### POST /api/v1/domains/{id}/cache-rules
 
-Creates a cache rule for the site.
+Creates a cache rule for the domain.
 Validation: `path_prefix` must start with `/` when provided; `ttl_seconds` must be an integer between `1` and `31536000`.
 Patch validation: same constraints apply to provided fields.
 
-### GET /api/v1/sites/{id}/cache-rules
+### GET /api/v1/domains/{id}/cache-rules
 
-Lists cache rules for the site.
+Lists cache rules for the domain.
 
-### PATCH /api/v1/sites/{id}/cache-rules/{cacheRuleId}
+### PATCH /api/v1/domains/{id}/cache-rules/{cacheRuleId}
 
 Updates one cache rule.
 
-### DELETE /api/v1/sites/{id}/cache-rules/{cacheRuleId}
+### DELETE /api/v1/domains/{id}/cache-rules/{cacheRuleId}
 
 Deletes one cache rule.
 
@@ -509,7 +509,7 @@ Success: `{"ok":true}`. When metadata fields are present and non-empty, core upd
 Optional query: `if_version` integer. HMAC signs path `/api/v1/edge/config`, not the query string.
 
 ```json
-{"version":1,"generated_at":1710000000,"hosts":{"demo.local":{"site_id":"11111111-1111-4111-8111-111111111111","upstream":"http://core:8080","geo_upstreams":{},"headers":{"X-CDNLITE-Site":"11111111-1111-4111-8111-111111111111"},"dns_records":[]}},"cache_rules":[{"id":"44444444-4444-4444-8444-444444444444","site_id":"11111111-1111-4111-8111-111111111111","enabled":true,"path_prefix":"/api/v1/sites","ttl_seconds":60,"created_at":1710000000,"updated_at":1710000000,"host":"demo.local"}]}
+{"version":1,"generated_at":1710000000,"hosts":{"demo.local":{"domain_id":"11111111-1111-4111-8111-111111111111","upstream":"http://core:8080","geo_upstreams":{},"headers":{"X-CDNLITE-Domain":"11111111-1111-4111-8111-111111111111"},"dns_records":[]}},"cache_rules":[{"id":"44444444-4444-4444-8444-444444444444","domain_id":"11111111-1111-4111-8111-111111111111","enabled":true,"path_prefix":"/api/v1/domains","ttl_seconds":60,"created_at":1710000000,"updated_at":1710000000,"host":"demo.local"}]}
 ```
 
 Unchanged `if_version` example:
@@ -551,13 +551,13 @@ Headers sent from edge to origin:
 Signed edge-auth body:
 
 ```json
-{"idempotency_key":"batch-1","items":[{"ts":1710000000,"site_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":10,"bytes_in":1000,"bytes_out":5000,"status":200}]}
+{"idempotency_key":"batch-1","items":[{"ts":1710000000,"domain_id":"11111111-1111-4111-8111-111111111111","edge_node_id":"edge-local-1","requests_count":10,"bytes_in":1000,"bytes_out":5000,"status":200}]}
 ```
 
 Success:
 
 ```json
-{"ingested":1,"skipped_unknown_sites":0,"duplicate":false,"idempotency_key":"batch-1"}
+{"ingested":1,"skipped_unknown_domains":0,"duplicate":false,"idempotency_key":"batch-1"}
 ```
 
 Duplicate key:
@@ -566,13 +566,13 @@ Duplicate key:
 {"ingested":0,"duplicate":true,"idempotency_key":"batch-1","item_count":1}
 ```
 
-Items with an empty or unknown `site_id` are skipped instead of failing the batch; `skipped_unknown_sites` reports how many were ignored.
+Items with an empty or unknown `domain_id` are skipped instead of failing the batch; `skipped_unknown_domains` reports how many were ignored.
 
 Validation errors: `items_must_be_array`, `idempotency_key_must_be_non_empty_string`.
 
 ### GET /api/v1/usage/summary
 
-Optional query: `site_id`, `bucket=minute|hour|day`.
+Optional query: `domain_id`, `bucket=minute|hour|day`.
 
 ```json
 {"data":{"bucket":"minute","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1}}
@@ -582,10 +582,10 @@ Invalid bucket returns `422 {"error":"bucket_must_be_one_of_minute_hour_day"}`.
 
 ### POST /api/v1/usage/recalculate
 
-Body is optional. Use `{"site_id":"11111111-1111-4111-8111-111111111111"}` for one site or `{}` for all sites.
+Body is optional. Use `{"domain_id":"11111111-1111-4111-8111-111111111111"}` for one domain or `{}` for all domains.
 
 ```json
-{"ok":true,"site_id":"11111111-1111-4111-8111-111111111111","inserted":{"minute":1,"hour":1,"day":1}}
+{"ok":true,"domain_id":"11111111-1111-4111-8111-111111111111","inserted":{"minute":1,"hour":1,"day":1}}
 ```
 
-Invalid `site_id` returns `422 {"error":"site_id_must_be_non_empty_string"}`.
+Invalid `domain_id` returns `422 {"error":"domain_id_must_be_non_empty_string"}`.

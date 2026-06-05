@@ -21,7 +21,7 @@ This documentation is based on the current repository code, scripts, Docker file
 | [Usage And Metrics](usage-and-metrics.md) | Ingest payloads, summaries, and aggregates. |
 | [Security](security.md) | Edge token and HMAC model. |
 | [Production Readiness](production-readiness.md) | Current internet-exposure risks, required secrets, and rollout cautions. |
-| [Website CDN Features](website-cdn-features.md) | What website-CDN features work today and what is planned next. |
+| [Webdomain CDN Features](website-cdn-features.md) | What website-CDN features work today and what is planned next. |
 | [Operations Runbook](operations-runbook.md) | Common operator procedures. |
 | [Production Day-2-Day Operations](production-day2day-operations.md) | Practical daily production checks, safe change flow, and rollback playbooks. |
 | [Troubleshooting](troubleshooting.md) | Symptoms, diagnostics, and fixes. |

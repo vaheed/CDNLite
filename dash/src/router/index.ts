@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { runtimeConfig } from '@/lib/config/env';
 import OpsDashboard from '@/views/OpsDashboard.vue';
-import SitesView from '@/views/SitesView.vue';
-import SiteFeatureView from '@/views/SiteFeatureView.vue';
+import DomainsView from '@/views/DomainsView.vue';
+import DomainFeatureView from '@/views/DomainFeatureView.vue';
 import EdgeNodesView from '@/views/EdgeNodesView.vue';
 import UsageAnalyticsView from '@/views/UsageAnalyticsView.vue';
 import ConfigSnapshotView from '@/views/ConfigSnapshotView.vue';
@@ -14,8 +14,8 @@ import { featurePages } from '@/views/featurePages';
 
 export const routes = [
   { path: '/', name: 'ops', component: OpsDashboard, meta: { label: 'OPS Dashboard' } },
-  { path: '/sites', name: 'sites', component: SitesView, meta: { label: 'Sites' } },
-  ...featurePages.map((feature) => ({ path: feature.path, name: feature.key, component: SiteFeatureView, props: { feature }, meta: { label: feature.title } })),
+  { path: '/domains', name: 'domains', component: DomainsView, meta: { label: 'Domains' } },
+  ...featurePages.map((feature) => ({ path: feature.path, name: feature.key, component: DomainFeatureView, props: { feature }, meta: { label: feature.title } })),
   { path: '/edge-nodes', name: 'edge-nodes', component: EdgeNodesView, meta: { label: 'Edge Nodes' } },
   { path: '/usage', name: 'usage', component: UsageAnalyticsView, meta: { label: 'Usage Analytics' } },
   { path: '/config-snapshot', name: 'config-snapshot', component: ConfigSnapshotView, meta: { label: 'Config Snapshot' } },

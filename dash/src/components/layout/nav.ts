@@ -2,7 +2,7 @@ import { runtimeConfig } from '@/lib/config/env';
 
 export const navItems = [
   { to: '/', label: 'OPS Dashboard' },
-  { to: '/sites', label: 'Sites' },
+  { to: '/domains', label: 'Domains' },
   { to: '/dns', label: 'DNS' },
   { to: '/redirects', label: 'Redirects' },
   { to: '/page-rules', label: 'Page Rules' },

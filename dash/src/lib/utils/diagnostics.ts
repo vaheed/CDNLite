@@ -1,4 +1,4 @@
-import type { CacheAnalytics, EdgeNode, OpsDiagnostic, PurgeRequest, SecurityEvent, Site, SslCertificate, UsageSummary } from '@/types';
+import type { CacheAnalytics, EdgeNode, OpsDiagnostic, PurgeRequest, SecurityEvent, Domain, SslCertificate, UsageSummary } from '@/types';
 
 export function heartbeatStatus(edge: EdgeNode, nowMs = Date.now()): 'ok' | 'warning' | 'critical' {
   const value = edge.last_heartbeat_at ?? edge.last_heartbeat;
@@ -29,7 +29,7 @@ export function cacheEfficiency(analytics?: CacheAnalytics | null): 'healthy' | 
 }
 
 export function buildOpsDiagnostic(input: {
-  sites: Site[];
+  domains: Domain[];
   edges: EdgeNode[];
   usage?: UsageSummary | null;
   securityEvents?: SecurityEvent[];
@@ -41,7 +41,7 @@ export function buildOpsDiagnostic(input: {
   const totalHits = input.cacheAnalytics?.reduce((sum, item) => sum + (item.hit ?? 0), 0) ?? 0;
   const totalCache = input.cacheAnalytics?.reduce((sum, item) => sum + (item.hit ?? 0) + (item.miss ?? 0) + (item.bypass ?? 0) + (item.stale ?? 0), 0) ?? 0;
   return {
-    sites: input.sites.length,
+    domains: input.domains.length,
     edges: input.edges.length,
     recentSecurityEvents: input.securityEvents?.length ?? 0,
     sslRisks: input.sslCertificates?.filter((cert) => ['critical', 'warning'].includes(sslRisk(cert))).length ?? 0,

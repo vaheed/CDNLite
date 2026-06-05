@@ -18,7 +18,7 @@ class AcmeIssuerService
         $this->powerDns = new PowerDnsService();
     }
 
-    public function issue(string $siteId, array $hostnames): array
+    public function issue(string $domainId, array $hostnames): array
     {
         if (!Secrets::isConfigured()) {
             throw new \RuntimeException('ssl_secret_key_missing');
@@ -27,15 +27,15 @@ class AcmeIssuerService
             throw new \RuntimeException('powerdns_required_for_dns_01');
         }
 
-        $site = $this->site($siteId);
-        if ($site === null) {
-            throw new \OutOfBoundsException('site_not_found');
+        $domain = $this->domain($domainId);
+        if ($domain === null) {
+            throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((int) $site['proxy_enabled'] !== 1 || (string) $site['status'] !== 'active') {
-            throw new \DomainException('site_proxy_must_be_active');
+        if ((int) $domain['proxy_enabled'] !== 1 || (string) $domain['status'] !== 'active') {
+            throw new \DomainException('domain_proxy_must_be_active');
         }
 
-        $targets = $this->targetHostnames($site, $hostnames);
+        $targets = $this->targetHostnames($domain, $hostnames);
         $account = $this->account();
         $directory = $this->directory();
         $order = $this->signedPost($directory['newOrder'], [
@@ -45,7 +45,7 @@ class AcmeIssuerService
         $orderBody = $order['body'];
 
         foreach (($orderBody['authorizations'] ?? []) as $authUrl) {
-            $this->completeDnsAuthorization((string) $authUrl, $account, (string) $site['domain']);
+            $this->completeDnsAuthorization((string) $authUrl, $account, (string) $domain['domain']);
         }
 
         $keyPair = $this->generatePrivateKey();
@@ -62,7 +62,7 @@ class AcmeIssuerService
         $privateKeyPem = $keyPair['pem'];
         $rows = [];
         foreach ($targets as $hostname) {
-            $rows[] = $this->certificates->storeIssuedSslCertificate($siteId, $hostname, 'acme', $certificatePem, $privateKeyPem);
+            $rows[] = $this->certificates->storeIssuedSslCertificate($domainId, $hostname, 'acme', $certificatePem, $privateKeyPem);
         }
         return $rows;
     }
@@ -285,14 +285,14 @@ class AcmeIssuerService
         return $path;
     }
 
-    private function targetHostnames(array $site, array $hostnames): array
+    private function targetHostnames(array $domain, array $hostnames): array
     {
-        $targets = $hostnames === [] ? [(string) $site['domain']] : $hostnames;
+        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
         $out = [];
         foreach ($targets as $hostname) {
             $h = strtolower(trim((string) $hostname));
-            if (!$this->validHostname($h) || !$this->hostnameBelongsToZone($h, (string) $site['domain'])) {
-                throw new \InvalidArgumentException('hostname_outside_site_domain');
+            if (!$this->validHostname($h) || !$this->hostnameBelongsToZone($h, (string) $domain['domain'])) {
+                throw new \InvalidArgumentException('hostname_outside_domain_domain');
             }
             $out[$h] = $h;
         }
@@ -331,10 +331,10 @@ class AcmeIssuerService
         return (bool) preg_match('/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])$/', $hostname);
     }
 
-    private function site(string $siteId): ?array
+    private function domain(string $domainId): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM sites WHERE id=:id LIMIT 1');
-        $stmt->execute([':id' => $siteId]);
+        $stmt = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM domains WHERE id=:id LIMIT 1');
+        $stmt->execute([':id' => $domainId]);
         $row = $stmt->fetch();
         return $row ? (array) $row : null;
     }

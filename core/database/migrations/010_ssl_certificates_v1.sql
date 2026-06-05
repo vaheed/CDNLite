@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS ssl_certificates (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   hostname TEXT NOT NULL,
   provider TEXT NOT NULL DEFAULT 'manual',
   status TEXT NOT NULL,
@@ -14,5 +14,5 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
   last_error TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(site_id, hostname)
+  UNIQUE(domain_id, hostname)
 );

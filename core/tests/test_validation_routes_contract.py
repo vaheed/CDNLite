@@ -88,20 +88,20 @@ def test_route_validation_returns_invalid_field_for_new_guards():
     try:
         wait_for_server(base_url)
 
-        site_code, site = request_json(
+        domain_code, domain = request_json(
             base_url,
             "POST",
-            "/api/v1/sites",
+            "/api/v1/domains",
             body={"name": "Val Demo", "domain": "val-demo.local", "origin_host": "core"},
             headers={"Authorization": "Bearer stage2-token"},
         )
-        assert site_code == 201
-        site_id = site["data"]["id"]
+        assert domain_code == 201
+        domain_id = domain["data"]["id"]
 
         dns_code, dns_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/dns/records",
+            f"/api/v1/domains/{domain_id}/dns/records",
             body={"type": "A", "name": "@", "content": "not-an-ip"},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -112,7 +112,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         redirect_code, redirect_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/redirects",
+            f"/api/v1/domains/{domain_id}/redirects",
             body={"source_path": "no-slash", "target_url": "https://example.com", "status_code": 302},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -123,7 +123,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         cache_code, cache_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/cache-rules",
+            f"/api/v1/domains/{domain_id}/cache-rules",
             body={"path_prefix": "/assets", "ttl_seconds": 0},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -134,7 +134,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         cache_settings_code, cache_settings_body = request_json(
             base_url,
             "PUT",
-            f"/api/v1/sites/{site_id}/cache/settings",
+            f"/api/v1/domains/{domain_id}/cache/settings",
             body={"default_edge_ttl_seconds": 0},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -145,7 +145,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         purge_code, purge_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/cache/purge",
+            f"/api/v1/domains/{domain_id}/cache/purge",
             body={"type": "prefix"},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -156,7 +156,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         ssl_check_code, ssl_check_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/ssl/check",
+            f"/api/v1/domains/{domain_id}/ssl/check",
             body={"hostnames": [""]},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -167,7 +167,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         ssl_request_invalid_code, ssl_request_invalid_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/ssl/request",
+            f"/api/v1/domains/{domain_id}/ssl/request",
             body={"hostnames": ""},
             headers={"Authorization": "Bearer stage2-token"},
         )
@@ -178,14 +178,14 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         disable_code, _ = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/proxy/disable",
+            f"/api/v1/domains/{domain_id}/proxy/disable",
             headers={"Authorization": "Bearer stage2-token"},
         )
         assert disable_code == 200
         ssl_request_code, ssl_request_body = request_json(
             base_url,
             "POST",
-            f"/api/v1/sites/{site_id}/ssl/request",
+            f"/api/v1/domains/{domain_id}/ssl/request",
             body={},
             headers={"Authorization": "Bearer stage2-token"},
         )

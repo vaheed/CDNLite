@@ -2,14 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\CommandIO;
 
-class CdnSiteListCommand
+class CdnDomainListCommand
 {
     public function __invoke(array $argv): int
     {
-        CommandIO::printJson(['data' => (new SiteService())->all()]);
+        CommandIO::printJson(['data' => (new DomainService())->all()]);
         return 0;
     }
 }

@@ -12,12 +12,12 @@ export type FeaturePage = {
 
 export const featurePages: FeaturePage[] = [
   {
-    key: 'dns', path: '/dns', title: 'DNS', subtitle: 'Manage site-scoped DNS records and proxy transformations.',
-    endpointSummary: ['GET/POST /api/v1/sites/{id}/dns/records', 'PATCH/DELETE /api/v1/sites/{id}/dns/records/{recordId}'],
+    key: 'dns', path: '/dns', title: 'DNS', subtitle: 'Manage domain-scoped DNS records and proxy transformations.',
+    endpointSummary: ['GET/POST /api/v1/domains/{id}/dns/records', 'PATCH/DELETE /api/v1/domains/{id}/dns/records/{recordId}'],
     columns: [{ key: 'name', label: 'Name' }, { key: 'type', label: 'Origin type' }, { key: 'content', label: 'Origin content' }, { key: 'public_type', label: 'Public type' }, { key: 'public_content', label: 'Public content' }, { key: 'ttl', label: 'TTL' }, { key: 'proxied', label: 'Proxied' }, { key: 'status', label: 'Status' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'type', label: 'Type', what: 'DNS record type.', works: 'A/AAAA/CNAME/etc. define how hostnames resolve.', example: 'A', required: true, type: 'select', options: [{ label: 'A', value: 'A' }, { label: 'AAAA', value: 'AAAA' }, { label: 'CNAME', value: 'CNAME' }, { label: 'TXT', value: 'TXT' }, { label: 'MX', value: 'MX' }] },
-      { name: 'name', label: 'Name', what: 'DNS name relative to the site domain.', works: '@ means the root domain.', example: '@ or www', required: true },
+      { name: 'name', label: 'Name', what: 'DNS name relative to the domain domain.', works: '@ means the root domain.', example: '@ or www', required: true },
       { name: 'content', label: 'Content', what: 'Origin DNS target before CDN proxy transformation.', works: 'If proxied, CDNLite may publish edge-facing DNS content.', example: '192.0.2.10', required: true },
       { name: 'ttl', label: 'TTL', what: 'DNS cache lifetime in seconds.', works: 'Lower values update faster; higher values reduce DNS load.', example: '300', type: 'number' },
       { name: 'proxied', label: 'Proxied', what: 'Whether traffic goes through the CDN edge.', works: 'If true, public DNS points to the edge target instead of origin.', example: 'true', type: 'checkbox' },
@@ -25,7 +25,7 @@ export const featurePages: FeaturePage[] = [
   },
   {
     key: 'redirects', path: '/redirects', title: 'Redirects', subtitle: 'Create, test, import, and export redirect rules.',
-    endpointSummary: ['GET/POST /api/v1/sites/{id}/redirects', 'PATCH/DELETE /api/v1/sites/{id}/redirects/{redirectId}', 'POST /import', 'GET /export', 'POST /test'],
+    endpointSummary: ['GET/POST /api/v1/domains/{id}/redirects', 'PATCH/DELETE /api/v1/domains/{id}/redirects/{redirectId}', 'POST /import', 'GET /export', 'POST /test'],
     columns: [{ key: 'enabled', label: 'Enabled' }, { key: 'source_path', label: 'Source' }, { key: 'target_url', label: 'Target' }, { key: 'status_code', label: 'Status' }, { key: 'match_type', label: 'Match' }, { key: 'preserve_query', label: 'Query' }, { key: 'priority', label: 'Priority' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether this rule is active.', works: 'Disabled rules remain saved but do not affect traffic.', example: 'true', type: 'checkbox' },
@@ -39,7 +39,7 @@ export const featurePages: FeaturePage[] = [
   },
   {
     key: 'page-rules', path: '/page-rules', title: 'Page Rules', subtitle: 'Route, cache, and behavior rules by path/pattern.',
-    endpointSummary: ['GET/POST /api/v1/sites/{id}/page-rules', 'PATCH/DELETE /api/v1/sites/{id}/page-rules/{ruleId}', 'POST /test'],
+    endpointSummary: ['GET/POST /api/v1/domains/{id}/page-rules', 'PATCH/DELETE /api/v1/domains/{id}/page-rules/{ruleId}', 'POST /test'],
     columns: [{ key: 'enabled', label: 'Enabled' }, { key: 'pattern', label: 'Pattern' }, { key: 'priority', label: 'Priority' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether the rule is active.', works: 'Only enabled rules are evaluated by the edge.', example: 'true', type: 'checkbox' },
@@ -50,7 +50,7 @@ export const featurePages: FeaturePage[] = [
   },
   {
     key: 'cache', path: '/cache', title: 'Cache', subtitle: 'Tune cache settings, TTLs, and cache rules.',
-    endpointSummary: ['GET/PUT /api/v1/sites/{id}/cache/settings', 'GET/POST /api/v1/sites/{id}/cache-rules', 'GET /analytics/cache'],
+    endpointSummary: ['GET/PUT /api/v1/domains/{id}/cache/settings', 'GET/POST /api/v1/domains/{id}/cache-rules', 'GET /analytics/cache'],
     columns: [{ key: 'kind', label: 'Kind' }, { key: 'enabled', label: 'Enabled' }, { key: 'path_prefix', label: 'Path prefix' }, { key: 'ttl_seconds', label: 'TTL' }, { key: 'cache_query_string_mode', label: 'Query mode' }, { key: 'hit_ratio', label: 'Hit ratio' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether edge caching is active.', works: 'When off, the edge proxies more traffic to origin.', example: 'true', type: 'checkbox' },
@@ -65,17 +65,17 @@ export const featurePages: FeaturePage[] = [
     ],
   },
   {
-    key: 'purge', path: '/purge', title: 'Purge Cache', subtitle: 'Choose a purge scope and invalidate cached content for the selected site.',
-    endpointSummary: ['POST /api/v1/sites/{id}/cache/purge', 'GET /api/v1/sites/{id}/cache/purge-requests'],
+    key: 'purge', path: '/purge', title: 'Purge Cache', subtitle: 'Choose a purge scope and invalidate cached content for the selected domain.',
+    endpointSummary: ['POST /api/v1/domains/{id}/cache/purge', 'GET /api/v1/domains/{id}/cache/purge-requests'],
     columns: [{ key: 'type', label: 'Type' }, { key: 'value', label: 'Value' }, { key: 'status', label: 'Status' }, { key: 'edge_seen_count', label: 'Edges seen' }, { key: 'error', label: 'Error' }, { key: 'created_at', label: 'Created' }, { key: 'completed_at', label: 'Completed' }, { key: 'actions', label: 'Actions' }],
     fields: [
-      { name: 'type', label: 'Purge scope', what: 'Required. Choose what cached content to invalidate.', works: 'URL purges one exact URL; prefix purges matching paths; site purges the selected site; everything purges all cached content for the selected site.', example: 'prefix', required: true, type: 'select', options: [{ label: 'URL - one exact URL', value: 'url' }, { label: 'Prefix - paths starting with value', value: 'prefix' }, { label: 'Site - selected site', value: 'site' }, { label: 'Everything - all site cache', value: 'everything' }] },
-      { name: 'value', label: 'URL or prefix', what: 'Required only when purge scope is URL or Prefix.', works: 'Use an exact URL/path for URL purge, or a path prefix such as /assets/ for Prefix purge. Leave empty for Site or Everything.', example: '/assets/' },
+      { name: 'type', label: 'Purge scope', what: 'Required. Choose what cached content to invalidate.', works: 'URL purges one exact URL; prefix purges matching paths; domain purges the selected domain; everything purges all cached content for the selected domain.', example: 'prefix', required: true, type: 'select', options: [{ label: 'URL - one exact URL', value: 'url' }, { label: 'Prefix - paths starting with value', value: 'prefix' }, { label: 'Domain - selected domain', value: 'domain' }, { label: 'Everything - all domain cache', value: 'everything' }] },
+      { name: 'value', label: 'URL or prefix', what: 'Required only when purge scope is URL or Prefix.', works: 'Use an exact URL/path for URL purge, or a path prefix such as /assets/ for Prefix purge. Leave empty for Domain or Everything.', example: '/assets/' },
     ],
   },
   {
     key: 'security', path: '/security', title: 'Security / WAF', subtitle: 'Manage WAF rules and inspect recent security events.',
-    endpointSummary: ['GET/POST /api/v1/sites/{id}/waf-rules', 'PATCH/DELETE /api/v1/sites/{id}/waf-rules/{wafId}', 'GET /security/events'],
+    endpointSummary: ['GET/POST /api/v1/domains/{id}/waf-rules', 'PATCH/DELETE /api/v1/domains/{id}/waf-rules/{wafId}', 'GET /security/events'],
     columns: [{ key: 'enabled', label: 'Enabled' }, { key: 'name', label: 'Name' }, { key: 'type', label: 'Type' }, { key: 'pattern', label: 'Pattern' }, { key: 'action', label: 'Action' }, { key: 'priority', label: 'Priority' }, { key: 'description', label: 'Description' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether this WAF rule is active.', works: 'Disabled rules remain saved but are not evaluated.', example: 'true', type: 'checkbox' },
@@ -88,20 +88,20 @@ export const featurePages: FeaturePage[] = [
     ],
   },
   {
-    key: 'rate-limit', path: '/rate-limit', title: 'Rate Limiting', subtitle: 'Configure per-site request limiting.',
-    endpointSummary: ['GET/PUT/DELETE /api/v1/sites/{id}/rate-limit'],
+    key: 'rate-limit', path: '/rate-limit', title: 'Rate Limiting', subtitle: 'Configure per-domain request limiting.',
+    endpointSummary: ['GET/PUT/DELETE /api/v1/domains/{id}/rate-limit'],
     fields: [
       { name: 'enabled', label: 'Enabled', what: 'Whether the rate limit is actively enforced.', works: 'Save with enabled on to enforce. Use Disable rate limit to remove the active rule.', example: 'true', type: 'checkbox' },
       { name: 'requests_per_minute', label: 'Requests per minute', what: 'Maximum requests allowed per minute.', works: 'Requests above this threshold are blocked.', example: '120', required: true, type: 'number' },
       { name: 'priority', label: 'Priority', what: 'Evaluation order when multiple limits exist in generated config.', works: 'Lower numbers can be evaluated earlier by the edge snapshot.', example: '100', type: 'number' },
       { name: 'key_type', label: 'Key type', what: 'How clients are grouped for limiting.', works: 'ip limits by IP; ip_path limits by IP + path.', example: 'ip_path', type: 'select', options: [{ label: 'IP', value: 'ip' }, { label: 'IP + path', value: 'ip_path' }] },
-      { name: 'path_prefix', label: 'Path prefix', what: 'Path scope for the limiter.', works: 'Use / to apply site-wide, or a prefix for hot paths.', example: '/api/' },
+      { name: 'path_prefix', label: 'Path prefix', what: 'Path scope for the limiter.', works: 'Use / to apply domain-wide, or a prefix for hot paths.', example: '/api/' },
       { name: 'action', label: 'Action', what: 'Decision when the limit is exceeded.', works: 'The current API supports block.', example: 'block', type: 'select', options: [{ label: 'Block', value: 'block' }] },
     ],
   },
   {
     key: 'ssl', path: '/ssl', title: 'SSL', subtitle: 'Issue ACME certificates for proxied hosts, inspect certificates, run checks, and import manual PEM material.',
-    endpointSummary: ['GET /api/v1/sites/{id}/ssl/certificates', 'POST /ssl/acme/issue', 'POST /ssl/request', 'POST /ssl/check', 'POST /ssl/manual-certificate'],
+    endpointSummary: ['GET /api/v1/domains/{id}/ssl/certificates', 'POST /ssl/acme/issue', 'POST /ssl/request', 'POST /ssl/check', 'POST /ssl/manual-certificate'],
     columns: [{ key: 'hostname', label: 'Hostname' }, { key: 'provider', label: 'Provider' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'serial_number', label: 'Serial' }, { key: 'not_before', label: 'Valid from' }, { key: 'not_after', label: 'Expires' }, { key: 'days_until_expiry', label: 'Days left' }, { key: 'last_checked_at', label: 'Checked' }, { key: 'last_error', label: 'Error' }],
     fields: [
       { name: 'hostname', label: 'Hostname', what: 'Hostname the certificate secures.', works: 'Edge uses SNI to select certificate.', example: 'example.com', required: true },

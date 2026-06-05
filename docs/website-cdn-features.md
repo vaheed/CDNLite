@@ -1,4 +1,4 @@
-# Website CDN Features
+# Webdomain CDN Features
 
 [Back to docs index](index.md)
 
@@ -6,14 +6,14 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 
 ## Available Now
 
-- Site lifecycle management (`create/list/update/delete`).
-- DNS record CRUD per site (with optional PowerDNS sync).
+- Domain lifecycle management (`create/list/update/delete`).
+- DNS record CRUD per domain (with optional PowerDNS sync).
 - Edge host-based proxying from config snapshots.
 - Redirect rules (basic path-to-target URL rules).
-- Site-level rate limit rule (basic model).
+- Domain-level rate limit rule (basic model).
 - WAF custom rules (basic model).
 - Cache rules by path prefix and TTL.
-- Site cache settings API (`GET/PUT /api/v1/sites/{site_id}/cache/settings`) for default cache policy controls.
+- Domain cache settings API (`GET/PUT /api/v1/domains/{domain_id}/cache/settings`) for default cache policy controls.
 - Cache purge API (`POST /cache/purge`, `GET /cache/purge-requests`).
 - Redirects v2 (priority, match type, preserve query, import/export/test endpoints).
 - Page rules v1 API (`create/list/update/delete/test`).

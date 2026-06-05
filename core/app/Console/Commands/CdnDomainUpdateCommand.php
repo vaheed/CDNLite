@@ -2,16 +2,16 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\CommandIO;
 
-class CdnSiteUpdateCommand
+class CdnDomainUpdateCommand
 {
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['id'] ?? ''));
-        if ($siteId === '') {
+        $domainId = trim((string) ($opts['id'] ?? ''));
+        if ($domainId === '') {
             fwrite(STDERR, "Missing --id\n");
             return 1;
         }
@@ -32,13 +32,13 @@ class CdnSiteUpdateCommand
             $patch['proxy_enabled'] = $opts['proxy_enabled'] !== '0';
         }
 
-        $site = (new SiteService())->update($siteId, $patch);
-        if ($site === null) {
-            fwrite(STDERR, "Site not found\n");
+        $domain = (new DomainService())->update($domainId, $patch);
+        if ($domain === null) {
+            fwrite(STDERR, "Domain not found\n");
             return 1;
         }
 
-        CommandIO::printJson(['data' => $site]);
+        CommandIO::printJson(['data' => $domain]);
         return 0;
     }
 

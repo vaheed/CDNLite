@@ -1,5 +1,5 @@
 def test_contract_schema_example():
-    site = {
+    domain = {
         "id": "11111111-1111-4111-8111-111111111111",
         "name": "demo",
         "domain": "demo.local",
@@ -7,8 +7,8 @@ def test_contract_schema_example():
         "origin_port": 8080,
         "proxy_enabled": True,
     }
-    assert isinstance(site["id"], str)
-    assert site["proxy_enabled"] is True
+    assert isinstance(domain["id"], str)
+    assert domain["proxy_enabled"] is True
 
 
 def test_artisan_help_lists_registered_commands():
@@ -25,7 +25,7 @@ def test_artisan_help_lists_registered_commands():
     )
 
     assert "Usage: php artisan <command> [--key=value]" in proc.stdout
-    assert "cdn:site:create" in proc.stdout
+    assert "cdn:domain:create" in proc.stdout
     assert "cdn:redirect:create" in proc.stdout
     assert "cdn:rate-limit:set" in proc.stdout
     assert "cdn:waf:create" in proc.stdout

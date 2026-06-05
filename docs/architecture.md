@@ -50,7 +50,7 @@ sequenceDiagram
   Agent->>Core: POST /api/v1/edge/register signed
   Core->>DB: upsert edge_nodes
   Agent->>Core: GET /api/v1/edge/config signed
-  Core->>DB: read sites, DNS, snapshots
+  Core->>DB: read domains, DNS, snapshots
   Core-->>Agent: snapshot JSON
   Agent->>Agent: write EDGE_CONFIG_PATH
 ```

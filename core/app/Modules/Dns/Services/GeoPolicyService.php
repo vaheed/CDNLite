@@ -2,8 +2,6 @@
 
 namespace App\Modules\Dns\Services;
 
-use App\Support\Database;
-
 class GeoPolicyService
 {
     public function defaultTarget(): string
@@ -18,25 +16,7 @@ class GeoPolicyService
             return $this->fqdn($edgeTarget);
         }
 
-        $policyId = trim((string) ($record['geo_policy_id'] ?? ''));
-        if ($policyId !== '') {
-            $policy = $this->find($policyId);
-            if ($policy !== null) {
-                return $this->targetForPolicy($policy);
-            }
-        }
-
         return $this->defaultTarget();
-    }
-
-    public function targetForPolicy(array $policy): string
-    {
-        $hash = (string) ($policy['policy_hash'] ?? '');
-        if ($hash === '') {
-            $config = json_decode((string) ($policy['config_json'] ?? '{}'), true);
-            $hash = $this->hash(is_array($config) ? $config : []);
-        }
-        return $this->targetForLabel('p-' . $hash);
     }
 
     public function targetForLabel(string $label): string
@@ -45,21 +25,6 @@ class GeoPolicyService
         $prefix = $this->sanitizeLabelPath((string) (getenv('CDNLITE_EDGE_ZONE_PREFIX') ?: 'edge'));
         $base = rtrim(strtolower((string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net')), '.');
         return $this->fqdn($label . '.' . $prefix . '.' . $base);
-    }
-
-    public function hash(array $config): string
-    {
-        ksort($config);
-        $json = json_encode($config, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-        return substr(hash('sha256', $json === false ? '{}' : $json), 0, 10);
-    }
-
-    public function find(string $id): ?array
-    {
-        $stmt = Database::pdo()->prepare('SELECT * FROM geo_policies WHERE id = :id LIMIT 1');
-        $stmt->execute([':id' => $id]);
-        $row = $stmt->fetch();
-        return $row === false ? null : (array) $row;
     }
 
     private function sanitizeLabelPath(string $value): string

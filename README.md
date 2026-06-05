@@ -8,18 +8,18 @@
 
 CDNLite is a lightweight modular CDN platform with a PHP control plane, PostgreSQL database, OpenResty/Lua edge proxy, and shell-based edge agent.
 
-It manages sites, DNS records, edge nodes, config snapshots, edge usage ingest, and usage summaries. It is useful for first-time CDN learners, developers testing CDN workflows, operators running a small local stack, maintainers, and agents working in this repository.
+It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest, and usage summaries. It is useful for first-time CDN learners, developers testing CDN workflows, operators running a small local stack, maintainers, and agents working in this repository.
 
 ## Key Features
 
-- Site lifecycle API and CLI.
-- Site-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
+- Domain lifecycle API and CLI.
+- Domain-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
 - Host-based OpenResty edge proxy using a JSON config snapshot.
 - Edge agent registration, heartbeat, config pull, metrics push, and security-event push.
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
-- Usage ingest with optional idempotency key, stale-site filtering, and minute/hour/day aggregate rebuilds.
-- Client-only Vue admin dashboard for operations, site management, troubleshooting, and edge developer tools.
+- Usage ingest with optional idempotency key, stale-domain filtering, and minute/hour/day aggregate rebuilds.
+- Client-only Vue admin dashboard for operations, domain management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
 
 ## Screenshot
@@ -132,7 +132,7 @@ Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any loca
 ## First API Example
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/sites \
+curl -s -X POST http://localhost:8080/api/v1/domains \
   -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
   -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
@@ -147,7 +147,7 @@ Example output:
 ## First CLI Example
 
 ```bash
-docker compose exec core php artisan cdn:site:list
+docker compose exec core php artisan cdn:domain:list
 ```
 
 Example output:
@@ -175,7 +175,7 @@ The CI scripts expect the Compose stack to be running.
 
 ## Current Limitations And Non-Goals
 
-- No user account system, background certificate renewal scheduler, advanced cache policy engine, or billing system is implemented. ACME DNS-01 issuance and manual certificate import are supported for active proxied sites.
+- No user account system, background certificate renewal scheduler, advanced cache policy engine, or billing system is implemented. ACME DNS-01 issuance and manual certificate import are supported for active proxied domains.
 - Dashboard admin auth is username/password plus in-memory browser session token; it is not multi-user RBAC.
 - The Vue dashboard is client-only. Any `VITE_CDNLITE_API_TOKEN` value is compiled into browser assets, so use it only for local/private deployments and prefer external auth in production.
 - Control-plane API auth is optional: when `CDNLITE_API_TOKEN` is set, non-edge `/api/v1/*` endpoints require `Authorization: Bearer <token>`.

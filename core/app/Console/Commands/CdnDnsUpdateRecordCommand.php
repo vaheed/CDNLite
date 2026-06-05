@@ -10,10 +10,10 @@ class CdnDnsUpdateRecordCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        $siteId = trim((string) ($opts['site_id'] ?? ''));
+        $domainId = trim((string) ($opts['domain_id'] ?? ''));
         $recordId = trim((string) ($opts['record_id'] ?? ''));
-        if ($siteId === '' || $recordId === '') {
-            fwrite(STDERR, "Missing --site_id or --record_id\n");
+        if ($domainId === '' || $recordId === '') {
+            fwrite(STDERR, "Missing --domain_id or --record_id\n");
             return 1;
         }
 
@@ -40,7 +40,7 @@ class CdnDnsUpdateRecordCommand
         }
 
         try {
-            $record = (new DnsService())->update($siteId, $recordId, $patch);
+            $record = (new DnsService())->update($domainId, $recordId, $patch);
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);
             return 1;

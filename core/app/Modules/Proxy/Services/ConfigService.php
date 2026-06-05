@@ -3,13 +3,13 @@
 namespace App\Modules\Proxy\Services;
 
 use App\Modules\Dns\Services\DnsService;
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\Database;
 
 class ConfigService
 {
     public function __construct(
-        private SiteService $sites,
+        private DomainService $domains,
         private DnsService $dns,
         private ?TrafficRulesService $rules = null
     ) {
@@ -24,24 +24,24 @@ class ConfigService
     public function buildSnapshotForVersion(?int $ifVersion = null): array
     {
         $hosts = [];
-        foreach ($this->sites->all() as $site) {
-            if (empty($site['proxy_enabled'])) {
+        foreach ($this->domains->all() as $domain) {
+            if (empty($domain['proxy_enabled'])) {
                 continue;
             }
 
-            $hosts[$site['domain']] = [
-                'site_id' => (string) $site['id'],
-                'upstream' => sprintf('%s://%s:%d', $site['origin_scheme'], $site['origin_host'], $site['origin_port']),
-                'geo_upstreams' => $this->buildGeoUpstreams($site['geo_origins'] ?? []),
+            $hosts[$domain['domain']] = [
+                'domain_id' => (string) $domain['id'],
+                'upstream' => sprintf('%s://%s:%d', $domain['origin_scheme'], $domain['origin_host'], $domain['origin_port']),
+                'geo_upstreams' => $this->buildGeoUpstreams($domain['geo_origins'] ?? []),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
-                'headers' => ['X-CDNLITE-Site' => (string) $site['id']],
-                'dns_records' => $this->dns->listBySite((string) $site['id']),
+                'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
+                'dns_records' => $this->dns->listByDomain((string) $domain['id']),
             ];
-            $shieldHeaderName = isset($site['origin_shield_header_name']) ? trim((string) $site['origin_shield_header_name']) : '';
-            $shieldHash = isset($site['origin_shield_header_value_hash']) ? trim((string) $site['origin_shield_header_value_hash']) : '';
+            $shieldHeaderName = isset($domain['origin_shield_header_name']) ? trim((string) $domain['origin_shield_header_name']) : '';
+            $shieldHash = isset($domain['origin_shield_header_value_hash']) ? trim((string) $domain['origin_shield_header_value_hash']) : '';
             $shieldSecret = (string) (getenv('CDNLITE_ORIGIN_SHIELD_SECRET') ?: '');
             if ($shieldHeaderName !== '' && $shieldHash !== '' && $shieldSecret !== '' && hash('sha256', $shieldSecret) === $shieldHash) {
-                $hosts[$site['domain']]['headers'][$shieldHeaderName] = $shieldSecret;
+                $hosts[$domain['domain']]['headers'][$shieldHeaderName] = $shieldSecret;
             }
         }
 
@@ -53,15 +53,15 @@ class ConfigService
         $cachePurgeVersions = [];
         $pageRules = [];
         $sslCertificates = [];
-        foreach ($hosts as $host => $siteCfg) {
-            $siteId = (string) $siteCfg['site_id'];
-            foreach ($this->rules->listRedirects($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
-            $rl = $this->rules->getRateLimit($siteId); if ($rl !== null && !empty($rl['enabled'])) { $rl['host'] = $host; $rateLimits[] = $rl; }
-            foreach ($this->rules->listWaf($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
-            foreach ($this->rules->listCacheRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
-            foreach ($this->rules->listCachePurgeVersionsForConfig($siteId, $host) as $row) { $cachePurgeVersions[] = $row; }
-            foreach ($this->rules->listPageRules($siteId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
-            foreach ($this->rules->listSslCertificatesForConfig($siteId, $host) as $row) { $sslCertificates[] = $row; }
+        foreach ($hosts as $host => $domainCfg) {
+            $domainId = (string) $domainCfg['domain_id'];
+            foreach ($this->rules->listRedirects($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
+            $rl = $this->rules->getRateLimit($domainId); if ($rl !== null && !empty($rl['enabled'])) { $rl['host'] = $host; $rateLimits[] = $rl; }
+            foreach ($this->rules->listWaf($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
+            foreach ($this->rules->listCacheRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
+            foreach ($this->rules->listCachePurgeVersionsForConfig($domainId, $host) as $row) { $cachePurgeVersions[] = $row; }
+            foreach ($this->rules->listPageRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
+            foreach ($this->rules->listSslCertificatesForConfig($domainId, $host) as $row) { $sslCertificates[] = $row; }
         }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.

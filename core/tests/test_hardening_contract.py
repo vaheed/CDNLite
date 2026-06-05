@@ -49,11 +49,10 @@ $tables = [
   'usage_rollups',
   'edge_request_nonces',
   'edge_tokens',
-  'geo_policies',
   'edge_dns_state',
   'edge_nodes',
   'dns_records',
-  'sites',
+  'domains',
   'config_snapshots',
   'config_state',
 ];
@@ -83,18 +82,18 @@ if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
 def test_usage_ingest_idempotency_key_deduplicates_retries():
     reset_db()
 
-    site = run_artisan(
-        "cdn:site:create",
+    domain = run_artisan(
+        "cdn:domain:create",
         "--name=demo",
         "--domain=demo.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
-    site_id = site["data"]["id"]
+    domain_id = domain["data"]["id"]
 
     first = run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -104,7 +103,7 @@ def test_usage_ingest_idempotency_key_deduplicates_retries():
     )
     second = run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -126,7 +125,7 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     reset_db()
 
     run_artisan(
-        "cdn:site:create",
+        "cdn:domain:create",
         "--name=demo2",
         "--domain=demo2.local",
         "--origin_host=origin.local",
@@ -149,7 +148,7 @@ def test_core_agent_config_if_version_contract():
     reset_db()
 
     run_artisan(
-        "cdn:site:create",
+        "cdn:domain:create",
         "--name=agent-config-contract",
         "--domain=agent-config-contract.local",
         "--origin_host=origin.local",
@@ -171,18 +170,18 @@ def test_core_agent_config_if_version_contract():
 def test_core_collector_idempotency_contract_for_agent_retries():
     reset_db()
 
-    site = run_artisan(
-        "cdn:site:create",
+    domain = run_artisan(
+        "cdn:domain:create",
         "--name=agent-metrics-contract",
         "--domain=agent-metrics-contract.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
-    site_id = site["data"]["id"]
+    domain_id = domain["data"]["id"]
 
     first = run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=1",
         "--bytes_in=2",
@@ -192,7 +191,7 @@ def test_core_collector_idempotency_contract_for_agent_retries():
     )
     retry = run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=1",
         "--bytes_in=2",
@@ -200,7 +199,7 @@ def test_core_collector_idempotency_contract_for_agent_retries():
         "--status=200",
         "--idempotency_key=agent-retry-key",
     )
-    summary = run_artisan("cdn:usage:summary", f"--site_id={site_id}")
+    summary = run_artisan("cdn:usage:summary", f"--domain_id={domain_id}")
 
     assert first["ingested"] == 1
     assert first["duplicate"] is False
@@ -215,17 +214,17 @@ def test_core_collector_idempotency_contract_for_agent_retries():
 def test_dns_record_update_command_patches_existing_record():
     reset_db()
 
-    site = run_artisan(
-        "cdn:site:create",
+    domain = run_artisan(
+        "cdn:domain:create",
         "--name=dns-update-demo",
         "--domain=dns-update-demo.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
-    site_id = site["data"]["id"]
+    domain_id = domain["data"]["id"]
     record = run_artisan(
         "cdn:dns:add-record",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--type=A",
         "--name=@",
         "--content=127.0.0.1",
@@ -235,7 +234,7 @@ def test_dns_record_update_command_patches_existing_record():
 
     updated = run_artisan(
         "cdn:dns:update-record",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         f"--record_id={record_id}",
         "--content=127.0.0.2",
         "--ttl=120",
@@ -253,7 +252,7 @@ def test_dns_record_update_command_patches_existing_record():
 
     non_apex = run_artisan(
         "cdn:dns:add-record",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--type=A",
         "--name=www",
         "--content=127.0.0.3",
@@ -303,18 +302,18 @@ echo json_encode([
 def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     reset_db()
 
-    site = run_artisan(
-        "cdn:site:create",
+    domain = run_artisan(
+        "cdn:domain:create",
         "--name=agg-demo",
         "--domain=agg-demo.local",
         "--origin_host=origin.local",
         "--origin_port=8080",
     )
-    site_id = site["data"]["id"]
+    domain_id = domain["data"]["id"]
 
     run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=10",
         "--bytes_in=100",
@@ -324,7 +323,7 @@ def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     )
     run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=5",
         "--bytes_in=40",
@@ -334,7 +333,7 @@ def test_usage_recalculate_materializes_minute_hour_day_aggregates():
     )
     run_artisan(
         "cdn:usage:ingest",
-        f"--site_id={site_id}",
+        f"--domain_id={domain_id}",
         "--edge_node_id=edge-1",
         "--requests_count=7",
         "--bytes_in=70",

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS cache_purge_requests (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   value TEXT NULL,
   status TEXT NOT NULL,
@@ -14,10 +14,10 @@ CREATE TABLE IF NOT EXISTS cache_purge_requests (
 
 CREATE TABLE IF NOT EXISTS cache_purge_versions (
   id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   scope TEXT NOT NULL,
   value TEXT NOT NULL,
   version BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  UNIQUE(site_id, scope, value)
+  UNIQUE(domain_id, scope, value)
 );

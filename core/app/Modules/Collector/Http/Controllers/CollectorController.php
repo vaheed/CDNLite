@@ -48,32 +48,32 @@ class CollectorController
         return $this->service->ingestSecurityEvents($items, $idempotencyKey);
     }
 
-    public function summary(?string $siteId, ?string $bucket): array
+    public function summary(?string $domainId, ?string $bucket): array
     {
         if ($bucket !== null && !isset($this->allowedBuckets[$bucket])) {
             return ['error' => 'bucket_must_be_one_of_minute_hour_day', 'status' => 422];
         }
-        return ['data' => $this->service->summary($siteId, $bucket)];
+        return ['data' => $this->service->summary($domainId, $bucket)];
     }
 
     public function recalculate(array $input): array
     {
-        $siteId = null;
-        if (isset($input['site_id'])) {
-            if (!is_string($input['site_id']) || trim($input['site_id']) === '') {
-                return ['error' => 'site_id_must_be_non_empty_string', 'status' => 422];
+        $domainId = null;
+        if (isset($input['domain_id'])) {
+            if (!is_string($input['domain_id']) || trim($input['domain_id']) === '') {
+                return ['error' => 'domain_id_must_be_non_empty_string', 'status' => 422];
             }
-            $siteId = trim($input['site_id']);
+            $domainId = trim($input['domain_id']);
         }
 
-        return $this->service->rebuildAggregates($siteId);
+        return $this->service->rebuildAggregates($domainId);
     }
 
-    public function cacheAnalytics(string $siteId): array
+    public function cacheAnalytics(string $domainId): array
     {
-        if (trim($siteId) === '') {
-            return ['error' => 'site_id_must_be_non_empty_string', 'status' => 422];
+        if (trim($domainId) === '') {
+            return ['error' => 'domain_id_must_be_non_empty_string', 'status' => 422];
         }
-        return ['data' => $this->service->cacheAnalytics($siteId)];
+        return ['data' => $this->service->cacheAnalytics($domainId)];
     }
 }

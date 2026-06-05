@@ -14,8 +14,8 @@ use App\Modules\Edge\Services\EdgeService;
 use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\TrafficRulesService;
-use App\Modules\Sites\Http\Controllers\SiteController;
-use App\Modules\Sites\Services\SiteService;
+use App\Modules\Domains\Http\Controllers\DomainController;
+use App\Modules\Domains\Services\DomainService;
 use App\Support\ApiAuth;
 use App\Support\Logger;
 use App\Support\Request;
@@ -177,14 +177,14 @@ set_exception_handler(static function (\Throwable $e): void {
 
 $request = new Request($method, (string) $path, $_GET, is_array($body) ? $body : [], (string) ($bodyRaw ?: ''));
 
-$siteService = new SiteService();
+$domainService = new DomainService();
 $dnsService = new DnsService();
 $edgeService = new EdgeService();
-$siteController = new SiteController($siteService);
+$domainController = new DomainController($domainService);
 $dnsController = new DnsController($dnsService);
 $edgeController = new EdgeController($edgeService);
 $collectorController = new CollectorController(new CollectorService());
-$configService = new ConfigService($siteService, $dnsService);
+$configService = new ConfigService($domainService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
 $adminAuth = new AdminAuthService();
@@ -229,7 +229,7 @@ $router->add('GET', '/ready', static function () use ($configService): array {
         $checks['postgres'] = 'fail';
     }
     try {
-        $required = ['sites', 'redirect_rules', 'rate_limit_rules', 'waf_rules', 'cache_rules', 'config_state', 'config_snapshots'];
+        $required = ['domains', 'redirect_rules', 'rate_limit_rules', 'waf_rules', 'cache_rules', 'config_state', 'config_snapshots'];
         foreach ($required as $table) {
             $stmt = \App\Support\Database::pdo()->query("SELECT to_regclass('public." . $table . "')");
             if ($stmt->fetchColumn() === null) {
@@ -254,62 +254,66 @@ $router->add('GET', '/ready', static function () use ($configService): array {
     return Response::json(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 });
 
-$router->add('GET', '/api/v1/sites', static fn () => Response::json($siteController->index()), auth: true);
-$router->add('POST', '/api/v1/sites', static fn (Request $req) => Response::json($siteController->store($req->body), 201), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}', static function (Request $req, array $p) use ($siteController): array {
-    $result = $siteController->update((string) $p['siteId'], $req->body);
-    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+$router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
+$router->add('POST', '/api/v1/domains', static fn (Request $req) => Response::json($domainController->store($req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}', static function (Request $req, array $p) use ($domainController): array {
+    $result = $domainController->show((string) $p['domainId']);
+    return $result ? Response::json($result) : Response::json(['error' => 'domain_not_found'], 404);
 }, auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}', static fn (Request $req, array $p) => Response::json($siteController->delete((string) $p['siteId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/proxy/enable', static function (Request $req, array $p) use ($siteController): array {
-    $result = $siteController->enableProxy((string) $p['siteId']);
-    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+$router->add('PATCH', '/api/v1/domains/{domainId}', static function (Request $req, array $p) use ($domainController): array {
+    $result = $domainController->update((string) $p['domainId'], $req->body);
+    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
 }, auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/proxy/disable', static function (Request $req, array $p) use ($siteController): array {
-    $result = $siteController->disableProxy((string) $p['siteId']);
-    return $result === null ? Response::json(['error' => 'site_not_found'], 404) : Response::json($result);
+$router->add('DELETE', '/api/v1/domains/{domainId}', static fn (Request $req, array $p) => Response::json($domainController->delete((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/proxy/enable', static function (Request $req, array $p) use ($domainController): array {
+    $result = $domainController->enableProxy((string) $p['domainId']);
+    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/proxy/disable', static function (Request $req, array $p) use ($domainController): array {
+    $result = $domainController->disableProxy((string) $p['domainId']);
+    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
 }, auth: true);
 
-$router->add('POST', '/api/v1/sites/{siteId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->create((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['siteId'])), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->update((string) $p['siteId'], (string) $p['recordId'], $req->body)), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['siteId'], (string) $p['recordId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->create((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['domainId'], (string) $p['recordId'])), auth: true);
 
-$router->add('POST', '/api/v1/sites/{siteId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['siteId'])), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRedirect((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRedirect((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['siteId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['siteId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['siteId'], $req->body)), auth: true);
-$router->add('PUT', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['siteId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['siteId'])), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['siteId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->createWaf((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->listWaf((string) $p['siteId'])), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->updateWaf((string) $p['siteId'], (string) $p['wafId'], $req->body)), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteWaf((string) $p['siteId'], (string) $p['wafId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->createCacheRule((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->listCacheRules((string) $p['siteId'])), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateCacheRule((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteCacheRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/cache/settings', static fn (Request $req, array $p) => Response::json($rulesController->getSiteCacheSettings((string) $p['siteId'])), auth: true);
-$router->add('PUT', '/api/v1/sites/{siteId}/cache/settings', static fn (Request $req, array $p) => Response::json($rulesController->setSiteCacheSettings((string) $p['siteId'], $req->body)), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/cache/purge', static fn (Request $req, array $p) => Response::json($rulesController->createCachePurgeRequest((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/cache/purge-requests', static fn (Request $req, array $p) => Response::json($rulesController->listCachePurgeRequests((string) $p['siteId'])), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/cache/purge-requests/{requestId}', static fn (Request $req, array $p) => Response::json($rulesController->getCachePurgeRequest((string) $p['siteId'], (string) $p['requestId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->createPageRule((string) $p['siteId'], $req->body), 201), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->listPageRules((string) $p['siteId'])), auth: true);
-$router->add('PATCH', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updatePageRule((string) $p['siteId'], (string) $p['ruleId'], $req->body)), auth: true);
-$router->add('DELETE', '/api/v1/sites/{siteId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['siteId'], (string) $p['ruleId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['siteId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/ssl/certificates', static fn (Request $req, array $p) => Response::json($rulesController->listSslCertificates((string) $p['siteId'])), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/ssl/request', static fn (Request $req, array $p) => Response::json($rulesController->requestSslCertificate((string) $p['siteId'], $req->body)), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/ssl/acme/issue', static fn (Request $req, array $p) => Response::json($rulesController->issueAcmeCertificate((string) $p['siteId'], $req->body)), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['siteId'], $req->body)), auth: true);
-$router->add('POST', '/api/v1/sites/{siteId}/ssl/manual-certificate', static fn (Request $req, array $p) => Response::json($rulesController->importManualSslCertificate((string) $p['siteId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/security/events', static fn (Request $req, array $p) => Response::json($rulesController->listSecurityEvents((string) $p['siteId'], $req->query)), auth: true);
-$router->add('GET', '/api/v1/sites/{siteId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['siteId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRedirect((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/redirects/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRedirect((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['domainId'], $req->body)), auth: true);
+$router->add('PUT', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['domainId'])), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->createWaf((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->listWaf((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->updateWaf((string) $p['domainId'], (string) $p['wafId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteWaf((string) $p['domainId'], (string) $p['wafId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->createCacheRule((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->listCacheRules((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateCacheRule((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteCacheRule((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/cache/settings', static fn (Request $req, array $p) => Response::json($rulesController->getDomainCacheSettings((string) $p['domainId'])), auth: true);
+$router->add('PUT', '/api/v1/domains/{domainId}/cache/settings', static fn (Request $req, array $p) => Response::json($rulesController->setDomainCacheSettings((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/cache/purge', static fn (Request $req, array $p) => Response::json($rulesController->createCachePurgeRequest((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/cache/purge-requests', static fn (Request $req, array $p) => Response::json($rulesController->listCachePurgeRequests((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/cache/purge-requests/{requestId}', static fn (Request $req, array $p) => Response::json($rulesController->getCachePurgeRequest((string) $p['domainId'], (string) $p['requestId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->createPageRule((string) $p['domainId'], $req->body), 201), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/page-rules', static fn (Request $req, array $p) => Response::json($rulesController->listPageRules((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updatePageRule((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/ssl/certificates', static fn (Request $req, array $p) => Response::json($rulesController->listSslCertificates((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ssl/request', static fn (Request $req, array $p) => Response::json($rulesController->requestSslCertificate((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ssl/acme/issue', static fn (Request $req, array $p) => Response::json($rulesController->issueAcmeCertificate((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ssl/manual-certificate', static fn (Request $req, array $p) => Response::json($rulesController->importManualSslCertificate((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/security/events', static fn (Request $req, array $p) => Response::json($rulesController->listSecurityEvents((string) $p['domainId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['domainId'])), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);
@@ -317,7 +321,7 @@ $router->add('POST', '/api/v1/edge/heartbeat', static fn (Request $req) => Respo
 $router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response::json($configService->buildSnapshotForVersion(isset($req->query['if_version']) ? (int) $req->query['if_version'] : null)), edgeAuth: true);
 $router->add('POST', '/api/v1/collector/usage', static fn (Request $req) => Response::json($collectorController->ingest($req->body)), edgeAuth: true);
 $router->add('POST', '/api/v1/collector/security-events', static fn (Request $req) => Response::json($collectorController->ingestSecurityEvents($req->body)), edgeAuth: true);
-$router->add('GET', '/api/v1/usage/summary', static fn (Request $req) => Response::json($collectorController->summary(isset($req->query['site_id']) ? (string) $req->query['site_id'] : null, isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
+$router->add('GET', '/api/v1/usage/summary', static fn (Request $req) => Response::json($collectorController->summary(isset($req->query['domain_id']) ? (string) $req->query['domain_id'] : null, isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
 $router->add('POST', '/api/v1/usage/recalculate', static fn (Request $req) => Response::json($collectorController->recalculate($req->body)), auth: true);
 
 $matched = $router->dispatch($request);

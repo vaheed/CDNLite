@@ -84,7 +84,7 @@ Routing sanity:
 
 ```bash
 curl -i -H 'Host: example.com' http://localhost:8081/health
-curl -i -H 'Host: unknown.example' http://localhost:8081/api/v1/sites
+curl -i -H 'Host: unknown.example' http://localhost:8081/api/v1/domains
 ```
 
 Expected:
@@ -103,7 +103,7 @@ Edge nodes continue serving with the last-known-good config when core is tempora
 - Stale safety: set `EDGE_CONFIG_MAX_STALE_SECONDS` to emit readiness warning (`status.warning=config_stale`) if sync age exceeds policy while still serving traffic.
 - Sync status: `/ready` includes current version, last successful sync time, source (`remote` or `cache`), and core reachability signal.
 
-## Safe Change Procedure: Site Config
+## Safe Change Procedure: Domain Config
 
 When changing origin host/port, geo upstreams, proxy enablement, DNS, or cache rules:
 
@@ -117,7 +117,7 @@ Example:
 
 ```bash
 # 1) apply
-curl -sS -X PATCH "http://localhost:8080/api/v1/sites/<site_id>" \
+curl -sS -X PATCH "http://localhost:8080/api/v1/domains/<domain_id>" \
   -H 'Content-Type: application/json' \
   -d '{"origin_host":"core","origin_port":8080}'
 
@@ -125,7 +125,7 @@ curl -sS -X PATCH "http://localhost:8080/api/v1/sites/<site_id>" \
 docker compose exec edge-agent sh -lc '/agent/pull_config.sh'
 
 # 4) verify
-curl -i -H "Host: <site-domain>" "http://localhost:8081/health"
+curl -i -H "Host: <domain-domain>" "http://localhost:8081/health"
 ```
 
 ## Safe Change Procedure: Cache Rules
@@ -143,10 +143,10 @@ Checks:
 Example:
 
 ```bash
-curl -i -H "Host: <site-domain>" "http://localhost:8081/api/v1/sites?probe=1" | grep -i X-CDNLITE-Cache
-curl -i -H "Host: <site-domain>" "http://localhost:8081/api/v1/sites?probe=1" | grep -i X-CDNLITE-Cache
-curl -i -H "Host: <site-domain>" -H "Authorization: Bearer token" "http://localhost:8081/api/v1/sites?probe=1" | grep -i X-CDNLITE-Cache
-curl -i -H "Host: <site-domain>" -H "Cache-Control: no-cache" "http://localhost:8081/api/v1/sites?probe=1" | grep -i X-CDNLITE-Cache
+curl -i -H "Host: <domain-domain>" "http://localhost:8081/api/v1/domains?probe=1" | grep -i X-CDNLITE-Cache
+curl -i -H "Host: <domain-domain>" "http://localhost:8081/api/v1/domains?probe=1" | grep -i X-CDNLITE-Cache
+curl -i -H "Host: <domain-domain>" -H "Authorization: Bearer token" "http://localhost:8081/api/v1/domains?probe=1" | grep -i X-CDNLITE-Cache
+curl -i -H "Host: <domain-domain>" -H "Cache-Control: no-cache" "http://localhost:8081/api/v1/domains?probe=1" | grep -i X-CDNLITE-Cache
 ```
 
 ## Deployment Checklist
@@ -194,7 +194,7 @@ docker compose up -d --build core edge edge-agent
 docker compose exec edge-agent sh -lc '/agent/pull_config.sh'
 ```
 
-If issue is site-config specific instead of image-specific, revert the site change and pull config again.
+If issue is domain-config specific instead of image-specific, revert the domain change and pull config again.
 
 ## Incident Triage Quick Map
 
@@ -242,7 +242,7 @@ Escalate immediately when:
 - Core is down more than 5 minutes.
 - More than 20% of known hosts return 5xx for more than 5 minutes.
 - All edge heartbeats stop updating.
-- Data integrity issue is suspected (missing/duplicated site or DNS records).
+- Data integrity issue is suspected (missing/duplicated domain or DNS records).
 
 When escalating, include:
 

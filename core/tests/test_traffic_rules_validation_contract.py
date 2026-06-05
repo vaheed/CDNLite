@@ -16,20 +16,20 @@ require __DIR__ . '/core/app/Support/bootstrap.php';
 
 $c = new App\Modules\Proxy\Http\Controllers\TrafficRulesController(new App\Modules\Proxy\Services\TrafficRulesService());
 
-$badRedirect = $c->createRedirect('site-1', ['source_path' => 'no-slash', 'target_url' => 'https://example.com']);
-$badWaf = $c->createWaf('site-1', ['type' => 'not_valid', 'pattern' => '1.2.3.4/32']);
-$badCache = $c->createCacheRule('site-1', ['path_prefix' => 'assets', 'ttl_seconds' => 3600]);
-$badRate = $c->setRateLimit('site-1', ['requests_per_minute' => 0]);
-$badRatePath = $c->setRateLimit('site-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
-$badRateKeyType = $c->setRateLimit('site-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
-$badWafPatch = $c->updateWaf('site-1', 'rule-1', ['type' => 'not_valid']);
-$badCachePatch = $c->updateCacheRule('site-1', 'rule-2', ['ttl_seconds' => 0]);
-$badRedirectMatchType = $c->createRedirect('site-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
-$badRedirectPriority = $c->updateRedirect('site-1', 'rule-9', ['priority' => 0]);
-$badPageRule = $c->createPageRule('site-1', ['pattern' => 'admin/*', 'actions' => ['cache' => 'bypass']]);
-$badAcmeHostnames = $c->issueAcmeCertificate('site-1', ['hostnames' => 'example.com']);
+$badRedirect = $c->createRedirect('domain-1', ['source_path' => 'no-slash', 'target_url' => 'https://example.com']);
+$badWaf = $c->createWaf('domain-1', ['type' => 'not_valid', 'pattern' => '1.2.3.4/32']);
+$badCache = $c->createCacheRule('domain-1', ['path_prefix' => 'assets', 'ttl_seconds' => 3600]);
+$badRate = $c->setRateLimit('domain-1', ['requests_per_minute' => 0]);
+$badRatePath = $c->setRateLimit('domain-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
+$badRateKeyType = $c->setRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
+$badWafPatch = $c->updateWaf('domain-1', 'rule-1', ['type' => 'not_valid']);
+$badCachePatch = $c->updateCacheRule('domain-1', 'rule-2', ['ttl_seconds' => 0]);
+$badRedirectMatchType = $c->createRedirect('domain-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
+$badRedirectPriority = $c->updateRedirect('domain-1', 'rule-9', ['priority' => 0]);
+$badPageRule = $c->createPageRule('domain-1', ['pattern' => 'admin/*', 'actions' => ['cache' => 'bypass']]);
+$badAcmeHostnames = $c->issueAcmeCertificate('domain-1', ['hostnames' => 'example.com']);
 putenv('CDNLITE_SSL_SECRET_KEY=');
-$missingSslSecret = $c->importManualSslCertificate('site-1', ['hostname' => 'example.com', 'certificate_pem' => 'x', 'private_key_pem' => 'y']);
+$missingSslSecret = $c->importManualSslCertificate('domain-1', ['hostname' => 'example.com', 'certificate_pem' => 'x', 'private_key_pem' => 'y']);
 
 echo json_encode([
   'badRedirect' => $badRedirect,

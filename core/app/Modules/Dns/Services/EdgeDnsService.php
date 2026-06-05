@@ -74,13 +74,13 @@ class EdgeDnsService
         $records = $this->buildEdgeRecords($pool);
         $customer = [];
         $stmt = Database::pdo()->query(
-            'SELECT d.*, s.domain FROM dns_records d JOIN sites s ON s.id = d.site_id ORDER BY s.domain ASC, d.name ASC'
+            'SELECT d.*, s.domain FROM dns_records d JOIN domains s ON s.id = d.domain_id ORDER BY s.domain ASC, d.name ASC'
         );
         $projection = new CustomerDnsService();
         foreach ($stmt->fetchAll() as $row) {
-            $site = ['domain' => (string) $row['domain']];
+            $domain = ['domain' => (string) $row['domain']];
             $record = $this->castDnsRecord((array) $row);
-            $public = $projection->publicRecordFor($site, $record);
+            $public = $projection->publicRecordFor($domain, $record);
             $customer[] = [
                 'domain' => (string) $row['domain'],
                 'name' => (string) $record['name'],
@@ -159,41 +159,7 @@ class EdgeDnsService
             }
         }
 
-        foreach ($this->policyRecords($pool) as $record) {
-            $records[] = $record;
-        }
-
         usort($records, static fn(array $a, array $b): int => strcmp($a['fqdn'] . $a['type'] . $a['content'], $b['fqdn'] . $b['type'] . $b['content']));
-        return $records;
-    }
-
-    private function policyRecords(array $pool): array
-    {
-        $records = [];
-        $stmt = Database::pdo()->query('SELECT * FROM geo_policies ORDER BY policy_hash ASC');
-        foreach ($stmt->fetchAll() as $policy) {
-            $hash = (string) $policy['policy_hash'];
-            if ($hash === '') {
-                continue;
-            }
-            $config = json_decode((string) $policy['config_json'], true);
-            $region = is_array($config) ? strtolower((string) ($config['region'] ?? '')) : '';
-            $ips = $region !== '' && isset($pool['regions'][$region]) ? $pool['regions'][$region] : $pool['all'];
-            foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $key) {
-                $content = $this->health->luaRecord($type, $ips[$key] ?? []);
-                if ($content === null) {
-                    continue;
-                }
-                $name = 'p-' . $hash . '.' . $this->zonePrefix();
-                $records[] = [
-                    'name' => $name,
-                    'fqdn' => $this->records->hostname($name, $this->baseDomain()),
-                    'type' => 'LUA',
-                    'ttl' => $this->ttl(),
-                    'content' => $content,
-                ];
-            }
-        }
         return $records;
     }
 

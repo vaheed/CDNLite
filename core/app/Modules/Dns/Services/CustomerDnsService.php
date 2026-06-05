@@ -8,7 +8,7 @@ class CustomerDnsService
     {
     }
 
-    public function publicRecordFor(array $site, array $record): array
+    public function publicRecordFor(array $domain, array $record): array
     {
         if (($record['proxied'] ?? false) !== true) {
             return [
@@ -19,15 +19,15 @@ class CustomerDnsService
 
         $target = $this->geoPolicy->targetForRecord($record);
         return [
-            'type' => $this->isApex((string) $record['name'], (string) $site['domain']) ? $this->apexMode() : 'CNAME',
+            'type' => $this->isApex((string) $record['name'], (string) $domain['domain']) ? $this->apexMode() : 'CNAME',
             'content' => $target,
         ];
     }
 
-    public function isApex(string $name, string $siteDomain): bool
+    public function isApex(string $name, string $domainDomain): bool
     {
         $name = strtolower(rtrim(trim($name), '.'));
-        $domain = strtolower(rtrim(trim($siteDomain), '.'));
+        $domain = strtolower(rtrim(trim($domainDomain), '.'));
         return $name === '' || $name === '@' || $name === $domain;
     }
 
