@@ -421,7 +421,7 @@ retry 10 1 docker compose exec -T edge sh -lc "test -s /var/lib/cdnlite/security
 retry 10 1 agent_exec '/agent/push_security_events.sh'
 found_security_event=0
 for _ in $(seq 1 20); do
-  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?limit=20"
+  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=waf_match&limit=1"
   if [[ "$HTTP_CODE" == "200" ]] && [[ "$HTTP_BODY" == *'"type":"waf_match"'* ]]; then
     found_security_event=1
     break
@@ -431,9 +431,11 @@ done
 if [[ "$found_security_event" -ne 1 ]]; then
   fail "security events from edge ingestion did not appear in time"
 fi
-api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?limit=20"
-assert_http_status "$HTTP_CODE" "200" "security events list failed"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=waf_match&limit=1"
+assert_http_status "$HTTP_CODE" "200" "security WAF events list failed"
 assert_contains "$HTTP_BODY" '"type":"waf_match"' "security waf_match event missing"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=1"
+assert_http_status "$HTTP_CODE" "200" "security rate-limit events list failed"
 assert_contains "$HTTP_BODY" '"type":"rate_limited"' "security rate_limited event missing"
 record_step PASS "security-events" "edge-ingested waf_match and rate_limited visible via api"
 
