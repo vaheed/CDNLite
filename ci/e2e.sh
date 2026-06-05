@@ -404,7 +404,9 @@ edge_wait_success_status "${TEST_DOMAIN}"
 waf_ingest_code="$(curl -sS -o /tmp/e2e-edge-waf-ingest-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/admin?via=edge-waf-ingest")"
 assert_eq "$waf_ingest_code" "403" "waf ingest trigger should return 403"
 seen_429=0
-for i in $(seq 1 35); do
+# Use more than twice the configured RPM so a burst crossing a minute boundary
+# still exceeds the limit in at least one bucket.
+for i in $(seq 1 65); do
   code="$(curl -sS -o /tmp/e2e-edge-rate-ingest-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/login?via=edge-rate-ingest")"
   if [[ "$code" == "429" ]]; then
     seen_429=1
@@ -482,7 +484,7 @@ record_step PASS "edge-waf-block-runtime" "403 and edge header observed for /adm
 
 # Rate-limit runtime behavior (path-scoped ip_path).
 rate_limit_codes=()
-for i in $(seq 1 35); do
+for i in $(seq 1 65); do
   code="$(curl -sS -o /tmp/e2e-rate-limit-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/login?via=edge-rate-limit")"
   rate_limit_codes+=("$code")
 done

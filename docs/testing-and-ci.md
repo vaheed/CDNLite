@@ -11,7 +11,7 @@
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
 | `dash/src/**/*.test.ts` | Dashboard env parsing, URL building, HMAC signing, formatting, diagnostics, field tooltip UX, and key Vue form behavior. |
 | `ci/smoke.sh` | Stack health, DB connectivity, schema (including stage-9 security tables/columns), edge container, config path, and dashboard container/SPA health. |
-| `ci/e2e.sh` | Full API, admin bootstrap/user creation/login, Vue dashboard SPA runtime/fallback/cache checks, backend dashboard removal check, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, API auth coverage, stage-9 security pack checks (WAF v2/rate-limit v2/origin shield/security events), and stage-10 SSL manual-import + TLS proxy checks. |
+| `ci/e2e.sh` | Full API, admin bootstrap/user creation/login, Vue dashboard SPA runtime/fallback/cache checks, backend dashboard removal check, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, API auth coverage, stage-9 security pack checks (WAF v2/rate-limit v2/origin shield/security events), and stage-10 SSL manual-import + TLS proxy checks. Rate-limit bursts exceed twice the configured per-minute limit so assertions remain stable when requests cross a minute boundary. |
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |
 
 ## Local Commands
