@@ -16,6 +16,9 @@ docker compose up --build
 
 Expected services are `postgres`, `core`, `edge`, `edge-agent`, and `dashboard`. Core listens on `http://localhost:8080`; edge listens on `http://localhost:8081`; the dashboard listens on `http://localhost:8082`; PostgreSQL is exposed on `localhost:5432`.
 
+The core container applies pending SQL migrations automatically before starting
+the API server. After pulling schema changes, rebuild or recreate the core service.
+
 ## Health Checks
 
 ```bash
@@ -85,7 +88,7 @@ ADMIN_SESSION_TOKEN="$(curl -s -X POST http://localhost:8080/api/v1/admin/login 
 curl -s -X POST http://localhost:8080/api/v1/domains \
   -H "Authorization: Bearer $ADMIN_SESSION_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Demo Domain","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}' | jq
+  -d '{"zone_name":"demo.local","display_name":"Demo Domain"}' | jq
 ```
 
 Example output:

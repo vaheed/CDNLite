@@ -102,6 +102,9 @@ ingest output remains visible in CI so PHP/database failures are diagnosable. It
 also resets usage rollups, aggregates, and idempotency keys so exact global totals
 do not depend on tests or traffic that ran earlier in the same stack.
 
+The core image also runs `cdn:migrate` from its POSIX entrypoint before starting
+the PHP server, keeping persisted databases aligned after image upgrades.
+
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for
 dashboard-only Vite workflows. CI still injects job-specific values directly in
