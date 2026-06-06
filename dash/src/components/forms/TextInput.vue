@@ -1,6 +1,13 @@
 <template>
   <FieldShell v-bind="help">
-    <input :value="String(modelValue ?? '')" class="input" :type="type ?? 'text'" :placeholder="help.example" @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)" />
+    <input
+      :value="String(modelValue ?? '')"
+      class="input"
+      :type="type ?? 'text'"
+      :placeholder="help.example"
+      :aria-label="help.label"
+      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+    />
   </FieldShell>
 </template>
 <script setup lang="ts">
