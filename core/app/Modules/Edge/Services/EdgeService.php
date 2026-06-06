@@ -173,7 +173,11 @@ class EdgeService
             ':health_status' => (string) ($input['health_status'] ?? ''),
             ':updated_at' => $now,
         ]);
-        return $stmt->rowCount() > 0;
+        $updated = $stmt->rowCount() > 0;
+        if ($updated) {
+            (new DnsService())->rebuildGeoDomains();
+        }
+        return $updated;
     }
 
     public function registerToken(string $edgeId, string $token): void

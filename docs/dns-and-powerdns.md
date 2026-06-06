@@ -34,10 +34,13 @@ php core/artisan cdn:dns:delete-record --domain_id=11111111-1111-4111-8111-11111
 
 `proxied` and `routing_policy` are independent per-record concepts. `routing_policy` is one of `standard`, `geo`, `anycast`, or `geo_anycast`. Anycast ingress is global platform configuration, never domain or record configuration.
 
+The dashboard intentionally exposes only two simple choices: **Proxy through CDNLite** on/off and **DNS routing** as Standard or Geo. Anycast remains a platform/network concern and is not shown as a customer record mode.
+
 When `routing_policy` is omitted it defaults to `standard`, including for proxied records. A normal proxied CDN record therefore does not require Anycast VIPs. Only explicit `anycast` and `geo_anycast` policies require the global four-VIP configuration.
 
 - `proxied=false`: PowerDNS receives the normal customer record as entered.
-- `proxied=true` at the apex/root: PowerDNS receives an `ALIAS` to the record's canonical edge hostname. This requires ALIAS/flattening support or delegated authoritative DNS.
+- `proxied=true` with standard routing at the apex/root: PowerDNS receives flattened A or AAAA answers containing the healthy enabled edge IPs. CDNLite republishes active proxied domains when edge registration or heartbeat changes membership/public IPs, so PowerDNS ALIAS support is not required.
+- Apex Anycast and Geo policies retain their policy-specific publication requirements.
 - `proxied=true` below the apex: PowerDNS receives a `CNAME` to `<record-id>.<domain-id>.edge.<platform-zone>`.
 - A CNAME always targets another hostname. The canonical edge hostname resolves to A/AAAA records; it never contains an IP as CNAME content.
 - The user-entered content remains the edge proxy origin and is included in edge config snapshots.
@@ -104,7 +107,7 @@ Edge DNS settings:
 | `CDNLITE_EDGE_BACKUP_SELECTOR` | Backup selector, default `empty`. |
 | `CDNLITE_EDGE_APEX_MODE` | Apex projection mode, default `ALIAS`. |
 
-PowerDNS must be configured with `enable-lua-records=yes`, a resolver that does not point back to the same PowerDNS instance, and `expand-alias=yes` for ALIAS support.
+PowerDNS LUA records require `enable-lua-records=yes`. Standard proxied apex records use direct A/AAAA flattening and do not require `expand-alias=yes`.
 
 ## Failure Modes
 

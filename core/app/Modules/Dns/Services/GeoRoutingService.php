@@ -10,17 +10,21 @@ class GeoRoutingService
     public function countries(): array
     {
         $stmt = Database::pdo()->query(
-            "SELECT country,
+            "SELECT CASE
+                      WHEN country ~ '^[A-Za-z]{2}$' THEN upper(country)
+                      WHEN lower(region) IN ('local', 'localhost') THEN 'LOCAL'
+                    END AS country_code,
                     COUNT(*) AS node_count,
                     COUNT(NULLIF(public_ipv4, '')) AS ipv4_count,
                     COUNT(NULLIF(public_ipv6, '')) AS ipv6_count
              FROM edge_nodes
              WHERE is_enabled = true AND status = 'online' AND geo_enabled = true
-               AND country ~ '^[A-Za-z]{2}$'
-             GROUP BY country ORDER BY country"
+               AND (country ~ '^[A-Za-z]{2}$' OR lower(region) IN ('local', 'localhost'))
+             GROUP BY country_code ORDER BY country_code"
         );
         return array_map(static fn(array $row): array => [
-            'country_code' => strtoupper((string) $row['country']),
+            'country_code' => (string) $row['country_code'],
+            'name' => $row['country_code'] === 'LOCAL' ? 'Local development' : (string) $row['country_code'],
             'node_count' => (int) $row['node_count'],
             'has_ipv4' => (int) $row['ipv4_count'] > 0,
             'has_ipv6' => (int) $row['ipv6_count'] > 0,
@@ -67,7 +71,7 @@ class GeoRoutingService
                     throw new \RuntimeException('invalid_country_code');
                 }
                 $edgeCountry = strtoupper(trim((string) ($route['edge_country_code'] ?? $route['answer_value'] ?? '')));
-                if (preg_match('/^[A-Z]{2}$/', $edgeCountry) !== 1) {
+                if (preg_match('/^[A-Z]{2}$/', $edgeCountry) !== 1 && $edgeCountry !== 'LOCAL') {
                     throw new \RuntimeException('invalid_edge_country_code');
                 }
                 if (!$this->countryAvailable($edgeCountry)) {
@@ -116,7 +120,8 @@ class GeoRoutingService
     {
         $stmt = Database::pdo()->prepare(
             "SELECT 1 FROM edge_nodes
-             WHERE upper(country) = :country AND is_enabled = true
+             WHERE (upper(country) = :country OR (:country = 'LOCAL' AND lower(region) IN ('local', 'localhost')))
+               AND is_enabled = true
                AND status = 'online' AND geo_enabled = true
              LIMIT 1"
         );

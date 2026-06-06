@@ -340,7 +340,9 @@ class DnsService
     public function rebuildGeoDomains(): int
     {
         $stmt = Database::pdo()->query(
-            "SELECT domain_id FROM domain_routing_settings WHERE routing_mode = 'geo' ORDER BY domain_id"
+            "SELECT DISTINCT domain_id FROM dns_records
+             WHERE proxied = true AND status = 'active'
+             ORDER BY domain_id"
         );
         $count = 0;
         foreach ($stmt->fetchAll() as $row) {
@@ -355,15 +357,24 @@ class DnsService
             return;
         }
 
-        $type = (string) ($record['public_type'] ?: $record['type']);
-        $content = (string) ($record['public_content'] ?: $record['content']);
-        $result = $this->powerDns->syncReplace(
-            (string) $domain['domain'],
-            (string) $record['name'],
-            $type,
-            (int) $record['ttl'],
-            $content
-        );
+        $plan = $this->planner->plan($domain, $record);
+        $type = (string) $plan['type'];
+        $contents = array_values(array_map('strval', (array) ($plan['contents'] ?? [$plan['content']])));
+        $result = count($contents) > 1
+            ? $this->powerDns->syncReplaceMany(
+                (string) $domain['domain'],
+                (string) $record['name'],
+                $type,
+                (int) $record['ttl'],
+                $contents
+            )
+            : $this->powerDns->syncReplace(
+                (string) $domain['domain'],
+                (string) $record['name'],
+                $type,
+                (int) $record['ttl'],
+                $contents[0]
+            );
 
         if (($result['ok'] ?? false) !== true) {
             $this->handlePowerDnsFailure('powerdns_sync_replace_failed', $domain, $record, $result);

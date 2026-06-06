@@ -111,7 +111,7 @@ class DnsController
             if ($message === 'domain_not_found') {
                 return ['error' => 'domain_not_found', 'status' => 404];
             }
-            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
+            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true)) {
                 return ['error' => $message, 'status' => 422];
             }
             $payload = ['error' => $message, 'status' => 502];
@@ -177,7 +177,7 @@ class DnsController
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502;
+            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true) ? 422 : 502;
             $payload = ['error' => $message, 'status' => $status];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();

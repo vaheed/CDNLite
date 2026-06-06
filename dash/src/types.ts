@@ -47,7 +47,7 @@ export interface DomainRoutingSettings {
   geo_selector: string; anycast_ipv4?: string | null; anycast_ipv6?: string | null; anycast_cname?: string | null;
 }
 export interface DnsRoutingPreview { type: string; content: string; routing_mode: string; powerdns: string; warning?: string | null; }
-export interface EdgeCountry { country_code: string; node_count: number; has_ipv4: boolean; has_ipv6: boolean; }
+export interface EdgeCountry { country_code: string; name?: string; node_count: number; has_ipv4: boolean; has_ipv6: boolean; }
 export interface GeoRoute { id?: Id; country_code?: string | null; edge_country_code?: string; enabled?: boolean; }
 
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }

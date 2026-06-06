@@ -189,7 +189,7 @@ php core/artisan cdn:dns:sync-edge-domain
 
 ### cdn:dns:rebuild-customer-zones
 
-Reprojects customer DNS records with the CNAME/ALIAS design. This does not write edge IPs or customer LUA records.
+Reprojects customer DNS records. Standard proxied apex records publish healthy edge A/AAAA rrsets; proxied subdomains publish canonical CNAME targets.
 
 ```bash
 php core/artisan cdn:dns:rebuild-customer-zones

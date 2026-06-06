@@ -9,7 +9,7 @@
 | Edge agent | Shell loop in `edge/agent/` that signs calls to core. |
 | Domain | A domain plus origin settings and proxy state. |
 | DNS record | Domain-scoped record with origin type/content, public type/content, TTL, optional priority, and proxied flag. |
-| Proxied | DNS flag stored by CDNLite; proxied records publish CNAME or ALIAS targets into the CDNLite-owned edge DNS zone. |
+| Proxied | DNS flag stored by CDNLite; proxied subdomains publish canonical CNAME targets, while standard proxied apex records publish flattened healthy edge A/AAAA answers. |
 | Origin | Upstream service the edge proxies to. |
 | Geo origin | Country-keyed origin override stored on an individual DNS record. |
 | Config snapshot | Versioned JSON payload mapping hostnames to upstream and DNS data. |

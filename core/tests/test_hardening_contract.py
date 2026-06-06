@@ -232,6 +232,24 @@ def test_dns_record_update_command_patches_existing_record():
     )
     record_id = record["data"]["id"]
 
+    run_php(
+        r'''
+require __DIR__ . '/core/app/Support/bootstrap.php';
+$edge = new App\Modules\Edge\Services\EdgeService();
+$result = $edge->register([
+  'edge_id' => 'edge-dns-1',
+  'hostname' => 'edge-dns-1',
+  'public_ip' => '198.51.100.10',
+  'public_ipv4' => '198.51.100.10',
+  'region' => 'US',
+  'country' => 'US',
+  'version' => 'v1',
+  'health_status' => 'healthy',
+]);
+echo json_encode($result, JSON_UNESCAPED_SLASHES);
+'''
+    )
+
     updated = run_artisan(
         "cdn:dns:update-record",
         f"--domain_id={domain_id}",
@@ -247,9 +265,9 @@ def test_dns_record_update_command_patches_existing_record():
     assert updated["data"]["proxied"] is True
     assert updated["data"]["origin_type"] == "A"
     assert updated["data"]["origin_content"] == "127.0.0.2"
-    assert updated["data"]["public_type"] == "ALIAS"
-    assert updated["data"]["public_content"] == f"{record_id}.{domain_id}.edge.vaheed.net."
-    assert updated["data"]["canonical_edge_hostname"] == updated["data"]["public_content"]
+    assert updated["data"]["public_type"] == "A"
+    assert updated["data"]["public_content"] == "198.51.100.10"
+    assert updated["data"]["canonical_edge_hostname"] == f"{record_id}.{domain_id}.edge.vaheed.net."
 
     non_apex = run_artisan(
         "cdn:dns:add-record",

@@ -43,8 +43,15 @@ def test_dashboard_record_level_routing_contract():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
     assert "Origin target" in view
     assert "Standard DNS" in view
-    assert "Geo + Anycast CDN" in view
+    assert "Proxy through CDNLite" in view
+    assert "DNS routing" in view
     assert "Default fallback" in view
     assert "Anycast IPv4" not in view
     assert "Edge node ID" not in view
     assert "Route to edge country" in view
+
+
+def test_local_development_edges_are_selectable():
+    service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
+    assert "'LOCAL'" in service
+    assert "Local development" in service

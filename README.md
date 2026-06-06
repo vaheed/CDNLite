@@ -14,7 +14,7 @@ It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest
 
 - Domain lifecycle API and CLI.
 - Domain-scoped DNS records with create, update, list, delete, and optional PowerDNS sync.
-- Per-record standard DNS, GeoDNS, proxied CDN, Anycast CDN, and Geo + Anycast policies.
+- Cloudflare-style per-record controls: proxy on/off and Standard DNS or Geo DNS routing.
 - Host-based OpenResty edge proxy using a JSON config snapshot.
 - Edge agent registration, heartbeat, config pull, metrics push, and security-event push.
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.

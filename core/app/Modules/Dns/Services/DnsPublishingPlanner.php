@@ -70,6 +70,13 @@ class DnsPublishingPlanner
         $canonical = $this->canonicalHostname((string) ($record['id'] ?? ''), (string) $domain['id']);
 
         if ($isApex) {
+            if ($policy === 'standard' && in_array($origin['type'], ['A', 'AAAA'], true)) {
+                $contents = $this->activeEdgeIps($origin['type']);
+                if ($contents === []) {
+                    throw new \RuntimeException('no_healthy_edge_ips_for_apex');
+                }
+                return $this->result($origin['type'], $contents[0], $policy, null, $contents);
+            }
             return $this->result('ALIAS', $canonical, $policy);
         }
         return $this->result('CNAME', $canonical, $policy);
@@ -91,11 +98,18 @@ class DnsPublishingPlanner
         return 'global.' . $prefix . '.' . $base . '.';
     }
 
-    private function result(string $type, string $content, string $mode, ?string $warning = null): array
+    private function result(
+        string $type,
+        string $content,
+        string $mode,
+        ?string $warning = null,
+        array $contents = []
+    ): array
     {
         return [
             'type' => $type,
             'content' => $content,
+            'contents' => $contents === [] ? [$content] : $contents,
             'routing_mode' => $mode,
             'powerdns' => $type . ' ' . $content,
             'warning' => $warning,
