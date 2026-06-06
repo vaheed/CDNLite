@@ -15,7 +15,8 @@
 | Phase 2 — Cache metrics fix | Complete | Focused pytest, dashboard Vitest, and dashboard build passed; Docker-backed smoke/E2E could not run in this sandbox |
 | Phase 3 — Rate limit full CRUD | Complete | PHP lint, shell syntax, focused pytest, dashboard typecheck/build, Compose smoke, and E2E passed |
 | Phase 4 — Edge identity fix | Complete | PHP/shell lint, focused contracts, dashboard build, agent checks, Compose smoke, and E2E passed |
-| Phase 5+ | Planned | Not started |
+| Phase 5 — Readiness API and clickable cards | Complete | PHP lint, focused pytest, dashboard Vitest, typecheck, and build passed |
+| Phase 6+ | Planned | Not started |
 
 ## Rules
 
@@ -304,6 +305,15 @@ Fix CDNLite edge identity so X-CDNLITE-Edge always shows the real configured EDG
 ---
 
 ## Phase 5 — Readiness API and clickable cards
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Added structured core and edge readiness checks for PostgreSQL, PowerDNS, edge heartbeat, edge identity, and config snapshot freshness.
+- Added authenticated `GET /api/v1/readiness` while preserving the existing infrastructure `/ready` endpoint.
+- Replaced static readiness labels with clickable badges and a refreshable drawer that polls every 60 seconds.
+- Added focused backend and dashboard tests and updated the API documentation.
 
 **Goal:** Core Ready and Edge Ready badges in the dashboard are clickable and show specific warnings with links to fix pages.
 

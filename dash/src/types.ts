@@ -6,6 +6,10 @@ export interface ApiEnvelope<T> { data: T; meta?: Record<string, unknown>; }
 export interface ApiError { status: number; message: string; code?: string; details?: unknown; }
 
 export interface RuntimeHealth { ok: boolean; ready?: boolean; time?: number; service?: string; error?: string; }
+export type ReadinessStatus = 'ok' | 'warning' | 'error';
+export interface ReadinessCheck { key: string; status: ReadinessStatus; message: string; fix?: string; link?: string; }
+export interface ReadinessGroup { status: ReadinessStatus; checks: ReadinessCheck[]; }
+export interface ReadinessResponse { core: ReadinessGroup; edge: ReadinessGroup; checked_at: number; }
 
 export interface Domain {
   id: Id;

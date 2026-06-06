@@ -14,6 +14,29 @@ class PowerDnsService
         return $this->envBool('POWERDNS_STRICT', false);
     }
 
+    public function isConfigured(): bool
+    {
+        return trim((string) getenv('POWERDNS_API_URL')) !== ''
+            && trim((string) getenv('POWERDNS_API_KEY')) !== '';
+    }
+
+    public function healthCheck(): array
+    {
+        if (!$this->isConfigured()) {
+            return ['ok' => false, 'error' => 'powerdns_missing_config', 'status' => 0];
+        }
+
+        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
+        $serverId = rawurlencode((string) (getenv('POWERDNS_SERVER_ID') ?: 'localhost'));
+        $result = $this->request('GET', sprintf('%s/api/v1/servers/%s', $apiUrl, $serverId), null);
+        $status = (int) ($result['status'] ?? 0);
+        return [
+            'ok' => $this->isSuccessStatus($status),
+            'status' => $status,
+            'error' => $this->isSuccessStatus($status) ? null : ($result['error'] ?? 'powerdns_api_error'),
+        ];
+    }
+
     public function syncReplace(string $zoneDomain, string $name, string $type, int $ttl, string $content): array
     {
         $fqdn = $this->toFqdn($name, $zoneDomain);

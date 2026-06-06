@@ -53,6 +53,7 @@ Health checks:
 curl -s http://localhost:8080/health
 curl -s http://localhost:8080/cdn-health
 curl -s http://localhost:8081/health
+curl -s -H "Authorization: Bearer $CDNLITE_API_TOKEN" http://localhost:8080/api/v1/readiness
 ```
 
 Example output:

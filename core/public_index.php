@@ -16,6 +16,8 @@ use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Domains\Http\Controllers\DomainController;
 use App\Modules\Domains\Services\DomainService;
+use App\Modules\Health\Http\Controllers\ReadinessController;
+use App\Modules\Health\Services\ReadinessService;
 use App\Support\ApiAuth;
 use App\Support\Logger;
 use App\Support\Request;
@@ -189,6 +191,7 @@ $rulesController = new TrafficRulesController(new TrafficRulesService());
 $edgeAuth = new EdgeAuthService();
 $adminAuth = new AdminAuthService();
 $adminAuthController = new AdminAuthController($adminAuth);
+$readinessController = new ReadinessController(new ReadinessService());
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -253,6 +256,7 @@ $router->add('GET', '/ready', static function () use ($configService): array {
     $ok = !in_array('fail', $checks, true);
     return Response::json(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 });
+$router->add('GET', '/api/v1/readiness', static fn (): array => Response::json($readinessController->index()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
 $router->add('POST', '/api/v1/domains', static fn (Request $req) => Response::json($domainController->store($req->body), 201), auth: true);

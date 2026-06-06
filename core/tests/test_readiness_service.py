@@ -1,0 +1,28 @@
+import subprocess
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_readiness_contract_is_structured_and_routed():
+    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    public_index = (ROOT / "core/public_index.php").read_text()
+
+    assert "/api/v1/readiness" in public_index
+    for key in ("postgres", "powerdns_config", "powerdns_reachable", "heartbeat", "identity", "config_snapshot"):
+        assert f"'{key}'" in service
+    assert "'status' => $this->groupStatus" in service
+    assert "'checks' =>" in service
+
+
+def test_powerdns_missing_configuration_is_detectable():
+    php = r"""
+require 'core/app/Support/bootstrap.php';
+putenv('POWERDNS_API_URL=');
+putenv('POWERDNS_API_KEY=');
+$service = new App\Modules\Dns\Services\PowerDnsService();
+echo json_encode([$service->isConfigured(), $service->healthCheck()]);
+"""
+    result = subprocess.run(["php", "-r", php], cwd=ROOT, text=True, capture_output=True, check=True)
+    assert result.stdout == '[false,{"ok":false,"error":"powerdns_missing_config","status":0}]'
