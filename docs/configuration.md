@@ -25,6 +25,10 @@ For production:
 cp .env.production.example .env
 ```
 
+For the bundled PostgreSQL service, keep `POSTGRES_PASSWORD` and `DB_PASSWORD`
+identical. They may differ only when `DB_HOST` points to an externally managed
+database with separately provisioned application credentials.
+
 For dashboard-only work:
 
 ```bash
@@ -94,7 +98,9 @@ cp dash/.env.example dash/.env
 | `EDGE_SYNC_STATUS_PATH` | `/var/lib/cdnlite/edge-sync-status.json` | agent | No | Sync metadata file with version/source/core reachability and last successful sync time. | Not secret. |
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
 | `SECURITY_EVENT_PATH` | `/var/lib/cdnlite/security-events.ndjson` | edge, agent | No | Edge security event queue file path consumed by agent push loop. | Contains request metadata (IP/path/method). |
+| `CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS` | `900` | core | No | Maximum config snapshot age before readiness reports a warning. | Not secret. |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
+| `PDNS_API_KEY` | `test-key` | PowerDNS mock | No | API key accepted by the optional local mock. It is not the platform PowerDNS credential. | Test-only. |
 | `POWERDNS_PUBLIC_API_URL` | `http://localhost:8089` | CI scripts | No | Host-reachable URL for the optional mock PowerDNS service. | Test-only. |
 | `POWERDNS_HOST_PORT` | `8089` | Compose | No | Host port for the mock PowerDNS service when the `powerdns` profile is enabled. | Test-only. |
 
@@ -105,7 +111,8 @@ code defaults until they are saved in `platform_settings`; they are not read fro
 variables. Environment variables are reserved for process bootstrap and infrastructure wiring.
 
 PowerDNS URL, API key, server ID, zone kind, enable/strict flags, and authoritative nameservers are
-effective immediately for subsequent PowerDNS operations. API keys are stored as secret settings:
+not root runtime environment variables. Configure them after login through the Settings dashboard
+or `/api/v1/settings/*`; changes are effective for subsequent PowerDNS operations. API keys are stored as secret settings:
 GET responses and audit entries expose only whether a value is configured, never the plaintext.
 | `CDNLITE_EDGE_BASE_DOMAIN` | `vaheed.net` | core | Yes for edge DNS | Platform-owned DNS base zone. Customer zones point into this zone. | Public DNS data. |
 | `CDNLITE_EDGE_ZONE_PREFIX` | `edge` | core | No | Prefix for edge hostnames below the base domain. | Public DNS data. |

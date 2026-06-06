@@ -1,11 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { loginAsLocalAdmin } from './helpers';
 
 test('settings persist and secrets remain masked', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('Username', { exact: true }).fill('admin');
-  await page.getByLabel('Password', { exact: true }).fill('admin');
-  await page.getByRole('button', { name: 'Sign in' }).click();
-
+  await loginAsLocalAdmin(page);
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   const apiUrl = page.getByLabel('Api Url');

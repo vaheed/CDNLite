@@ -13,6 +13,7 @@ permissions:
 env:
   POWERDNS_HOST_PORT: 8089
   PDNS_PORT: 8081
+  PDNS_API_KEY: test-key
 
 jobs:
   test:

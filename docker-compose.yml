@@ -29,6 +29,17 @@ services:
       DB_DATABASE: ${DB_DATABASE:-cdnlite}
       DB_USERNAME: ${DB_USERNAME:-cdnlite}
       DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+      APP_ENV: ${APP_ENV:-local}
+      APP_LOG_ENABLED: ${APP_LOG_ENABLED:-1}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-info}
+      APP_DEBUG: ${APP_DEBUG:-0}
+      CDNLITE_API_TOKEN: ${CDNLITE_API_TOKEN:-}
+      CDNLITE_ORIGIN_SHIELD_SECRET: ${CDNLITE_ORIGIN_SHIELD_SECRET:-dev-origin-shield-secret-change-me}
+      CDNLITE_BOOTSTRAP_EDGE_TOKEN: ${CDNLITE_BOOTSTRAP_EDGE_TOKEN:-1}
+      CDNLITE_BOOTSTRAP_EDGE_ID: ${CDNLITE_BOOTSTRAP_EDGE_ID:-}
+      CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE: ${CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE:-}
+      EDGE_ID: ${EDGE_ID:-edge-local-1}
+      EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       CDNLITE_EDGE_BASE_DOMAIN: ${CDNLITE_EDGE_BASE_DOMAIN:-vaheed.net}
       CDNLITE_EDGE_ZONE_PREFIX: ${CDNLITE_EDGE_ZONE_PREFIX:-edge}
       CDNLITE_EDGE_DEFAULT_TARGET: ${CDNLITE_EDGE_DEFAULT_TARGET:-geo}
@@ -60,6 +71,7 @@ services:
       CDNLITE_BOOTSTRAP_ADMIN_USERNAME: ${CDNLITE_BOOTSTRAP_ADMIN_USERNAME:-admin}
       CDNLITE_BOOTSTRAP_ADMIN_PASSWORD: ${CDNLITE_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME:-Local Admin}
+      CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS: ${CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS:-900}
     ports:
       - "${CORE_HOST_PORT:-8080}:8080"
 
@@ -81,6 +93,9 @@ services:
       EDGE_REGION: ${EDGE_REGION:-local}
       DEV_MODE: ${DEV_MODE:-0}
       CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-60s}
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS:-0}
+      EDGE_SYNC_STATUS_PATH: ${EDGE_SYNC_STATUS_PATH:-/var/lib/cdnlite/edge-sync-status.json}
+      SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}
 
   edge-agent:
     build:
@@ -99,7 +114,11 @@ services:
       EDGE_VERSION: ${EDGE_VERSION:-v1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}
+      EDGE_CONFIG_CACHE_PATH: ${EDGE_CONFIG_CACHE_PATH:-/var/lib/cdnlite/config.json}
+      EDGE_SYNC_STATUS_PATH: ${EDGE_SYNC_STATUS_PATH:-/var/lib/cdnlite/edge-sync-status.json}
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS:-0}
       METRIC_PATH: ${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}
+      SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}
       EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE:-0}
     volumes:
       - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
@@ -136,7 +155,7 @@ services:
     working_dir: /srv
     command: sh -lc "python /srv/ci/pdns_mock_server.py"
     environment:
-      PDNS_API_KEY: ${POWERDNS_API_KEY:-test-key}
+      PDNS_API_KEY: ${PDNS_API_KEY:-test-key}
       PDNS_PORT: ${PDNS_PORT}
     volumes:
       - ./:/srv

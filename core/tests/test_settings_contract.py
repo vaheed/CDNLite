@@ -34,7 +34,11 @@ def test_secrets_are_masked_and_powerdns_uses_repository():
 def test_powerdns_operational_config_cannot_return_to_env():
     repository = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
     compose = read("docker-compose.yml")
-    example = read(".env.example")
+    examples = [
+        read(".env.example"),
+        read(".env.dev.example"),
+        read(".env.production.example"),
+    ]
     powerdns = read("core/app/Modules/Dns/Services/PowerDnsService.php")
     record_builder = read("core/app/Modules/Dns/Services/PowerDnsRecordBuilder.php")
     for name in [
@@ -50,7 +54,22 @@ def test_powerdns_operational_config_cannot_return_to_env():
         assert f"getenv('{name}')" not in powerdns
         assert f"getenv('{name}')" not in record_builder
         assert f"      {name}:" not in compose
-        assert f"{name}=" not in example
+        for example in examples:
+            assert f"{name}=" not in example
+
+
+def test_root_environment_templates_include_edge_runtime_contract():
+    for filename in [".env.example", ".env.dev.example", ".env.production.example"]:
+        example = read(filename)
+        for variable in [
+            "DEV_MODE=0",
+            "EDGE_CONFIG_CACHE_PATH=",
+            "EDGE_SYNC_STATUS_PATH=",
+            "EDGE_CONFIG_MAX_STALE_SECONDS=",
+            "SECURITY_EVENT_PATH=",
+            "CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS=",
+        ]:
+            assert variable in example
 
 
 def test_dashboard_has_all_settings_tabs_and_secret_editor():

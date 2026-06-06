@@ -74,13 +74,19 @@ PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
 `POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. These CI variables are inputs to
 `ci/e2e.sh`, which writes the effective PowerDNS values through the authenticated
 Platform Settings API; the core container does not consume them as operational
-environment variables. In both jobs, `ci/e2e.sh`
+environment variables. `PDNS_API_KEY` configures the mock service, while
+`POWERDNS_API_KEY` is the value the E2E script saves as the platform credential.
+In both jobs, `ci/e2e.sh`
 provisions the edge token before running the agent registration and heartbeat
 scripts explicitly.
 
 Dashboard checks use the root `dashboard` Compose service. The SPA is served by
 Nginx at `DASHBOARD_PORT` (default `8082`), but CI validates it from inside the
 container as well so host port timing does not hide runtime failures.
+
+Playwright login helpers wait for the authenticated OPS Dashboard before
+navigating to a protected page. Tests must not click Sign in and immediately
+issue a second `page.goto()`, because that can cancel the in-flight login request.
 
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for
