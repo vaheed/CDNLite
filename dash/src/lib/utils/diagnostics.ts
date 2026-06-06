@@ -1,6 +1,48 @@
 import { summarizeCacheAnalytics } from './cacheAnalytics';
 import type { CacheAnalytics, EdgeNode, OpsDiagnostic, PurgeRequest, SecurityEvent, Domain, SslCertificate, UsageSummary } from '@/types';
 
+export type DiagnosticStatus = 'unknown' | 'healthy' | 'warning' | 'critical' | 'info';
+export type SettledHealth = PromiseSettledResult<{ ok?: boolean; ready?: boolean; error?: string }>;
+
+export interface HealthStatusSnapshot {
+  apiReachable: DiagnosticStatus;
+  apiHealthy: DiagnosticStatus;
+  apiReady: DiagnosticStatus;
+  databaseReady: DiagnosticStatus;
+  edgeReachable: DiagnosticStatus;
+  overall: DiagnosticStatus;
+}
+
+export function mapHealthStatus(coreHealth: SettledHealth, coreReady: SettledHealth, edgeReady: SettledHealth): HealthStatusSnapshot {
+  const apiReachable: DiagnosticStatus = coreHealth.status === 'fulfilled' ? 'healthy' : 'unknown';
+  const apiHealthy: DiagnosticStatus = coreHealth.status === 'fulfilled' ? (coreHealth.value.ok ? 'healthy' : 'critical') : 'unknown';
+  const apiReady: DiagnosticStatus = coreReady.status === 'fulfilled'
+    ? (coreReady.value.ok || coreReady.value.ready ? 'healthy' : 'warning')
+    : apiReachable === 'healthy' ? 'warning' : 'unknown';
+  const databaseReady: DiagnosticStatus = coreReady.status === 'fulfilled'
+    ? (coreReady.value.ok || coreReady.value.ready ? 'healthy' : 'warning')
+    : 'unknown';
+  const edgeReachable: DiagnosticStatus = edgeReady.status === 'fulfilled'
+    ? (edgeReady.value.ok || edgeReady.value.ready ? 'healthy' : 'warning')
+    : 'unknown';
+  const statuses = [apiHealthy, apiReady, databaseReady, edgeReachable];
+  const overall: DiagnosticStatus = statuses.includes('critical')
+    ? 'critical'
+    : statuses.includes('warning')
+      ? 'warning'
+      : statuses.every((status) => status === 'unknown')
+        ? 'unknown'
+        : statuses.includes('unknown')
+          ? 'warning'
+          : 'healthy';
+  return { apiReachable, apiHealthy, apiReady, databaseReady, edgeReachable, overall };
+}
+
+export function diagnosticError(result: PromiseSettledResult<unknown>): string {
+  if (result.status === 'fulfilled') return '';
+  return result.reason instanceof Error ? result.reason.message : 'Request failed';
+}
+
 export function heartbeatStatus(edge: EdgeNode, nowMs = Date.now()): 'ok' | 'warning' | 'critical' {
   const value = edge.last_heartbeat_at ?? edge.last_heartbeat;
   if (!value || edge.status === 'offline' || edge.health_status === 'offline') return 'critical';

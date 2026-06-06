@@ -1,5 +1,19 @@
 # Troubleshooting
 
+## Dashboard diagnostics
+
+The dashboard Troubleshooting page runs API health and readiness, edge readiness and heartbeat, certificate, security-event, and purge-queue checks. The top status bar and Troubleshooting page use the same health snapshot and status rules:
+
+- **Healthy** means the requested check returned a confirmed successful result.
+- **Warning** means a reachable service is not ready, an edge heartbeat is stale, a certificate is near expiry, or purge work remains pending.
+- **Critical** requires confirmed unhealthy API state, offline edge nodes, expired certificates, failed purges, or critical/blocking security events.
+- **Unknown** means the check could not be completed, including browser network, CORS, or configuration failures. Unknown readiness does not imply a database error.
+- **Info** is used for ordinary security activity that is neither critical nor blocking.
+
+Each diagnostic card records what was checked, evidence, a suggested fix, optional command, and expandable raw details. Use **Copy Markdown report** for tickets and operator handoffs, or **Copy JSON report** for automation.
+
+The Event Viewer lists normalized event summaries newest first. Search and domain, type, and severity filters apply without exposing full payloads on the main page. Select **View details** to inspect the human-readable event and optionally expand or copy its raw JSON.
+
 [Back to docs index](index.md)
 
 | Problem | Symptom | Likely cause | Diagnostic command | Fix |
