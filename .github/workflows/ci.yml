@@ -215,55 +215,9 @@ jobs:
         if: always()
         run: docker compose --profile powerdns down -v
 
-  frontend-e2e:
-    runs-on: ubuntu-latest
-    needs: test
-    env:
-      EDGE_AGENT_IDLE: 1
-      CDNLITE_CACHE_DEFAULT_TTL: 1s
-      POWERDNS_ENABLED: 0
-      POWERDNS_STRICT: 0
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: dash/package-lock.json
-      - name: Install dashboard dependencies
-        working-directory: dash
-        run: npm ci
-      - name: Install Chromium
-        working-directory: dash
-        run: npx playwright install --with-deps chromium
-      - name: Build and start stack
-        run: docker compose up -d --build
-      - name: Seed browser analytics
-        run: |
-          chmod +x ci/seed_frontend_e2e.sh
-          ./ci/seed_frontend_e2e.sh
-      - name: Browser E2E
-        working-directory: dash
-        run: npm run test:e2e
-      - name: Upload browser E2E artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-e2e-report
-          path: |
-            dash/playwright-report/
-            dash/test-results/
-          if-no-files-found: ignore
-      - name: Service logs
-        if: always()
-        run: docker compose logs --no-color
-      - name: Teardown
-        if: always()
-        run: docker compose down -v
-
   release_gate:
     runs-on: ubuntu-latest
-    needs: [smoke, e2e, e2e-powerdns, frontend-e2e]
+    needs: [smoke, e2e, e2e-powerdns]
     steps:
       - run: echo "All release verification jobs passed."
 

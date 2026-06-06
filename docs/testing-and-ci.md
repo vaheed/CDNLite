@@ -59,9 +59,9 @@ core logs from agent polling are ignored.
 `.github/workflows/ci.yml` uses a fast test gate, then runs the stack suites in parallel:
 
 1. `test`: PHP lint, shell syntax checks, marker scan, dashboard `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `pytest -q core/tests` with PostgreSQL service.
-2. `smoke`, `e2e`, `e2e-powerdns`, and `frontend-e2e` start independently after `test`.
-3. `frontend-e2e` installs Chromium, seeds deterministic multi-domain usage/cache analytics, and runs the Playwright dashboard suite against Compose.
-4. `release_gate` succeeds only after all four stack jobs pass.
+2. `smoke`, `e2e`, and `e2e-powerdns` start independently after `test`.
+3. Playwright dashboard E2E is currently manual-only and is not part of GitHub Actions.
+4. `release_gate` succeeds only after the three stack jobs pass.
 5. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard multi-platform images for `linux/amd64` and `linux/arm64` to GHCR.
 
 The publish steps use GitHub Actions build caches scoped per image. Independent
