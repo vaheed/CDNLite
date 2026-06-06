@@ -1,5 +1,12 @@
 # API Workflow
 
+Fetch the aggregate dashboard payload and actionable warnings without per-domain request loops:
+
+```bash
+curl -s http://localhost:8080/api/v1/overview
+curl -s http://localhost:8080/api/v1/overview/warnings
+```
+
 [Back to docs index](../index.md)
 
 Start a fresh stack:

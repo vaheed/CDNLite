@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { runtimeConfig } from '@/lib/config/env';
-import OpsDashboard from '@/views/OpsDashboard.vue';
+import OverviewView from '@/views/OverviewView.vue';
 import DomainsView from '@/views/DomainsView.vue';
 import DomainDetailView from '@/views/DomainDetailView.vue';
 import EdgeNodesView from '@/views/EdgeNodesView.vue';
@@ -12,7 +12,7 @@ import SettingsView from '@/views/SettingsView.vue';
 import EdgeDevToolsView from '@/views/EdgeDevToolsView.vue';
 
 export const routes = [
-  { path: '/', name: 'ops', component: OpsDashboard, meta: { label: 'OPS Dashboard' } },
+  { path: '/', name: 'overview', component: OverviewView, meta: { label: 'Overview' } },
   { path: '/domains', name: 'domains', component: DomainsView, meta: { label: 'Domains' } },
   { path: '/domains/:domainId/:tab?', name: 'domain-detail', component: DomainDetailView, meta: { label: 'Domain Detail' } },
   { path: '/edge-nodes', name: 'edge-nodes', component: EdgeNodesView, meta: { label: 'Edge Nodes' } },

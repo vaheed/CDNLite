@@ -18,6 +18,8 @@ use App\Modules\Domains\Http\Controllers\DomainController;
 use App\Modules\Domains\Services\DomainService;
 use App\Modules\Health\Http\Controllers\ReadinessController;
 use App\Modules\Health\Services\ReadinessService;
+use App\Modules\Overview\Http\Controllers\OverviewController;
+use App\Modules\Overview\Services\OverviewService;
 use App\Modules\Settings\Http\Controllers\SettingsController;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\ApiAuth;
@@ -195,6 +197,7 @@ $adminAuth = new AdminAuthService();
 $adminAuthController = new AdminAuthController($adminAuth);
 $readinessController = new ReadinessController(new ReadinessService());
 $settingsController = new SettingsController(new SettingsRepository());
+$overviewController = new OverviewController(new OverviewService());
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -260,6 +263,8 @@ $router->add('GET', '/ready', static function () use ($configService): array {
     return Response::json(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 });
 $router->add('GET', '/api/v1/readiness', static fn (): array => Response::json($readinessController->index()), auth: true);
+$router->add('GET', '/api/v1/overview', static fn (): array => Response::json($overviewController->index()), auth: true);
+$router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response::json($overviewController->warnings()), auth: true);
 $router->add('GET', '/api/v1/settings', static fn (): array => Response::json($settingsController->index()), auth: true);
 $router->add('GET', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController): array {
     try {

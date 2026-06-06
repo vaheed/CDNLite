@@ -31,6 +31,8 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | GET | `/cdn-health` | none | Origin health endpoint for proxied edge checks. |
 | GET | `/ready` | none | Core readiness (includes API token production guard). |
 | GET | `/api/v1/readiness` | bearer when auth is configured | Structured core and edge readiness checks for the dashboard. |
+| GET | `/api/v1/overview` | bearer when auth is configured | Aggregate 24-hour metrics, top domains, and recent config snapshots. |
+| GET | `/api/v1/overview/warnings` | bearer when auth is configured | Actionable domain, edge, and SSL warnings. |
 | GET | `http://localhost:8081/ready` | none | Edge readiness (`503` only when no valid config exists). |
 | POST | `/api/v1/admin/login` | none | Create dashboard admin session. |
 | GET | `/api/v1/admin/me` | admin session bearer | Return current dashboard admin user. |

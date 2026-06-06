@@ -83,3 +83,11 @@ export interface SettingsGroup {
 }
 export interface SettingsIndex { groups: Record<string, SettingsGroup>; }
 export interface SettingsValidation { valid: boolean; errors: Record<string, string>; }
+export interface OverviewDomain { domain_id: Id; name: string; domain: string; requests: number; }
+export interface OverviewSnapshot { version: number; generated_at: number; }
+export interface Overview {
+  domains_count: number; active_domains: number; total_requests_24h: number; bandwidth_24h_bytes: number;
+  cache_hit_ratio_24h: number; edge_online: number; edge_offline: number; security_events_24h: number;
+  ssl_expiring_count: number; top_domains: OverviewDomain[]; recent_snapshots: OverviewSnapshot[];
+}
+export interface OverviewWarning { severity: 'warning' | 'critical' | 'info'; message: string; link: string; }

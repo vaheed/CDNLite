@@ -21,7 +21,8 @@
 | Phase 8 — Domain onboarding and nameserver verification | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 9 — DNS routing: geo and anycast | Complete | PHP lint, non-DB core contracts, dashboard typecheck/build; DB-backed tests and manual smoke/E2E follow-up |
 | Phase 10 — Domain feature tabs | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
-| Phase 11+ | Planned | Not started |
+| Phase 11 — Overview dashboard and report exports | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
+| Phase 12+ | Planned | Not started |
 
 ## Rules
 

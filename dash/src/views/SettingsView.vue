@@ -1,8 +1,11 @@
 <template>
   <section class="space-y-6">
-    <div>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
       <h1 class="text-3xl font-black text-slate-950 dark:text-white">Settings</h1>
       <p class="text-slate-600 dark:text-slate-400">Database-backed operational configuration. Environment variables remain fallback defaults.</p>
+      </div>
+      <ReportExportButton title="Settings" :data="{ group: active, values: draft }" />
     </div>
 
     <div class="card overflow-hidden">
@@ -37,6 +40,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import SettingsSection from '@/components/settings/SettingsSection.vue';
+import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import { settingsApi } from '@/lib/api/settings';
 import type { SettingsGroup } from '@/types';
 
