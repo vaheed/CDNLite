@@ -62,40 +62,24 @@ class DnsPublishingPlanner
         ];
         $settings ??= $this->settings((string) $domain['id']);
         $mode = (string) ($settings['routing_mode'] ?? 'geo');
+        
+        // For proxied records (except dns_only mode), use ALIAS for apex and CNAME for non-apex
+        if (($record['proxied'] ?? false) === true && $mode !== 'dns_only') {
+            $isApex = $this->isApex((string) $record['name'], (string) $domain['domain']);
+            $baseDomain = rtrim(strtolower((string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net')), '.');
+            $zonePrefix = strtolower((string) (getenv('CDNLITE_EDGE_ZONE_PREFIX') ?: 'edge'));
+            $geoTarget = 'geo.' . $zonePrefix . '.' . $baseDomain . '.';
+            
+            if ($isApex) {
+                return $this->result('ALIAS', $geoTarget, $mode);
+            }
+            return $this->result('CNAME', $geoTarget, $mode);
+        }
+        
+        // For non-proxied records, return origin type
         if (($record['proxied'] ?? false) !== true || $mode === 'dns_only') {
             return $this->result($origin['type'], $origin['content'], $mode);
         }
-
-        if ($mode === 'geo') {
-            $type = $origin['type'] === 'AAAA' ? 'AAAA' : 'A';
-            $ips = $this->activeEdgeIps($type);
-            if ($ips === []) {
-                return $this->result($origin['type'], $origin['content'], $mode, 'no_eligible_edge_ips');
-            }
-            $quoted = implode(',', array_map(static fn(string $ip): string => "'" . $ip . "'", $ips));
-            $port = (int) ($settings['geo_health_port'] ?? 443);
-            $selector = (string) ($settings['geo_selector'] ?? 'pickclosest');
-            $lua = sprintf("%s \"ifportup(%d, {%s}, {selector='%s', backupSelector='random'})\"", $type, $port, $quoted, $selector);
-            return $this->result('LUA', $lua, $mode);
-        }
-
-        $isApex = $this->isApex((string) $record['name'], (string) $domain['domain']);
-        $cname = $this->nullable($settings['anycast_cname'] ?? null);
-        if (!$isApex && $cname !== null) {
-            return $this->result('CNAME', rtrim($cname, '.') . '.', $mode);
-        }
-        if ($origin['type'] === 'AAAA') {
-            $ipv6 = $this->nullable($settings['anycast_ipv6'] ?? null);
-            if ($ipv6 === null) {
-                throw new \RuntimeException('anycast_ipv6_required');
-            }
-            return $this->result('AAAA', $ipv6, $mode);
-        }
-        $ipv4 = $this->nullable($settings['anycast_ipv4'] ?? null);
-        if ($ipv4 === null) {
-            throw new \RuntimeException('anycast_ipv4_required');
-        }
-        return $this->result('A', $ipv4, $mode);
     }
 
     private function result(string $type, string $content, string $mode, ?string $warning = null): array

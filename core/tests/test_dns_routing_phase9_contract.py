@@ -14,11 +14,10 @@ def test_routing_schema_and_planner_contract():
 
     assert "CREATE TABLE IF NOT EXISTS domain_routing_settings" in schema
     assert "CHECK (routing_mode IN ('geo', 'anycast', 'dns_only'))" in schema
-    assert "ifportup(%d, {%s}" in planner
-    assert "selector='%s', backupSelector='random'" in planner
-    assert "return $this->result($origin['type'], $origin['content'], $mode, 'no_eligible_edge_ips');" in planner
-    assert "anycast_ipv4_required" in planner
+    assert "return $this->result('ALIAS'" in planner
     assert "return $this->result('CNAME'" in planner
+    assert "geo." in planner
+    assert "geoTarget" in planner
 
 
 def test_routing_api_and_republish_contract():
