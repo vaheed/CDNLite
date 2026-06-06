@@ -381,7 +381,7 @@ Add structured readiness API and clickable cards to CDNLite.
 
 ### Completion record
 
-- Added typed database-backed settings with environment fallback for six operational groups.
+- Added typed database-backed settings for six operational groups; PowerDNS and nameserver settings use code defaults instead of core environment variables.
 - Added redacted secret responses and per-setting audit history with authenticated actor attribution.
 - Added authenticated settings list, group update, validation, and PowerDNS connection-test APIs.
 - Switched `PowerDnsService` to resolve configuration through the settings repository.

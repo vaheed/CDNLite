@@ -31,6 +31,28 @@ def test_secrets_are_masked_and_powerdns_uses_repository():
     assert "platform.powerdns" in powerdns
 
 
+def test_powerdns_operational_config_cannot_return_to_env():
+    repository = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
+    compose = read("docker-compose.yml")
+    example = read(".env.example")
+    powerdns = read("core/app/Modules/Dns/Services/PowerDnsService.php")
+    record_builder = read("core/app/Modules/Dns/Services/PowerDnsRecordBuilder.php")
+    for name in [
+        "POWERDNS_ENABLED",
+        "POWERDNS_STRICT",
+        "POWERDNS_API_URL",
+        "POWERDNS_API_KEY",
+        "POWERDNS_SERVER_ID",
+        "POWERDNS_ZONE_KIND",
+        "POWERDNS_ZONE_NAMESERVERS",
+    ]:
+        assert f"'{name}'" not in repository
+        assert f"getenv('{name}')" not in powerdns
+        assert f"getenv('{name}')" not in record_builder
+        assert f"      {name}:" not in compose
+        assert f"{name}=" not in example
+
+
 def test_dashboard_has_all_settings_tabs_and_secret_editor():
     view = read("dash/src/views/SettingsView.vue")
     secret = read("dash/src/components/settings/SecretSettingField.vue")

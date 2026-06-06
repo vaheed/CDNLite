@@ -79,4 +79,4 @@ php core/artisan cdn:usage:summary --domain_id=11111111-1111-4111-8111-111111111
 | Edge auth 401 | Token registration, clock, signature path/body | Re-register token; sync clock; regenerate signature. |
 | Replay 409 | Nonce reuse | Generate a fresh nonce per request. |
 | Empty usage summary | Raw rollups, recalculate state | Push metrics; run recalculate for bucket summaries. |
-| PowerDNS failures | Core logs, mock/API health, API key | Fix `POWERDNS_API_URL` and `POWERDNS_API_KEY`; disable strict for local work. |
+| PowerDNS failures | Core logs, mock/API health, API key | Fix the PowerDNS group in Settings; disable strict for local work. |

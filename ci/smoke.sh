@@ -83,13 +83,23 @@ required_tables=(
   admin_users admin_sessions
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
   domain_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
-  rate_limit_rules audit_log
+  rate_limit_rules audit_log platform_settings platform_settings_audit
 )
 for t in "${required_tables[@]}"; do
   count="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='${t}';")"
   assert_eq "$count" "1" "table ${t} missing"
 done
 record_step PASS "schema-tables" "all required tables exist"
+
+if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
+  admin_token="$(json_get "$(cat /tmp/smoke-bootstrap-admin.json)" '.data.token')"
+  settings_code="$(curl -sS -o /tmp/smoke-settings.json -w '%{http_code}' \
+    -H "Authorization: Bearer ${admin_token}" \
+    "${CORE_URL}/api/v1/settings/platform.powerdns")"
+  assert_eq "$settings_code" "200" "PowerDNS settings group should be readable"
+  assert_contains "$(cat /tmp/smoke-settings.json)" '"api_key":{"configured":' "PowerDNS API key must be masked"
+  record_step PASS "platform-settings" "settings API is readable and secrets are masked"
+fi
 
 waf_action_col="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='waf_rules' AND column_name='action';")"
 assert_eq "$waf_action_col" "1" "waf_rules.action column missing"

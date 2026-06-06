@@ -412,7 +412,7 @@ Deletes one WAF rule.
 
 Issues an ACME certificate for an active proxied domain using DNS-01 through PowerDNS. The body may include `hostnames`; when omitted, core uses the domain domain. Hostnames must be the domain domain or a subdomain of it.
 
-Required runtime settings: `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ACME_DIRECTORY_URL`, `CDNLITE_ACME_CONTACT_EMAIL`, `POWERDNS_ENABLED=1`, `POWERDNS_API_URL`, and `POWERDNS_API_KEY`.
+Required runtime configuration: `CDNLITE_SSL_SECRET_KEY`, ACME account configuration, and an enabled PowerDNS group with API URL and API key in Platform Settings.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/ssl/acme/issue \

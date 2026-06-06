@@ -95,22 +95,14 @@ cp dash/.env.example dash/.env
 | `METRIC_PATH` | `/var/lib/cdnlite/metrics.ndjson` | agent | Yes | Metric file read/truncate path. | Traffic metadata. |
 | `SECURITY_EVENT_PATH` | `/var/lib/cdnlite/security-events.ndjson` | edge, agent | No | Edge security event queue file path consumed by agent push loop. | Contains request metadata (IP/path/method). |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
-| `POWERDNS_ENABLED` | `0` | core | No | Enables PowerDNS sync. Required for ACME DNS-01 issuance. | Requires API key. |
-| `POWERDNS_STRICT` | `0` | core | No | Fail local operations if PowerDNS sync fails. | Operational choice. |
-| `POWERDNS_API_URL` | empty in Compose | core | If enabled | PowerDNS API base URL. | Prefer private/TLS network. |
-| `POWERDNS_PUBLIC_API_URL` | `POWERDNS_API_URL` | CI scripts | No | Host-reachable PowerDNS URL for e2e checks when core uses an internal Compose URL. | Test-only. |
+| `POWERDNS_PUBLIC_API_URL` | `http://localhost:8089` | CI scripts | No | Host-reachable URL for the optional mock PowerDNS service. | Test-only. |
 | `POWERDNS_HOST_PORT` | `8089` | Compose | No | Host port for the mock PowerDNS service when the `powerdns` profile is enabled. | Test-only. |
-| `POWERDNS_API_KEY` | empty in Compose | core | If enabled | Sent as `X-API-Key`. | Secret. |
-| `POWERDNS_SERVER_ID` | `localhost` | core | No | PowerDNS server ID path segment. | Not secret. |
-| `POWERDNS_ZONE_KIND` | `NATIVE` | core | No | Zone kind: `NATIVE`, `MASTER`, or `SLAVE`. | Not secret. |
-| `POWERDNS_ZONE_NAMESERVERS` | `ns1.local.` in example | core | No | Comma-separated nameservers. | Public DNS data. |
-| `POWERDNS_DEFAULT_BASE_DOMAIN` | `local.` | core fallback | No | Used only when nameservers are unset. | Public DNS data. |
 
 ## Database-backed platform settings
 
-The Settings dashboard can override operational defaults without restarting core. Values in
-`platform_settings` take precedence over environment variables. Environment values remain the
-fallback when a setting has not been saved in the database.
+The Settings dashboard owns operational defaults without restarting core. Platform settings use
+code defaults until they are saved in `platform_settings`; they are not read from core environment
+variables. Environment variables are reserved for process bootstrap and infrastructure wiring.
 
 PowerDNS URL, API key, server ID, zone kind, enable/strict flags, and authoritative nameservers are
 effective immediately for subsequent PowerDNS operations. API keys are stored as secret settings:

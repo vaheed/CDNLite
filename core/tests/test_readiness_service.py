@@ -19,8 +19,7 @@ def test_readiness_contract_is_structured_and_routed():
 def test_powerdns_missing_configuration_is_detectable():
     php = r"""
 require 'core/app/Support/bootstrap.php';
-putenv('POWERDNS_API_URL=');
-putenv('POWERDNS_API_KEY=');
+putenv('DB_HOST=database-not-available');
 $service = new App\Modules\Dns\Services\PowerDnsService();
 echo json_encode([$service->isConfigured(), $service->healthCheck()]);
 """

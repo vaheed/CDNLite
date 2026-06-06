@@ -251,6 +251,19 @@ assert_http_status "$HTTP_CODE" "200" "admin me failed"
 assert_contains "$HTTP_BODY" "$ADMIN_USERNAME" "admin me should include username"
 record_step PASS "admin-login" "admin session established"
 
+powerdns_enabled=false
+powerdns_strict=false
+[[ "${POWERDNS_ENABLED:-0}" == "1" ]] && powerdns_enabled=true
+[[ "${POWERDNS_STRICT:-0}" == "1" ]] && powerdns_strict=true
+settings_code="$(curl -sS -o /tmp/e2e-powerdns-settings.json -w '%{http_code}' \
+  -X PATCH "${CORE_URL}/api/v1/settings/platform.powerdns" \
+  -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"values\":{\"enabled\":${powerdns_enabled},\"strict\":${powerdns_strict},\"api_url\":\"http://powerdns:8081\",\"api_key\":\"${POWERDNS_API_KEY}\",\"server_id\":\"localhost\"}}")"
+assert_eq "$settings_code" "200" "PowerDNS settings update should return 200"
+assert_contains "$(cat /tmp/e2e-powerdns-settings.json)" '"api_key":{"configured":true' "PowerDNS secret should be masked"
+record_step PASS "platform-settings" "PowerDNS configured through settings API"
+
 ssl_key_present="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
 if [[ "$ssl_key_present" != "set" ]]; then
   CDNLITE_SSL_SECRET_KEY="$CDNLITE_SSL_SECRET_KEY" docker compose up -d --force-recreate core >/dev/null

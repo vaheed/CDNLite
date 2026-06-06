@@ -10,16 +10,16 @@ class SettingsRepository
 {
     private const GROUPS = [
         'platform.powerdns' => [
-            'enabled' => ['env' => 'POWERDNS_ENABLED', 'type' => 'bool', 'default' => false, 'description' => 'Enable PowerDNS synchronization.'],
-            'strict' => ['env' => 'POWERDNS_STRICT', 'type' => 'bool', 'default' => false, 'description' => 'Fail local DNS operations when PowerDNS fails.'],
-            'api_url' => ['env' => 'POWERDNS_API_URL', 'type' => 'string', 'default' => '', 'description' => 'PowerDNS API base URL.'],
-            'api_key' => ['env' => 'POWERDNS_API_KEY', 'type' => 'string', 'default' => '', 'secret' => true, 'description' => 'PowerDNS API key.'],
-            'server_id' => ['env' => 'POWERDNS_SERVER_ID', 'type' => 'string', 'default' => 'localhost', 'description' => 'PowerDNS server identifier.'],
-            'zone_kind' => ['env' => 'POWERDNS_ZONE_KIND', 'type' => 'string', 'default' => 'NATIVE', 'description' => 'PowerDNS zone kind.'],
+            'enabled' => ['type' => 'bool', 'default' => false, 'description' => 'Enable PowerDNS synchronization.'],
+            'strict' => ['type' => 'bool', 'default' => false, 'description' => 'Fail local DNS operations when PowerDNS fails.'],
+            'api_url' => ['type' => 'string', 'default' => '', 'description' => 'PowerDNS API base URL.'],
+            'api_key' => ['type' => 'string', 'default' => '', 'secret' => true, 'description' => 'PowerDNS API key.'],
+            'server_id' => ['type' => 'string', 'default' => 'localhost', 'description' => 'PowerDNS server identifier.'],
+            'zone_kind' => ['type' => 'string', 'default' => 'NATIVE', 'description' => 'PowerDNS zone kind.'],
         ],
         'platform.nameservers' => [
-            'hostnames' => ['env' => 'POWERDNS_ZONE_NAMESERVERS', 'type' => 'list', 'default' => ['ns1.local.', 'ns2.local.'], 'description' => 'Authoritative nameserver hostnames.'],
-            'default_base_domain' => ['env' => 'POWERDNS_DEFAULT_BASE_DOMAIN', 'type' => 'string', 'default' => 'local.', 'description' => 'Fallback nameserver base domain.'],
+            'hostnames' => ['type' => 'list', 'default' => ['ns1.local.', 'ns2.local.'], 'description' => 'Authoritative nameserver hostnames.'],
+            'default_base_domain' => ['type' => 'string', 'default' => 'local.', 'description' => 'Fallback nameserver base domain.'],
         ],
         'platform.edge_dns' => [
             'health_port' => ['env' => 'EDGE_DNS_HEALTH_PORT', 'type' => 'int', 'default' => 443, 'description' => 'Default edge DNS health-check port.'],
@@ -218,11 +218,11 @@ class SettingsRepository
 
     private function envValue(array $definition): mixed
     {
-        $raw = getenv((string) $definition['env']);
-        if ($raw === false || trim((string) $raw) === '') {
+        if (!isset($definition['env'])) {
             return $definition['default'];
         }
-        return $this->normalize($raw, $definition);
+        $raw = getenv((string) $definition['env']);
+        return $raw === false || trim((string) $raw) === '' ? $definition['default'] : $this->normalize($raw, $definition);
     }
 
     private function normalize(mixed $value, array $definition): mixed

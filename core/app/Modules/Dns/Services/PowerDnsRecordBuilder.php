@@ -2,8 +2,15 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Modules\Settings\Repositories\SettingsRepository;
+
 class PowerDnsRecordBuilder
 {
+    public function __construct(private ?SettingsRepository $settings = null)
+    {
+        $this->settings ??= new SettingsRepository();
+    }
+
     public function soa(string $baseDomain): string
     {
         $ns = $this->fqdn('ns1.' . $baseDomain);
@@ -17,14 +24,10 @@ class PowerDnsRecordBuilder
      */
     public function nameservers(): array
     {
-        $raw = trim((string) (getenv('POWERDNS_ZONE_NAMESERVERS') ?: ''));
-        if ($raw === '') {
-            $base = (string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net');
-            return [$this->fqdn('ns1.' . $base), $this->fqdn('ns2.' . $base)];
-        }
-
+        $configured = $this->settings->value('platform.nameservers', 'hostnames');
+        $configured = is_array($configured) ? $configured : explode(',', (string) $configured);
         $items = [];
-        foreach (array_map('trim', explode(',', $raw)) as $item) {
+        foreach (array_map('trim', $configured) as $item) {
             if ($item !== '') {
                 $items[] = $this->fqdn($item);
             }

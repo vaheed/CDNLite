@@ -173,6 +173,7 @@ jobs:
       CDNLITE_CACHE_DEFAULT_TTL: 1s
       POWERDNS_ENABLED: 1
       POWERDNS_STRICT: 1
+      # ci/e2e.sh writes these values into platform.settings; core does not read them from env.
       POWERDNS_API_KEY: test-key
       POWERDNS_API_URL: http://powerdns:8081
       POWERDNS_PUBLIC_API_URL: http://localhost:8089

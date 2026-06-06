@@ -71,7 +71,10 @@ path while keeping each job isolated on its own runner and Compose project.
 CI uses only the root `docker-compose.yml`. The plain e2e job sets
 `EDGE_AGENT_IDLE=1`, `CDNLITE_CACHE_DEFAULT_TTL=1s`, and PowerDNS off. The
 PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
-`POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. In both jobs, `ci/e2e.sh`
+`POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. These CI variables are inputs to
+`ci/e2e.sh`, which writes the effective PowerDNS values through the authenticated
+Platform Settings API; the core container does not consume them as operational
+environment variables. In both jobs, `ci/e2e.sh`
 provisions the edge token before running the agent registration and heartbeat
 scripts explicitly.
 

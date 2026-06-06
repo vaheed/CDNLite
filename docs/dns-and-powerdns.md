@@ -55,17 +55,19 @@ Only this platform zone contains LUA records and health-checked A/AAAA pools. Ed
 
 ## PowerDNS Sync
 
-Set `POWERDNS_ENABLED=1` to enable sync. Set `POWERDNS_STRICT=1` to make local API/CLI operations fail if PowerDNS sync fails.
+Use **Settings → PowerDNS** to enable synchronization and strict failure handling.
 
 PowerDNS settings:
 
 | Variable | Meaning |
 |---|---|
-| `POWERDNS_API_URL` | Base API URL. |
-| `POWERDNS_API_KEY` | Sent as `X-API-Key`. |
-| `POWERDNS_SERVER_ID` | Server path segment, default `localhost`. |
-| `POWERDNS_ZONE_KIND` | `NATIVE`, `MASTER`, or `SLAVE`; invalid values fall back to `NATIVE`. |
-| `POWERDNS_ZONE_NAMESERVERS` | Comma-separated nameservers for created zones. |
+| Setting | Purpose |
+|---|---|
+| API URL | Base API URL. |
+| API key | Secret sent as `X-API-Key`; never returned by the API. |
+| Server ID | Server path segment, default `localhost`. |
+| Zone kind | `NATIVE`, `MASTER`, or `SLAVE`; invalid values fall back to `NATIVE`. |
+| Nameservers tab | Authoritative nameservers for created zones. |
 
 Edge DNS settings:
 
