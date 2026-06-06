@@ -64,6 +64,7 @@ jobs:
           bash -n ci/agent_flow_checks.sh
           bash -n ci/smoke.sh
           bash -n ci/e2e.sh
+          bash -n ci/seed_frontend_e2e.sh
           bash -n ci/release_check.sh
           bash -n ci/lib.sh
       - name: No WIP markers
@@ -237,6 +238,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Build and start stack
         run: docker compose up -d --build
+      - name: Seed browser analytics
+        run: |
+          chmod +x ci/seed_frontend_e2e.sh
+          ./ci/seed_frontend_e2e.sh
       - name: Browser E2E
         working-directory: dash
         run: npm run test:e2e

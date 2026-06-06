@@ -27,7 +27,13 @@ class CdnUsageIngestCommand
             'bytes_in' => (int) $opts['bytes_in'],
             'bytes_out' => (int) $opts['bytes_out'],
             'status' => (int) $opts['status'],
+            'cache_status' => strtoupper(trim((string) ($opts['cache_status'] ?? 'UNKNOWN'))),
         ];
+
+        if (!in_array($item['cache_status'], ['HIT', 'MISS', 'EXPIRED', 'STALE', 'BYPASS', 'UNKNOWN'], true)) {
+            fwrite(STDERR, "Invalid --cache_status; expected HIT, MISS, EXPIRED, STALE, BYPASS, or UNKNOWN\n");
+            return 1;
+        }
 
         $idempotencyKey = isset($opts['idempotency_key']) ? (string) $opts['idempotency_key'] : null;
 

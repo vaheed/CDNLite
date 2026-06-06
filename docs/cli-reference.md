@@ -289,10 +289,10 @@ Equivalent API: `POST /api/v1/collector/usage` without HTTP edge auth because it
 
 Required: `--domain_id`, `--edge_node_id`, `--requests_count`, `--bytes_in`, `--bytes_out`, `--status`.
 
-Optional: `--ts=<unix>`, `--idempotency_key=<key>`.
+Optional: `--ts=<unix>`, `--idempotency_key=<key>`, `--cache_status=HIT|MISS|EXPIRED|STALE|BYPASS|UNKNOWN`.
 
 ```bash
-php core/artisan cdn:usage:ingest --domain_id=11111111-1111-4111-8111-111111111111 --edge_node_id=edge-local-1 --requests_count=10 --bytes_in=1000 --bytes_out=5000 --status=200 --idempotency_key=batch-1
+php core/artisan cdn:usage:ingest --domain_id=11111111-1111-4111-8111-111111111111 --edge_node_id=edge-local-1 --requests_count=10 --bytes_in=1000 --bytes_out=5000 --status=200 --cache_status=HIT --idempotency_key=batch-1
 ```
 
 ```json

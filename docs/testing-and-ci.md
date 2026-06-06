@@ -60,7 +60,7 @@ core logs from agent polling are ignored.
 
 1. `test`: PHP lint, shell syntax checks, marker scan, dashboard `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `pytest -q core/tests` with PostgreSQL service.
 2. `smoke`, `e2e`, `e2e-powerdns`, and `frontend-e2e` start independently after `test`.
-3. `frontend-e2e` installs Chromium and runs the Playwright dashboard suite against Compose.
+3. `frontend-e2e` installs Chromium, seeds deterministic multi-domain usage/cache analytics, and runs the Playwright dashboard suite against Compose.
 4. `release_gate` succeeds only after all four stack jobs pass.
 5. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard multi-platform images for `linux/amd64` and `linux/arm64` to GHCR.
 
@@ -87,6 +87,11 @@ container as well so host port timing does not hide runtime failures.
 Playwright login helpers wait for the authenticated OPS Dashboard before
 navigating to a protected page. Tests must not click Sign in and immediately
 issue a second `page.goto()`, because that can cancel the in-flight login request.
+
+`ci/seed_frontend_e2e.sh` creates `Analytics Alpha` and `Analytics Beta`, ingests
+distinct HIT/MISS/BYPASS/UNKNOWN rows through `cdn:usage:ingest`, and rebuilds
+minute/hour/day aggregates. Browser tests assert exact non-zero global totals,
+domain isolation, cache ratios, and bucket changes; zero-only analytics must fail.
 
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for
