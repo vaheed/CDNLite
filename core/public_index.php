@@ -373,6 +373,8 @@ $router->add('GET', '/api/v1/domains/{domainId}/analytics/summary', static fn (R
 $router->add('GET', '/api/v1/domains/{domainId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['domainId'])), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
+$router->add('GET', '/api/v1/edges/pools', static fn () => Response::json($edgeController->pools()), auth: true);
+$router->add('GET', '/api/v1/edges/dns', static fn () => Response::json($edgeController->dns()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);
 $router->add('POST', '/api/v1/edge/heartbeat', static fn (Request $req) => Response::json($edgeController->heartbeat($req->body)), edgeAuth: true);
 $router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response::json($configService->buildSnapshotForVersion(isset($req->query['if_version']) ? (int) $req->query['if_version'] : null)), edgeAuth: true);

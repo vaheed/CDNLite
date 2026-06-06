@@ -132,6 +132,7 @@ GET responses and audit entries expose only whether a value is configured, never
 | `CDNLITE_GEO_ENABLE_CONTINENT_RULES` | `true` | core | No | Enables continent policy generation. | Not secret. |
 | `CDNLITE_GEO_ENABLE_REGION_RULES` | `true` | core | No | Enables region policy generation. | Not secret. |
 | `CDNLITE_NS1_IP`, `CDNLITE_NS2_IP` | empty | core | No | Optional A records for platform nameservers. | Public DNS data. |
+| `CDNLITE_ANYCAST_IPV4`, `CDNLITE_ANYCAST_IPV6` | empty | core | No | Optional platform anycast addresses published under the edge zone. | Public DNS data. |
 | `CDNLITE_BOOTSTRAP_EDGE_DNS` | `1` | core | No | Operational flag for bootstrapping edge DNS. | Not secret. |
 | `PDNS_API_KEY`, `PDNS_HOST`, `PDNS_PORT` | `test-key`, `0.0.0.0`, `8081` | CI mock | No | Mock PowerDNS settings. `PDNS_PORT` also controls the container port exposed by Compose. | Test-only. |
 | `CORE_URL`, `EDGE_URL`, `CI_ENV_NAME`, `REPORT_DIR`, `REPORT_MD`, `REPORT_JSON`, `REPORT_JUNIT` | script defaults | CI scripts | No | Test endpoints and report files. | Reports may contain diagnostics. |

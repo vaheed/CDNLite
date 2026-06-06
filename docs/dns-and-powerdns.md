@@ -80,6 +80,7 @@ PowerDNS settings:
 | Server ID | Server path segment, default `localhost`. |
 | Zone kind | `NATIVE`, `MASTER`, or `SLAVE`; invalid values fall back to `NATIVE`. |
 | Nameservers tab | Authoritative nameservers for created zones. |
+| Edge Network | Generated per-edge, geo aggregate, and anycast platform records with the latest sync status. |
 
 Edge DNS settings:
 

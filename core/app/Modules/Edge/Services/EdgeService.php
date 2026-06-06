@@ -22,6 +22,45 @@ class EdgeService
         return array_map([$this, 'castRow'], $rows);
     }
 
+    public function pools(): array
+    {
+        $stmt = Database::pdo()->query(
+            'SELECT p.id, p.name, p.mode, p.description, p.created_at, p.updated_at,
+                    m.id AS member_id, m.enabled AS member_enabled, m.weight AS member_weight,
+                    e.edge_id, e.hostname, e.status, e.public_ipv4, e.public_ipv6
+             FROM edge_pools p
+             LEFT JOIN edge_pool_members m ON m.pool_id = p.id
+             LEFT JOIN edge_nodes e ON e.id = m.edge_node_id
+             ORDER BY p.name ASC, e.edge_id ASC'
+        );
+        $pools = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $id = (string) $row['id'];
+            $pools[$id] ??= [
+                'id' => $id,
+                'name' => (string) $row['name'],
+                'mode' => (string) $row['mode'],
+                'description' => $row['description'],
+                'members' => [],
+                'created_at' => (int) $row['created_at'],
+                'updated_at' => (int) $row['updated_at'],
+            ];
+            if ($row['member_id'] !== null) {
+                $pools[$id]['members'][] = [
+                    'id' => (string) $row['member_id'],
+                    'edge_id' => (string) $row['edge_id'],
+                    'hostname' => (string) $row['hostname'],
+                    'status' => (string) $row['status'],
+                    'public_ipv4' => (string) ($row['public_ipv4'] ?? ''),
+                    'public_ipv6' => (string) ($row['public_ipv6'] ?? ''),
+                    'enabled' => ((int) $row['member_enabled']) === 1,
+                    'weight' => (int) $row['member_weight'],
+                ];
+            }
+        }
+        return array_values($pools);
+    }
+
     public function register(array $input): array
     {
         $edgeId = (string) ($input['edge_id'] ?? '');
@@ -34,12 +73,12 @@ class EdgeService
             'INSERT INTO edge_nodes (
                 id, edge_id, hostname, public_ip, public_ipv4, public_ipv6, region, country, continent,
                 latitude, longitude, version, status, is_enabled, last_heartbeat, last_heartbeat_at,
-                health_status, weight, priority, created_at, updated_at
+                health_status, weight, priority, geo_enabled, anycast_enabled, created_at, updated_at
              )
              VALUES (
                 :id, :edge_id, :hostname, :public_ip, :public_ipv4, :public_ipv6, :region, :country, :continent,
                 :latitude, :longitude, :version, :status, :is_enabled, :last_heartbeat, :last_heartbeat_at,
-                :health_status, :weight, :priority, :created_at, :updated_at
+                :health_status, :weight, :priority, :geo_enabled, :anycast_enabled, :created_at, :updated_at
              )
              ON CONFLICT(edge_id) DO UPDATE SET
                 hostname = excluded.hostname,
@@ -59,6 +98,8 @@ class EdgeService
                 health_status = excluded.health_status,
                 weight = excluded.weight,
                 priority = excluded.priority,
+                geo_enabled = excluded.geo_enabled,
+                anycast_enabled = excluded.anycast_enabled,
                 updated_at = excluded.updated_at'
         );
         $stmt->execute([
@@ -81,6 +122,8 @@ class EdgeService
             ':health_status' => (string) ($input['health_status'] ?? 'unknown'),
             ':weight' => (int) ($input['weight'] ?? 100),
             ':priority' => (int) ($input['priority'] ?? 100),
+            ':geo_enabled' => array_key_exists('geo_enabled', $input) ? (int) ((bool) $input['geo_enabled']) : 1,
+            ':anycast_enabled' => array_key_exists('anycast_enabled', $input) ? (int) ((bool) $input['anycast_enabled']) : 0,
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
@@ -160,6 +203,8 @@ class EdgeService
         $row['last_heartbeat_at'] = isset($row['last_heartbeat_at']) ? (int) $row['last_heartbeat_at'] : (int) $row['last_heartbeat'];
         $row['weight'] = isset($row['weight']) ? (int) $row['weight'] : 100;
         $row['priority'] = isset($row['priority']) ? (int) $row['priority'] : 100;
+        $row['geo_enabled'] = ((int) ($row['geo_enabled'] ?? 1)) === 1;
+        $row['anycast_enabled'] = ((int) ($row['anycast_enabled'] ?? 0)) === 1;
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;

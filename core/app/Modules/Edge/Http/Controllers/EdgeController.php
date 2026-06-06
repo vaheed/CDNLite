@@ -20,6 +20,16 @@ class EdgeController
         return ['data' => $this->service->list()];
     }
 
+    public function pools(): array
+    {
+        return ['data' => $this->service->pools()];
+    }
+
+    public function dns(): array
+    {
+        return ['data' => $this->edgeDns->status()];
+    }
+
     public function register(array $input): array
     {
         if (empty($input['edge_id'])) {

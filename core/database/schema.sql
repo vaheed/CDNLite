@@ -83,8 +83,29 @@ CREATE TABLE IF NOT EXISTS edge_nodes (
   health_status TEXT NOT NULL DEFAULT 'unknown',
   weight INTEGER NOT NULL DEFAULT 100,
   priority INTEGER NOT NULL DEFAULT 100,
+  geo_enabled BOOLEAN NOT NULL DEFAULT true,
+  anycast_enabled BOOLEAN NOT NULL DEFAULT false,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS edge_pools (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  mode TEXT NOT NULL,
+  description TEXT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  CHECK (mode IN ('geo', 'anycast'))
+);
+
+CREATE TABLE IF NOT EXISTS edge_pool_members (
+  id TEXT PRIMARY KEY,
+  pool_id TEXT NOT NULL REFERENCES edge_pools(id) ON DELETE CASCADE,
+  edge_node_id TEXT NOT NULL REFERENCES edge_nodes(id) ON DELETE CASCADE,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  weight INTEGER NOT NULL DEFAULT 100,
+  UNIQUE(pool_id, edge_node_id)
 );
 
 CREATE TABLE IF NOT EXISTS edge_dns_state (
@@ -112,6 +133,8 @@ ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS last_heartbeat_at BIGINT NULL;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS health_status TEXT NOT NULL DEFAULT 'unknown';
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS geo_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS anycast_enabled BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS edge_tokens (
   edge_id TEXT PRIMARY KEY,

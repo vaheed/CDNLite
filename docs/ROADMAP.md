@@ -22,7 +22,8 @@
 | Phase 9 — DNS routing: geo and anycast | Complete | PHP lint, non-DB core contracts, dashboard typecheck/build; DB-backed tests and manual smoke/E2E follow-up |
 | Phase 10 — Domain feature tabs | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 11 — Overview dashboard and report exports | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
-| Phase 12+ | Planned | Not started |
+| Phase 12 — Edge network expanded and platform DNS | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
+| Phase 13+ | Planned | Not started |
 
 ## Rules
 
@@ -781,7 +782,15 @@ Build the CDNLite overview dashboard and report export.
 
 ## Phase 12 — Edge network expanded and platform DNS
 
+**Status:** Complete (2026-06-07)
+
 **Goal:** Admin can see edge pools, pool membership, and platform edge DNS records.
+
+### Completion record
+
+- Added migration-safe edge pools, memberships, and per-node geo/anycast capability flags.
+- Added pool and platform DNS status APIs, including generated per-edge, geo aggregate, and configured anycast records.
+- Replaced the Edge Nodes screen with an Edge Network view covering nodes, pools, DNS sync state, and identity/IP warnings.
 
 ### What changes
 

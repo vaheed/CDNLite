@@ -513,6 +513,22 @@ Deletes one cache rule.
 {"data":[{"id":"33333333-3333-4333-8333-333333333333","edge_id":"edge-local-1","hostname":"edge-local-1","public_ip":"203.0.113.10","public_ipv4":"203.0.113.10","public_ipv6":"","region":"local","country":"","continent":"","version":"v1","status":"online","is_enabled":true,"health_status":"unknown","last_heartbeat":1710000000,"last_heartbeat_at":1710000000,"created_at":1710000000,"updated_at":1710000000}]}
 ```
 
+### GET /api/v1/edges/pools
+
+Returns configured geo and anycast pools with their enabled member edges and weights.
+
+```json
+{"data":[{"id":"pool-1","name":"Primary geo","mode":"geo","description":"Production edges","members":[{"id":"member-1","edge_id":"edge-local-1","hostname":"edge-local-1","status":"online","public_ipv4":"203.0.113.10","public_ipv6":"","enabled":true,"weight":100}]}]}
+```
+
+### GET /api/v1/edges/dns
+
+Returns the generated per-edge, geo aggregate, and anycast platform DNS plan plus the most recent sync state and invalid-edge warnings.
+
+```json
+{"data":{"base_domain":"vaheed.net","zone_prefix":"edge","powerdns_enabled":true,"records":[{"name":"edge-edge-local-1","fqdn":"edge-edge-local-1.vaheed.net.","type":"A","ttl":60,"content":"203.0.113.10","mode":"edge"}],"warnings":[],"effective_hash":"sha256","synced_at":1710000000}}
+```
+
 ### Signed Edge Headers
 
 | Header | Required value |
