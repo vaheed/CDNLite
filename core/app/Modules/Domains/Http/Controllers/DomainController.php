@@ -24,18 +24,14 @@ class DomainController
 
     public function store(array $input): array
     {
-        $name = Validator::requiredString($input, 'name', 120);
-        if (($name['ok'] ?? false) !== true) {
-            return $name;
+        if (isset($input['zone_name']) && !isset($input['domain'])) {
+            $input['domain'] = $input['zone_name'];
         }
         $domain = Validator::domain($input, 'domain');
         if (($domain['ok'] ?? false) !== true) {
             return $domain;
         }
-        $originHost = Validator::requiredString($input, 'origin_host', 255);
-        if (($originHost['ok'] ?? false) !== true) {
-            return $originHost;
-        }
+        $originHost = array_key_exists('origin_host', $input) ? Validator::optionalString($input, 'origin_host', 255) : ['ok' => true, 'value' => '', 'exists' => false];
         $originPort = Validator::intRange($input, 'origin_port', 1, 65535, 8080);
         if (($originPort['ok'] ?? false) !== true) {
             return $originPort;
@@ -63,7 +59,7 @@ class DomainController
             return ['error' => 'domain_already_exists', 'status' => 422];
         }
 
-        $input['name'] = $name['value'];
+        $input['name'] = trim((string) ($input['display_name'] ?? $input['name'] ?? $domain['value']));
         $input['domain'] = $domain['value'];
         $input['origin_host'] = $originHost['value'];
         $input['origin_port'] = $originPort['value'];
@@ -75,6 +71,22 @@ class DomainController
             return ['data' => $this->service->create($input)];
         } catch (\RuntimeException $e) {
             return ['error' => $e->getMessage(), 'status' => 502];
+        }
+    }
+
+    public function verifyNameservers(string $domainId): ?array
+    {
+        $domain = (new DomainVerificationService())->verify($domainId);
+        return $domain ? ['data' => $domain] : null;
+    }
+
+    public function activate(string $domainId, array $input): ?array
+    {
+        try {
+            $domain = $this->service->activate($domainId, (bool) ($input['override'] ?? false));
+            return $domain ? ['data' => $domain] : null;
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
         }
     }
 

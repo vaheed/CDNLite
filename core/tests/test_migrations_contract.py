@@ -26,6 +26,7 @@ def test_stage5_migration_files_exist_in_order():
         "017_ssl_acme_accounts.sql",
         "018_usage_aggregates_cache_status.sql",
         "019_platform_settings.sql",
+        "020_domain_onboarding.sql",
     ]
 
 

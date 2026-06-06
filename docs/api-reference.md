@@ -165,6 +165,12 @@ Purpose: lightweight origin health check for edge-proxied requests. Auth is not 
 
 ## Domains
 
+`POST /api/v1/domains` starts onboarding and requires only `zone_name`; `display_name` is optional. The new domain starts as `pending_nameserver` and returns the platform nameservers to configure. Origin settings can be added later with `PATCH /api/v1/domains/{id}`.
+
+`POST /api/v1/domains/{id}/verify-nameservers` resolves the public NS set and updates `nameserver_status` to `verified`, `partial`, or `not_configured`.
+
+`POST /api/v1/domains/{id}/activate` activates a verified domain. An admin may send `{"override":true}` for local development where public delegation is unavailable.
+
 ### POST /api/v1/domains
 
 Required JSON fields: `name`, `domain`, `origin_host`. Optional: `user_id`, `origin_scheme` default `http`, `origin_port` default `8080`, `geo_origins`, `proxy_enabled` default `true`, `origin_shield_header_name`, `origin_shield_secret`.

@@ -7,6 +7,7 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 ## Available Now
 
 - Domain lifecycle management (`create/list/update/delete`).
+- Nameserver-first domain onboarding, delegation verification, and controlled activation.
 - DNS record CRUD per domain (with optional PowerDNS sync).
 - Edge host-based proxying from config snapshots.
 - Redirect rules (basic path-to-target URL rules).

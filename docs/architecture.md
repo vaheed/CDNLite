@@ -68,6 +68,10 @@ sequenceDiagram
   Core->>DB: insert usage_rollups
   Core->>DB: store idempotency key if present
   Operator->>Core: POST /api/v1/usage/recalculate
+
+## Domain Onboarding
+
+Domain creation stores the expected authoritative nameservers from platform settings but does not create a PowerDNS zone. Verification compares public NS records with that stored set. Activation requires a verified delegation unless an admin development override is supplied. The PowerDNS zone is created lazily when the first DNS record is written.
   Core->>DB: rebuild aggregates
 ```
 

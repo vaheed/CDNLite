@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\PowerDnsService;
+use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\Logger;
 use App\Support\Uuid;
@@ -27,34 +28,84 @@ class DomainService
     {
         $now = time();
         $id = Uuid::v4();
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, created_at, updated_at)
-             VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :origin_shield_header_name, :origin_shield_header_value_hash, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare(
+            'INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, nameserver_status, verification_token, created_at, updated_at)
+             VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :origin_shield_header_name, :origin_shield_header_value_hash, :geo_origins_json, :proxy_enabled, :status, :nameserver_status, :verification_token, :created_at, :updated_at)'
         );
-        $stmt->execute([
+        try {
+            $stmt->execute([
             ':id' => $id,
             ':user_id' => (string) ($input['user_id'] ?? Uuid::v4()),
-            ':name' => (string) $input['name'],
+            ':name' => (string) ($input['name'] ?? $input['domain']),
             ':domain' => (string) $input['domain'],
             ':origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
-            ':origin_host' => (string) $input['origin_host'],
+            ':origin_host' => (string) ($input['origin_host'] ?? ''),
             ':origin_port' => (int) ($input['origin_port'] ?? 8080),
             ':origin_shield_header_name' => array_key_exists('origin_shield_header_name', $input) ? (string) $input['origin_shield_header_name'] : null,
             ':origin_shield_header_value_hash' => array_key_exists('origin_shield_header_value_hash', $input) ? (string) $input['origin_shield_header_value_hash'] : null,
             ':geo_origins_json' => $this->encodeGeoOrigins($input['geo_origins'] ?? null),
             ':proxy_enabled' => (int) ((bool) ($input['proxy_enabled'] ?? true)),
-            ':status' => 'active',
+            ':status' => 'pending_nameserver',
+            ':nameserver_status' => 'unknown',
+            ':verification_token' => bin2hex(random_bytes(16)),
             ':created_at' => $now,
             ':updated_at' => $now,
-        ]);
+            ]);
+            $nameservers = (array) (new SettingsRepository())->value('platform.nameservers', 'hostnames');
+            $insertNs = $pdo->prepare(
+                'INSERT INTO domain_nameservers (id, domain_id, hostname, expected, observed, last_checked_at)
+                 VALUES (:id, :domain_id, :hostname, true, false, NULL)'
+            );
+            foreach ($nameservers as $hostname) {
+                $hostname = trim((string) $hostname);
+                if ($hostname !== '') {
+                    $insertNs->execute(['id' => Uuid::v4(), 'domain_id' => $id, 'hostname' => $hostname]);
+                }
+            }
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
 
         $domain = $this->find($id);
         if ($domain === null) {
             throw new \RuntimeException('domain_create_failed');
         }
 
-        $this->syncPowerDnsZoneCreate($domain);
         return $domain;
+    }
+
+    public function activate(string $domainId, bool $override = false): ?array
+    {
+        $domain = $this->find($domainId);
+        if ($domain === null) {
+            return null;
+        }
+        if (!$override && $domain['nameserver_status'] !== 'verified') {
+            throw new \RuntimeException('nameservers_not_verified');
+        }
+        return $this->update($domainId, ['status' => 'active']);
+    }
+
+    public function ensureZoneReady(string $domainId): ?array
+    {
+        $domain = $this->find($domainId);
+        if ($domain === null || !$this->powerDns->isEnabled() || $domain['powerdns_zone_created']) {
+            return $domain;
+        }
+        $result = $this->powerDns->ensureZone((string) $domain['domain']);
+        if (($result['ok'] ?? false) !== true) {
+            if ($this->powerDns->isStrict()) {
+                throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
+            }
+            return $domain;
+        }
+        $stmt = Database::pdo()->prepare('UPDATE domains SET powerdns_zone_created = true, updated_at = :updated_at WHERE id = :id');
+        $stmt->execute(['updated_at' => time(), 'id' => $domainId]);
+        return $this->find($domainId);
     }
 
     public function update(string $domainId, array $input): ?array
@@ -161,6 +212,16 @@ class DomainService
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
         unset($row['geo_origins_json']);
         $row['proxy_enabled'] = ((int) $row['proxy_enabled']) === 1;
+        $row['powerdns_zone_created'] = ((int) ($row['powerdns_zone_created'] ?? 0)) === 1;
+        $row['last_ns_check_at'] = $row['last_ns_check_at'] === null ? null : (int) $row['last_ns_check_at'];
+        $ns = Database::pdo()->prepare('SELECT hostname, expected, observed, last_checked_at FROM domain_nameservers WHERE domain_id = :domain_id ORDER BY hostname');
+        $ns->execute(['domain_id' => $row['id']]);
+        $row['nameservers'] = array_map(static function (array $item): array {
+            $item['expected'] = ((int) $item['expected']) === 1;
+            $item['observed'] = ((int) $item['observed']) === 1;
+            $item['last_checked_at'] = $item['last_checked_at'] === null ? null : (int) $item['last_checked_at'];
+            return $item;
+        }, $ns->fetchAll());
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;
@@ -187,28 +248,4 @@ class DomainService
         return $json === false ? null : $json;
     }
 
-    private function syncPowerDnsZoneCreate(array $domain): void
-    {
-        if (!$this->powerDns->isEnabled()) {
-            return;
-        }
-
-        $result = $this->powerDns->ensureZone((string) $domain['domain']);
-        if (($result['ok'] ?? false) === true) {
-            return;
-        }
-
-        Logger::error('powerdns_zone_create_failed', [
-            'domain_id' => (string) $domain['id'],
-            'domain' => (string) $domain['domain'],
-            'status' => (int) ($result['status'] ?? 0),
-            'error' => (string) ($result['error'] ?? 'powerdns_sync_failed'),
-            'response' => (string) ($result['response'] ?? ''),
-        ]);
-
-        if ($this->powerDns->isStrict()) {
-            $this->delete((string) $domain['id']);
-            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
-        }
-    }
 }

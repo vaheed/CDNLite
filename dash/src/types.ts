@@ -26,9 +26,14 @@ export interface Domain {
   origin_shield_secret?: string | null;
   created_at?: number | string;
   updated_at?: number | string;
+  nameserver_status?: 'unknown' | 'not_configured' | 'partial' | 'verified' | string;
+  verification_token?: string | null;
+  last_ns_check_at?: number | null;
+  powerdns_zone_created?: boolean;
+  nameservers?: Array<{ hostname: string; expected: boolean; observed: boolean; last_checked_at?: number | null }>;
 }
-export type CreateDomainInput = Omit<Domain, 'id' | 'created_at' | 'updated_at' | 'user_id'>;
-export type UpdateDomainInput = Partial<CreateDomainInput>;
+export interface CreateDomainInput { zone_name: string; display_name?: string; }
+export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'nameservers'>>;
 
 export interface DnsRecord {
   id: Id; type: string; name: string; content: string; ttl?: number; priority?: number | null;

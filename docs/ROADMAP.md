@@ -18,7 +18,8 @@
 | Phase 5 — Readiness API and clickable cards | Complete | PHP lint, focused pytest, dashboard Vitest, typecheck, and build passed |
 | Phase 6 — Settings dashboard | Complete | PHP lint, core contracts, dashboard typecheck/build |
 | Phase 7 — Analytics by domain | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
-| Phase 8+ | Planned | Not started |
+| Phase 8 — Domain onboarding and nameserver verification | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
+| Phase 9+ | Planned | Not started |
 
 ## Rules
 
@@ -508,6 +509,8 @@ Add domain filtering to CDNLite analytics.
 ---
 
 ## Phase 8 — Domain onboarding and nameserver verification
+
+**Status:** Complete (2026-06-06)
 
 **Goal:** Adding a domain is Cloudflare-style: enter name, see assigned nameservers, verify delegation, then activate. No origin required at creation.
 

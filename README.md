@@ -20,6 +20,7 @@ It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key, stale-domain filtering, and minute/hour/day aggregate rebuilds.
 - Global and per-domain usage analytics with bandwidth, request, and cache-effectiveness charts.
+- Nameserver-first domain onboarding with delegation verification and lazy PowerDNS zone provisioning.
 - Client-only Vue admin dashboard with tab-scoped session persistence for operations, domain management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
 

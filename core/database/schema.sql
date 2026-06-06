@@ -11,8 +11,22 @@ CREATE TABLE IF NOT EXISTS domains (
   geo_origins_json TEXT NULL,
   proxy_enabled BOOLEAN NOT NULL,
   status TEXT NOT NULL,
+  nameserver_status TEXT NOT NULL DEFAULT 'unknown',
+  verification_token TEXT NULL,
+  last_ns_check_at BIGINT NULL,
+  powerdns_zone_created BOOLEAN NOT NULL DEFAULT false,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS domain_nameservers (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  hostname TEXT NOT NULL,
+  expected BOOLEAN NOT NULL DEFAULT true,
+  observed BOOLEAN NOT NULL DEFAULT false,
+  last_checked_at BIGINT NULL,
+  UNIQUE(domain_id, hostname)
 );
 
 CREATE TABLE IF NOT EXISTS dns_records (

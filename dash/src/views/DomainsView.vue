@@ -4,7 +4,8 @@
     <div class="flex justify-end">
       <button type="button" class="button-primary" @click="startCreate">Add domain</button>
     </div>
-    <form v-if="showForm" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="saveDomain">
+    <AddDomainWizard v-if="showForm && !editingId" @cancel="resetForm" @completed="onOnboardingCompleted" />
+    <form v-if="showForm && editingId" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="saveDomain">
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ formError }}</div>
       <TextInput v-model="form.name" :help="{ ...help.name, error: fieldErrors.name }" />
       <TextInput v-model="form.domain" :help="{ ...help.domain, error: fieldErrors.domain }" />
@@ -36,7 +37,7 @@
     </form>
     <DataTable title="Domains" subtitle="Search, sort, paginate, and copy IDs." :rows="domainRows" :columns="columns">
       <template #id="{ value }"><div class="flex items-center gap-2"><code class="text-xs">{{ value }}</code><CopyButton :text="String(value)" label="Copy ID" /></div></template>
-      <template #status="{ row }"><div class="flex items-center gap-2"><StatusBadge :status="String(row.status ?? 'active')" /><button class="button-secondary px-2 py-1 text-xs" @click="toggleStatus(row)">{{ row.status === 'disabled' ? 'Activate' : 'Disable' }}</button></div></template>
+      <template #status="{ row }"><div class="flex flex-wrap items-center gap-2"><StatusBadge :status="String(row.status ?? 'active')" /><StatusBadge :status="String(row.nameserver_status ?? 'unknown')" :label="`NS: ${row.nameserver_status ?? 'unknown'}`" /><button v-if="row.status !== 'pending_nameserver'" class="button-secondary px-2 py-1 text-xs" @click="toggleStatus(row)">{{ row.status === 'disabled' ? 'Activate' : 'Disable' }}</button></div></template>
       <template #proxy_enabled="{ row }"><div class="flex items-center gap-2"><StatusBadge :status="row.proxy_enabled ? 'enabled' : 'disabled'" :label="row.proxy_enabled ? 'Proxy on' : 'Proxy off'" /><button class="button-secondary px-2 py-1 text-xs" @click="toggleProxy(row)">{{ row.proxy_enabled ? 'Disable' : 'Enable' }}</button></div></template>
       <template #actions="{ row }"><div class="flex flex-wrap gap-2"><RouterLink class="button-secondary px-2 py-1 text-xs" :to="`/domains/${row.id}/analytics`">Analytics</RouterLink><button class="button-secondary px-2 py-1 text-xs" @click="editDomain(row)">Edit</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this domain?" @confirm="deleteDomain(String(row.id))">Delete</ConfirmDangerButton></div></template>
     </DataTable>
@@ -52,9 +53,10 @@ import DataTable from '@/components/ui/DataTable.vue';
 import CopyButton from '@/components/ui/CopyButton.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
+import AddDomainWizard from '@/components/domains/AddDomainWizard.vue';
 import { domainsApi } from '@/lib/api/domains';
 import { CdnLiteApiError } from '@/lib/api/client';
-import type { CreateDomainInput, Domain, UpdateDomainInput } from '@/types';
+import type { Domain, UpdateDomainInput } from '@/types';
 const domains = ref<Domain[]>([]); const saving = ref(false); const editingId = ref(''); const showForm = ref(false); const formError = ref(''); const fieldErrors = reactive<Record<string, string>>({});
 const geoOrigins = ref('{\n  "eu": "https://eu-origin.example.com",\n  "us": "https://us-origin.example.com"\n}');
 const form = reactive({ name: '', domain: '', origin_scheme: 'http', origin_host: '', origin_port: 80, proxy_enabled: true, status: 'active', origin_shield_header_name: '', origin_shield_secret: '' });
@@ -86,7 +88,6 @@ async function saveDomain() {
     const payload: Record<string, unknown> = { ...form, origin_port: Number(form.origin_port), proxy_enabled: Boolean(form.proxy_enabled), geo_origins: JSON.parse(geoOrigins.value || '{}') };
     if (editingId.value && !String(payload.origin_shield_secret).trim()) delete payload.origin_shield_secret;
     if (editingId.value) await domainsApi.update(editingId.value, payload as UpdateDomainInput);
-    else await domainsApi.create(payload as CreateDomainInput);
     resetForm();
     showForm.value = false;
     await load();
@@ -107,6 +108,7 @@ function editDomain(row: Record<string, unknown>) {
   clearErrors();
 }
 function startCreate() { resetForm(); showForm.value = true; }
+async function onOnboardingCompleted() { resetForm(); await load(); }
 function resetForm() { editingId.value = ''; showForm.value = false; Object.assign(form, { name: '', domain: '', origin_scheme: 'http', origin_host: '', origin_port: 80, proxy_enabled: true, status: 'active', origin_shield_header_name: '', origin_shield_secret: '' }); geoOrigins.value = '{}'; clearErrors(); }
 function clearErrors() { formError.value = ''; Object.keys(fieldErrors).forEach((key) => { delete fieldErrors[key]; }); }
 function applyValidationErrors(error: z.ZodError) { error.issues.forEach((issue) => { fieldErrors[String(issue.path[0])] = issue.message; }); formError.value = 'Fix the highlighted fields before saving the domain.'; }

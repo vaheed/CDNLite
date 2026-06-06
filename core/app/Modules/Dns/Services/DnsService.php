@@ -33,6 +33,7 @@ class DnsService
         if ($domain === null) {
             throw new \RuntimeException('domain_not_found');
         }
+        $domain = $this->domains->ensureZoneReady($domainId) ?? $domain;
 
         $originType = strtoupper((string) $input['type']);
         $originContent = (string) $input['content'];

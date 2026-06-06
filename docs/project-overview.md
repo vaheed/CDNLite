@@ -8,6 +8,8 @@ CDNLite is a compact CDN control-plane and edge-runtime example. It solves the b
 
 The control plane is `core/`. It is authoritative for domains, DNS records, edge nodes, tokens, config versions, usage rollups, and aggregate summaries. It exposes HTTP APIs and CLI commands.
 
+New domains enter a `pending_nameserver` onboarding state. CDNLite records the expected platform nameservers, verifies public delegation on demand, and activates the domain after verification. PowerDNS customer zones are provisioned only when DNS records are first written.
+
 The data plane is `edge/openresty/`. It does not connect to PostgreSQL. It reads `/var/lib/cdnlite/config.json`, matches the request `Host`, selects an upstream, proxies the request, and writes metrics.
 
 ## Repository Roles
