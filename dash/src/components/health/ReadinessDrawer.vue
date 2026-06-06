@@ -14,7 +14,15 @@
           </div>
         </div>
 
-        <div v-if="readiness" class="space-y-6">
+        <div v-if="refreshing" class="space-y-4" role="status" aria-label="Loading platform readiness">
+          <div v-for="row in 6" :key="row" class="animate-pulse rounded-xl border border-slate-200 p-4 dark:border-white/10">
+            <div class="h-4 w-28 rounded bg-slate-200 dark:bg-slate-700" />
+            <div class="mt-3 h-4 w-full rounded bg-slate-200 dark:bg-slate-700" />
+            <div class="mt-2 h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
+          </div>
+          <span class="sr-only">Loading readiness checks</span>
+        </div>
+        <div v-else-if="readiness" class="space-y-6">
           <section v-for="groupName in groups" :key="groupName">
             <div class="mb-3 flex items-center justify-between">
               <h3 class="font-bold capitalize text-slate-900 dark:text-white">{{ groupName }}</h3>

@@ -125,7 +125,7 @@ docker compose exec core php artisan cdn:admin:create \
 
 The SPA logs in with `/api/v1/admin/login` and stores the returned bearer session token in browser memory only. The removed server-rendered `/dashboard/*` backend routes now return JSON `404`.
 
-The responsive operations console provides filtered event lists with on-demand raw details, shared health/readiness status in the top bar and Troubleshooting page, and copyable Markdown/JSON diagnostic reports. A failed browser request is reported as unknown or unreachable; the UI does not infer a database failure without a confirmed readiness result. Security activity is informational unless an event is critical or blocking.
+The responsive operations console provides filtered event lists with on-demand raw details and structured health/readiness status in the top bar. A failed browser request is reported as unknown rather than as a confirmed service failure.
 
 Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any local bootstrap credentials, and place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA stores only its session token in tab-scoped `sessionStorage`; admin passwords are never stored. It does not implement production RBAC, and edge developer tokens are kept in session memory only.
 

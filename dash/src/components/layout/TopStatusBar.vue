@@ -4,8 +4,8 @@
       <div class="flex flex-wrap items-center gap-2 text-xs">
         <HealthBadge :status="health.status.apiHealthy === 'healthy' ? 'ok' : health.status.apiHealthy" />
         <span class="text-slate-500 dark:text-slate-400">Core health</span>
-        <ReadinessBadge label="Core ready" :status="readinessStatus(health.status.apiReady)" @click="drawerOpen = true" />
-        <ReadinessBadge label="Edge ready" :status="readinessStatus(health.status.edgeReachable)" @click="drawerOpen = true" />
+        <ReadinessBadge label="Core ready" :status="coreReadiness" @click="drawerOpen = true" />
+        <ReadinessBadge label="Edge ready" :status="edgeReadiness" @click="drawerOpen = true" />
         <StatusBadge :status="auth.isAuthenticated ? 'enabled' : 'disabled'" :label="apiTokenConfigured ? 'API token configured' : 'Admin session active'" />
       </div>
       <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
@@ -41,6 +41,13 @@ const lastRefresh = computed(() => {
   const timestamp = health.readiness?.checked_at ? health.readiness.checked_at * 1000 : health.checkedAt;
   return timestamp ? formatDate(timestamp) : 'never';
 });
-function readinessStatus(status: string): 'ok' | 'warning' | 'error' { return status === 'healthy' ? 'ok' : status === 'critical' ? 'error' : 'warning'; }
+const coreReadiness = computed(() => health.readiness?.core.status ?? readinessStatus(health.status.apiReady));
+const edgeReadiness = computed(() => health.readiness?.edge.status ?? readinessStatus(health.status.edgeReachable));
+function readinessStatus(status: string): 'ok' | 'warning' | 'error' | 'unknown' {
+  if (status === 'healthy') return 'ok';
+  if (status === 'critical') return 'error';
+  if (status === 'warning') return 'warning';
+  return 'unknown';
+}
 onMounted(health.refresh);
 </script>
