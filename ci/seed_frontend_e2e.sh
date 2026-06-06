@@ -25,10 +25,10 @@ docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
   -c "TRUNCATE TABLE usage_aggregates, usage_ingest_keys, usage_rollups RESTART IDENTITY;"
 
 docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
-  -c "INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
+  -c "INSERT INTO domains (id, user_id, name, domain, status, created_at, updated_at)
       VALUES
-        ('$domain_a', '$user_id', 'Analytics Alpha', 'analytics-alpha.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now),
-        ('$domain_b', '$user_id', 'Analytics Beta', 'analytics-beta.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now)
+        ('$domain_a', '$user_id', 'Analytics Alpha', 'analytics-alpha.local', 'active', $now, $now),
+        ('$domain_b', '$user_id', 'Analytics Beta', 'analytics-beta.local', 'active', $now, $now)
       ON CONFLICT (id) DO NOTHING;"
 
 ingest() {

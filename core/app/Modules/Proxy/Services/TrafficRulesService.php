@@ -279,7 +279,11 @@ class TrafficRulesService
         return $this->cast((array) $q->fetch());
     }
     private function domainForSsl(string $domainId): ?array {
-        $s = Database::pdo()->prepare('SELECT id,domain,proxy_enabled,status FROM domains WHERE id=:id LIMIT 1');
+        $s = Database::pdo()->prepare(
+            "SELECT d.id,d.domain,d.status,
+             CASE WHEN EXISTS (SELECT 1 FROM dns_records r WHERE r.domain_id=d.id AND r.proxied=true AND r.status='active') THEN 1 ELSE 0 END AS proxy_enabled
+             FROM domains d WHERE d.id=:id LIMIT 1"
+        );
         $s->execute([':id' => $domainId]);
         $row = $s->fetch();
         return $row ? (array) $row : null;

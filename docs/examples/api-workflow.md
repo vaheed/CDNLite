@@ -20,11 +20,11 @@ docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-loca
 ## Create Domain
 
 ```bash
-curl -s -X POST http://localhost:8080/api/v1/domains -H 'Content-Type: application/json' -d '{"name":"API Demo","domain":"api-demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
+curl -s -X POST http://localhost:8080/api/v1/domains -H 'Content-Type: application/json' -d '{"name":"API Demo","domain":"api-demo.local"}'
 ```
 
 ```json
-{"data":{"id":"11111111-1111-4111-8111-111111111111","name":"API Demo","domain":"api-demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}}
+{"data":{"id":"11111111-1111-4111-8111-111111111111","name":"API Demo","domain":"api-demo.local","status":"pending_nameserver"}}
 ```
 
 ## List And Update

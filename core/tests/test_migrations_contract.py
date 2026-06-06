@@ -28,6 +28,7 @@ def test_stage5_migration_files_exist_in_order():
             "019_platform_settings.sql",
             "020_domain_onboarding.sql",
             "021_edge_network.sql",
+            "022_dns_record_origins.sql",
         ]
 
 

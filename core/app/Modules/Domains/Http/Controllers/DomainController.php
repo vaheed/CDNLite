@@ -24,21 +24,15 @@ class DomainController
 
     public function store(array $input): array
     {
+        if (array_key_exists('origin_port', $input)) {
+            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
+        }
         if (isset($input['zone_name']) && !isset($input['domain'])) {
             $input['domain'] = $input['zone_name'];
         }
         $domain = Validator::domain($input, 'domain');
         if (($domain['ok'] ?? false) !== true) {
             return $domain;
-        }
-        $originHost = array_key_exists('origin_host', $input) ? Validator::optionalString($input, 'origin_host', 255) : ['ok' => true, 'value' => '', 'exists' => false];
-        $originPort = Validator::intRange($input, 'origin_port', 1, 65535, 8080);
-        if (($originPort['ok'] ?? false) !== true) {
-            return $originPort;
-        }
-        $originScheme = Validator::enum($input, 'origin_scheme', ['http', 'https']);
-        if (($originScheme['ok'] ?? false) !== true) {
-            return $originScheme;
         }
         if (array_key_exists('origin_shield_header_name', $input)) {
             $header = Validator::optionalString($input, 'origin_shield_header_name', 255);
@@ -61,11 +55,7 @@ class DomainController
 
         $input['name'] = trim((string) ($input['display_name'] ?? $input['name'] ?? $domain['value']));
         $input['domain'] = $domain['value'];
-        $input['origin_host'] = $originHost['value'];
-        $input['origin_port'] = $originPort['value'];
-        if (($originScheme['exists'] ?? false) === true) {
-            $input['origin_scheme'] = $originScheme['value'];
-        }
+        unset($input['origin_host'], $input['origin_scheme'], $input['geo_origins'], $input['proxy_enabled']);
 
         try {
             return ['data' => $this->service->create($input)];
@@ -92,32 +82,16 @@ class DomainController
 
     public function update(string $domainId, array $input): ?array
     {
+        if (array_key_exists('origin_port', $input)) {
+            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
+        }
+        unset($input['origin_host'], $input['origin_scheme'], $input['geo_origins'], $input['proxy_enabled']);
         if (array_key_exists('domain', $input)) {
             $domain = Validator::domain($input, 'domain');
             if (($domain['ok'] ?? false) !== true) {
                 return $domain;
             }
             $input['domain'] = $domain['value'];
-        }
-        if (array_key_exists('origin_host', $input)) {
-            $host = Validator::requiredString($input, 'origin_host', 255);
-            if (($host['ok'] ?? false) !== true) {
-                return $host;
-            }
-            $input['origin_host'] = $host['value'];
-        }
-        if (array_key_exists('origin_port', $input)) {
-            $port = Validator::intRange($input, 'origin_port', 1, 65535);
-            if (($port['ok'] ?? false) !== true) {
-                return $port;
-            }
-        }
-        if (array_key_exists('origin_scheme', $input)) {
-            $scheme = Validator::enum($input, 'origin_scheme', ['http', 'https']);
-            if (($scheme['ok'] ?? false) !== true) {
-                return $scheme;
-            }
-            $input['origin_scheme'] = $scheme['value'];
         }
         if (array_key_exists('origin_shield_header_name', $input)) {
             $header = Validator::optionalString($input, 'origin_shield_header_name', 255);
@@ -152,15 +126,4 @@ class DomainController
             : ['error' => 'domain_not_found', 'status' => 404];
     }
 
-    public function enableProxy(string $domainId): ?array
-    {
-        $domain = $this->service->setProxy($domainId, true);
-        return $domain ? ['data' => $domain] : null;
-    }
-
-    public function disableProxy(string $domainId): ?array
-    {
-        $domain = $this->service->setProxy($domainId, false);
-        return $domain ? ['data' => $domain] : null;
-    }
 }

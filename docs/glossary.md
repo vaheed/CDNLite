@@ -11,7 +11,7 @@
 | DNS record | Domain-scoped record with origin type/content, public type/content, TTL, optional priority, and proxied flag. |
 | Proxied | DNS flag stored by CDNLite; proxied records publish CNAME or ALIAS targets into the CDNLite-owned edge DNS zone. |
 | Origin | Upstream service the edge proxies to. |
-| Geo origin | Country-keyed origin override stored in `geo_origins`. |
+| Geo origin | Country-keyed origin override stored on an individual DNS record. |
 | Config snapshot | Versioned JSON payload mapping hostnames to upstream and DNS data. |
 | Edge token | Secret used as bearer token and HMAC input for edge-authenticated endpoints. |
 | Nonce | Unique per-edge request value stored temporarily to prevent replay. |

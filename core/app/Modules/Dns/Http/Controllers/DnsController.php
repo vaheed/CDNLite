@@ -69,6 +69,10 @@ class DnsController
 
     public function create(string $domainId, array $input): array
     {
+        $origin = $this->validateOriginOptions($input);
+        if ($origin !== null) {
+            return $origin;
+        }
         $type = Validator::requiredString($input, 'type', 16);
         if (($type['ok'] ?? false) !== true) {
             return $type;
@@ -112,6 +116,10 @@ class DnsController
 
     public function update(string $domainId, string $recordId, array $input): array
     {
+        $origin = $this->validateOriginOptions($input);
+        if ($origin !== null) {
+            return $origin;
+        }
         if ($input === []) {
             return ['error' => 'dns_record_update_body_required', 'status' => 422];
         }
@@ -173,5 +181,30 @@ class DnsController
         return $this->service->delete($domainId, $recordId)
             ? ['ok' => true]
             : ['error' => 'record_not_found', 'status' => 404];
+    }
+
+    private function validateOriginOptions(array &$input): ?array
+    {
+        if (array_key_exists('origin_port', $input)) {
+            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
+        }
+        if (array_key_exists('origin_host', $input)) {
+            $host = Validator::optionalString($input, 'origin_host', 255);
+            if (($host['ok'] ?? false) !== true) {
+                return $host;
+            }
+            $input['origin_host'] = $host['value'];
+        }
+        if (array_key_exists('origin_tls_verify', $input)) {
+            $mode = Validator::enum($input, 'origin_tls_verify', ['verify', 'ignore']);
+            if (($mode['ok'] ?? false) !== true) {
+                return $mode;
+            }
+            $input['origin_tls_verify'] = $mode['value'];
+        }
+        if (array_key_exists('geo_origins', $input) && !is_array($input['geo_origins'])) {
+            return ['error' => 'geo_origins_must_be_object', 'field' => 'geo_origins', 'status' => 422];
+        }
+        return null;
     }
 }

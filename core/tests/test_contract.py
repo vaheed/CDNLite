@@ -3,12 +3,9 @@ def test_contract_schema_example():
         "id": "11111111-1111-4111-8111-111111111111",
         "name": "demo",
         "domain": "demo.local",
-        "origin_host": "core",
-        "origin_port": 8080,
-        "proxy_enabled": True,
     }
     assert isinstance(domain["id"], str)
-    assert domain["proxy_enabled"] is True
+    assert domain["domain"] == "demo.local"
 
 
 def test_artisan_help_lists_registered_commands():

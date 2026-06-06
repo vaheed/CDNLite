@@ -16,12 +16,7 @@ export interface Domain {
   user_id?: Id;
   name: string;
   domain: string;
-  origin_scheme?: 'http' | 'https' | string;
-  origin_host: string;
-  origin_port: number;
-  proxy_enabled: boolean;
   status?: string;
-  geo_origins?: Record<string, string> | string[];
   origin_shield_header_name?: string | null;
   origin_shield_secret?: string | null;
   created_at?: number | string;
@@ -39,6 +34,8 @@ export interface DnsRecord {
   id: Id; type: string; name: string; content: string; ttl?: number; priority?: number | null;
   proxied?: boolean; geo_policy_id?: Id | null; edge_target?: string | null; status?: string;
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
+  origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
+  origin_status?: string; geo_origins?: Record<string, { host: string; tls_verify?: 'verify' | 'ignore' }>;
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
 export type UpdateDnsRecordInput = Partial<CreateDnsRecordInput>;

@@ -3,13 +3,8 @@ CREATE TABLE IF NOT EXISTS domains (
   user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   domain TEXT NOT NULL UNIQUE,
-  origin_scheme TEXT NOT NULL,
-  origin_host TEXT NOT NULL,
-  origin_port INTEGER NOT NULL,
   origin_shield_header_name TEXT NULL,
   origin_shield_header_value_hash TEXT NULL,
-  geo_origins_json TEXT NULL,
-  proxy_enabled BOOLEAN NOT NULL,
   status TEXT NOT NULL,
   nameserver_status TEXT NOT NULL DEFAULT 'unknown',
   verification_token TEXT NULL,
@@ -57,10 +52,16 @@ CREATE TABLE IF NOT EXISTS dns_records (
   origin_content TEXT NULL,
   public_type TEXT NULL,
   public_content TEXT NULL,
+  origin_host TEXT NULL,
+  origin_tls_verify TEXT NOT NULL DEFAULT 'verify',
+  origin_scheme TEXT NULL,
+  origin_status TEXT NOT NULL DEFAULT 'pending',
+  geo_origins_json TEXT NULL,
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
-  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
+  FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE,
+  CHECK (origin_tls_verify IN ('verify', 'ignore'))
 );
 
 CREATE TABLE IF NOT EXISTS edge_nodes (
@@ -121,6 +122,11 @@ ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_type TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_content TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_type TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_content TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_host TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_tls_verify TEXT NOT NULL DEFAULT 'verify';
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_scheme TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_origins_json TEXT NULL;
 
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv4 TEXT NULL;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv6 TEXT NULL;

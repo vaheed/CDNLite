@@ -293,14 +293,17 @@ $router->add('POST', '/api/v1/settings/validate', static function (Request $req)
 $router->add('POST', '/api/v1/settings/test/powerdns', static fn (): array => Response::json($settingsController->testPowerDns()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
-$router->add('POST', '/api/v1/domains', static fn (Request $req) => Response::json($domainController->store($req->body), 201), auth: true);
+$router->add('POST', '/api/v1/domains', static function (Request $req) use ($domainController): array {
+    $result = $domainController->store($req->body);
+    return Response::json($result, (int) ($result['status'] ?? 201));
+}, auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}', static function (Request $req, array $p) use ($domainController): array {
     $result = $domainController->show((string) $p['domainId']);
     return $result ? Response::json($result) : Response::json(['error' => 'domain_not_found'], 404);
 }, auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}', static function (Request $req, array $p) use ($domainController): array {
     $result = $domainController->update((string) $p['domainId'], $req->body);
-    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
+    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}', static fn (Request $req, array $p) => Response::json($domainController->delete((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/verify-nameservers', static function (Request $req, array $p) use ($domainController): array {
@@ -311,18 +314,15 @@ $router->add('POST', '/api/v1/domains/{domainId}/activate', static function (Req
     $result = $domainController->activate((string) $p['domainId'], $req->body);
     return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
-$router->add('POST', '/api/v1/domains/{domainId}/proxy/enable', static function (Request $req, array $p) use ($domainController): array {
-    $result = $domainController->enableProxy((string) $p['domainId']);
-    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
+$router->add('POST', '/api/v1/domains/{domainId}/dns/records', static function (Request $req, array $p) use ($dnsController): array {
+    $result = $dnsController->create((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 201));
 }, auth: true);
-$router->add('POST', '/api/v1/domains/{domainId}/proxy/disable', static function (Request $req, array $p) use ($domainController): array {
-    $result = $domainController->disableProxy((string) $p['domainId']);
-    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result);
-}, auth: true);
-
-$router->add('POST', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->create((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['domainId'])), auth: true);
-$router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body)), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static function (Request $req, array $p) use ($dnsController): array {
+    $result = $dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['domainId'], (string) $p['recordId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->routing((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->updateRouting((string) $p['domainId'], $req->body)), auth: true);

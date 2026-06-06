@@ -25,17 +25,30 @@ class ConfigService
     {
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
-            if (empty($domain['proxy_enabled'])) {
+            if ((string) ($domain['status'] ?? '') !== 'active') {
                 continue;
             }
-
+            $records = $this->dns->listByDomain((string) $domain['id']);
+            $record = $this->primaryProxiedRecord($records);
+            if ($record === null) {
+                continue;
+            }
+            $originHost = trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? ''));
+            if ($originHost === '') {
+                continue;
+            }
             $hosts[$domain['domain']] = [
                 'domain_id' => (string) $domain['id'],
-                'upstream' => sprintf('%s://%s:%d', $domain['origin_scheme'], $domain['origin_host'], $domain['origin_port']),
-                'geo_upstreams' => $this->buildGeoUpstreams($domain['geo_origins'] ?? []),
+                'origin' => [
+                    'host' => $originHost,
+                    'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
+                    'scheme' => $record['origin_scheme'] ?? null,
+                    'status' => (string) ($record['origin_status'] ?? 'pending'),
+                ],
+                'geo_origins' => $this->buildGeoOrigins($record['geo_origins'] ?? []),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
-                'dns_records' => $this->dns->listByDomain((string) $domain['id']),
+                'dns_records' => $records,
                 'ssl' => $this->rules->getSslSettings((string) $domain['id']),
             ];
             $shieldHeaderName = isset($domain['origin_shield_header_name']) ? trim((string) $domain['origin_shield_header_name']) : '';
@@ -176,20 +189,36 @@ class ConfigService
         return $stmt->rowCount() === 1;
     }
 
-    private function buildGeoUpstreams(array $geoOrigins): array
+    private function primaryProxiedRecord(array $records): ?array
+    {
+        foreach ($records as $record) {
+            if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active' && ($record['name'] ?? '') === '@') {
+                return $record;
+            }
+        }
+        foreach ($records as $record) {
+            if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active') {
+                return $record;
+            }
+        }
+        return null;
+    }
+
+    private function buildGeoOrigins(array $geoOrigins): array
     {
         $out = [];
         foreach ($geoOrigins as $key => $origin) {
             if (!is_string($key) || !is_array($origin)) {
                 continue;
             }
-            $scheme = isset($origin['scheme']) ? (string) $origin['scheme'] : 'http';
-            $host = isset($origin['host']) ? (string) $origin['host'] : '';
-            $port = isset($origin['port']) ? (int) $origin['port'] : 0;
-            if ($host === '' || $port <= 0) {
+            $host = trim((string) ($origin['host'] ?? ''));
+            if ($host === '') {
                 continue;
             }
-            $out[strtoupper(trim($key))] = sprintf('%s://%s:%d', $scheme, $host, $port);
+            $out[strtoupper(trim($key))] = [
+                'host' => $host,
+                'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+            ];
         }
         ksort($out);
         return $out;

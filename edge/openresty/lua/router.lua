@@ -2,6 +2,7 @@ local loader = require('config_loader')
 local proxy = require('proxy')
 local cjson = require('cjson.safe')
 local identity = require('identity')
+local origin_selector = require('origin_selector')
 
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
@@ -51,18 +52,6 @@ local function request_country()
     return 'DEFAULT'
   end
   return country
-end
-
-local function pick_upstream(domain)
-  local geo = domain.geo_upstreams or {}
-  local country = request_country()
-  if geo[country] then
-    return geo[country]
-  end
-  if geo['DEFAULT'] then
-    return geo['DEFAULT']
-  end
-  return domain.upstream
 end
 
 local function match_cache_rule(cfg, host)
@@ -275,7 +264,12 @@ function M.handle()
   if not rate_limit_ok then
     return false, 'rate_limited'
   end
-  ngx.ctx.upstream = pick_upstream(domain)
+  local upstream, scheme_or_error = origin_selector.select(domain, request_country())
+  if not upstream then
+    return false, scheme_or_error
+  end
+  ngx.ctx.upstream = upstream
+  ngx.ctx.origin_scheme = scheme_or_error
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
   return proxy.forward(domain)
 end

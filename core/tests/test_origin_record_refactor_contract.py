@@ -1,0 +1,53 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def read(path: str) -> str:
+    return (ROOT / path).read_text()
+
+
+def test_origin_port_removed_and_rejected():
+    schema = read("core/database/schema.sql")
+    migration = read("core/database/migrations/022_dns_record_origins.sql")
+    domains = read("core/app/Modules/Domains/Http/Controllers/DomainController.php")
+    dns = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+
+    assert "origin_port INTEGER" not in schema
+    assert "DROP COLUMN IF EXISTS origin_port" in migration
+    assert "origin_port_not_supported" in domains
+    assert "origin_port_not_supported" in dns
+
+
+def test_record_level_origin_proxy_and_geo_contract():
+    schema = read("core/database/schema.sql")
+    service = read("core/app/Modules/Dns/Services/DnsService.php")
+    config = read("core/app/Modules/Proxy/Services/ConfigService.php")
+
+    assert "origin_host TEXT NULL" in schema
+    assert "origin_tls_verify TEXT NOT NULL DEFAULT 'verify'" in schema
+    assert "origin_status TEXT NOT NULL DEFAULT 'pending'" in schema
+    assert "geo_origins_json TEXT NULL" in schema
+    assert "'proxied' => (bool)" in service
+    assert "primaryProxiedRecord" in config
+    assert "buildGeoOrigins($record['geo_origins']" in config
+
+
+def test_https_first_fallback_and_tls_verification_modes():
+    selector = read("edge/openresty/lua/origin_selector.lua")
+
+    assert "sock:connect(origin.host, 443)" in selector
+    assert "sock:sslhandshake(nil, origin.host, verify)" in selector
+    assert "origin.tls_verify or 'verify'" in selector
+    assert "~= 'ignore'" in selector
+    assert "return 'https://' .. origin.host .. ':443'" in selector
+    assert "return 'http://' .. origin.host .. ':80'" in selector
+
+
+def test_legacy_origin_is_migrated_to_dns_record():
+    migration = read("core/database/migrations/022_dns_record_origins.sql")
+
+    assert "SET origin_host = d.origin_host" in migration
+    assert "geo_origins_json = d.geo_origins_json" in migration
+    assert "CASE WHEN r2.name = '@' THEN 0 ELSE 1 END" in migration

@@ -119,7 +119,7 @@ Example:
 # 1) apply
 curl -sS -X PATCH "http://localhost:8080/api/v1/domains/<domain_id>" \
   -H 'Content-Type: application/json' \
-  -d '{"origin_host":"core","origin_port":8080}'
+  -d '{"origin_host":"core","proxied":true,"origin_tls_verify":"verify"}'
 
 # 3) pull config
 docker compose exec edge-agent sh -lc '/agent/pull_config.sh'

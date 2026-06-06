@@ -177,22 +177,22 @@ Purpose: lightweight origin health check for edge-proxied requests. Auth is not 
 
 ### POST /api/v1/domains
 
-Required JSON fields: `name`, `domain`, `origin_host`. Optional: `user_id`, `origin_scheme` default `http`, `origin_port` default `8080`, `geo_origins`, `proxy_enabled` default `true`, `origin_shield_header_name`, `origin_shield_secret`.
+Required JSON fields: `name`, `domain`. Optional: `user_id`, `origin_shield_header_name`, `origin_shield_secret`. Origin and proxy options are configured on DNS records.
 If `origin_shield_secret` is provided, core stores only its SHA-256 hash and never stores the plaintext in the database.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/v1/domains \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080}'
+  -d '{"name":"Demo","domain":"demo.local"}'
 ```
 
 Success `201`:
 
 ```json
-{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo","domain":"demo.local","origin_scheme":"http","origin_host":"core","origin_port":8080,"proxy_enabled":true,"status":"active","created_at":1710000000,"updated_at":1710000000,"geo_origins":[]}}
+{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo","domain":"demo.local","status":"pending_nameserver","created_at":1710000000,"updated_at":1710000000}}
 ```
 
-Errors: `name_required`, `domain_required`, `origin_host_required`, `domain_already_exists`; PowerDNS strict failures return 502 with the PowerDNS error string.
+Errors: `name_required`, `domain_required`, `domain_already_exists`; legacy payloads containing `origin_port` return `origin_port_not_supported`.
 
 ### GET /api/v1/domains
 
@@ -206,7 +206,9 @@ curl -s http://localhost:8080/api/v1/domains
 
 ### PATCH /api/v1/domains/{id}
 
-Patchable fields: `name`, `domain`, `origin_scheme`, `origin_host`, `origin_port`, `geo_origins`, `proxy_enabled`, `status`, `origin_shield_header_name`, `origin_shield_secret`.
+Patchable fields: `name`, `domain`, `status`, `origin_shield_header_name`, `origin_shield_secret`.
+
+DNS record create/update accepts `origin_host`, `proxied`, `origin_tls_verify` (`verify` or `ignore`), and `geo_origins`. Proxied origins always try HTTPS on port 443 first, then HTTP on port 80 after a connection or TLS handshake failure. Custom origin ports are rejected. `ignore` disables certificate verification only for the edge-to-origin TLS handshake.
 
 ```bash
 curl -s -X PATCH http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111 \

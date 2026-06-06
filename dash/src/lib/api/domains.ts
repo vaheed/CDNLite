@@ -8,6 +8,4 @@ export const domainsApi = {
   activate: (id: string, override = false) => api.post<Domain>(`/api/v1/domains/${id}/activate`, { override }),
   update: (id: string, input: UpdateDomainInput) => api.patch<Domain>(`/api/v1/domains/${id}`, input),
   remove: (id: string) => api.delete<{ ok: boolean }>(`/api/v1/domains/${id}`),
-  enableProxy: (id: string) => api.post<Domain>(`/api/v1/domains/${id}/proxy/enable`),
-  disableProxy: (id: string) => api.post<Domain>(`/api/v1/domains/${id}/proxy/disable`),
 };

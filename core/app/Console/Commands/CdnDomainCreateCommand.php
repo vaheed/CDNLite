@@ -10,7 +10,7 @@ class CdnDomainCreateCommand
     public function __invoke(array $argv): int
     {
         $opts = CommandIO::parseOptions($argv);
-        foreach (['name', 'domain', 'origin_host'] as $required) {
+        foreach (['name', 'domain'] as $required) {
             if (empty($opts[$required])) {
                 fwrite(STDERR, "Missing --{$required}\n");
                 return 1;
@@ -20,11 +20,6 @@ class CdnDomainCreateCommand
         $domain = (new DomainService())->create([
             'name' => $opts['name'],
             'domain' => $opts['domain'],
-            'origin_host' => $opts['origin_host'],
-            'origin_port' => (int) ($opts['origin_port'] ?? 8080),
-            'origin_scheme' => $opts['origin_scheme'] ?? 'http',
-            'geo_origins' => $this->parseGeoOrigins($opts['geo_origins_json'] ?? null),
-            'proxy_enabled' => ($opts['proxy_enabled'] ?? '1') !== '0',
             'user_id' => isset($opts['user_id']) ? (string) $opts['user_id'] : null,
         ]);
 
@@ -32,12 +27,4 @@ class CdnDomainCreateCommand
         return 0;
     }
 
-    private function parseGeoOrigins(?string $json): ?array
-    {
-        if ($json === null || trim($json) === '') {
-            return null;
-        }
-        $decoded = json_decode($json, true);
-        return is_array($decoded) ? $decoded : null;
-    }
 }

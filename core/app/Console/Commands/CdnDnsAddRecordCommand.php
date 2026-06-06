@@ -32,6 +32,9 @@ class CdnDnsAddRecordCommand
                 'proxied' => ($opts['proxied'] ?? '0') !== '0',
                 'geo_policy_id' => $opts['geo_policy_id'] ?? null,
                 'edge_target' => $opts['edge_target'] ?? null,
+                'origin_host' => $opts['origin_host'] ?? $opts['content'],
+                'origin_tls_verify' => $opts['origin_tls_verify'] ?? 'verify',
+                'geo_origins' => $this->parseGeoOrigins($opts['geo_origins_json'] ?? null),
             ]);
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);
@@ -39,5 +42,17 @@ class CdnDnsAddRecordCommand
         }
         CommandIO::printJson(['data' => $row]);
         return 0;
+    }
+
+    private function parseGeoOrigins(?string $json): ?array
+    {
+        if ($json === null || trim($json) === '') {
+            return null;
+        }
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException('invalid_geo_origins_json');
+        }
+        return $decoded;
     }
 }

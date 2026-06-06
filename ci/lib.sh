@@ -189,7 +189,7 @@ collect_diagnostics() {
   mkdir -p "$REPORT_DIR"
   docker compose ps >"$REPORT_DIR/compose-ps.txt" || true
   docker compose logs --no-color >"$REPORT_DIR/compose-logs.txt" || true
-  for svc in core edge edge-agent dashboard postgres powerdns; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
     if compose_has_service "$svc"; then
       docker compose logs --no-color --tail=200 "$svc" >"$REPORT_DIR/${svc}-tail.log" || true
     fi

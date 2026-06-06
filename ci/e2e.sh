@@ -45,7 +45,7 @@ on_error() {
   fi
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent dashboard postgres powerdns; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
     if compose_has_service "$svc"; then
       echo "----- ${svc} (tail 200) -----"
       docker compose logs --no-color --tail=200 "$svc" || true
@@ -57,6 +57,7 @@ trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 cleanup() {
   if [[ -n "$DOMAIN_ID" ]]; then
     for rid in "${DNS_IDS[@]}"; do
+      [[ -n "$rid" ]] || continue
       curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${rid}" >/dev/null || true
     done
     curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" >/dev/null || true
@@ -281,17 +282,33 @@ record_step PASS "edge-token-register" "edge token provisioned"
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
   no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/domains" \
     -H 'Content-Type: application/json' \
-    -d '{"name":"unauth-e2e","domain":"unauth.e2e.local","origin_host":"core"}')"
+    -d '{"name":"unauth-e2e","domain":"unauth.e2e.local"}')"
   assert_eq "$no_auth_code" "401" "control-plane create domain should require bearer auth when token is configured"
   record_step PASS "api-auth-negative-domain-create" "unauthenticated create returned 401"
 fi
 
 # Domain lifecycle
 api_post "${CORE_URL}/api/v1/domains" \
-  "{\"name\":\"e2e-domain-${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN}\",\"origin_host\":\"core\",\"origin_port\":8080,\"proxy_enabled\":true,\"geo_origins\":{\"DEFAULT\":{\"scheme\":\"http\",\"host\":\"core\",\"port\":8080},\"IR\":{\"scheme\":\"http\",\"host\":\"core\",\"port\":8080}}}"
+  "{\"name\":\"e2e-domain-${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN}\"}"
 assert_http_status "$HTTP_CODE" "201" "domain create failed"
 DOMAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "domain-create" "domain_id=${DOMAIN_ID} domain=${TEST_DOMAIN}"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
+assert_http_status "$HTTP_CODE" "200" "domain activation failed"
+record_step PASS "domain-activate" "domain activated with development override"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+  '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
+assert_http_status "$HTTP_CODE" "201" "primary proxied DNS create failed"
+PRIMARY_DNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
+DNS_IDS+=("$PRIMARY_DNS_ID")
+record_step PASS "dns-origin-create" "record-level origin, proxy, TLS mode, and geo origins stored"
+
+api_post "${CORE_URL}/api/v1/domains" "{\"name\":\"legacy-port\",\"domain\":\"legacy-port-${RUN_KEY}.test.local\",\"origin_port\":8080}"
+assert_http_status "$HTTP_CODE" "422" "legacy origin_port should be rejected"
+assert_contains "$HTTP_BODY" "origin_port_not_supported" "legacy origin_port error code missing"
+record_step PASS "origin-port-rejected" "legacy domain payload rejected clearly"
 
 domain_count="$(db_query "SELECT COUNT(*) FROM domains WHERE id='${DOMAIN_ID}' AND domain='${TEST_DOMAIN}';")"
 assert_eq "$domain_count" "1" "domain missing in db"
@@ -328,7 +345,7 @@ backend_dashboard_code="$(curl -sS -o /tmp/e2e-backend-dashboard.json -w '%{http
 assert_eq "$backend_dashboard_code" "404" "backend dashboard routes should be removed"
 record_step PASS "backend-dashboard-removed" "legacy /dashboard routes return 404"
 
-api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated","origin_host":"core","origin_port":8080}'
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated"}'
 assert_http_status "$HTTP_CODE" "200" "domain update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"
 assert_eq "$updated_name" "e2e-domain-updated" "domain name update mismatch"
@@ -338,11 +355,11 @@ api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"origin_shield_header_name
 assert_http_status "$HTTP_CODE" "200" "origin shield update failed"
 record_step PASS "domain-origin-shield-update" "origin shield metadata updated"
 
-api_post "${CORE_URL}/api/v1/domains" '{"name":"bad","origin_host":"core"}'
+api_post "${CORE_URL}/api/v1/domains" '{"name":"bad"}'
 assert_http_status "$HTTP_CODE" "422" "missing domain validation expected"
 record_step PASS "domain-validation-missing-domain" "422 returned"
 
-api_post "${CORE_URL}/api/v1/domains" "{\"name\":\"dup\",\"domain\":\"${TEST_DOMAIN}\",\"origin_host\":\"core\"}"
+api_post "${CORE_URL}/api/v1/domains" "{\"name\":\"dup\",\"domain\":\"${TEST_DOMAIN}\"}"
 assert_http_status "$HTTP_CODE" "422" "duplicate domain should return 422"
 record_step PASS "domain-validation-duplicate" "duplicate rejected with code=${HTTP_CODE}"
 
@@ -401,6 +418,36 @@ else
   record_step PASS "origin-shield-config-skipped" "CDNLITE_ORIGIN_SHIELD_SECRET not set; header injection check skipped"
 fi
 
+origin_https_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=ignore")"
+assert_contains "$origin_https_body" '"origin_scheme":"https"' "TLS ignore mode should use HTTPS/443"
+record_step PASS "origin-https-443-ignore" "self-signed HTTPS origin accepted with verification ignored"
+
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
+  '{"origin_host":"origin-http","origin_tls_verify":"verify","geo_origins":{}}'
+assert_http_status "$HTTP_CODE" "200" "HTTP fallback origin update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+origin_http_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=http-fallback")"
+assert_contains "$origin_http_body" '"origin_scheme":"http"' "closed 443 should fall back to HTTP/80"
+record_step PASS "origin-http-80-fallback" "closed HTTPS port fell back to HTTP/80"
+
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
+  '{"origin_host":"origin-tls","origin_tls_verify":"verify"}'
+assert_http_status "$HTTP_CODE" "200" "verified TLS origin update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+origin_verify_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=verify")"
+assert_contains "$origin_verify_body" '"origin_scheme":"http"' "verify mode should reject the self-signed certificate"
+record_step PASS "origin-tls-verify" "self-signed certificate rejected in verify mode"
+
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
+  '{"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
+assert_http_status "$HTTP_CODE" "200" "geo origin update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+geo_origin_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" -H "X-CDNLITE-Country: IR" "${EDGE_URL}/origin-probe?mode=geo")"
+assert_contains "$geo_origin_body" '"origin_scheme":"http"' "IR geo origin should use the per-record HTTP origin"
+geo_json="$(db_query "SELECT geo_origins_json FROM dns_records WHERE id='${PRIMARY_DNS_ID}';")"
+assert_contains "$geo_json" "origin-http" "per-record geo origin was not persisted"
+record_step PASS "origin-geo-per-record" "country override stored and applied from DNS record"
+
 # DNS lifecycle
 create_dns() {
   local payload="$1"
@@ -410,18 +457,17 @@ create_dns() {
   rid="$(json_get "$HTTP_BODY" '.data.id')"
   DNS_IDS+=("$rid")
 }
-create_dns '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true}'
-create_dns '{"type":"AAAA","name":"@","content":"2606:4700:4700::1111","ttl":300,"proxied":true}'
+create_dns '{"type":"AAAA","name":"@","content":"2606:4700:4700::1111","ttl":300,"proxied":false}'
 create_dns "{\"type\":\"CNAME\",\"name\":\"www\",\"content\":\"${TEST_DOMAIN}.\",\"ttl\":300,\"proxied\":false}"
 create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"proxied":false}'
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
 record_step PASS "dns-create-multi" "dns_ids=${DNS_IDS[*]}"
 
-api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${DNS_IDS[0]}" '{"content":"1.1.1.2","ttl":120}'
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"content":"1.1.1.2","ttl":120}'
 assert_http_status "$HTTP_CODE" "200" "dns update failed"
 updated_dns_content="$(json_get "$HTTP_BODY" '.data.content')"
 assert_eq "$updated_dns_content" "1.1.1.2" "dns update content mismatch"
-record_step PASS "dns-update-one" "updated id=${DNS_IDS[0]}"
+record_step PASS "dns-update-one" "updated id=${PRIMARY_DNS_ID}"
 
 dns_db_count="$(db_query "SELECT COUNT(*) FROM dns_records WHERE domain_id='${DOMAIN_ID}';")"
 if [[ "$dns_db_count" -lt 5 ]]; then
@@ -476,9 +522,10 @@ assert_http_status "$HTTP_CODE" "200" "security rate-limit events list failed"
 assert_contains "$HTTP_BODY" '"type":"rate_limited"' "security rate_limited event missing"
 record_step PASS "security-events" "edge-ingested waf_match and rate_limited visible via api"
 
-del_id="${DNS_IDS[0]}"
+del_id="${DNS_IDS[3]}"
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${del_id}"
 assert_http_status "$HTTP_CODE" "200" "dns delete failed"
+DNS_IDS[3]=""
 record_step PASS "dns-delete-one" "deleted id=${del_id}"
 
 # PowerDNS sync checks (mock service from the Compose powerdns profile)
@@ -648,9 +695,9 @@ stale_path="/cdn-health?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
-broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_port":9,"geo_origins":{"DEFAULT":{"scheme":"http","host":"127.0.0.1","port":9},"IR":{"scheme":"http","host":"127.0.0.1","port":9}}}')"
-api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" "$broken_origin_payload"
-assert_http_status "$HTTP_CODE" "200" "domain origin failure update failed"
+broken_origin_payload="$(jq -nc '{"origin_host":"unreachable-origin.invalid","origin_tls_verify":"verify","geo_origins":{}}')"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$broken_origin_payload"
+assert_http_status "$HTTP_CODE" "200" "DNS record origin failure update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 stale_status="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 case "$stale_status" in
@@ -659,9 +706,9 @@ case "$stale_status" in
     fail "stale validation expected STALE or HIT after origin failure (got='${stale_status}')"
     ;;
 esac
-restored_origin_payload="$(jq -nc '{"origin_host":"core","origin_port":8080,"geo_origins":{"DEFAULT":{"scheme":"http","host":"core","port":8080},"IR":{"scheme":"http","host":"core","port":8080}}}')"
-api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" "$restored_origin_payload"
-assert_http_status "$HTTP_CODE" "200" "domain origin restore failed"
+restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{}}')"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
+assert_http_status "$HTTP_CODE" "200" "DNS record origin restore failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verified"
 
@@ -671,22 +718,24 @@ edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \
   -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"name":"edge-proxy-validation","origin_host":"core"}')"
-assert_eq "$edge_post_code" "422" "edge proxy POST/body forwarding failed"
-record_step PASS "edge-proxy-post-body" "POST with json body proxied"
+assert_eq "$edge_post_code" "200" "edge proxy POST/body forwarding failed"
+assert_contains "$(cat /tmp/e2e-edge-post.txt)" '"origin_scheme":"https"' "POST should reach the configured HTTPS origin"
+record_step PASS "edge-proxy-post-body" "POST body forwarded to configured origin"
 
 edge_delete_code="$(curl -s -o /tmp/e2e-edge-delete.txt -w '%{http_code}' \
   -X DELETE "${EDGE_URL}/api/v1/domains/99999999" \
   -H "Host: ${TEST_DOMAIN}" \
   -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}")"
-assert_eq "$edge_delete_code" "404" "edge proxy DELETE forwarding failed"
-record_step PASS "edge-proxy-delete" "DELETE proxied"
+assert_eq "$edge_delete_code" "200" "edge proxy DELETE forwarding failed"
+assert_contains "$(cat /tmp/e2e-edge-delete.txt)" '"origin_scheme":"https"' "DELETE should reach the configured HTTPS origin"
+record_step PASS "edge-proxy-delete" "DELETE forwarded to configured origin"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/proxy/disable" '{}'
-assert_http_status "$HTTP_CODE" "200" "proxy disable failed"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":false}'
+assert_http_status "$HTTP_CODE" "200" "record proxy disable failed"
 agent_exec '/agent/pull_config.sh' >/dev/null || true
-proxy_db="$(db_query "SELECT proxy_enabled::int FROM domains WHERE id='${DOMAIN_ID}';")"
-assert_eq "$proxy_db" "0" "proxy_enabled should be false"
-record_step PASS "proxy-disable" "proxy disabled in db"
+proxy_db="$(db_query "SELECT proxied::int FROM dns_records WHERE id='${PRIMARY_DNS_ID}';")"
+assert_eq "$proxy_db" "0" "DNS record proxied should be false"
+record_step PASS "proxy-disable" "proxy disabled on DNS record"
 
 disabled_code="$(curl -s -o /tmp/e2e-edge-disabled.txt -w '%{http_code}' "${EDGE_URL}/api/v1/domains" -H "Host: ${TEST_DOMAIN}")"
 edge_wait_status "${TEST_DOMAIN}" "502"
@@ -694,8 +743,8 @@ disabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 assert_eq "$disabled_code" "502" "disabled proxy should return 502"
 record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/proxy/enable" '{}'
-assert_http_status "$HTTP_CODE" "200" "proxy enable failed"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":true}'
+assert_http_status "$HTTP_CODE" "200" "record proxy enable failed"
 agent_exec '/agent/pull_config.sh' >/dev/null || true
 edge_wait_success_status "${TEST_DOMAIN}"
 enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
@@ -805,6 +854,7 @@ record_step PASS "usage-recalculate-db" "aggregates=${agg_count}"
 
 # cleanup checks
 for rid in "${DNS_IDS[@]:1}"; do
+  [[ -n "$rid" ]] || continue
   api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${rid}"
   assert_http_status "$HTTP_CODE" "200" "dns cleanup failed"
 done

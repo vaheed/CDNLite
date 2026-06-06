@@ -18,7 +18,7 @@ class CdnDnsUpdateRecordCommand
         }
 
         $patch = [];
-        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target'] as $field) {
+        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target', 'origin_host', 'origin_tls_verify'] as $field) {
             if (isset($opts[$field])) {
                 $patch[$field] = $opts[$field];
             }
@@ -33,6 +33,14 @@ class CdnDnsUpdateRecordCommand
         }
         if (isset($opts['proxied'])) {
             $patch['proxied'] = $opts['proxied'] !== '0';
+        }
+        if (isset($opts['geo_origins_json'])) {
+            $decoded = json_decode((string) $opts['geo_origins_json'], true);
+            if (!is_array($decoded)) {
+                fwrite(STDERR, "Invalid --geo_origins_json\n");
+                return 1;
+            }
+            $patch['geo_origins'] = $decoded;
         }
         if ($patch === []) {
             fwrite(STDERR, "Missing update options\n");

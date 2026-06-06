@@ -21,7 +21,7 @@ on_error() {
   echo "smoke: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent dashboard postgres; do
+for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
     echo "----- ${svc} (tail 200) -----"
     docker compose logs --no-color --tail=200 "$svc" || true
   done
@@ -90,6 +90,18 @@ for t in "${required_tables[@]}"; do
   assert_eq "$count" "1" "table ${t} missing"
 done
 record_step PASS "schema-tables" "all required tables exist"
+
+legacy_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
+assert_eq "$legacy_origin_columns" "0" "legacy domain origin columns should be removed"
+record_step PASS "schema-domain-origin-columns-removed" "legacy origin columns are absent from domains"
+
+record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_records' AND column_name IN ('origin_host','origin_tls_verify','origin_scheme','origin_status','geo_origins_json');")"
+assert_eq "$record_origin_columns" "5" "DNS record origin columns are incomplete"
+record_step PASS "schema-dns-record-origin-columns" "record-level origin columns are present"
+
+retry 30 1 docker compose exec -T origin-tls wget -qO- --no-check-certificate https://127.0.0.1/ >/dev/null
+retry 30 1 docker compose exec -T origin-http wget -qO- http://127.0.0.1/ >/dev/null
+record_step PASS "origin-fixtures-health" "HTTPS and HTTP origin fixtures are reachable"
 
 if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
   admin_token="$(json_get "$(cat /tmp/smoke-bootstrap-admin.json)" '.data.token')"

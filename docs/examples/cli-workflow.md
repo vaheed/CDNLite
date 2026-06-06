@@ -15,7 +15,7 @@ docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-loca
 ## Domain
 
 ```bash
-php core/artisan cdn:domain:create --name=CLI-Demo --domain=cli-demo.local --origin_host=core --origin_port=8080
+php core/artisan cdn:domain:create --name=CLI-Demo --domain=cli-demo.local
 php core/artisan cdn:domain:list
 php core/artisan cdn:domain:update --id=11111111-1111-4111-8111-111111111111 --name=CLI-Demo-Updated
 ```

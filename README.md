@@ -140,13 +140,13 @@ Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any loca
 curl -s -X POST http://localhost:8080/api/v1/domains \
   -H 'Authorization: Bearer <token>' \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}'
+  -d '{"name":"Demo","domain":"demo.local"}'
 ```
 
 Example output:
 
 ```json
-{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo","domain":"demo.local","origin_scheme":"http","origin_host":"core","origin_port":8080,"proxy_enabled":true,"status":"active","created_at":1710000000,"updated_at":1710000000,"geo_origins":[]}}
+{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo","domain":"demo.local","status":"pending_nameserver","created_at":1710000000,"updated_at":1710000000}}
 ```
 
 ## First CLI Example

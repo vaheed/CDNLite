@@ -73,21 +73,23 @@ Commands:
 
 Purpose: create a domain. Equivalent API: `POST /api/v1/domains`.
 
-Required: `--name`, `--domain`, `--origin_host`.
+Required: `--name`, `--domain`.
 
-Optional: `--origin_port=8080`, `--origin_scheme=http`, `--geo_origins_json='{...}'`, `--proxy_enabled=1`, `--user_id=<id>`.
+Optional: `--user_id=<id>`. Configure origin options with `cdn:dns:add-record`.
+
+For proxied DNS records, use `--origin_host=<host>`, `--origin_tls_verify=verify|ignore`, and `--geo_origins_json='{"IR":{"host":"ir-origin.example.com","tls_verify":"ignore"}}'`. Ports are always autodetected as HTTPS/443 with HTTP/80 fallback.
 
 ```bash
-php core/artisan cdn:domain:create --name=Demo --domain=demo.local --origin_host=core --origin_port=8080
+php core/artisan cdn:domain:create --name=Demo --domain=demo.local
 ```
 
 Example output:
 
 ```json
-{"data":{"id":"11111111-1111-4111-8111-111111111111","name":"Demo","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}}
+{"data":{"id":"11111111-1111-4111-8111-111111111111","name":"Demo","domain":"demo.local","status":"pending_nameserver"}}
 ```
 
-Common error: `Missing --name`, `Missing --domain`, or `Missing --origin_host` on stderr with exit code 1.
+Common error: `Missing --name` or `Missing --domain` on stderr with exit code 1.
 
 ### cdn:domain:list
 
@@ -103,7 +105,7 @@ Purpose: patch a domain. Equivalent API: `PATCH /api/v1/domains/{id}`.
 
 Required: `--id`.
 
-Optional: `--name`, `--domain`, `--origin_scheme`, `--origin_host`, `--origin_port`, `--geo_origins_json`, `--proxy_enabled=0|1`, `--status`.
+Optional: `--name`, `--domain`, `--status`.
 
 ```bash
 php core/artisan cdn:domain:update --id=11111111-1111-4111-8111-111111111111 --name=Updated --proxy_enabled=0

@@ -76,6 +76,9 @@ class DnsService
             'proxied' => (bool) ($input['proxied'] ?? false),
             'geo_policy_id' => $input['geo_policy_id'] ?? null,
             'edge_target' => $input['edge_target'] ?? null,
+            'origin_host' => trim((string) ($input['origin_host'] ?? $originContent)),
+            'origin_tls_verify' => (string) ($input['origin_tls_verify'] ?? 'verify'),
+            'geo_origins' => $input['geo_origins'] ?? [],
         ];
         $public = $this->customerDns->publicRecordFor($domain, $record);
 
@@ -84,11 +87,13 @@ class DnsService
         $stmt = Database::pdo()->prepare(
             'INSERT INTO dns_records (
                 id, domain_id, type, name, content, ttl, priority, proxied, geo_policy_id, edge_target,
-                origin_type, origin_content, public_type, public_content, status, created_at, updated_at
+                origin_type, origin_content, public_type, public_content, origin_host, origin_tls_verify,
+                origin_scheme, origin_status, geo_origins_json, status, created_at, updated_at
              )
              VALUES (
                 :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id, :edge_target,
-                :origin_type, :origin_content, :public_type, :public_content, :status, :created_at, :updated_at
+                :origin_type, :origin_content, :public_type, :public_content, :origin_host, :origin_tls_verify,
+                NULL, :origin_status, :geo_origins_json, :status, :created_at, :updated_at
              )'
         );
         $stmt->execute([
@@ -106,6 +111,10 @@ class DnsService
             ':origin_content' => $originContent,
             ':public_type' => $public['type'],
             ':public_content' => $public['content'],
+            ':origin_host' => $record['origin_host'],
+            ':origin_tls_verify' => $record['origin_tls_verify'],
+            ':origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
+            ':geo_origins_json' => $this->encodeGeoOrigins($record['geo_origins']),
             ':status' => 'active',
             ':created_at' => $now,
             ':updated_at' => $now,
@@ -141,9 +150,12 @@ class DnsService
             'geo_policy_id' => $oldRecord['geo_policy_id'],
             'edge_target' => $oldRecord['edge_target'],
             'status' => (string) $oldRecord['status'],
+            'origin_host' => $oldRecord['origin_host'],
+            'origin_tls_verify' => $oldRecord['origin_tls_verify'],
+            'geo_origins' => $oldRecord['geo_origins'],
         ];
 
-        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target'] as $field) {
+        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target', 'origin_host', 'origin_tls_verify'] as $field) {
             if (array_key_exists($field, $input)) {
                 $patch[$field] = $input[$field] === null ? null : (string) $input[$field];
             }
@@ -156,6 +168,9 @@ class DnsService
         }
         if (isset($input['proxied'])) {
             $patch['proxied'] = (bool) $input['proxied'];
+        }
+        if (array_key_exists('geo_origins', $input)) {
+            $patch['geo_origins'] = $input['geo_origins'];
         }
 
         $recordForProjection = [
@@ -182,6 +197,11 @@ class DnsService
                 origin_content = :origin_content,
                 public_type = :public_type,
                 public_content = :public_content,
+                origin_host = :origin_host,
+                origin_tls_verify = :origin_tls_verify,
+                origin_scheme = NULL,
+                origin_status = :origin_status,
+                geo_origins_json = :geo_origins_json,
                 status = :status,
                 updated_at = :updated_at
              WHERE domain_id = :domain_id AND id = :id'
@@ -201,6 +221,10 @@ class DnsService
             ':origin_content' => (string) $patch['content'],
             ':public_type' => $public['type'],
             ':public_content' => $public['content'],
+            ':origin_host' => trim((string) $patch['origin_host']),
+            ':origin_tls_verify' => (string) $patch['origin_tls_verify'],
+            ':origin_status' => $patch['proxied'] ? 'pending' : 'dns_only',
+            ':geo_origins_json' => $this->encodeGeoOrigins($patch['geo_origins']),
             ':status' => (string) $patch['status'],
             ':updated_at' => time(),
         ]);
@@ -401,6 +425,12 @@ class DnsService
         $row['public_content'] = (string) ($row['public_content'] ?: $row['content']);
         $row['geo_policy_id'] = $row['geo_policy_id'] === null ? null : (string) $row['geo_policy_id'];
         $row['edge_target'] = $row['edge_target'] === null ? null : (string) $row['edge_target'];
+        $row['origin_host'] = $row['origin_host'] === null ? null : (string) $row['origin_host'];
+        $row['origin_tls_verify'] = (string) ($row['origin_tls_verify'] ?? 'verify');
+        $row['origin_scheme'] = $row['origin_scheme'] === null ? null : (string) $row['origin_scheme'];
+        $row['origin_status'] = (string) ($row['origin_status'] ?? 'pending');
+        $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
+        unset($row['geo_origins_json']);
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];
         $row['proxied'] = ((int) $row['proxied']) === 1;
@@ -415,5 +445,20 @@ class DnsService
             strtolower((string) $record['name']),
             strtoupper((string) ($record['public_type'] ?: $record['type'])),
         ]);
+    }
+
+    private function decodeGeoOrigins(?string $json): array
+    {
+        $decoded = $json === null ? null : json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function encodeGeoOrigins(mixed $value): ?string
+    {
+        if (!is_array($value) || $value === []) {
+            return null;
+        }
+        $json = json_encode($value, JSON_UNESCAPED_SLASHES);
+        return $json === false ? null : $json;
     }
 }

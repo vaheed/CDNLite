@@ -94,7 +94,7 @@ curl -s -X POST http://localhost:8080/api/v1/domains \
 Example output:
 
 ```json
-{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo Domain","domain":"demo.local","origin_scheme":"http","origin_host":"core","origin_port":8080,"proxy_enabled":true,"status":"active","created_at":1710000000,"updated_at":1710000000,"geo_origins":[]}}
+{"data":{"id":"11111111-1111-4111-8111-111111111111","user_id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","name":"Demo Domain","domain":"demo.local","status":"pending_nameserver","created_at":1710000000,"updated_at":1710000000}}
 ```
 
 ```bash
@@ -145,7 +145,7 @@ curl -s -H 'Host: demo.local' http://localhost:8081/api/v1/domains | jq
 Example output:
 
 ```json
-{"data":[{"id":"11111111-1111-4111-8111-111111111111","name":"Demo Domain","domain":"demo.local","origin_host":"core","origin_port":8080,"proxy_enabled":true}]}
+{"data":[{"id":"11111111-1111-4111-8111-111111111111","name":"Demo Domain","domain":"demo.local","status":"active"}]}
 ```
 
 ## Cleanup

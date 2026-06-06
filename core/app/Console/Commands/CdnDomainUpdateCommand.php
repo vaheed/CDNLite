@@ -17,19 +17,10 @@ class CdnDomainUpdateCommand
         }
 
         $patch = [];
-        foreach (['name', 'domain', 'origin_scheme', 'origin_host', 'status'] as $f) {
+        foreach (['name', 'domain', 'status'] as $f) {
             if (isset($opts[$f])) {
                 $patch[$f] = $opts[$f];
             }
-        }
-        if (isset($opts['origin_port'])) {
-            $patch['origin_port'] = (int) $opts['origin_port'];
-        }
-        if (isset($opts['geo_origins_json'])) {
-            $patch['geo_origins'] = $this->parseGeoOrigins($opts['geo_origins_json']);
-        }
-        if (isset($opts['proxy_enabled'])) {
-            $patch['proxy_enabled'] = $opts['proxy_enabled'] !== '0';
         }
 
         $domain = (new DomainService())->update($domainId, $patch);
@@ -42,12 +33,4 @@ class CdnDomainUpdateCommand
         return 0;
     }
 
-    private function parseGeoOrigins(?string $json): ?array
-    {
-        if ($json === null || trim($json) === '') {
-            return null;
-        }
-        $decoded = json_decode($json, true);
-        return is_array($decoded) ? $decoded : null;
-    }
 }

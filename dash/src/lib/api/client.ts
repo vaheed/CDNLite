@@ -99,7 +99,7 @@ export function humanizeApiError(code: string): string {
     name_required: 'Domain name is required.',
     domain_required: 'Domain is required.',
     origin_host_required: 'Origin host is required.',
-    origin_port_required: 'Origin port is required.',
+    origin_port_not_supported: 'Custom origin ports are not supported. Origins use HTTPS/443 with HTTP/80 fallback.',
     domain_already_exists: 'Unable to create domain. Domain already exists.',
     invalid_json: 'The request body contains invalid JSON.',
     internal_server_error: 'The server hit an internal error. Try again or check the core logs.',
