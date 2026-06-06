@@ -55,20 +55,15 @@ $pdo = App\Support\Database::pdo();
 $domainId = App\Support\Uuid::v4();
 $now = time();
 $pdo->prepare(
-    'INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, origin_shield_header_name, origin_shield_header_value_hash, geo_origins_json, proxy_enabled, status, created_at, updated_at)
-     VALUES (:id, :user_id, :name, :domain, :origin_scheme, :origin_host, :origin_port, :origin_shield_header_name, :origin_shield_header_value_hash, :geo_origins_json, :proxy_enabled, :status, :created_at, :updated_at)'
+    'INSERT INTO domains (id, user_id, name, domain, origin_shield_header_name, origin_shield_header_value_hash, status, created_at, updated_at)
+     VALUES (:id, :user_id, :name, :domain, :origin_shield_header_name, :origin_shield_header_value_hash, :status, :created_at, :updated_at)'
 )->execute([
     ':id' => $domainId,
     ':user_id' => App\Support\Uuid::v4(),
     ':name' => 'Cache Demo',
     ':domain' => 'cache-demo-' . substr($domainId, 0, 8) . '.local',
-    ':origin_scheme' => 'http',
-    ':origin_host' => 'core',
-    ':origin_port' => 8080,
     ':origin_shield_header_name' => null,
     ':origin_shield_header_value_hash' => null,
-    ':geo_origins_json' => null,
-    ':proxy_enabled' => 1,
     ':status' => 'active',
     ':created_at' => $now,
     ':updated_at' => $now,

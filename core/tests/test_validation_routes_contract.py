@@ -92,7 +92,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
             base_url,
             "POST",
             "/api/v1/domains",
-            body={"name": "Val Demo", "domain": "val-demo.local", "origin_host": "core"},
+            body={"name": "Val Demo", "domain": "val-demo.local"},
             headers={"Authorization": "Bearer stage2-token"},
         )
         assert domain_code == 201
@@ -175,13 +175,21 @@ def test_route_validation_returns_invalid_field_for_new_guards():
         assert ssl_request_invalid_body["error"] == "invalid_field"
         assert ssl_request_invalid_body["field"] == "hostnames"
 
-        disable_code, _ = request_json(
+        unproxied_code, unproxied = request_json(
             base_url,
             "POST",
-            f"/api/v1/domains/{domain_id}/proxy/disable",
+            f"/api/v1/domains/{domain_id}/dns/records",
+            body={
+                "type": "A",
+                "name": "@",
+                "content": "127.0.0.1",
+                "proxied": False,
+                "origin_host": "core",
+            },
             headers={"Authorization": "Bearer stage2-token"},
         )
-        assert disable_code == 200
+        assert unproxied_code == 201
+        assert unproxied["data"]["proxied"] is False
         ssl_request_code, ssl_request_body = request_json(
             base_url,
             "POST",

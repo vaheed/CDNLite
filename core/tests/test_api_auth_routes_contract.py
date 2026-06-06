@@ -123,8 +123,6 @@ def test_api_token_enforced_on_admin_routes_but_not_edge_auth_contract():
         domain_payload = {
             "name": "Auth Demo",
             "domain": "auth-demo.local",
-            "origin_host": "core",
-            "origin_port": 8080,
         }
 
         denied_code, denied = request_json(base_url, "POST", "/api/v1/domains", body=domain_payload)
