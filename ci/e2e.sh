@@ -695,7 +695,7 @@ stale_path="/cdn-health?via=edge-stale-${RUN_KEY}"
 stale_seed="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 assert_eq "$stale_seed" "MISS" "stale seed request should MISS"
 sleep 2
-broken_origin_payload="$(jq -nc '{"origin_host":"unreachable-origin.invalid","origin_tls_verify":"verify","geo_origins":{}}')"
+broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_tls_verify":"verify","geo_origins":{}}')"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "DNS record origin failure update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
@@ -703,7 +703,8 @@ stale_status="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 case "$stale_status" in
   STALE|HIT) ;;
   *)
-    fail "stale validation expected STALE or HIT after origin failure (got='${stale_status}')"
+    stale_body="$(tr '\n' ' ' </tmp/e2e-edge-cache-body.txt | cut -c 1-300)"
+    fail "stale validation expected STALE or HIT after origin failure (got='${stale_status}' body='${stale_body}')"
     ;;
 esac
 restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{}}')"
