@@ -5,6 +5,20 @@ domain_a="11111111-1111-4111-8111-111111111117"
 domain_b="22222222-2222-4222-8222-222222222227"
 now="$(date +%s)"
 
+for attempt in $(seq 1 60); do
+  if docker compose exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U cdnlite -d cdnlite >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "$attempt" -eq 60 ]]; then
+    echo "PostgreSQL did not become ready" >&2
+    exit 1
+  fi
+  sleep 2
+done
+
+# Database::connection() applies schema.sql; migrate then applies incremental SQL.
+docker compose exec -T core php artisan cdn:migrate >/dev/null
+
 docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
   -c "INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
       VALUES

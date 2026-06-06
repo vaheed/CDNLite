@@ -23,5 +23,7 @@ def test_usage_cli_and_frontend_e2e_seed_cache_analytics():
     assert "cache_status" in command
     assert "Invalid --cache_status" in command
     assert "frontend-analytics-" in seed
+    assert "pg_isready" in seed
+    assert "php artisan cdn:migrate" in seed
     for expected in ["'Requests', '30'", "'HIT', '17'", "'BYPASS', '3'", "'UNKNOWN', '1'"]:
         assert expected in spec
