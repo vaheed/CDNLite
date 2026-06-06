@@ -2,6 +2,7 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 
 class DnsPublishingPlanner
@@ -60,23 +61,34 @@ class DnsPublishingPlanner
             'type' => strtoupper((string) ($record['origin_type'] ?? $record['type'])),
             'content' => (string) ($record['origin_content'] ?? $record['content']),
         ];
-        $settings ??= $this->settings((string) $domain['id']);
-        $mode = (string) ($settings['routing_mode'] ?? 'geo');
-        if (($record['proxied'] ?? false) !== true || $mode === 'dns_only') {
-            return $this->result($origin['type'], $origin['content'], $mode);
+        $policy = (string) ($record['routing_policy'] ?? 'standard');
+        if (($record['proxied'] ?? false) !== true) {
+            return $this->result($origin['type'], $origin['content'], $policy);
         }
 
-        // For proxied records (except dns_only which we handled above), use ALIAS for apex and CNAME for non-apex
         $isApex = $this->isApex((string) $record['name'], (string) $domain['domain']);
-        $baseDomain = rtrim(strtolower((string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net')), '.');
-        $zonePrefix = strtolower((string) (getenv('CDNLITE_EDGE_ZONE_PREFIX') ?: 'edge'));
-        $geoTarget = 'geo.' . $zonePrefix . '.' . $baseDomain . '.';
+        $canonical = $this->canonicalHostname((string) ($record['id'] ?? ''), (string) $domain['id']);
 
         if ($isApex) {
-            // Apex records use ALIAS when proxied
-            return $this->result('ALIAS', $geoTarget, $mode);
+            return $this->result('ALIAS', $canonical, $policy);
         }
-        return $this->result('CNAME', $geoTarget, $mode);
+        return $this->result('CNAME', $canonical, $policy);
+    }
+
+    public function canonicalHostname(string $recordId, string $domainId): string
+    {
+        $settings = new SettingsRepository();
+        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
+        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
+        return $this->label($recordId) . '.' . $this->label($domainId) . '.' . $prefix . '.' . $base . '.';
+    }
+
+    public function globalAnycastHostname(): string
+    {
+        $settings = new SettingsRepository();
+        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
+        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
+        return 'global.' . $prefix . '.' . $base . '.';
     }
 
     private function result(string $type, string $content, string $mode, ?string $warning = null): array
@@ -130,5 +142,11 @@ class DnsPublishingPlanner
         $name = strtolower(rtrim(trim($name), '.'));
         $domain = strtolower(rtrim(trim($domain), '.'));
         return $name === '' || $name === '@' || $name === $domain;
+    }
+
+    private function label(string $value): string
+    {
+        $value = strtolower(preg_replace('/[^a-zA-Z0-9-]/', '', $value) ?? '');
+        return trim($value, '-') ?: 'record';
     }
 }

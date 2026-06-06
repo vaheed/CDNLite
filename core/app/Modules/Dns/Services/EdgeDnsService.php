@@ -190,10 +190,24 @@ class EdgeDnsService
             }
         }
 
-        foreach (['A' => $this->anycastIpv4(), 'AAAA' => $this->anycastIpv6()] as $type => $ip) {
-            if ($ip !== '') {
-                $records[] = $this->record('anycast.' . $prefix, $type, $ip, 'anycast');
+        foreach (['A' => $this->anycastIps('ipv4'), 'AAAA' => $this->anycastIps('ipv6')] as $type => $ips) {
+            foreach ($ips as $ip) {
+                $records[] = $this->record('global.' . $prefix, $type, $ip, 'anycast');
             }
+        }
+
+        $stmt = Database::pdo()->query(
+            "SELECT canonical_edge_hostname, routing_policy FROM dns_records
+             WHERE proxied = true AND canonical_edge_hostname IS NOT NULL"
+        );
+        $global = 'global.' . $prefix . '.' . $this->baseDomain() . '.';
+        $geo = 'geo.' . $prefix . '.' . $this->baseDomain() . '.';
+        foreach ($stmt->fetchAll() as $row) {
+            $fqdn = rtrim((string) $row['canonical_edge_hostname'], '.');
+            $suffix = '.' . $this->baseDomain();
+            $name = str_ends_with($fqdn, $suffix) ? substr($fqdn, 0, -strlen($suffix)) : $fqdn;
+            $anycast = in_array((string) $row['routing_policy'], ['anycast', 'geo_anycast'], true);
+            $records[] = $this->record($name, 'CNAME', $anycast ? $global : $geo, $anycast ? 'anycast-record' : 'proxied-record');
         }
 
         usort($records, static fn(array $a, array $b): int => strcmp($a['fqdn'] . $a['type'] . $a['content'], $b['fqdn'] . $b['type'] . $b['content']));
@@ -335,15 +349,16 @@ class EdgeDnsService
         return $ttl > 0 ? $ttl : 60;
     }
 
-    private function anycastIpv4(): string
+    private function anycastIps(string $family): array
     {
-        $ip = trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv4'));
-        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false ? '' : $ip;
-    }
-
-    private function anycastIpv6(): string
-    {
-        $ip = trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv6'));
-        return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false ? '' : $ip;
+        $flag = $family === 'ipv4' ? FILTER_FLAG_IPV4 : FILTER_FLAG_IPV6;
+        $ips = [];
+        foreach ([1, 2] as $index) {
+            $ip = trim((string) $this->settings->value('platform.edge_dns', 'anycast_' . $family . '_' . $index));
+            if (filter_var($ip, FILTER_VALIDATE_IP, $flag) !== false) {
+                $ips[] = $ip;
+            }
+        }
+        return array_values(array_unique($ips));
     }
 }

@@ -36,6 +36,9 @@ export interface DnsRecord {
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
   origin_status?: string; geo_origins?: Record<string, { host: string; tls_verify?: 'verify' | 'ignore' }>;
+  routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
+  canonical_edge_hostname?: string | null;
+  geo_routes_count?: number;
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
 export type UpdateDnsRecordInput = Partial<CreateDnsRecordInput>;
@@ -44,6 +47,8 @@ export interface DomainRoutingSettings {
   geo_selector: string; anycast_ipv4?: string | null; anycast_ipv6?: string | null; anycast_cname?: string | null;
 }
 export interface DnsRoutingPreview { type: string; content: string; routing_mode: string; powerdns: string; warning?: string | null; }
+export interface EdgeCountry { country_code: string; node_count: number; has_ipv4: boolean; has_ipv6: boolean; }
+export interface GeoRoute { id?: Id; country_code?: string | null; edge_country_code?: string; enabled?: boolean; }
 
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }

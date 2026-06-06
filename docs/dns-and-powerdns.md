@@ -32,12 +32,19 @@ php core/artisan cdn:dns:delete-record --domain_id=11111111-1111-4111-8111-11111
 
 ## Proxied Behavior
 
-`proxied` is persisted for every DNS record and included in config snapshots. Customer zones never receive edge IP pools or customer-specific LUA records.
+`proxied` and `routing_policy` are independent per-record concepts. `routing_policy` is one of `standard`, `geo`, `anycast`, or `geo_anycast`. Anycast ingress is global platform configuration, never domain or record configuration.
+
+When `routing_policy` is omitted it defaults to `standard`, including for proxied records. A normal proxied CDN record therefore does not require Anycast VIPs. Only explicit `anycast` and `geo_anycast` policies require the global four-VIP configuration.
 
 - `proxied=false`: PowerDNS receives the normal customer record as entered.
-- `proxied=true` at the apex/root: PowerDNS receives `ALIAS <policy-target>`.
-- `proxied=true` below the apex: PowerDNS receives `CNAME <policy-target>`.
-- The default policy target is `geo.edge.<CDNLITE_EDGE_BASE_DOMAIN>`.
+- `proxied=true` at the apex/root: PowerDNS receives an `ALIAS` to the record's canonical edge hostname. This requires ALIAS/flattening support or delegated authoritative DNS.
+- `proxied=true` below the apex: PowerDNS receives a `CNAME` to `<record-id>.<domain-id>.edge.<platform-zone>`.
+- A CNAME always targets another hostname. The canonical edge hostname resolves to A/AAAA records; it never contains an IP as CNAME content.
+- The user-entered content remains the edge proxy origin and is included in edge config snapshots.
+
+Global Anycast settings contain two IPv4 and two IPv6 ingress VIPs. They publish as A/AAAA records on `global.edge.<platform-zone>`, while Anycast record hostnames CNAME to that global hostname. CDNLite stores and publishes these VIPs, but real Anycast requires BGP announcements and network configuration outside the PHP application.
+
+Geo routes are stored per DNS record and require a default fallback. Users map a visitor country to an edge country; they never need an edge-node ID. CDNLite resolves the selected edge country to its enabled, online, Geo-capable nodes. The current PowerDNS integration does not yet install a country-aware GeoDNS backend/plugin, so Geo route API persistence is active while country-specific authoritative answers are explicitly reported as inactive.
 
 ## Per-domain routing
 

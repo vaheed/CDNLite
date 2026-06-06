@@ -57,11 +57,14 @@ CREATE TABLE IF NOT EXISTS dns_records (
   origin_scheme TEXT NULL,
   origin_status TEXT NOT NULL DEFAULT 'pending',
   geo_origins_json TEXT NULL,
+  routing_policy TEXT NOT NULL DEFAULT 'standard',
+  canonical_edge_hostname TEXT NULL,
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE,
-  CHECK (origin_tls_verify IN ('verify', 'ignore'))
+  CHECK (origin_tls_verify IN ('verify', 'ignore')),
+  CHECK (routing_policy IN ('standard', 'geo', 'anycast', 'geo_anycast'))
 );
 
 CREATE TABLE IF NOT EXISTS edge_nodes (
@@ -86,6 +89,9 @@ CREATE TABLE IF NOT EXISTS edge_nodes (
   priority INTEGER NOT NULL DEFAULT 100,
   geo_enabled BOOLEAN NOT NULL DEFAULT true,
   anycast_enabled BOOLEAN NOT NULL DEFAULT false,
+  proxy_enabled BOOLEAN NOT NULL DEFAULT true,
+  dns_enabled BOOLEAN NOT NULL DEFAULT true,
+  cache_enabled BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
@@ -109,6 +115,31 @@ CREATE TABLE IF NOT EXISTS edge_pool_members (
   UNIQUE(pool_id, edge_node_id)
 );
 
+CREATE TABLE IF NOT EXISTS dns_record_geo_routes (
+  id TEXT PRIMARY KEY,
+  dns_record_id TEXT NOT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
+  country_code TEXT NULL,
+  edge_node_id TEXT NULL REFERENCES edge_nodes(id) ON DELETE SET NULL,
+  edge_pool_id TEXT NULL REFERENCES edge_pools(id) ON DELETE SET NULL,
+  answer_type TEXT NOT NULL DEFAULT 'EDGE_PROXY',
+  answer_value TEXT NULL,
+  priority INTEGER NOT NULL DEFAULT 0,
+  weight INTEGER NOT NULL DEFAULT 100,
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  CHECK (country_code IS NULL OR country_code ~ '^[A-Z]{2}$'),
+  CHECK (answer_type IN ('A', 'AAAA', 'CNAME', 'EDGE_PROXY')),
+  CHECK (
+    (edge_node_id IS NOT NULL AND edge_pool_id IS NULL)
+    OR (edge_node_id IS NULL AND edge_pool_id IS NOT NULL)
+    OR (edge_node_id IS NULL AND edge_pool_id IS NULL AND answer_value IS NOT NULL)
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS dns_record_geo_routes_country_idx
+  ON dns_record_geo_routes (dns_record_id, COALESCE(country_code, 'DEFAULT'));
+
 CREATE TABLE IF NOT EXISTS edge_dns_state (
   id SMALLINT PRIMARY KEY,
   effective_hash TEXT NOT NULL,
@@ -127,6 +158,8 @@ ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_tls_verify TEXT NOT NULL
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_scheme TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_status TEXT NOT NULL DEFAULT 'pending';
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_origins_json TEXT NULL;
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS routing_policy TEXT NOT NULL DEFAULT 'standard';
+ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS canonical_edge_hostname TEXT NULL;
 
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv4 TEXT NULL;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv6 TEXT NULL;
@@ -141,6 +174,9 @@ ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 100;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS geo_enabled BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS anycast_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS proxy_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS dns_enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS cache_enabled BOOLEAN NOT NULL DEFAULT true;
 
 CREATE TABLE IF NOT EXISTS edge_tokens (
   edge_id TEXT PRIMARY KEY,

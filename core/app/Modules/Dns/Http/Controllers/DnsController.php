@@ -3,12 +3,13 @@
 namespace App\Modules\Dns\Http\Controllers;
 
 use App\Modules\Dns\Services\DnsService;
+use App\Modules\Dns\Services\GeoRoutingService;
 use App\Support\Logger;
 use App\Support\Validator;
 
 class DnsController
 {
-    public function __construct(private DnsService $service)
+    public function __construct(private DnsService $service, private GeoRoutingService $geo = new GeoRoutingService())
     {
     }
 
@@ -69,6 +70,10 @@ class DnsController
 
     public function create(string $domainId, array $input): array
     {
+        $policy = $this->validateRoutingPolicy($input);
+        if ($policy !== null) {
+            return $policy;
+        }
         $origin = $this->validateOriginOptions($input);
         if ($origin !== null) {
             return $origin;
@@ -106,6 +111,9 @@ class DnsController
             if ($message === 'domain_not_found') {
                 return ['error' => 'domain_not_found', 'status' => 404];
             }
+            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
+                return ['error' => $message, 'status' => 422];
+            }
             $payload = ['error' => $message, 'status' => 502];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
@@ -116,6 +124,10 @@ class DnsController
 
     public function update(string $domainId, string $recordId, array $input): array
     {
+        $policy = $this->validateRoutingPolicy($input);
+        if ($policy !== null) {
+            return $policy;
+        }
         $origin = $this->validateOriginOptions($input);
         if ($origin !== null) {
             return $origin;
@@ -164,7 +176,9 @@ class DnsController
         try {
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
-            $payload = ['error' => $e->getMessage(), 'status' => 502];
+            $message = $e->getMessage();
+            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502;
+            $payload = ['error' => $message, 'status' => $status];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
             }
@@ -181,6 +195,29 @@ class DnsController
         return $this->service->delete($domainId, $recordId)
             ? ['ok' => true]
             : ['error' => 'record_not_found', 'status' => 404];
+    }
+
+    public function geoRoutes(string $domainId, string $recordId): array
+    {
+        $routes = $this->geo->list($domainId, $recordId);
+        return $routes === null
+            ? ['error' => 'record_not_found', 'status' => 404]
+            : ['data' => $routes, 'geodns_sync_active' => false];
+    }
+
+    public function updateGeoRoutes(string $domainId, string $recordId, array $input): array
+    {
+        if (!isset($input['routes']) || !is_array($input['routes'])) {
+            return ['error' => 'geo_routes_array_required', 'status' => 422];
+        }
+        try {
+            $routes = $this->geo->replace($domainId, $recordId, $input['routes']);
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        }
+        return $routes === null
+            ? ['error' => 'record_not_found', 'status' => 404]
+            : ['data' => $routes, 'geodns_sync_active' => false];
     }
 
     private function validateOriginOptions(array &$input): ?array
@@ -204,6 +241,23 @@ class DnsController
         }
         if (array_key_exists('geo_origins', $input) && !is_array($input['geo_origins'])) {
             return ['error' => 'geo_origins_must_be_object', 'field' => 'geo_origins', 'status' => 422];
+        }
+        return null;
+    }
+
+    private function validateRoutingPolicy(array &$input): ?array
+    {
+        if (!array_key_exists('routing_policy', $input)) {
+            return null;
+        }
+        $policy = Validator::enum($input, 'routing_policy', ['standard', 'geo', 'anycast', 'geo_anycast']);
+        if (($policy['ok'] ?? false) !== true) {
+            return $policy;
+        }
+        $input['routing_policy'] = $policy['value'];
+        if (in_array($policy['value'], ['anycast', 'geo_anycast'], true)
+            && array_key_exists('proxied', $input) && !(bool) $input['proxied']) {
+            return ['error' => 'anycast_requires_proxied_record', 'field' => 'routing_policy', 'status' => 422];
         }
         return null;
     }

@@ -1,5 +1,12 @@
 # API Reference
 
+## DNS routing
+
+- `GET|PUT /api/v1/admin/edge-network/anycast` reads or replaces the global two-IPv4/two-IPv6 Anycast VIP set.
+- `GET /api/v1/edge-countries` lists countries represented by enabled, online Geo edge nodes.
+- `GET|PUT /api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` reads or transactionally replaces per-record Geo routes. Each route maps a visitor `country_code` to an `edge_country_code`; CDNLite dynamically uses the healthy enabled nodes in that edge country. A default route with a null/empty `country_code` is required.
+- DNS record create/update accepts `routing_policy`: `standard`, `geo`, `anycast`, or `geo_anycast`. The default is `standard`, including when `proxied=true`. Anycast policies require `proxied=true` and a complete global VIP set.
+
 [Back to docs index](index.md)
 
 Base URL: `http://localhost:8080`. Responses are JSON. Non-edge `/api/v1/*` endpoints accept either a static `CDNLITE_API_TOKEN` bearer token or a dashboard admin session bearer token. If neither `CDNLITE_API_TOKEN` nor any admin users are configured, control-plane routes remain open for local development. Edge registration, heartbeat, config, and collector usage require signed edge auth.

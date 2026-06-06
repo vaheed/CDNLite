@@ -47,7 +47,7 @@ import type { SettingsGroup } from '@/types';
 const tabs = [
   { key: 'platform.powerdns', label: 'PowerDNS' },
   { key: 'platform.nameservers', label: 'Nameservers' },
-  { key: 'platform.edge_dns', label: 'Edge DNS' },
+  { key: 'platform.edge_dns', label: 'Edge DNS / Anycast' },
   { key: 'platform.cache', label: 'Cache Defaults' },
   { key: 'platform.analytics', label: 'Analytics' },
   { key: 'platform.security', label: 'Security' },

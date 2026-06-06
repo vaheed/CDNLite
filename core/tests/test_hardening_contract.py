@@ -248,7 +248,8 @@ def test_dns_record_update_command_patches_existing_record():
     assert updated["data"]["origin_type"] == "A"
     assert updated["data"]["origin_content"] == "127.0.0.2"
     assert updated["data"]["public_type"] == "ALIAS"
-    assert updated["data"]["public_content"] == "geo.edge.vaheed.net."
+    assert updated["data"]["public_content"] == f"{record_id}.{domain_id}.edge.vaheed.net."
+    assert updated["data"]["canonical_edge_hostname"] == updated["data"]["public_content"]
 
     non_apex = run_artisan(
         "cdn:dns:add-record",
@@ -259,7 +260,10 @@ def test_dns_record_update_command_patches_existing_record():
         "--proxied=1",
     )
     assert non_apex["data"]["public_type"] == "CNAME"
-    assert non_apex["data"]["public_content"] == "geo.edge.vaheed.net."
+    assert non_apex["data"]["public_content"] == (
+        f"{non_apex['data']['id']}.{domain_id}.edge.vaheed.net."
+    )
+    assert non_apex["data"]["canonical_edge_hostname"] == non_apex["data"]["public_content"]
 
 
 def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():

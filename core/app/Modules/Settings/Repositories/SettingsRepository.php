@@ -26,8 +26,10 @@ class SettingsRepository
             'heartbeat_window_seconds' => ['env' => 'EDGE_DNS_HEARTBEAT_WINDOW_SECONDS', 'type' => 'int', 'default' => 300, 'description' => 'Healthy edge heartbeat window.'],
             'base_domain' => ['env' => 'CDNLITE_EDGE_BASE_DOMAIN', 'type' => 'string', 'default' => 'vaheed.net', 'description' => 'Authoritative base domain for platform edge records.'],
             'zone_prefix' => ['env' => 'CDNLITE_EDGE_ZONE_PREFIX', 'type' => 'string', 'default' => 'edge', 'description' => 'DNS label used for aggregate platform edge records.'],
-            'anycast_ipv4' => ['env' => 'CDNLITE_ANYCAST_IPV4', 'type' => 'string', 'default' => '', 'description' => 'Optional platform anycast IPv4 address.'],
-            'anycast_ipv6' => ['env' => 'CDNLITE_ANYCAST_IPV6', 'type' => 'string', 'default' => '', 'description' => 'Optional platform anycast IPv6 address.'],
+            'anycast_ipv4_1' => ['env' => 'CDNLITE_ANYCAST_IPV4', 'type' => 'string', 'default' => '', 'description' => 'First global Anycast IPv4 ingress VIP.'],
+            'anycast_ipv4_2' => ['type' => 'string', 'default' => '', 'description' => 'Second global Anycast IPv4 ingress VIP.'],
+            'anycast_ipv6_1' => ['env' => 'CDNLITE_ANYCAST_IPV6', 'type' => 'string', 'default' => '', 'description' => 'First global Anycast IPv6 ingress VIP.'],
+            'anycast_ipv6_2' => ['type' => 'string', 'default' => '', 'description' => 'Second global Anycast IPv6 ingress VIP.'],
         ],
         'platform.cache' => [
             'default_ttl' => ['env' => 'CDNLITE_CACHE_DEFAULT_TTL', 'type' => 'string', 'default' => '60s', 'description' => 'Default proxy cache TTL.'],

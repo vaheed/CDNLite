@@ -28,11 +28,11 @@ def test_platform_dns_plan_contract():
 
     assert "'edge-' . $this->normalizeLabel" in dns
     assert "'geo.' . $prefix" in dns
-    assert "'anycast.' . $prefix" in dns
+    assert "'global.' . $prefix" in dns
     assert "geo_enabled" in dns
     assert "/api/v1/edges/dns" in routes
-    assert "'anycast_ipv4'" in settings
-    assert "'anycast_ipv6'" in settings
+    assert "'anycast_ipv4_1'" in settings
+    assert "'anycast_ipv6_2'" in settings
 
 
 def test_edge_network_dashboard_contract():

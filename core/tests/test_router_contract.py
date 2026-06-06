@@ -41,7 +41,7 @@ def test_domain_routes_replace_legacy_resource_routes():
     public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
     assert "'/api/v1/domains'" in public_index
     assert "'/api/v1/domains/{domainId}'" in public_index
-    assert "/api/v1/sites" not in public_index
+    assert "/api/v1/sites/{domainId}/dns-records/{recordId}/geo-routes" in public_index
 
 
 def test_router_placeholders_accept_dotted_setting_group_names():
