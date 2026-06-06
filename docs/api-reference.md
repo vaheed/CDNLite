@@ -84,6 +84,7 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | POST | `/api/v1/domains/{id}/ssl/manual-certificate` | bearer when `CDNLITE_API_TOKEN` is set | Import manual certificate and private key for hostname. |
 | GET | `/api/v1/domains/{id}/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List domain security events from audit log. |
 | GET | `/api/v1/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for all domains or one `domain_id`. |
+| GET | `/api/v1/domains/{id}/analytics/summary` | bearer when `CDNLITE_API_TOKEN` is set | Usage summary and time-series points for one domain. |
 | GET | `/api/v1/domains/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one domain. |
 | GET | `/api/v1/edge/nodes` | bearer when `CDNLITE_API_TOKEN` is set | List edge nodes. Each row includes `identity_status` (`ok` or `warning`); empty, `unknown`, and `openresty` identities are warnings. |
 | POST | `/api/v1/edge/register` | edge signed | Register edge node. |
@@ -104,6 +105,10 @@ Returns cache-status breakdown rows and summary totals for all domains or one do
 ```bash
 curl -s "http://localhost:8080/api/v1/analytics/cache?domain_id=11111111-1111-4111-8111-111111111111"
 ```
+
+### GET /api/v1/domains/{id}/analytics/summary
+
+Returns the same payload as `/api/v1/usage/summary?domain_id=...`. Add `?bucket=minute|hour|day` to include scoped time-series points for dashboard charts.
 
 ## Admin Auth
 

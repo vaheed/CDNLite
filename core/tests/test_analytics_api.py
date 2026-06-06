@@ -157,6 +157,42 @@ def test_cache_analytics_api_returns_cache_status_rows():
         )
         assert scoped_code == 200
         assert scoped_payload["data"]["rows"] == payload["data"]["rows"]
+
+        second_code, second_domain = request_json(
+            base_url,
+            "POST",
+            "/api/v1/domains",
+            body={"name": "Analytics Second", "domain": "analytics-second.local", "origin_host": "core"},
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        assert second_code == 201
+        second_domain_id = second_domain["data"]["id"]
+        insert_usage_rows(second_domain_id)
+
+        first_summary_code, first_summary = request_json(
+            base_url,
+            "GET",
+            f"/api/v1/domains/{domain_id}/analytics/summary",
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        second_summary_code, second_summary = request_json(
+            base_url,
+            "GET",
+            f"/api/v1/usage/summary?domain_id={second_domain_id}",
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        all_summary_code, all_summary = request_json(
+            base_url,
+            "GET",
+            "/api/v1/usage/summary",
+            headers={"Authorization": "Bearer stage2-token"},
+        )
+        assert first_summary_code == second_summary_code == all_summary_code == 200
+        assert first_summary["data"]["requests_count"] == 10
+        assert second_summary["data"]["requests_count"] == 10
+        assert all_summary["data"]["requests_count"] >= (
+            first_summary["data"]["requests_count"] + second_summary["data"]["requests_count"]
+        )
     finally:
         server.terminate()
         server.wait(timeout=5)

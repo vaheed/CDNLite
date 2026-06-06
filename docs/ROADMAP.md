@@ -17,7 +17,8 @@
 | Phase 4 — Edge identity fix | Complete | PHP/shell lint, focused contracts, dashboard build, agent checks, Compose smoke, and E2E passed |
 | Phase 5 — Readiness API and clickable cards | Complete | PHP lint, focused pytest, dashboard Vitest, typecheck, and build passed |
 | Phase 6 — Settings dashboard | Complete | PHP lint, core contracts, dashboard typecheck/build |
-| Phase 7+ | Planned | Not started |
+| Phase 7 — Analytics by domain | Implemented | Automated checks pending; smoke/E2E delegated for manual validation |
+| Phase 8+ | Planned | Not started |
 
 ## Rules
 
@@ -461,6 +462,8 @@ Implement database-backed settings dashboard for CDNLite.
 ---
 
 ## Phase 7 — Analytics by domain
+
+**Status:** Implemented (2026-06-06); verification pending
 
 **Goal:** All analytics filterable by domain. Domain detail gets its own Analytics tab.
 

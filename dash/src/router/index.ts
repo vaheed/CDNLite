@@ -5,6 +5,7 @@ import DomainsView from '@/views/DomainsView.vue';
 import DomainFeatureView from '@/views/DomainFeatureView.vue';
 import EdgeNodesView from '@/views/EdgeNodesView.vue';
 import UsageAnalyticsView from '@/views/UsageAnalyticsView.vue';
+import DomainAnalyticsTab from '@/views/DomainAnalyticsTab.vue';
 import ConfigSnapshotView from '@/views/ConfigSnapshotView.vue';
 import EventViewerView from '@/views/EventViewerView.vue';
 import TroubleshootingView from '@/views/TroubleshootingView.vue';
@@ -15,6 +16,7 @@ import { featurePages } from '@/views/featurePages';
 export const routes = [
   { path: '/', name: 'ops', component: OpsDashboard, meta: { label: 'OPS Dashboard' } },
   { path: '/domains', name: 'domains', component: DomainsView, meta: { label: 'Domains' } },
+  { path: '/domains/:domainId/analytics', name: 'domain-analytics', component: DomainAnalyticsTab, meta: { label: 'Domain Analytics' } },
   ...featurePages.map((feature) => ({ path: feature.path, name: feature.key, component: DomainFeatureView, props: { feature }, meta: { label: feature.title } })),
   { path: '/edge-nodes', name: 'edge-nodes', component: EdgeNodesView, meta: { label: 'Edge Nodes' } },
   { path: '/usage', name: 'usage', component: UsageAnalyticsView, meta: { label: 'Usage Analytics' } },

@@ -62,6 +62,8 @@ Points combine all aggregate dimensions for each timestamp, so status, cache sta
 
 `GET /api/v1/analytics/cache` returns cache-status breakdown rows and summary totals for all domains, and accepts `?domain_id=...` to scope the result to one domain. The domain-scoped route `/api/v1/domains/{id}/analytics/cache` returns the same payload for one domain.
 
+The dashboard Usage Analytics page can switch between all domains and one domain. Domain rows also link to `/domains/{id}/analytics`, which uses `/api/v1/domains/{id}/analytics/summary` and `/api/v1/domains/{id}/analytics/cache`. Changing the minute, hour, or day bucket reloads every chart within the same domain scope.
+
 ```json
 {
   "data": {

@@ -38,12 +38,13 @@
       <template #id="{ value }"><div class="flex items-center gap-2"><code class="text-xs">{{ value }}</code><CopyButton :text="String(value)" label="Copy ID" /></div></template>
       <template #status="{ row }"><div class="flex items-center gap-2"><StatusBadge :status="String(row.status ?? 'active')" /><button class="button-secondary px-2 py-1 text-xs" @click="toggleStatus(row)">{{ row.status === 'disabled' ? 'Activate' : 'Disable' }}</button></div></template>
       <template #proxy_enabled="{ row }"><div class="flex items-center gap-2"><StatusBadge :status="row.proxy_enabled ? 'enabled' : 'disabled'" :label="row.proxy_enabled ? 'Proxy on' : 'Proxy off'" /><button class="button-secondary px-2 py-1 text-xs" @click="toggleProxy(row)">{{ row.proxy_enabled ? 'Disable' : 'Enable' }}</button></div></template>
-      <template #actions="{ row }"><div class="flex flex-wrap gap-2"><button class="button-secondary px-2 py-1 text-xs" @click="editDomain(row)">Edit</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this domain?" @confirm="deleteDomain(String(row.id))">Delete</ConfirmDangerButton></div></template>
+      <template #actions="{ row }"><div class="flex flex-wrap gap-2"><RouterLink class="button-secondary px-2 py-1 text-xs" :to="`/domains/${row.id}/analytics`">Analytics</RouterLink><button class="button-secondary px-2 py-1 text-xs" @click="editDomain(row)">Edit</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this domain?" @confirm="deleteDomain(String(row.id))">Delete</ConfirmDangerButton></div></template>
     </DataTable>
   </section>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { z } from 'zod';
 import TextInput from '@/components/forms/TextInput.vue';
 import JsonEditorField from '@/components/forms/JsonEditorField.vue';
