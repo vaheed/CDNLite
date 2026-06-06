@@ -38,6 +38,16 @@ php core/artisan cdn:dns:delete-record --domain_id=11111111-1111-4111-8111-11111
 - `proxied=true` at the apex/root: PowerDNS receives `ALIAS <policy-target>`.
 - `proxied=true` below the apex: PowerDNS receives `CNAME <policy-target>`.
 - The default policy target is `geo.edge.<CDNLITE_EDGE_BASE_DOMAIN>`.
+
+## Per-domain routing
+
+Each domain has routing settings available at `GET/PATCH /api/v1/domains/{id}/routing`.
+
+- `geo`: proxied A/AAAA records publish PowerDNS LUA `ifportup` records containing all online, enabled edge addresses. Before an eligible edge exists, the origin record remains published and previews report `no_eligible_edge_ips`; edge registration republishes it automatically.
+- `anycast`: proxied records publish the configured anycast IPv4/IPv6 address, or the configured CNAME for subdomains.
+- `dns_only`: records are published exactly as entered.
+
+Use `POST /api/v1/domains/{id}/dns/records/{recordId}/preview-routing` to inspect the generated PowerDNS record before changing a DNS record. Routing changes recalculate and republish every record in the domain.
 - The origin record remains stored for routing/config purposes, but public DNS points only to stable CDNLite edge hostnames.
 
 ## Edge Routing Zone

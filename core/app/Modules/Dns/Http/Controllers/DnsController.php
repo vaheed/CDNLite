@@ -17,6 +17,56 @@ class DnsController
         return ['data' => $this->service->listByDomain($domainId)];
     }
 
+    public function routing(string $domainId): array
+    {
+        $settings = $this->service->routing($domainId);
+        return $settings === null
+            ? ['error' => 'domain_not_found', 'status' => 404]
+            : ['data' => $settings];
+    }
+
+    public function updateRouting(string $domainId, array $input): array
+    {
+        $mode = Validator::enum($input, 'routing_mode', ['geo', 'anycast', 'dns_only']);
+        if (($mode['ok'] ?? false) !== true) {
+            return $mode;
+        }
+        $input['routing_mode'] = $mode['value'];
+        if (array_key_exists('geo_health_port', $input)) {
+            $port = Validator::intRange($input, 'geo_health_port', 1, 65535);
+            if (($port['ok'] ?? false) !== true) {
+                return $port;
+            }
+            $input['geo_health_port'] = $port['value'];
+        }
+        foreach (['anycast_ipv4' => FILTER_FLAG_IPV4, 'anycast_ipv6' => FILTER_FLAG_IPV6] as $field => $flag) {
+            if (isset($input[$field]) && trim((string) $input[$field]) !== ''
+                && filter_var($input[$field], FILTER_VALIDATE_IP, $flag) === false) {
+                return ['error' => 'invalid_' . $field, 'status' => 422];
+            }
+        }
+        try {
+            $settings = $this->service->updateRouting($domainId, $input);
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        }
+        return $settings === null
+            ? ['error' => 'domain_not_found', 'status' => 404]
+            : ['data' => $settings];
+    }
+
+    public function previewRouting(string $domainId, string $recordId, array $input): array
+    {
+        try {
+            $preview = $this->service->preview($domainId, $recordId, $input);
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        }
+        return $preview === null
+            ? ['error' => 'record_not_found', 'status' => 404]
+            : ['data' => $preview];
+    }
+
     public function create(string $domainId, array $input): array
     {
         $type = Validator::requiredString($input, 'type', 16);

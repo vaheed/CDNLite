@@ -23,6 +23,18 @@
       <button v-if="feature.key === 'ssl'" type="button" class="button-secondary" :disabled="!domainId || saving" @click="checkSsl">Run SSL check</button>
       <button type="button" class="button-primary" :disabled="!domainId || saving" @click="startCreate">{{ createLabel }}</button>
     </div>
+    <div v-if="feature.key === 'dns' && domainId" class="card space-y-4 p-5">
+      <div>
+        <h2 class="text-lg font-bold text-slate-950 dark:text-white">Routing mode</h2>
+        <p class="text-sm text-slate-500">Geo publishes PowerDNS LUA health routing. Anycast publishes configured A/AAAA or CNAME targets. DNS only preserves origin records.</p>
+      </div>
+      <div class="grid gap-4 md:grid-cols-3">
+        <label class="space-y-2"><span class="text-sm font-semibold">Mode</span><select v-model="routingForm.routing_mode" class="input"><option value="geo">Geo</option><option value="anycast">Anycast</option><option value="dns_only">DNS only</option></select></label>
+        <label class="space-y-2"><span class="text-sm font-semibold">Anycast IPv4</span><input v-model="routingForm.anycast_ipv4" class="input" placeholder="192.0.2.10" /></label>
+        <label class="space-y-2"><span class="text-sm font-semibold">Anycast CNAME</span><input v-model="routingForm.anycast_cname" class="input" placeholder="edge.example.net" /></label>
+      </div>
+      <button type="button" class="button-primary" :disabled="saving" @click="saveRouting">Save routing mode</button>
+    </div>
     <form v-if="showForm" class="card grid gap-4 p-4 sm:p-5 xl:grid-cols-2" @submit.prevent="submit">
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ formError }}</div>
       <template v-for="field in feature.fields" :key="field.name">
@@ -66,6 +78,8 @@
         </template>
         <template #actions="{ row }">
           <div class="flex flex-wrap gap-2">
+            <button v-if="feature.key === 'dns'" class="button-secondary px-2 py-1 text-xs" @click="toggleDnsProxy(row)">{{ row.proxied ? 'DNS only' : 'Proxy' }}</button>
+            <button v-if="feature.key === 'dns'" class="button-secondary px-2 py-1 text-xs" @click="previewDns(row)">Preview</button>
             <button v-if="canEdit(row)" class="button-secondary px-2 py-1 text-xs" @click="editRow(row)">Edit</button>
             <button v-if="feature.key === 'purge'" class="button-secondary px-2 py-1 text-xs" @click="getPurgeRequest(row)">Details</button>
             <ConfirmDangerButton v-if="canDelete(row)" class="px-2 py-1 text-xs" :confirm-text="`Delete this ${feature.title.toLowerCase()} record?`" @confirm="deleteRow(row)">Delete</ConfirmDangerButton>
@@ -94,10 +108,11 @@ import { redirectsApi } from '@/lib/api/redirects';
 import { domainsApi } from '@/lib/api/domains';
 import { sslApi } from '@/lib/api/ssl';
 import { wafApi } from '@/lib/api/waf';
-import type { CacheRule, DnsRecord, PageRule, RedirectRule, Domain, WafRule } from '@/types';
+import type { CacheRule, DnsRecord, DomainRoutingSettings, PageRule, RedirectRule, Domain, WafRule } from '@/types';
 import type { FeatureKey, FeaturePage } from './featurePages';
 const props = defineProps<{ feature: FeaturePage }>();
 const domains = ref<Domain[]>([]); const domainId = ref(''); const rows = ref<Record<string, unknown>[]>([]); const saving = ref(false); const lastResult = ref<unknown>(null); const formError = ref(''); const editingId = ref(''); const showForm = ref(false); const form = reactive<Record<string, string | number | boolean>>({});
+const routingForm = reactive<Partial<DomainRoutingSettings>>({ routing_mode: 'geo', geo_health_port: 443, geo_selector: 'pickclosest', anycast_ipv4: '', anycast_ipv6: '', anycast_cname: '' });
 const selectedDomain = computed(() => domains.value.find((domain) => domain.id === domainId.value));
 const columns = computed(() => {
   if (props.feature.columns) return props.feature.columns;
@@ -124,10 +139,32 @@ async function loadRows() {
     ssl: () => sslApi.certificates(id),
   }[props.feature.key]()).catch((error) => { lastResult.value = error instanceof Error ? error.message : error; return []; });
   rows.value = Array.isArray(data) ? data.filter(Boolean) as Record<string, unknown>[] : [data as Record<string, unknown>];
+  if (props.feature.key === 'dns') Object.assign(routingForm, await dnsApi.routing(id));
   if (props.feature.key === 'cache') {
     const settings = rows.value.find((row) => row.kind === 'settings');
     if (settings) Object.assign(form, settings);
   }
+}
+async function saveRouting() {
+  if (!domainId.value) return;
+  const current = await dnsApi.routing(domainId.value);
+  if (current.routing_mode !== routingForm.routing_mode && !window.confirm(`Switch routing from ${current.routing_mode} to ${routingForm.routing_mode}? Existing proxied DNS records will be republished.`)) return;
+  saving.value = true; formError.value = '';
+  try { lastResult.value = await dnsApi.updateRouting(domainId.value, routingForm); await loadRows(); }
+  catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to update routing.'; }
+  finally { saving.value = false; }
+}
+async function toggleDnsProxy(row: Record<string, unknown>) {
+  if (!domainId.value) return;
+  saving.value = true;
+  try { lastResult.value = await dnsApi.update(domainId.value, String(row.id), { proxied: !row.proxied }); await loadRows(); }
+  catch (error) { formError.value = error instanceof Error ? error.message : 'Unable to update proxy mode.'; }
+  finally { saving.value = false; }
+}
+async function previewDns(row: Record<string, unknown>) {
+  if (!domainId.value) return;
+  try { lastResult.value = await dnsApi.previewRouting(domainId.value, String(row.id)); }
+  catch (error) { lastResult.value = error instanceof Error ? error.message : error; }
 }
 async function submit() {
   if (!domainId.value) return; saving.value = true; formError.value = '';

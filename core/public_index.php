@@ -319,6 +319,9 @@ $router->add('POST', '/api/v1/domains/{domainId}/dns/records', static fn (Reques
 $router->add('GET', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body)), auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['domainId'], (string) $p['recordId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->routing((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->updateRouting((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing', static fn (Request $req, array $p) => Response::json($dnsController->previewRouting((string) $p['domainId'], (string) $p['recordId'], $req->body)), auth: true);
 
 $router->add('POST', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['domainId'])), auth: true);

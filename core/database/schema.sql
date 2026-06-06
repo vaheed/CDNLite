@@ -29,6 +29,19 @@ CREATE TABLE IF NOT EXISTS domain_nameservers (
   UNIQUE(domain_id, hostname)
 );
 
+CREATE TABLE IF NOT EXISTS domain_routing_settings (
+  domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
+  routing_mode TEXT NOT NULL DEFAULT 'geo',
+  geo_health_port INTEGER NOT NULL DEFAULT 443,
+  geo_selector TEXT NOT NULL DEFAULT 'pickclosest',
+  anycast_ipv4 TEXT NULL,
+  anycast_ipv6 TEXT NULL,
+  anycast_cname TEXT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  CHECK (routing_mode IN ('geo', 'anycast', 'dns_only'))
+);
+
 CREATE TABLE IF NOT EXISTS dns_records (
   id TEXT PRIMARY KEY,
   domain_id TEXT NOT NULL,

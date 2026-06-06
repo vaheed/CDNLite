@@ -237,6 +237,14 @@ Both return the updated domain. Unknown domain returns `404 {"error":"domain_not
 
 DNS record fields: `id`, `domain_id`, `type`, `name`, `content`, `origin_type`, `origin_content`, `public_type`, `public_content`, `ttl`, `priority`, `proxied`, `geo_policy_id`, `edge_target`, `status`, `created_at`, `updated_at`.
 
+### Domain DNS routing
+
+`GET /api/v1/domains/{domainId}/routing` returns the domain routing settings. `PATCH` accepts `routing_mode` (`geo`, `anycast`, or `dns_only`), `geo_health_port`, `geo_selector`, `anycast_ipv4`, `anycast_ipv6`, and `anycast_cname`. Changing settings republishes all saved DNS records for the domain.
+
+`POST /api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing` returns the generated `type`, `content`, `routing_mode`, and readable `powerdns` line without changing the record.
+
+For proxied records, geo mode publishes a PowerDNS `LUA` record using active enabled edge IPs and `ifportup`. If no eligible edge address exists yet, CDNLite preserves the original record and returns the `no_eligible_edge_ips` preview warning; edge registration later republishes it as LUA automatically. Anycast mode publishes A/AAAA targets or a CNAME for subdomains. DNS-only mode and records with `proxied=false` preserve the original type and content.
+
 ### POST /api/v1/domains/{id}/dns/records
 
 Required: `type`, `name`, `content`. Optional: `ttl` default `300`, `priority`, `proxied` default `false`, `geo_policy_id`, `edge_target`.

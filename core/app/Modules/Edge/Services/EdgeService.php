@@ -2,6 +2,7 @@
 
 namespace App\Modules\Edge\Services;
 
+use App\Modules\Dns\Services\DnsService;
 use App\Support\Database;
 use App\Support\Uuid;
 
@@ -86,7 +87,9 @@ class EdgeService
 
         $stmt = Database::pdo()->prepare('SELECT * FROM edge_nodes WHERE edge_id = :edge_id LIMIT 1');
         $stmt->execute([':edge_id' => $edgeId]);
-        return $this->castRow((array) $stmt->fetch());
+        $edge = $this->castRow((array) $stmt->fetch());
+        (new DnsService())->rebuildGeoDomains();
+        return $edge;
     }
 
     public function heartbeat(array $input): bool

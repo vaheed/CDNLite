@@ -13,7 +13,7 @@ export type FeaturePage = {
 export const featurePages: FeaturePage[] = [
   {
     key: 'dns', path: '/dns', title: 'DNS', subtitle: 'Manage domain-scoped DNS records and proxy transformations.',
-    endpointSummary: ['GET/POST /api/v1/domains/{id}/dns/records', 'PATCH/DELETE /api/v1/domains/{id}/dns/records/{recordId}'],
+    endpointSummary: ['GET/PATCH /api/v1/domains/{id}/routing', 'GET/POST /api/v1/domains/{id}/dns/records', 'PATCH/DELETE /api/v1/domains/{id}/dns/records/{recordId}', 'POST /dns/records/{recordId}/preview-routing'],
     columns: [{ key: 'name', label: 'Name' }, { key: 'type', label: 'Origin type' }, { key: 'content', label: 'Origin content' }, { key: 'public_type', label: 'Public type' }, { key: 'public_content', label: 'Public content' }, { key: 'ttl', label: 'TTL' }, { key: 'proxied', label: 'Proxied' }, { key: 'status', label: 'Status' }, { key: 'actions', label: 'Actions' }],
     fields: [
       { name: 'type', label: 'Type', what: 'DNS record type.', works: 'A/AAAA/CNAME/etc. define how hostnames resolve.', example: 'A', required: true, type: 'select', options: [{ label: 'A', value: 'A' }, { label: 'AAAA', value: 'AAAA' }, { label: 'CNAME', value: 'CNAME' }, { label: 'TXT', value: 'TXT' }, { label: 'MX', value: 'MX' }] },

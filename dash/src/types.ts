@@ -42,6 +42,11 @@ export interface DnsRecord {
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
 export type UpdateDnsRecordInput = Partial<CreateDnsRecordInput>;
+export interface DomainRoutingSettings {
+  domain_id: Id; routing_mode: 'geo' | 'anycast' | 'dns_only'; geo_health_port: number;
+  geo_selector: string; anycast_ipv4?: string | null; anycast_ipv6?: string | null; anycast_cname?: string | null;
+}
+export interface DnsRoutingPreview { type: string; content: string; routing_mode: string; powerdns: string; warning?: string | null; }
 
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }

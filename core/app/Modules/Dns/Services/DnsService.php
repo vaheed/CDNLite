@@ -12,12 +12,14 @@ class DnsService
     private PowerDnsService $powerDns;
     private DomainService $domains;
     private CustomerDnsService $customerDns;
+    private DnsPublishingPlanner $planner;
 
     public function __construct()
     {
         $this->powerDns = new PowerDnsService();
         $this->domains = new DomainService();
-        $this->customerDns = new CustomerDnsService();
+        $this->planner = new DnsPublishingPlanner();
+        $this->customerDns = new CustomerDnsService($this->planner);
     }
 
     public function listByDomain(string $domainId): array
@@ -25,6 +27,36 @@ class DnsService
         $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE domain_id = :domain_id ORDER BY id ASC');
         $stmt->execute([':domain_id' => $domainId]);
         return array_map([$this, 'castRow'], $stmt->fetchAll());
+    }
+
+    public function routing(string $domainId): ?array
+    {
+        return $this->planner->settings($domainId);
+    }
+
+    public function updateRouting(string $domainId, array $input): ?array
+    {
+        $settings = $this->planner->updateSettings($domainId, $input);
+        if ($settings === null) {
+            return null;
+        }
+        $this->rebuildDomain($domainId);
+        return $settings;
+    }
+
+    public function preview(string $domainId, string $recordId, array $input = []): ?array
+    {
+        $domain = $this->domains->find($domainId);
+        $record = $this->find($domainId, $recordId);
+        if ($domain === null || $record === null) {
+            return null;
+        }
+        foreach (['type', 'name', 'content', 'proxied'] as $field) {
+            if (array_key_exists($field, $input)) {
+                $record[$field] = $input[$field];
+            }
+        }
+        return $this->planner->plan($domain, $record);
     }
 
     public function create(string $domainId, array $input): array
@@ -236,6 +268,44 @@ class DnsService
         return ['ok' => true, 'rebuilt' => $count];
     }
 
+    public function rebuildDomain(string $domainId): int
+    {
+        $domain = $this->domains->find($domainId);
+        if ($domain === null) {
+            return 0;
+        }
+        $count = 0;
+        foreach ($this->listByDomain($domainId) as $record) {
+            $public = $this->customerDns->publicRecordFor($domain, $record);
+            Database::pdo()->prepare(
+                'UPDATE dns_records SET public_type = :public_type, public_content = :public_content,
+                 updated_at = :updated_at WHERE id = :id'
+            )->execute([
+                'id' => $record['id'],
+                'public_type' => $public['type'],
+                'public_content' => $public['content'],
+                'updated_at' => time(),
+            ]);
+            $record['public_type'] = $public['type'];
+            $record['public_content'] = $public['content'];
+            $this->syncPowerDnsCreate($domain, $record);
+            $count++;
+        }
+        return $count;
+    }
+
+    public function rebuildGeoDomains(): int
+    {
+        $stmt = Database::pdo()->query(
+            "SELECT domain_id FROM domain_routing_settings WHERE routing_mode = 'geo' ORDER BY domain_id"
+        );
+        $count = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            $count += $this->rebuildDomain((string) $row['domain_id']);
+        }
+        return $count;
+    }
+
     private function syncPowerDnsCreate(array $domain, array $record): void
     {
         if (!$this->powerDns->isEnabled()) {
@@ -290,7 +360,7 @@ class DnsService
         }
     }
 
-    private function find(string $domainId, string $recordId): ?array
+    public function find(string $domainId, string $recordId): ?array
     {
         $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE domain_id = :domain_id AND id = :id LIMIT 1');
         $stmt->execute([':domain_id' => $domainId, ':id' => $recordId]);

@@ -19,7 +19,8 @@
 | Phase 6 — Settings dashboard | Complete | PHP lint, core contracts, dashboard typecheck/build |
 | Phase 7 — Analytics by domain | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 8 — Domain onboarding and nameserver verification | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
-| Phase 9+ | Planned | Not started |
+| Phase 9 — DNS routing: geo and anycast | Complete | PHP lint, non-DB core contracts, dashboard typecheck/build; DB-backed tests and manual smoke/E2E follow-up |
+| Phase 10+ | Planned | Not started |
 
 ## Rules
 
@@ -576,6 +577,14 @@ Implement Cloudflare-style domain onboarding for CDNLite.
 ---
 
 ## Phase 9 — DNS routing: geo and anycast
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Added per-domain geo, anycast, and DNS-only routing settings.
+- Added deterministic PowerDNS planning, record preview, and domain-wide republishing on routing changes.
+- Added DNS dashboard routing controls, proxy toggles, confirmation, and generated-record preview.
 
 **Goal:** Each domain can use Geo (PowerDNS LUA `pickclosest`) or Anycast (plain A/CNAME). Proxy mode lives on DNS records.
 
