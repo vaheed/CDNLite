@@ -85,6 +85,7 @@ services:
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_REGION: ${EDGE_REGION:-local}
+      DEV_MODE: ${DEV_MODE:-0}
       CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-60s}
 
   edge-agent:
@@ -97,6 +98,7 @@ services:
     environment:
       CORE_URL: ${CORE_URL:-http://core:8080}
       EDGE_ID: ${EDGE_ID:-edge-local-1}
+      DEV_MODE: ${DEV_MODE:-0}
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge-local-1}
       EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-auto}
       EDGE_REGION: ${EDGE_REGION:-local}

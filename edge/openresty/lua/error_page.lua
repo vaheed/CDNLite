@@ -1,4 +1,5 @@
 local M = {}
+local identity = require('identity')
 
 local function h(v)
   local s = tostring(v or "")
@@ -32,7 +33,7 @@ function M.render(code)
 
   ngx.status = code
   ngx.header['X-CDNLITE-Request-Id'] = reqid
-  ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+  identity.apply()
   ngx.header.content_type = "text/html; charset=utf-8"
   ngx.say([[
 <!doctype html>

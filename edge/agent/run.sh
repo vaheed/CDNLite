@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if [ "${EDGE_ID:-}" = "" ] && [ "${DEV_MODE:-0}" != "1" ]; then
+  echo "EDGE_ID is required unless DEV_MODE=1" >&2
+  exit 1
+fi
+
 touch "$EDGE_CONFIG_PATH"
 touch "$METRIC_PATH"
 touch "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"

@@ -1,6 +1,7 @@
 local loader = require('config_loader')
 local proxy = require('proxy')
 local cjson = require('cjson.safe')
+local identity = require('identity')
 
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
@@ -13,7 +14,7 @@ local function append_security_event(domain_id)
   local line = cjson.encode({
     ts = os.time(),
     domain_id = tostring(domain_id or ngx.ctx.domain_id or ''),
-    edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
+    edge_node_id = identity.get(),
     request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
     type = t,
     action = tostring(ngx.ctx.security_action or ''),
@@ -169,7 +170,7 @@ local function apply_waf(cfg, host)
         append_security_event(nil)
         ngx.status = 403
         ngx.header.content_type = 'application/json'
-        ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+        identity.apply()
         ngx.say('{"error":"blocked_by_waf","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
         return ngx.exit(403)
       end
@@ -234,7 +235,7 @@ local function apply_rate_limit(cfg, host, domain_id)
     append_security_event(domain_id)
     ngx.status = 429
     ngx.header.content_type = 'application/json'
-    ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+    identity.apply()
     ngx.header['Retry-After'] = '60'
     ngx.say('{"error":"rate_limited","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
     return ngx.exit(429)
@@ -260,7 +261,7 @@ function M.handle()
   if redirect then
     ngx.header['Location'] = tostring(redirect.target_url or '')
     ngx.header['X-CDNLITE-Rule'] = 'redirect'
-    ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+    identity.apply()
     ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
     return ngx.exit(tonumber(redirect.status_code) or 302)
   end

@@ -1,4 +1,5 @@
 local cjson = require('cjson.safe')
+local identity = require('identity')
 local M = {}
 
 local function cache_status()
@@ -19,6 +20,7 @@ local function append_metric(row)
 end
 
 function M.on_header()
+  identity.apply()
   ngx.header['X-CDNLITE'] = '1'
   ngx.header['X-CDNLITE-Cache'] = cache_status()
 end
@@ -29,7 +31,7 @@ function M.on_log()
   append_metric({
     ts = os.time(),
     domain_id = tostring(ngx.ctx.domain_id or ''),
-    edge_node_id = os.getenv('EDGE_ID') or 'edge-local-1',
+    edge_node_id = identity.get(),
     requests_count = 1,
     bytes_in = bytes_in,
     bytes_out = bytes_out,

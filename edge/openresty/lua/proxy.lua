@@ -1,4 +1,5 @@
 local M = {}
+local identity = require('identity')
 
 local function header_has_cache_directive(value)
   if not value then
@@ -52,7 +53,7 @@ function M.forward(domain)
   else
     ngx.header['X-Accel-Expires'] = '0'
   end
-  ngx.header['X-CDNLITE-Edge'] = os.getenv('EDGE_ID') or 'edge-local-1'
+  identity.apply()
   ngx.header['X-CDNLITE-Domain'] = tostring(domain.domain_id)
   ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   return true

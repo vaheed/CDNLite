@@ -21,6 +21,8 @@ The edge agent is an Alpine container built from `edge/agent/Dockerfile`. It ins
 
 `CORE_URL`, `EDGE_ID`, `EDGE_TOKEN`, `EDGE_CONFIG_PATH`, and `METRIC_PATH` are required for normal operation. `EDGE_CONFIG_CACHE_PATH` is optional and defaults to `EDGE_CONFIG_PATH`. `EDGE_SYNC_STATUS_PATH` is optional and defaults to `/var/lib/cdnlite/edge-sync-status.json`. Registration and heartbeat also use `EDGE_HOSTNAME`, `EDGE_PUBLIC_IP`, `EDGE_REGION`, and `EDGE_VERSION`.
 
+The agent refuses to start with an empty `EDGE_ID` unless `DEV_MODE=1`. OpenResty uses the same identity for the `X-CDNLITE-Edge` response header, usage metrics, and security events.
+
 `EDGE_PUBLIC_IP=auto` is the default. In that mode the agent asks public IPv4 endpoints for its address and falls back to the first local IPv4 address if public detection is unavailable. Set `EDGE_PUBLIC_IP` to a concrete IPv4 address only when you want to override detection.
 
 `EDGE_AGENT_IDLE=1` is for CI and local tests only. It creates the config,

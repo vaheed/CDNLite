@@ -7,6 +7,13 @@ use App\Support\Uuid;
 
 class EdgeService
 {
+    private EdgeHealthService $health;
+
+    public function __construct(?EdgeHealthService $health = null)
+    {
+        $this->health = $health ?? new EdgeHealthService();
+    }
+
     public function list(): array
     {
         $stmt = Database::pdo()->query('SELECT * FROM edge_nodes ORDER BY id ASC');
@@ -144,6 +151,7 @@ class EdgeService
     private function castRow(array $row): array
     {
         $row['id'] = (string) $row['id'];
+        $row['identity_status'] = $this->health->identityStatus((string) ($row['edge_id'] ?? ''));
         $row['is_enabled'] = ((int) ($row['is_enabled'] ?? 1)) === 1;
         $row['last_heartbeat'] = (int) $row['last_heartbeat'];
         $row['last_heartbeat_at'] = isset($row['last_heartbeat_at']) ? (int) $row['last_heartbeat_at'] : (int) $row['last_heartbeat'];

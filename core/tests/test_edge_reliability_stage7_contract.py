@@ -6,6 +6,7 @@ def test_stage7_schema_and_request_id_contract():
     config_service = (repo_root / "core" / "app" / "Modules" / "Proxy" / "Services" / "ConfigService.php").read_text()
     loader = (repo_root / "edge" / "openresty" / "lua" / "config_loader.lua").read_text()
     proxy = (repo_root / "edge" / "openresty" / "lua" / "proxy.lua").read_text()
+    identity = (repo_root / "edge" / "openresty" / "lua" / "identity.lua").read_text()
     metrics = (repo_root / "edge" / "openresty" / "lua" / "metrics.lua").read_text()
     error_page = (repo_root / "edge" / "openresty" / "lua" / "error_page.lua").read_text()
     router = (repo_root / "edge" / "openresty" / "lua" / "router.lua").read_text()
@@ -16,14 +17,15 @@ def test_stage7_schema_and_request_id_contract():
     assert "config_schema_unsupported" in loader
     assert "decoded.schema_version == nil" in loader
     assert "X-CDNLITE-Request-Id" in proxy
-    assert "os.getenv('EDGE_ID')" in proxy
+    assert "identity.apply()" in proxy
+    assert "os.getenv('EDGE_ID')" in identity
     assert "request_id" in metrics
     assert "cache_status" in metrics
     assert "security_event_type" in metrics
     assert "security_action" in metrics
     assert "blocked_by_waf" in router
     assert "rate_limited" in router
-    assert "X-CDNLITE-Edge" in router
+    assert "identity.apply()" in router
     assert "lua_shared_dict cdnlite_limits" in nginx
     assert "X-CDNLITE-Request-Id" in error_page
-    assert "X-CDNLITE-Edge" in error_page
+    assert "identity.apply()" in error_page

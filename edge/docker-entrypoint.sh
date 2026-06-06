@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if [ "${EDGE_ID:-}" = "" ] && [ "${DEV_MODE:-0}" != "1" ]; then
+  echo "EDGE_ID is required unless DEV_MODE=1" >&2
+  exit 1
+fi
+
 ttl="${CDNLITE_CACHE_DEFAULT_TTL:-60s}"
 case "$ttl" in
   *[!0-9smhdw]*|'')

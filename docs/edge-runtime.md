@@ -42,7 +42,7 @@ Nginx forwards:
 - `X-Forwarded-For: $proxy_add_x_forwarded_for`
 - `X-Forwarded-Proto: $scheme`
 
-Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (from `EDGE_ID`, fallback `edge-local-1`), `X-CDNLITE-Domain`, `X-CDNLITE-Request-Id`, and `X-CDNLITE-Cache`.
+Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (the configured `EDGE_ID`), `X-CDNLITE-Domain`, `X-CDNLITE-Request-Id`, and `X-CDNLITE-Cache`. OpenResty refuses to start with an empty identity unless `DEV_MODE=1`; the development fallback is `unknown`.
 `X-CDNLITE-Cache` reflects the upstream cache status when OpenResty exposes one, and falls back to `UNKNOWN` when the upstream status is empty.
 
 ## Lua Modules
@@ -50,6 +50,7 @@ Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (from `EDGE_ID`, fall
 | Module | Purpose |
 |---|---|
 | `config_loader.lua` | Reads and decodes `/var/lib/cdnlite/config.json`; enforces `schema_version=1`; falls back to version 0 empty hosts. |
+| `identity.lua` | Reads `EDGE_ID` once and supplies the shared response, metric, and security-event identity. |
 | `router.lua` | Host lookup, geo upstream selection, and request-id context setup. |
 | `proxy.lua` | Sets `$target_upstream`, cache bypass variables, per-rule cache TTL, and edge/domain headers. |
 | `metrics.lua` | Adds `X-CDNLITE` and appends NDJSON metrics on log phase, including `request_id` and `cache_status`. |

@@ -5,6 +5,16 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+source "$ROOT/ci/lib.sh"
+
+CDNLITE_API_TOKEN="static-token"
+ADMIN_SESSION_TOKEN="session-token"
+auth_args="$(api_auth_header_args)"
+if [ "$auth_args" != "--oauth2-bearer session-token" ]; then
+  printf 'FAIL: API auth helper should prefer the verified admin session token\n' >&2
+  exit 1
+fi
+
 mkdir -p "$TMP_DIR/bin" "$TMP_DIR/agent"
 
 cat >"$TMP_DIR/bin/curl" <<'SH'

@@ -76,7 +76,7 @@ http_request() {
 }
 
 api_auth_header_args() {
-  local token="${CDNLITE_API_TOKEN:-${ADMIN_SESSION_TOKEN:-}}"
+  local token="${ADMIN_SESSION_TOKEN:-${CDNLITE_API_TOKEN:-}}"
   if [[ -n "$token" ]]; then
     printf -- "--oauth2-bearer %s" "$token"
   fi

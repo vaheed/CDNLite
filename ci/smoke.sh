@@ -33,6 +33,10 @@ record_step PASS "core-health" "core health endpoint reachable"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 record_step PASS "edge-health" "edge health endpoint reachable"
 
+edge_identity_header="$(curl -sSI "$EDGE_URL/" | tr -d '\r' | awk -F': ' 'tolower($1) == "x-cdnlite-edge" {print $2; exit}')"
+assert_eq "$edge_identity_header" "${EDGE_ID:-edge-local-1}" "edge response identity header mismatch"
+record_step PASS "edge-identity-header" "edge response exposes configured EDGE_ID"
+
 docker compose ps dashboard | grep -q "Up"
 record_step PASS "dashboard-container-running" "dashboard service is up"
 

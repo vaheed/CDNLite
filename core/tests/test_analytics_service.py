@@ -121,6 +121,7 @@ $aggregateRows = $pdo->query(
     "SELECT cache_status, SUM(requests_count) AS count, SUM(bytes_out) AS bytes_out
      FROM usage_aggregates
      WHERE domain_id = '" . $domainId . "'
+       AND bucket = 'minute'
      GROUP BY cache_status
      ORDER BY cache_status"
 )->fetchAll(PDO::FETCH_ASSOC);
@@ -142,6 +143,6 @@ echo json_encode([
     assert out["analytics"]["hit_ratio"] == 1.0
 
     aggregates = {row["cache_status"]: row for row in out["aggregates"]}
-    assert aggregates["HIT"]["count"] == 7
-    assert aggregates["BYPASS"]["count"] == 3
-    assert aggregates["UNKNOWN"]["count"] == 2
+    assert int(aggregates["HIT"]["count"]) == 7
+    assert int(aggregates["BYPASS"]["count"]) == 3
+    assert int(aggregates["UNKNOWN"]["count"]) == 2

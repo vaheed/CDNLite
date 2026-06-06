@@ -14,7 +14,8 @@
 | Phase 1 — Schema and naming reset | Complete | Clean Compose rebuild, 33 core tests, 8 dashboard tests, smoke, and E2E passed |
 | Phase 2 — Cache metrics fix | Complete | Focused pytest, dashboard Vitest, and dashboard build passed; Docker-backed smoke/E2E could not run in this sandbox |
 | Phase 3 — Rate limit full CRUD | Complete | PHP lint, shell syntax, focused pytest, dashboard typecheck/build, Compose smoke, and E2E passed |
-| Phase 4+ | Planned | Not started |
+| Phase 4 — Edge identity fix | Complete | PHP/shell lint, focused contracts, dashboard build, agent checks, Compose smoke, and E2E passed |
+| Phase 5+ | Planned | Not started |
 
 ## Rules
 
@@ -238,6 +239,16 @@ Add full CRUD for rate limit rules in CDNLite.
 ---
 
 ## Phase 4 — Edge identity fix
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Added one shared OpenResty identity source and preserved `EDGE_ID` in Nginx workers.
+- Applied the configured identity to every response, usage metric, and security event.
+- Rejected empty edge identities at runtime unless `DEV_MODE=1`.
+- Added API identity health status and a warning badge in the Edge Nodes identity column.
+- Verified the response header and persisted `usage_rollups.edge_node_id` through Compose smoke and E2E.
 
 **Goal:** `X-CDNLITE-Edge` always shows the real configured edge ID. Metrics are attributed correctly.
 

@@ -762,6 +762,9 @@ edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k
 assert_http_status "$HTTP_CODE" "200" "usage ingest failed"
 ingested="$(json_get "$HTTP_BODY" '.ingested')"
 assert_eq "$ingested" "1" "usage first ingest should be 1"
+rollup_edge_id="$(db_query "SELECT edge_node_id FROM usage_rollups WHERE domain_id='${DOMAIN_ID}' ORDER BY ts DESC LIMIT 1;")"
+assert_eq "$rollup_edge_id" "$EDGE_ID" "usage rollup edge identity mismatch"
+record_step PASS "usage-edge-identity" "usage rollup attributed to configured EDGE_ID"
 
 edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-k1\",\"items\":[{\"ts\":60,\"domain_id\":\"${DOMAIN_ID}\",\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":10,\"bytes_in\":100,\"bytes_out\":500,\"status\":200}]}"
 assert_http_status "$HTTP_CODE" "200" "usage duplicate ingest call failed"
