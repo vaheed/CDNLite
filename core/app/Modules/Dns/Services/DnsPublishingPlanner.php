@@ -62,24 +62,21 @@ class DnsPublishingPlanner
         ];
         $settings ??= $this->settings((string) $domain['id']);
         $mode = (string) ($settings['routing_mode'] ?? 'geo');
-        
-        // For proxied records (except dns_only mode), use ALIAS for apex and CNAME for non-apex
-        if (($record['proxied'] ?? false) === true && $mode !== 'dns_only') {
-            $isApex = $this->isApex((string) $record['name'], (string) $domain['domain']);
-            $baseDomain = rtrim(strtolower((string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net')), '.');
-            $zonePrefix = strtolower((string) (getenv('CDNLITE_EDGE_ZONE_PREFIX') ?: 'edge'));
-            $geoTarget = 'geo.' . $zonePrefix . '.' . $baseDomain . '.';
-            
-            if ($isApex) {
-                return $this->result('ALIAS', $geoTarget, $mode);
-            }
-            return $this->result('CNAME', $geoTarget, $mode);
-        }
-        
-        // For non-proxied records, return origin type
         if (($record['proxied'] ?? false) !== true || $mode === 'dns_only') {
             return $this->result($origin['type'], $origin['content'], $mode);
         }
+
+        // For proxied records (except dns_only which we handled above), use ALIAS for apex and CNAME for non-apex
+        $isApex = $this->isApex((string) $record['name'], (string) $domain['domain']);
+        $baseDomain = rtrim(strtolower((string) (getenv('CDNLITE_EDGE_BASE_DOMAIN') ?: 'vaheed.net')), '.');
+        $zonePrefix = strtolower((string) (getenv('CDNLITE_EDGE_ZONE_PREFIX') ?: 'edge'));
+        $geoTarget = 'geo.' . $zonePrefix . '.' . $baseDomain . '.';
+
+        if ($isApex) {
+            // Apex records use ALIAS when proxied
+            return $this->result('ALIAS', $geoTarget, $mode);
+        }
+        return $this->result('CNAME', $geoTarget, $mode);
     }
 
     private function result(string $type, string $content, string $mode, ?string $warning = null): array
