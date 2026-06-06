@@ -128,8 +128,10 @@ services:
         VITE_DASHBOARD_REFRESH_SECONDS: ${VITE_DASHBOARD_REFRESH_SECONDS:-15}
         VITE_REQUEST_TIMEOUT_MS: ${VITE_REQUEST_TIMEOUT_MS:-15000}
     depends_on:
-      - core
-      - edge
+      core:
+        condition: service_started
+      edge:
+        condition: service_started
     ports:
       - "${DASHBOARD_PORT:-8082}:80"
     restart: unless-stopped

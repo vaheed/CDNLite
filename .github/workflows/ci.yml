@@ -125,7 +125,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    needs: smoke
+    needs: test
     env:
       EDGE_AGENT_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
@@ -167,7 +167,7 @@ jobs:
 
   e2e-powerdns:
     runs-on: ubuntu-latest
-    needs: e2e
+    needs: test
     env:
       EDGE_AGENT_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
@@ -212,9 +212,9 @@ jobs:
         if: always()
         run: docker compose --profile powerdns down -v
 
-  release_check:
+  frontend-e2e:
     runs-on: ubuntu-latest
-    needs: e2e-powerdns
+    needs: test
     env:
       EDGE_AGENT_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
@@ -222,19 +222,47 @@ jobs:
       POWERDNS_STRICT: 0
     steps:
       - uses: actions/checkout@v6
-      - name: Install helpers
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: dash/package-lock.json
+      - name: Install dashboard dependencies
+        working-directory: dash
+        run: npm ci
+      - name: Install Chromium
+        working-directory: dash
+        run: npx playwright install --with-deps chromium
       - name: Build and start stack
         run: docker compose up -d --build
-      - name: Release check
-        run: ./ci/release_check.sh
+      - name: Browser E2E
+        working-directory: dash
+        run: npm run test:e2e
+      - name: Upload browser E2E artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-e2e-report
+          path: |
+            dash/playwright-report/
+            dash/test-results/
+          if-no-files-found: ignore
+      - name: Service logs
+        if: always()
+        run: docker compose logs --no-color
       - name: Teardown
         if: always()
         run: docker compose down -v
 
+  release_gate:
+    runs-on: ubuntu-latest
+    needs: [smoke, e2e, e2e-powerdns, frontend-e2e]
+    steps:
+      - run: echo "All release verification jobs passed."
+
   build_and_push:
     runs-on: ubuntu-latest
-    needs: release_check
+    needs: release_gate
     if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v6
@@ -251,7 +279,10 @@ jobs:
         with:
           context: ./core
           file: ./core/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=core
+          cache-to: type=gha,mode=max,scope=core
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-core:latest
@@ -259,7 +290,10 @@ jobs:
         with:
           context: ./edge
           file: ./edge/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=edge
+          cache-to: type=gha,mode=max,scope=edge
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge:latest
@@ -267,7 +301,10 @@ jobs:
         with:
           context: ./edge
           file: ./edge/agent/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=edge-agent
+          cache-to: type=gha,mode=max,scope=edge-agent
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge-agent:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-edge-agent:latest
@@ -275,7 +312,10 @@ jobs:
         with:
           context: ./dash
           file: ./dash/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=dashboard
+          cache-to: type=gha,mode=max,scope=dashboard
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-dashboard:sha-${{ github.sha }}
             ghcr.io/${{ env.OWNER_LC }}/cdnlite-dashboard:latest

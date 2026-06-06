@@ -9,7 +9,8 @@
 | `core/tests/test_contract.py` | Basic response-shape contract example. |
 | `core/tests/test_edge_auth_contract.py` | Edge auth missing-token and replay behavior. |
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
-| `dash/src/**/*.test.ts` | Dashboard env parsing, URL building, HMAC signing, formatting, diagnostics, field tooltip UX, and key Vue form behavior. |
+| `dash/src/**/*.test.ts` | Dashboard env parsing, session restoration, URL building, HMAC signing, formatting, diagnostics, and Vue component behavior. |
+| `dash/tests/e2e/*.spec.ts` | Playwright browser workflows, including login, password visibility, and session restoration after refresh. |
 | `ci/smoke.sh` | Stack health, DB connectivity, schema (including stage-9 security tables/columns), edge container, config path, and dashboard container/SPA health. |
 | `ci/e2e.sh` | Full API, admin bootstrap/user creation/login, Vue dashboard SPA runtime/fallback/cache checks, backend dashboard removal check, DNS, PowerDNS, edge proxy, edge auth, usage, cleanup workflow, API auth coverage, stage-9 security pack checks (WAF v2/rate-limit v2/origin shield/security events), and stage-10 SSL manual-import + TLS proxy checks. Rate-limit bursts exceed twice the configured per-minute limit so assertions remain stable when requests cross a minute boundary. |
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |
@@ -30,6 +31,7 @@ bash -n ci/e2e.sh
 bash -n ci/lib.sh
 pytest -q core/tests
 cd dash && npm ci && npm run typecheck && npm test && npm run build
+cd dash && npx playwright install chromium && npm run test:e2e
 ```
 
 Expected `pytest` output is similar to:
@@ -54,14 +56,17 @@ core logs from agent polling are ignored.
 
 ## GitHub Actions
 
-`.github/workflows/ci.yml` runs jobs in this order:
+`.github/workflows/ci.yml` uses a fast test gate, then runs the stack suites in parallel:
 
 1. `test`: PHP lint, shell syntax checks, marker scan, dashboard `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `pytest -q core/tests` with PostgreSQL service.
-2. `smoke`: starts Compose and runs `ci/smoke.sh`, including dashboard container health and SPA index checks.
-3. `e2e`: starts Compose and runs `ci/e2e.sh`, including dashboard SPA fallback and static asset cache checks.
-4. `e2e-powerdns`: starts Compose with `--profile powerdns`, enables strict PowerDNS sync, and runs e2e against the mock server.
-5. `release_check`: starts Compose and runs release checks.
-6. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard images to GHCR.
+2. `smoke`, `e2e`, `e2e-powerdns`, and `frontend-e2e` start independently after `test`.
+3. `frontend-e2e` installs Chromium and runs the Playwright dashboard suite against Compose.
+4. `release_gate` succeeds only after all four stack jobs pass.
+5. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard multi-platform images for `linux/amd64` and `linux/arm64` to GHCR.
+
+The publish steps use GitHub Actions build caches scoped per image. Independent
+stack jobs intentionally do not depend on one another, reducing the critical
+path while keeping each job isolated on its own runner and Compose project.
 
 CI uses only the root `docker-compose.yml`. The plain e2e job sets
 `EDGE_AGENT_IDLE=1`, `CDNLITE_CACHE_DEFAULT_TTL=1s`, and PowerDNS off. The

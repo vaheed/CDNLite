@@ -19,7 +19,7 @@ It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest
 - Automatic edge public IPv4 discovery with platform-owned PowerDNS edge-zone routing.
 - Edge-authenticated endpoints using bearer token, edge ID, timestamp, nonce, and HMAC signature.
 - Usage ingest with optional idempotency key, stale-domain filtering, and minute/hour/day aggregate rebuilds.
-- Client-only Vue admin dashboard for operations, domain management, troubleshooting, and edge developer tools.
+- Client-only Vue admin dashboard with tab-scoped session persistence for operations, domain management, troubleshooting, and edge developer tools.
 - Docker Compose local stack and CI smoke/e2e scripts.
 
 ## Screenshot
@@ -121,7 +121,7 @@ docker compose exec core php artisan cdn:admin:create \
 
 The SPA logs in with `/api/v1/admin/login` and stores the returned bearer session token in browser memory only. The removed server-rendered `/dashboard/*` backend routes now return JSON `404`.
 
-Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any local bootstrap credentials, and place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA has local admin sessions but does not implement production RBAC, and edge developer tokens are kept in session memory only.
+Production security note: set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`, replace any local bootstrap credentials, and place the dashboard and CDNLite API behind real authentication at the reverse proxy or platform level. The SPA stores only its session token in tab-scoped `sessionStorage`; admin passwords are never stored. It does not implement production RBAC, and edge developer tokens are kept in session memory only.
 
 ## Environment Templates
 

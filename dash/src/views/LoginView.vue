@@ -12,11 +12,17 @@
           v-model="username"
           :help="{ label: 'Username', what: 'Admin account username.', works: 'Created with php artisan cdn:admin:create.', example: 'admin', required: true }"
         />
-        <TextInput
-          v-model="password"
-          type="password"
-          :help="{ label: 'Password', what: 'Admin account password.', works: 'Creates an in-memory dashboard session token.', example: 'Use your CLI-created password.', required: true }"
-        />
+        <div>
+          <TextInput
+            v-model="password"
+            :type="showPassword ? 'text' : 'password'"
+            :help="{ label: 'Password', what: 'Admin account password.', works: 'Creates a browser-session token. The password itself is never stored.', example: 'Use your CLI-created password.', required: true }"
+          />
+          <label class="mt-2 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+            <input v-model="showPassword" type="checkbox" />
+            Show password
+          </label>
+        </div>
         <p v-if="auth.error" class="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{{ auth.error }}</p>
         <button class="button-primary w-full justify-center" type="submit" :disabled="auth.loading">
           {{ auth.loading ? 'Signing in...' : 'Sign in' }}
@@ -24,7 +30,7 @@
       </form>
 
       <p class="mt-5 text-xs leading-5 text-slate-500 dark:text-slate-400">
-        Local quickstart uses <code>admin</code> / <code>admin</code> when bootstrap admin is enabled. Session tokens stay in browser memory only.
+        Local quickstart uses <code>admin</code> / <code>admin</code> when bootstrap admin is enabled. Session tokens persist only for the current browser tab.
       </p>
     </section>
   </main>
@@ -39,6 +45,7 @@ import { useAuthStore } from '@/stores/auth';
 const auth = useAuthStore();
 const username = ref('');
 const password = ref('');
+const showPassword = ref(false);
 
 async function submit() {
   await auth.login(username.value, password.value);
