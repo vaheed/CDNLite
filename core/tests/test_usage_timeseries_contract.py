@@ -25,5 +25,6 @@ def test_usage_cli_and_frontend_e2e_seed_cache_analytics():
     assert "frontend-analytics-" in seed
     assert "pg_isready" in seed
     assert "php artisan cdn:migrate" in seed
+    assert "TRUNCATE TABLE usage_aggregates, usage_ingest_keys, usage_rollups" in seed
     for expected in ["'Requests', '30'", "'HIT', '17'", "'BYPASS', '3'", "'UNKNOWN', '1'"]:
         assert expected in spec

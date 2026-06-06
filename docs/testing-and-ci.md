@@ -87,6 +87,10 @@ container as well so host port timing does not hide runtime failures.
 Playwright login helpers wait for the authenticated OPS Dashboard before
 navigating to a protected page. Tests must not click Sign in and immediately
 issue a second `page.goto()`, because that can cancel the in-flight login request.
+The helper waits for the login API response and allows extra time for the
+single-process development server when edge-agent polling is active.
+For hosts with a system Chromium but no Playwright browser download, set
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chromium`.
 
 `ci/seed_frontend_e2e.sh` creates `Analytics Alpha` and `Analytics Beta`, ingests
 distinct HIT/MISS/BYPASS/UNKNOWN rows through `cdn:usage:ingest`, and rebuilds
@@ -94,7 +98,9 @@ minute/hour/day aggregates. Browser tests assert exact non-zero global totals,
 domain isolation, cache ratios, and bucket changes; zero-only analytics must fail.
 The seed waits for PostgreSQL and runs `cdn:migrate` first so schema initialization
 cannot race the direct fixture insert after `docker compose up -d`. Migration and
-ingest output remains visible in CI so PHP/database failures are diagnosable.
+ingest output remains visible in CI so PHP/database failures are diagnosable. It
+also resets usage rollups, aggregates, and idempotency keys so exact global totals
+do not depend on tests or traffic that ran earlier in the same stack.
 
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for
