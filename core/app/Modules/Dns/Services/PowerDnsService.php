@@ -2,22 +2,29 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Modules\Settings\Repositories\SettingsRepository;
+
 class PowerDnsService
 {
+    public function __construct(private ?SettingsRepository $settings = null)
+    {
+        $this->settings ??= new SettingsRepository();
+    }
+
     public function isEnabled(): bool
     {
-        return $this->envBool('POWERDNS_ENABLED', false);
+        return (bool) $this->settings->value('platform.powerdns', 'enabled');
     }
 
     public function isStrict(): bool
     {
-        return $this->envBool('POWERDNS_STRICT', false);
+        return (bool) $this->settings->value('platform.powerdns', 'strict');
     }
 
     public function isConfigured(): bool
     {
-        return trim((string) getenv('POWERDNS_API_URL')) !== ''
-            && trim((string) getenv('POWERDNS_API_KEY')) !== '';
+        return trim((string) $this->settings->value('platform.powerdns', 'api_url')) !== ''
+            && trim((string) $this->settings->value('platform.powerdns', 'api_key')) !== '';
     }
 
     public function healthCheck(): array
@@ -26,8 +33,8 @@ class PowerDnsService
             return ['ok' => false, 'error' => 'powerdns_missing_config', 'status' => 0];
         }
 
-        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
-        $serverId = rawurlencode((string) (getenv('POWERDNS_SERVER_ID') ?: 'localhost'));
+        $apiUrl = rtrim((string) $this->settings->value('platform.powerdns', 'api_url'), '/');
+        $serverId = rawurlencode((string) $this->settings->value('platform.powerdns', 'server_id'));
         $result = $this->request('GET', sprintf('%s/api/v1/servers/%s', $apiUrl, $serverId), null);
         $status = (int) ($result['status'] ?? 0);
         return [
@@ -115,7 +122,7 @@ class PowerDnsService
             return $existing;
         }
 
-        $kind = strtoupper((string) (getenv('POWERDNS_ZONE_KIND') ?: 'NATIVE'));
+        $kind = strtoupper((string) $this->settings->value('platform.powerdns', 'zone_kind'));
         if (!in_array($kind, ['NATIVE', 'MASTER', 'SLAVE'], true)) {
             $kind = 'NATIVE';
         }
@@ -156,19 +163,15 @@ class PowerDnsService
 
     private function zonesBaseUrl(): string
     {
-        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
-        $serverId = (string) (getenv('POWERDNS_SERVER_ID') ?: 'localhost');
+        $apiUrl = rtrim((string) $this->settings->value('platform.powerdns', 'api_url'), '/');
+        $serverId = (string) $this->settings->value('platform.powerdns', 'server_id');
         return sprintf('%s/api/v1/servers/%s/zones', $apiUrl, rawurlencode($serverId));
     }
 
     private function zoneNameservers(): array
     {
-        $raw = trim((string) (getenv('POWERDNS_ZONE_NAMESERVERS') ?: ''));
-        if ($raw === '') {
-            return ['ns1.' . (string) (getenv('POWERDNS_DEFAULT_BASE_DOMAIN') ?: 'local.')];
-        }
-
-        $items = array_map('trim', explode(',', $raw));
+        $configured = $this->settings->value('platform.nameservers', 'hostnames');
+        $items = is_array($configured) ? $configured : explode(',', (string) $configured);
         $filtered = [];
         foreach ($items as $item) {
             if ($item === '') {
@@ -181,8 +184,8 @@ class PowerDnsService
 
     private function request(string $method, string $url, ?array $payload): array
     {
-        $apiUrl = rtrim((string) getenv('POWERDNS_API_URL'), '/');
-        $apiKey = (string) getenv('POWERDNS_API_KEY');
+        $apiUrl = rtrim((string) $this->settings->value('platform.powerdns', 'api_url'), '/');
+        $apiKey = (string) $this->settings->value('platform.powerdns', 'api_key');
         if ($apiUrl === '' || $apiKey === '') {
             return ['ok' => false, 'error' => 'powerdns_missing_config', 'status' => 0, 'response' => ''];
         }
@@ -266,13 +269,4 @@ class PowerDnsService
         return $value;
     }
 
-    private function envBool(string $key, bool $default): bool
-    {
-        $value = getenv($key);
-        if ($value === false) {
-            return $default;
-        }
-        $value = strtolower(trim((string) $value));
-        return in_array($value, ['1', 'true', 'yes', 'on'], true);
-    }
 }

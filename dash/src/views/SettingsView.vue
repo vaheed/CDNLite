@@ -1,7 +1,106 @@
-<template><section class="space-y-6"><div><h1 class="text-3xl font-black text-slate-950 dark:text-white">Settings</h1><p class="text-slate-600 dark:text-slate-400">Runtime config, feature flags, theme, table density, and connection tests.</p></div><div class="card p-5"><dl class="grid gap-4 md:grid-cols-2"><div v-for="item in items" :key="item.label"><dt class="text-sm text-slate-500 dark:text-slate-400">{{ item.label }}</dt><dd class="font-mono text-sm text-slate-950 dark:text-white">{{ item.value }}</dd></div></dl><div class="mt-5 flex flex-wrap gap-3"><button class="button-secondary" @click="testCore">Test core</button><button class="button-secondary" @click="testEdge">Test edge</button><button class="button-secondary" @click="ui.toggleDarkMode">Toggle theme</button><button class="button-secondary" @click="edge.clear">Clear session edge credentials</button></div><pre class="mt-4 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">{{ JSON.stringify(result, null, 2) }}</pre></div><div class="card p-5 text-sm text-amber-700 dark:text-amber-200">Production security note: put this SPA and the CDNLite API behind real authentication at the reverse proxy or platform level. This client-only dashboard does not implement production RBAC.</div></section></template>
+<template>
+  <section class="space-y-6">
+    <div>
+      <h1 class="text-3xl font-black text-slate-950 dark:text-white">Settings</h1>
+      <p class="text-slate-600 dark:text-slate-400">Database-backed operational configuration. Environment variables remain fallback defaults.</p>
+    </div>
+
+    <div class="card overflow-hidden">
+      <div class="flex flex-wrap border-b border-slate-200 dark:border-slate-700">
+        <button v-for="tab in tabs" :key="tab.key" class="px-4 py-3 text-sm font-bold" :class="active === tab.key ? 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-200' : 'text-slate-500'" @click="active = tab.key">{{ tab.label }}</button>
+      </div>
+      <div class="space-y-6 p-5">
+        <div v-if="loading" class="text-sm text-slate-500">Loading settings...</div>
+        <template v-else-if="group">
+          <SettingsSection :fields="group.fields" :values="draft" @change="setValue" />
+          <div class="flex flex-wrap items-center gap-3">
+            <button class="button-primary" :disabled="!dirty || saving" @click="save">{{ saving ? 'Saving...' : 'Save changes' }}</button>
+            <button v-if="active === 'platform.powerdns'" class="button-secondary" :disabled="testing" @click="testPowerDns">{{ testing ? 'Testing...' : 'Test PowerDNS connection' }}</button>
+            <span v-if="message" class="text-sm" :class="messageOk ? 'text-emerald-600' : 'text-rose-600'">{{ message }}</span>
+          </div>
+          <div>
+            <h2 class="mb-3 text-lg font-black">Audit log</h2>
+            <div v-if="group.audit.length === 0" class="text-sm text-slate-500">No changes recorded for this group.</div>
+            <ol v-else class="space-y-3">
+              <li v-for="entry in group.audit" :key="entry.id" class="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+                <div class="font-bold">{{ entry.key.split('.').at(-1)?.replaceAll('_', ' ') }}</div>
+                <div class="text-slate-500">{{ entry.actor || 'unknown actor' }} · {{ new Date(entry.created_at * 1000).toLocaleString() }}</div>
+              </li>
+            </ol>
+          </div>
+        </template>
+      </div>
+    </div>
+  </section>
+</template>
+
 <script setup lang="ts">
-import { computed, ref } from 'vue'; import { runtimeConfig, hasApiToken } from '@/lib/config/env'; import { healthApi } from '@/lib/api/health'; import { useUiStore } from '@/stores/ui'; import { useEdgeSessionStore } from '@/stores/edgeSession';
-const ui = useUiStore(); const edge = useEdgeSessionStore(); const result = ref<unknown>(null);
-const items = computed(() => [{ label: 'Core URL', value: runtimeConfig.coreUrl }, { label: 'Edge URL', value: runtimeConfig.edgeUrl }, { label: 'App name', value: runtimeConfig.appName }, { label: 'Request timeout', value: `${runtimeConfig.requestTimeoutMs} ms` }, { label: 'Refresh interval', value: `${runtimeConfig.dashboardRefreshSeconds} s` }, { label: 'API token', value: hasApiToken() ? 'configured' : 'not configured' }, { label: 'Edge dev tools', value: String(runtimeConfig.edgeDevTools) }, { label: 'Usage simulator', value: String(runtimeConfig.usageSimulator) }, { label: 'SSL tools', value: String(runtimeConfig.sslTools) }, { label: 'Security event viewer', value: String(runtimeConfig.securityEventViewer) }]);
-async function testCore() { result.value = await Promise.allSettled([healthApi.coreHealth(), healthApi.coreReady()]); } async function testEdge() { result.value = await healthApi.edgeReady(); }
+import { computed, onMounted, ref, watch } from 'vue';
+import SettingsSection from '@/components/settings/SettingsSection.vue';
+import { settingsApi } from '@/lib/api/settings';
+import type { SettingsGroup } from '@/types';
+
+const tabs = [
+  { key: 'platform.powerdns', label: 'PowerDNS' },
+  { key: 'platform.nameservers', label: 'Nameservers' },
+  { key: 'platform.edge_dns', label: 'Edge DNS' },
+  { key: 'platform.cache', label: 'Cache Defaults' },
+  { key: 'platform.analytics', label: 'Analytics' },
+  { key: 'platform.security', label: 'Security' },
+];
+const active = ref(tabs[0].key);
+const group = ref<SettingsGroup | null>(null);
+const draft = ref<Record<string, unknown>>({});
+const changed = ref<Record<string, unknown>>({});
+const loading = ref(false);
+const saving = ref(false);
+const testing = ref(false);
+const message = ref('');
+const messageOk = ref(true);
+const dirty = computed(() => Object.keys(changed.value).length > 0);
+
+async function load() {
+  loading.value = true;
+  message.value = '';
+  try {
+    group.value = await settingsApi.group(active.value);
+    draft.value = { ...group.value.values };
+    changed.value = {};
+  } finally {
+    loading.value = false;
+  }
+}
+function setValue(key: string, value: unknown) {
+  draft.value = { ...draft.value, [key]: value };
+  changed.value = { ...changed.value, [key]: value };
+}
+async function save() {
+  saving.value = true;
+  try {
+    const validation = await settingsApi.validate(active.value, changed.value);
+    if (!validation.valid) throw new Error(Object.values(validation.errors).join(', '));
+    group.value = await settingsApi.update(active.value, changed.value);
+    draft.value = { ...group.value.values };
+    changed.value = {};
+    messageOk.value = true;
+    message.value = 'Settings saved.';
+  } catch (error) {
+    messageOk.value = false;
+    message.value = error instanceof Error ? error.message : 'Unable to save settings.';
+  } finally {
+    saving.value = false;
+  }
+}
+async function testPowerDns() {
+  testing.value = true;
+  try {
+    const result = await settingsApi.testPowerDns();
+    messageOk.value = result.ok;
+    message.value = result.ok ? 'PowerDNS connection succeeded.' : `PowerDNS connection failed (${result.error || result.status}).`;
+  } finally {
+    testing.value = false;
+  }
+}
+watch(active, load);
+onMounted(load);
 </script>

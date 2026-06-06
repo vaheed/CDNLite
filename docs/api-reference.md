@@ -603,3 +603,17 @@ Body is optional. Use `{"domain_id":"11111111-1111-4111-8111-111111111111"}` for
 ```
 
 Invalid `domain_id` returns `422 {"error":"domain_id_must_be_non_empty_string"}`.
+# Platform settings
+
+Operational settings are authenticated admin endpoints. Database values override the documented
+environment variables; unset database values continue to use environment defaults.
+
+- `GET /api/v1/settings` lists all setting groups.
+- `GET /api/v1/settings/{group}` returns values, field metadata, and redacted audit history.
+- `PATCH /api/v1/settings/{group}` accepts `{ "values": { ... } }`.
+- `POST /api/v1/settings/validate` validates `{ "group": "...", "values": { ... } }`.
+- `POST /api/v1/settings/test/powerdns` tests the effective PowerDNS configuration.
+
+Supported groups are `platform.powerdns`, `platform.nameservers`, `platform.edge_dns`,
+`platform.cache`, `platform.analytics`, and `platform.security`. Secret values are never returned;
+their response shape is `{ "configured": true, "updated_at": 1710000000 }`.

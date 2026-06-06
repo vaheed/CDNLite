@@ -39,7 +39,7 @@ class Router
     {
         $regex = preg_replace_callback(
             '/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/',
-            static fn (array $m): string => '(?P<' . $m[1] . '>[0-9a-fA-F-]+)',
+            static fn (array $m): string => '(?P<' . $m[1] . '>[^\/]+)',
             $pattern
         );
         if (!is_string($regex)) {

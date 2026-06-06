@@ -16,7 +16,8 @@
 | Phase 3 — Rate limit full CRUD | Complete | PHP lint, shell syntax, focused pytest, dashboard typecheck/build, Compose smoke, and E2E passed |
 | Phase 4 — Edge identity fix | Complete | PHP/shell lint, focused contracts, dashboard build, agent checks, Compose smoke, and E2E passed |
 | Phase 5 — Readiness API and clickable cards | Complete | PHP lint, focused pytest, dashboard Vitest, typecheck, and build passed |
-| Phase 6+ | Planned | Not started |
+| Phase 6 — Settings dashboard | Complete | PHP lint, core contracts, dashboard typecheck/build |
+| Phase 7+ | Planned | Not started |
 
 ## Rules
 
@@ -375,6 +376,16 @@ Add structured readiness API and clickable cards to CDNLite.
 ---
 
 ## Phase 6 — Settings dashboard
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Added typed database-backed settings with environment fallback for six operational groups.
+- Added redacted secret responses and per-setting audit history with authenticated actor attribution.
+- Added authenticated settings list, group update, validation, and PowerDNS connection-test APIs.
+- Switched `PowerDnsService` to resolve configuration through the settings repository.
+- Replaced the read-only dashboard page with a tabbed editor, secret update controls, dirty tracking, connection testing, and audit history.
 
 **Goal:** Move operational config out of `.env` into a database-backed settings dashboard. Secrets stay masked.
 
@@ -1311,6 +1322,46 @@ Complete CDNLite CLI coverage for all admin operations.
 4. cdn:readiness:check output matches the /api/v1/readiness API response structure.
 5. Add pytest test for each command. Add smoke.sh that runs every command and asserts zero exit code.
 ```
+
+## Phase 21
+
+Implement origin configuration refactor in this repo.
+
+Requirements:
+1. Remove `origin_port` completely from UI, API, database/schema, validation, config, and docs.
+2. Origin connections must always autodetect the scheme/port:
+   - Try HTTPS on port 443 first.
+   - If 443 is closed or connection fails, fallback to HTTP on port 80.
+   - Do not allow custom origin ports.
+3. HTTPS origins must be accepted even when the origin certificate is invalid, self-signed, expired, or hostname-mismatched.
+   - Add an option similar to Cloudflare “Full” SSL mode: encrypt traffic to the origin but do not verify the origin certificate.
+   - Do not reject HTTPS origin connections because of certificate validation errors.
+   - Keep certificate verification disabled only for origin-to-proxy connections, not for external/client-facing TLS.
+4. Move `origin_host` into DNS record settings instead of keeping it as a separate global origin field.
+5. Each DNS record must support:
+   - `origin_host`
+   - `proxy` on/off
+   - autodetected origin scheme/status
+   - origin TLS verification mode: `verify` or `ignore`
+6. Move Geo Origins into DNS record options:
+   - Geo routing/origin selection should be configured per DNS record.
+   - Remove any separate/global Geo Origins configuration if it exists.
+7. Add migrations/backward compatibility:
+   - Existing `origin_host` values should be migrated into the related DNS record.
+   - Existing `origin_port` values should be ignored/removed.
+   - Old configs/API payloads using `origin_port` should return a clear validation error.
+8. Update all affected UI forms, API types, backend logic, tests, and documentation.
+9. Add tests for:
+   - 443 success uses HTTPS.
+   - 443 failure falls back to HTTP/80.
+   - HTTPS origin with invalid/self-signed cert is accepted when verification mode is `ignore`.
+   - HTTPS origin cert validation works when verification mode is `verify`.
+   - `origin_port` is rejected/removed.
+   - DNS record proxy on/off works.
+   - Geo origin options are stored and applied per DNS record.
+
+Keep the implementation clean, minimal, and consistent with the current project structure. Avoid unrelated refactors.
+
 
 ---
 

@@ -44,6 +44,11 @@ def test_domain_routes_replace_legacy_resource_routes():
     assert "/api/v1/sites" not in public_index
 
 
+def test_router_placeholders_accept_dotted_setting_group_names():
+    router = (REPO_ROOT / "core" / "app" / "Support" / "Router.php").read_text()
+    assert "[^\\/]+" in router
+
+
 def request_json(base_url: str, method: str, path: str, body: dict | None = None, headers: dict | None = None) -> tuple[int, dict]:
     data = None
     req_headers = {"Content-Type": "application/json"}

@@ -18,6 +18,8 @@ use App\Modules\Domains\Http\Controllers\DomainController;
 use App\Modules\Domains\Services\DomainService;
 use App\Modules\Health\Http\Controllers\ReadinessController;
 use App\Modules\Health\Services\ReadinessService;
+use App\Modules\Settings\Http\Controllers\SettingsController;
+use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\ApiAuth;
 use App\Support\Logger;
 use App\Support\Request;
@@ -192,6 +194,7 @@ $edgeAuth = new EdgeAuthService();
 $adminAuth = new AdminAuthService();
 $adminAuthController = new AdminAuthController($adminAuth);
 $readinessController = new ReadinessController(new ReadinessService());
+$settingsController = new SettingsController(new SettingsRepository());
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -257,6 +260,32 @@ $router->add('GET', '/ready', static function () use ($configService): array {
     return Response::json(['status' => $ok ? 'ok' : 'fail', 'checks' => $checks], $ok ? 200 : 503);
 });
 $router->add('GET', '/api/v1/readiness', static fn (): array => Response::json($readinessController->index()), auth: true);
+$router->add('GET', '/api/v1/settings', static fn (): array => Response::json($settingsController->index()), auth: true);
+$router->add('GET', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController): array {
+    try {
+        return Response::json($settingsController->show((string) $p['group']));
+    } catch (\InvalidArgumentException) {
+        return Response::json(['error' => 'settings_group_not_found'], 404);
+    }
+}, auth: true);
+$router->add('PATCH', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController, $adminAuth): array {
+    try {
+        $user = $adminAuth->userForToken(bearerToken());
+        $actor = $user['username'] ?? (ApiAuth::isConfigured() ? 'api-token' : 'anonymous-admin');
+        return Response::json($settingsController->update((string) $p['group'], $req->body, (string) $actor));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], 422);
+    }
+}, auth: true);
+$router->add('POST', '/api/v1/settings/validate', static function (Request $req) use ($settingsController): array {
+    try {
+        $result = $settingsController->validate($req->body);
+        return Response::json($result, $result['valid'] ? 200 : 422);
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], 422);
+    }
+}, auth: true);
+$router->add('POST', '/api/v1/settings/test/powerdns', static fn (): array => Response::json($settingsController->testPowerDns()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
 $router->add('POST', '/api/v1/domains', static fn (Request $req) => Response::json($domainController->store($req->body), 201), auth: true);

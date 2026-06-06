@@ -105,6 +105,16 @@ cp dash/.env.example dash/.env
 | `POWERDNS_ZONE_KIND` | `NATIVE` | core | No | Zone kind: `NATIVE`, `MASTER`, or `SLAVE`. | Not secret. |
 | `POWERDNS_ZONE_NAMESERVERS` | `ns1.local.` in example | core | No | Comma-separated nameservers. | Public DNS data. |
 | `POWERDNS_DEFAULT_BASE_DOMAIN` | `local.` | core fallback | No | Used only when nameservers are unset. | Public DNS data. |
+
+## Database-backed platform settings
+
+The Settings dashboard can override operational defaults without restarting core. Values in
+`platform_settings` take precedence over environment variables. Environment values remain the
+fallback when a setting has not been saved in the database.
+
+PowerDNS URL, API key, server ID, zone kind, enable/strict flags, and authoritative nameservers are
+effective immediately for subsequent PowerDNS operations. API keys are stored as secret settings:
+GET responses and audit entries expose only whether a value is configured, never the plaintext.
 | `CDNLITE_EDGE_BASE_DOMAIN` | `vaheed.net` | core | Yes for edge DNS | Platform-owned DNS base zone. Customer zones point into this zone. | Public DNS data. |
 | `CDNLITE_EDGE_ZONE_PREFIX` | `edge` | core | No | Prefix for edge hostnames below the base domain. | Public DNS data. |
 | `CDNLITE_EDGE_DEFAULT_TARGET` | `geo` | core | No | Default customer policy target label. | Public DNS data. |

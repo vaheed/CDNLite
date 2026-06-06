@@ -60,3 +60,15 @@ export interface OpsDiagnostic {
   totalRequests: number; bytesIn: number; bytesOut: number; cacheHitRatio: number;
   offlineEdges: number; recentPurges: number;
 }
+
+export interface SettingFieldDefinition { type: 'string' | 'bool' | 'int' | 'list'; secret: boolean; description?: string | null; }
+export interface SecretSettingValue { configured: boolean; updated_at?: number | null; }
+export interface SettingsAuditEntry { id: Id; key: string; actor?: string | null; old_value: unknown; new_value: unknown; created_at: number; }
+export interface SettingsGroup {
+  group: string;
+  values: Record<string, unknown | SecretSettingValue>;
+  fields: Record<string, SettingFieldDefinition>;
+  audit: SettingsAuditEntry[];
+}
+export interface SettingsIndex { groups: Record<string, SettingsGroup>; }
+export interface SettingsValidation { valid: boolean; errors: Record<string, string>; }
