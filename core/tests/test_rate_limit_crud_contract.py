@@ -19,12 +19,12 @@ def test_rate_limit_crud_routes_and_snapshot_collection_contract():
 
 
 def test_dashboard_rate_limit_crud_contract():
-    view = (REPO_ROOT / "dash" / "src" / "views" / "DomainFeatureView.vue").read_text()
+    view = (REPO_ROOT / "dash" / "src" / "views" / "domain-tabs" / "DomainRateLimitsTab.vue").read_text()
     api = (REPO_ROOT / "dash" / "src" / "lib" / "api" / "rateLimit.ts").read_text()
 
     assert "rateLimitApi.list" in view
     assert "rateLimitApi.create" in view
     assert "rateLimitApi.update" in view
     assert "rateLimitApi.delete" in view
-    assert "toggleRateLimit" in view
+    assert "Rate Limits" in view
     assert "/rate-limits/${ruleId}" in api

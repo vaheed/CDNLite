@@ -37,10 +37,10 @@ def test_routing_api_and_republish_contract():
 
 
 def test_dashboard_routing_controls_contract():
-    view = read("dash/src/views/DomainFeatureView.vue")
+    view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
     api = read("dash/src/lib/api/dns.ts")
 
-    assert "Save routing mode" in view
-    assert "Existing proxied DNS records will be republished" in view
-    assert "toggleDnsProxy" in view
+    assert "Save routing" in view
+    assert "saveRouting" in view
+    assert "async function toggle" in view
     assert "previewRouting" in api

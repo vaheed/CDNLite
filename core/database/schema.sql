@@ -405,6 +405,15 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
   UNIQUE(domain_id, hostname)
 );
 
+CREATE TABLE IF NOT EXISTS domain_ssl_settings (
+  domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
+  force_https BOOLEAN NOT NULL DEFAULT true,
+  min_tls_version TEXT NOT NULL DEFAULT '1.2',
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  CHECK (min_tls_version IN ('1.2', '1.3'))
+);
+
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS private_key_pem TEXT NULL;
 

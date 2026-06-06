@@ -67,6 +67,8 @@ Only this platform zone contains LUA records and health-checked A/AAAA pools. Ed
 
 Use **Settings → PowerDNS** to enable synchronization and strict failure handling.
 
+Domain DNS records and routing are managed from **Domains → Manage → DNS**. The global DNS feature page was removed in favor of domain-scoped tabs.
+
 PowerDNS settings:
 
 | Variable | Meaning |

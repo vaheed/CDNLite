@@ -148,6 +148,35 @@ class TrafficRulesService
         $s->execute([':domain_id' => $domainId]);
         return array_map([$this, 'cast'], $s->fetchAll());
     }
+    public function getSslSettings(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM domain_ssl_settings WHERE domain_id=:domain_id LIMIT 1');
+        $s->execute([':domain_id' => $domainId]);
+        $row = $s->fetch();
+        if ($row) {
+            return $this->cast((array) $row);
+        }
+        $now = time();
+        Database::pdo()->prepare(
+            'INSERT INTO domain_ssl_settings (domain_id,force_https,min_tls_version,created_at,updated_at)
+             VALUES (:domain_id,true,:min_tls_version,:created_at,:updated_at)'
+        )->execute([':domain_id' => $domainId, ':min_tls_version' => '1.2', ':created_at' => $now, ':updated_at' => $now]);
+        return $this->getSslSettings($domainId);
+    }
+    public function setSslSettings(string $domainId, array $input): array {
+        $current = $this->getSslSettings($domainId);
+        $forceHttps = array_key_exists('force_https', $input) ? !empty($input['force_https']) : (bool) $current['force_https'];
+        $minTlsVersion = (string) ($input['min_tls_version'] ?? $current['min_tls_version']);
+        Database::pdo()->prepare(
+            'UPDATE domain_ssl_settings SET force_https=:force_https,min_tls_version=:min_tls_version,updated_at=:updated_at
+             WHERE domain_id=:domain_id'
+        )->execute([
+            ':domain_id' => $domainId,
+            ':force_https' => (int) $forceHttps,
+            ':min_tls_version' => $minTlsVersion,
+            ':updated_at' => time(),
+        ]);
+        return $this->getSslSettings($domainId);
+    }
     public function requestSslCertificate(string $domainId, array $hostnames): array {
         $domain = $this->domainForSsl($domainId);
         if ($domain === null) {
@@ -484,7 +513,7 @@ class TrafficRulesService
         }
         return $payload;
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
             return $this->redirectV2ColumnsAvailable;

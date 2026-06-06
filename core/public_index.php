@@ -356,6 +356,8 @@ $router->add('PATCH', '/api/v1/domains/{domainId}/page-rules/{ruleId}', static f
 $router->add('DELETE', '/api/v1/domains/{domainId}/page-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deletePageRule((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/page-rules/test', static fn (Request $req, array $p) => Response::json($rulesController->testPageRule((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/ssl/certificates', static fn (Request $req, array $p) => Response::json($rulesController->listSslCertificates((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/ssl', static fn (Request $req, array $p) => Response::json($rulesController->getSslSettings((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/ssl/settings', static fn (Request $req, array $p) => Response::json($rulesController->setSslSettings((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/request', static fn (Request $req, array $p) => Response::json($rulesController->requestSslCertificate((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/acme/issue', static fn (Request $req, array $p) => Response::json($rulesController->issueAcmeCertificate((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['domainId'], $req->body)), auth: true);

@@ -78,6 +78,8 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | DELETE | `/api/v1/domains/{id}/page-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete page rule. |
 | POST | `/api/v1/domains/{id}/page-rules/test` | bearer when `CDNLITE_API_TOKEN` is set | Test page rule matching. |
 | GET | `/api/v1/domains/{id}/ssl/certificates` | bearer when `CDNLITE_API_TOKEN` is set | List SSL certificate metadata rows for domain hostnames. |
+| GET | `/api/v1/domains/{id}/ssl` | bearer when `CDNLITE_API_TOKEN` is set | Get force-HTTPS and minimum-TLS settings. |
+| PATCH | `/api/v1/domains/{id}/ssl/settings` | bearer when `CDNLITE_API_TOKEN` is set | Update force-HTTPS and minimum-TLS settings. |
 | POST | `/api/v1/domains/{id}/ssl/acme/issue` | bearer when `CDNLITE_API_TOKEN` is set | Issue an ACME certificate with DNS-01 via PowerDNS for an active proxied domain host. |
 | POST | `/api/v1/domains/{id}/ssl/request` | bearer when `CDNLITE_API_TOKEN` is set | Request SSL metadata provisioning for an active proxied domain host. |
 | POST | `/api/v1/domains/{id}/ssl/check` | bearer when `CDNLITE_API_TOKEN` is set | Refresh/create SSL metadata rows for hostnames. |
@@ -636,3 +638,11 @@ environment variables; unset database values continue to use environment default
 Supported groups are `platform.powerdns`, `platform.nameservers`, `platform.edge_dns`,
 `platform.cache`, `platform.analytics`, and `platform.security`. Secret values are never returned;
 their response shape is `{ "configured": true, "updated_at": 1710000000 }`.
+### Domain SSL settings
+
+```http
+GET   /api/v1/domains/{domainId}/ssl
+PATCH /api/v1/domains/{domainId}/ssl/settings
+```
+
+The settings payload contains `force_https` and `min_tls_version` (`1.2` or `1.3`). These values are included in the domain entry in edge config snapshots.

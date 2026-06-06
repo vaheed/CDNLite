@@ -55,7 +55,8 @@ export interface CacheRule { id: Id; enabled: boolean; path_prefix: string; ttl_
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
 export interface RateLimitRule { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
-export interface SslCertificate { id: Id; hostname: string; status?: string; days_left?: number; expires_at?: number | string; issuer?: string; subject?: string; created_at?: number | string; }
+export interface SslCertificate { id: Id; hostname: string; status?: string; days_left?: number; days_until_expiry?: number; expires_at?: number | string; issuer?: string; subject?: string; last_error?: string; created_at?: number | string; }
+export interface SslSettings { domain_id: Id; force_https: boolean; min_tls_version: '1.2' | '1.3'; created_at?: number; updated_at?: number; }
 export interface ManualCertificateInput { hostname: string; certificate_pem: string; private_key_pem: string; }
 export interface EdgeNode { edge_id: string; identity_status?: 'ok' | 'warning' | string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }

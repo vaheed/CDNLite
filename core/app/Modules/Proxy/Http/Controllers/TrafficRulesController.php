@@ -276,6 +276,18 @@ class TrafficRulesController
         return ['data' => $this->service->testPageRule($domainId, (string) $path['value'])];
     }
     public function listSslCertificates(string $domainId): array { return ['data' => $this->service->listSslCertificates($domainId)]; }
+    public function getSslSettings(string $domainId): array { return ['data' => $this->service->getSslSettings($domainId)]; }
+    public function setSslSettings(string $domainId, array $body): array {
+        if (array_key_exists('force_https', $body)) {
+            $forceHttps = Validator::bool($body, 'force_https');
+            if (($forceHttps['ok'] ?? false) !== true) { return $forceHttps; }
+        }
+        if (array_key_exists('min_tls_version', $body)) {
+            $minTls = Validator::enum($body, 'min_tls_version', ['1.2', '1.3']);
+            if (($minTls['ok'] ?? false) !== true) { return $minTls; }
+        }
+        return ['data' => $this->service->setSslSettings($domainId, $body)];
+    }
     public function requestSslCertificate(string $domainId, array $body): array {
         $hostnames = [];
         if (array_key_exists('hostnames', $body)) {

@@ -20,7 +20,8 @@
 | Phase 7 — Analytics by domain | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 8 — Domain onboarding and nameserver verification | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 9 — DNS routing: geo and anycast | Complete | PHP lint, non-DB core contracts, dashboard typecheck/build; DB-backed tests and manual smoke/E2E follow-up |
-| Phase 10+ | Planned | Not started |
+| Phase 10 — Domain feature tabs | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
+| Phase 11+ | Planned | Not started |
 
 ## Rules
 
@@ -661,6 +662,16 @@ Implement geo and anycast routing modes for CDNLite DNS records.
 ---
 
 ## Phase 10 — Domain feature tabs
+
+**Status:** Complete (2026-06-06)
+
+### Completion record
+
+- Replaced global feature pages with one domain detail view and nine domain-scoped tabs.
+- Added shared full CRUD behavior for redirects, page rules, WAF rules, and rate limits.
+- Added dedicated DNS routing, cache settings/purge history, SSL settings/certificate status, overview, and analytics tabs.
+- Added persisted force-HTTPS and minimum-TLS settings under the domain SSL API and config snapshot.
+- Removed `DomainFeatureView.vue` and the old global feature navigation.
 
 **Goal:** Replace generic `SiteFeatureView` with dedicated domain tabs for cache, WAF, SSL, redirects, and page rules — all with full CRUD.
 

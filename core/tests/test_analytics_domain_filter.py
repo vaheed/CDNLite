@@ -16,5 +16,5 @@ def test_domain_analytics_routes_and_dashboard_filter_contract():
     assert "usageApi.domainSummary(domainId" in analytics
     assert "cacheApi.analytics(domainId || undefined)" in analytics
     assert "usageApi.recalculate(selectedDomainId.value || undefined)" in analytics
-    assert "path: '/domains/:domainId/analytics'" in router
-    assert "`/domains/${row.id}/analytics`" in domains
+    assert "path: '/domains/:domainId/:tab?'" in router
+    assert "`/domains/${row.id}/overview`" in domains

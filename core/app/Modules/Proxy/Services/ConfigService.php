@@ -36,6 +36,7 @@ class ConfigService
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
                 'dns_records' => $this->dns->listByDomain((string) $domain['id']),
+                'ssl' => $this->rules->getSslSettings((string) $domain['id']),
             ];
             $shieldHeaderName = isset($domain['origin_shield_header_name']) ? trim((string) $domain['origin_shield_header_name']) : '';
             $shieldHash = isset($domain['origin_shield_header_value_hash']) ? trim((string) $domain['origin_shield_header_value_hash']) : '';
