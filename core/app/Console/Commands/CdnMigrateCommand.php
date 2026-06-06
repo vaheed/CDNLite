@@ -8,7 +8,7 @@ class CdnMigrateCommand
 {
     public function __invoke(array $argv): int
     {
-        $db = Database::connection();
+        $db = Database::pdo();
         $db->exec('CREATE TABLE IF NOT EXISTS schema_migrations (version TEXT PRIMARY KEY, applied_at BIGINT NOT NULL)');
         $db->beginTransaction();
         try {
@@ -30,7 +30,19 @@ class CdnMigrateCommand
                     throw new \RuntimeException('Failed to read migration: ' . $version);
                 }
 
-                $db->exec($sql);
+                $executableSql = preg_replace('/^\s*--.*$/m', '', $sql);
+                if (trim((string) $executableSql) !== '') {
+                    try {
+                        $db->exec($sql);
+                    } catch (\Throwable $e) {
+                        $detail = trim($e->getMessage());
+                        throw new \RuntimeException(
+                            'Migration failed: ' . $version . ($detail === '' ? '' : ' - ' . $detail),
+                            0,
+                            $e
+                        );
+                    }
+                }
                 $insert = $db->prepare('INSERT INTO schema_migrations (version, applied_at) VALUES (:version, :applied_at)');
                 $insert->execute([
                     'version' => $version,

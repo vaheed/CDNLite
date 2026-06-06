@@ -93,7 +93,8 @@ distinct HIT/MISS/BYPASS/UNKNOWN rows through `cdn:usage:ingest`, and rebuilds
 minute/hour/day aggregates. Browser tests assert exact non-zero global totals,
 domain isolation, cache ratios, and bucket changes; zero-only analytics must fail.
 The seed waits for PostgreSQL and runs `cdn:migrate` first so schema initialization
-cannot race the direct fixture insert after `docker compose up -d`.
+cannot race the direct fixture insert after `docker compose up -d`. Migration and
+ingest output remains visible in CI so PHP/database failures are diagnosable.
 
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for

@@ -3,6 +3,7 @@ set -euo pipefail
 
 domain_a="11111111-1111-4111-8111-111111111117"
 domain_b="22222222-2222-4222-8222-222222222227"
+user_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7"
 now="$(date +%s)"
 
 for attempt in $(seq 1 60); do
@@ -16,14 +17,15 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 
-# Database::connection() applies schema.sql; migrate then applies incremental SQL.
-docker compose exec -T core php artisan cdn:migrate >/dev/null
+# Database::pdo() applies schema.sql; migrate then applies incremental SQL.
+echo "Initializing core database schema..."
+docker compose exec -T core php artisan cdn:migrate
 
 docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
   -c "INSERT INTO domains (id, user_id, name, domain, origin_scheme, origin_host, origin_port, geo_origins_json, proxy_enabled, status, created_at, updated_at)
       VALUES
-        ('$domain_a', NULL, 'Analytics Alpha', 'analytics-alpha.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now),
-        ('$domain_b', NULL, 'Analytics Beta', 'analytics-beta.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now)
+        ('$domain_a', '$user_id', 'Analytics Alpha', 'analytics-alpha.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now),
+        ('$domain_b', '$user_id', 'Analytics Beta', 'analytics-beta.local', 'http', 'core', 8080, NULL, true, 'active', $now, $now)
       ON CONFLICT (id) DO NOTHING;"
 
 ingest() {
@@ -42,7 +44,7 @@ ingest() {
     --status=200 \
     --cache_status="$cache_status" \
     --ts="$((now + suffix))" \
-    --idempotency_key="frontend-analytics-${domain_id}-${suffix}" >/dev/null
+    --idempotency_key="frontend-analytics-${domain_id}-${suffix}"
 }
 
 ingest "$domain_a" 1 12 1200 12000 HIT
@@ -52,4 +54,4 @@ ingest "$domain_a" 4 1 100 1000 UNKNOWN
 ingest "$domain_b" 5 5 500 5000 HIT
 ingest "$domain_b" 6 5 500 5000 MISS
 
-docker compose exec -T core php artisan cdn:usage:recalculate >/dev/null
+docker compose exec -T core php artisan cdn:usage:recalculate

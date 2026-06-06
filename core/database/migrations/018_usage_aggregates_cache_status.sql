@@ -20,6 +20,16 @@ BEGIN
   END LOOP;
 END $$;
 
-ALTER TABLE usage_aggregates
-  ADD CONSTRAINT usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key
-  UNIQUE (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key'
+      AND conrelid = 'usage_aggregates'::regclass
+  ) THEN
+    ALTER TABLE usage_aggregates
+      ADD CONSTRAINT usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key
+      UNIQUE (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status);
+  END IF;
+END $$;

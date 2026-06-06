@@ -33,8 +33,21 @@ def test_stage5_index_and_audit_sql_present():
     repo_root = Path(__file__).resolve().parents[2]
     m1 = (repo_root / "core" / "database" / "migrations" / "001_api_auth_and_audit.sql").read_text()
     m2 = (repo_root / "core" / "database" / "migrations" / "002_rule_indexes.sql").read_text()
+    m18 = (repo_root / "core" / "database" / "migrations" / "018_usage_aggregates_cache_status.sql").read_text()
 
     assert "CREATE TABLE IF NOT EXISTS schema_migrations" in m1
     assert "CREATE TABLE IF NOT EXISTS audit_log" in m1
     assert "CREATE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain);" in m2
     assert "CREATE INDEX IF NOT EXISTS idx_usage_aggregates_lookup ON usage_aggregates(domain_id, bucket, bucket_ts);" in m2
+    assert "IF NOT EXISTS (" in m18
+    assert "conname = 'usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key'" in m18
+
+
+def test_migrate_command_uses_database_pdo_entrypoint():
+    repo_root = Path(__file__).resolve().parents[2]
+    command = (repo_root / "core" / "app" / "Console" / "Commands" / "CdnMigrateCommand.php").read_text()
+
+    assert "Database::pdo()" in command
+    assert "Database::connection()" not in command
+    assert "preg_replace('/^\\s*--.*$/m'" in command
+    assert "trim((string) $executableSql) !== ''" in command
