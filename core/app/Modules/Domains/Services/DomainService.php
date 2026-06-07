@@ -5,6 +5,7 @@ namespace App\Modules\Domains\Services;
 use App\Modules\Dns\Services\PowerDnsService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
+use App\Support\AuditLog;
 use App\Support\Logger;
 use App\Support\Uuid;
 
@@ -70,6 +71,7 @@ class DomainService
             throw new \RuntimeException('domain_create_failed');
         }
 
+        AuditLog::write('domain.create', 'domain', $id, $id, null, $domain);
         return $domain;
     }
 
@@ -100,7 +102,9 @@ class DomainService
         }
         $stmt = Database::pdo()->prepare('UPDATE domains SET powerdns_zone_created = true, updated_at = :updated_at WHERE id = :id');
         $stmt->execute(['updated_at' => time(), 'id' => $domainId]);
-        return $this->find($domainId);
+        $updated = $this->find($domainId);
+        AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);
+        return $updated;
     }
 
     public function update(string $domainId, array $input): ?array
@@ -148,6 +152,11 @@ class DomainService
 
     public function delete(string $domainId): bool
     {
+        $existing = $this->find($domainId);
+        if ($existing === null) {
+            return false;
+        }
+        AuditLog::write('domain.delete', 'domain', $domainId, $domainId, $existing, null);
         $stmt = Database::pdo()->prepare('DELETE FROM domains WHERE id = :id');
         $stmt->execute([':id' => $domainId]);
         return $stmt->rowCount() > 0;

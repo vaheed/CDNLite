@@ -273,6 +273,28 @@ $router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response
 $router->add('GET', '/api/v1/security/events', static fn (Request $req): array => Response::json($operationsLogController->securityEvents($req->query)), auth: true);
 $router->add('GET', '/api/v1/security/summary', static fn (Request $req): array => Response::json($operationsLogController->securitySummary($req->query)), auth: true);
 $router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);
+$router->add('GET', '/api/v1/config/snapshots', static fn (): array => Response::json(['data' => $configService->snapshots()]), auth: true);
+$router->add('GET', '/api/v1/config/snapshots/{version}', static function (Request $req, array $p) use ($configService): array {
+    $snapshot = $configService->snapshot((int) $p['version']);
+    return $snapshot === null
+        ? Response::json(['error' => 'config_snapshot_not_found'], 404)
+        : Response::json(['data' => $snapshot]);
+}, auth: true);
+$router->add('POST', '/api/v1/config/snapshots/diff', static function (Request $req) use ($configService): array {
+    try {
+        return Response::json(['data' => $configService->diff((int) ($req->body['from_version'] ?? 0), (int) ($req->body['to_version'] ?? 0))]);
+    } catch (\OutOfBoundsException $e) {
+        return Response::json(['error' => $e->getMessage()], 404);
+    }
+}, auth: true);
+$router->add('POST', '/api/v1/config/snapshots/{version}/rollback', static function (Request $req, array $p) use ($configService): array {
+    try {
+        return Response::json(['data' => $configService->rollback((int) $p['version'])]);
+    } catch (\OutOfBoundsException $e) {
+        return Response::json(['error' => $e->getMessage()], 404);
+    }
+}, auth: true);
+$router->add('POST', '/api/v1/config/snapshots/rebuild', static fn (): array => Response::json(['data' => $configService->rebuild()]), auth: true);
 $router->add('GET', '/api/v1/settings', static fn (): array => Response::json($settingsController->index()), auth: true);
 $router->add('GET', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController): array {
     try {

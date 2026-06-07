@@ -24,8 +24,9 @@
 | Phase 11 — Overview dashboard and report exports | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 12 — Edge network expanded and platform DNS | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 13 — Security events dashboard | Complete | PHP lint, focused core contracts, dashboard typecheck/tests/build |
-| Phase 14 — Audit log dashboard | In progress | Search, diff viewer, pagination, and CSV export implemented; mutation audit coverage remains |
-| Phase 15+ | Planned | Not started |
+| Phase 14 — Audit log dashboard | Complete | Search, diff viewer, pagination, CSV export, and domain/rule mutation audit coverage implemented |
+| Phase 15 — Config snapshot diff and rollback | Complete | History, JSON view, structured diff, rollback activation, rebuild, dashboard, and contracts implemented |
+| Phase 16+ | Planned | Not started |
 
 ## Rules
 
@@ -784,7 +785,7 @@ Build the CDNLite overview dashboard and report export.
 
 ## Phase 12 — Edge network expanded and platform DNS
 
-**Status:** In progress (2026-06-07)
+**Status:** Complete (2026-06-07)
 
 **Goal:** Admin can see edge pools, pool membership, and platform edge DNS records.
 
@@ -956,6 +957,8 @@ Build the CDNLite audit log dashboard.
 ---
 
 ## Phase 15 — Config snapshot diff and rollback
+
+**Status:** Complete (2026-06-07)
 
 **Goal:** Admin can view config version history, diff between versions, and roll back to a previous version. The `config_snapshots` table already exists.
 

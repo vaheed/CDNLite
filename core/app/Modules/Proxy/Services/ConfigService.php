@@ -23,6 +23,20 @@ class ConfigService
 
     public function buildSnapshotForVersion(?int $ifVersion = null): array
     {
+        $active = $this->activeSnapshot();
+        if ($active !== null) {
+            if ($ifVersion !== null && $ifVersion === (int) $active['version']) {
+                return ['not_modified' => true, 'version' => (int) $active['version']];
+            }
+            return $active['payload'];
+        }
+
+        return $this->rebuild($ifVersion);
+    }
+
+    public function rebuild(?int $ifVersion = null): array
+    {
+        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
             if ((string) ($domain['status'] ?? '') !== 'active') {
@@ -148,6 +162,76 @@ class ConfigService
         }
 
         return $payload;
+    }
+
+    public function snapshots(): array
+    {
+        $rows = Database::pdo()->query(
+            'SELECT s.version,s.generated_at,s.content_hash,length(s.payload_json) AS size,
+                    (s.version=cs.active_snapshot_version) AS active
+             FROM config_snapshots s CROSS JOIN config_state cs
+             WHERE cs.id=1 ORDER BY s.version DESC'
+        )->fetchAll();
+        return array_map(static fn (array $row): array => [
+            'version' => (int) $row['version'],
+            'generated_at' => (int) $row['generated_at'],
+            'content_hash' => (string) $row['content_hash'],
+            'size' => (int) $row['size'],
+            'active' => in_array($row['active'], [true, 1, '1', 't', 'true'], true),
+        ], $rows);
+    }
+
+    public function snapshot(int $version): ?array
+    {
+        $stmt = Database::pdo()->prepare('SELECT payload_json FROM config_snapshots WHERE version=:version');
+        $stmt->execute([':version' => $version]);
+        $payload = $stmt->fetchColumn();
+        return $payload === false ? null : json_decode((string) $payload, true);
+    }
+
+    public function diff(int $fromVersion, int $toVersion): array
+    {
+        $from = $this->snapshot($fromVersion);
+        $to = $this->snapshot($toVersion);
+        if ($from === null || $to === null) {
+            throw new \OutOfBoundsException('config_snapshot_not_found');
+        }
+        return ['from_version' => $fromVersion, 'to_version' => $toVersion, 'changes' => $this->diffValues($from, $to)];
+    }
+
+    public function rollback(int $version): array
+    {
+        $payload = $this->snapshot($version);
+        if ($payload === null) {
+            throw new \OutOfBoundsException('config_snapshot_not_found');
+        }
+        Database::pdo()->prepare('UPDATE config_state SET active_snapshot_version=:version WHERE id=1')
+            ->execute([':version' => $version]);
+        return $payload;
+    }
+
+    private function activeSnapshot(): ?array
+    {
+        $row = Database::pdo()->query(
+            'SELECT s.version,s.payload_json FROM config_state cs
+             JOIN config_snapshots s ON s.version=cs.active_snapshot_version WHERE cs.id=1'
+        )->fetch();
+        return $row ? ['version' => (int) $row['version'], 'payload' => json_decode((string) $row['payload_json'], true)] : null;
+    }
+
+    private function diffValues(mixed $from, mixed $to, string $path = ''): array
+    {
+        if (!is_array($from) || !is_array($to)) {
+            return $from === $to ? [] : [['path' => $path ?: '/', 'before' => $from, 'after' => $to]];
+        }
+        $changes = [];
+        foreach (array_unique(array_merge(array_keys($from), array_keys($to))) as $key) {
+            $child = $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string) $key);
+            if (!array_key_exists($key, $from)) { $changes[] = ['path' => $child, 'before' => null, 'after' => $to[$key]]; continue; }
+            if (!array_key_exists($key, $to)) { $changes[] = ['path' => $child, 'before' => $from[$key], 'after' => null]; continue; }
+            array_push($changes, ...$this->diffValues($from[$key], $to[$key], $child));
+        }
+        return $changes;
     }
 
     private function nextVersion(): int

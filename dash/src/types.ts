@@ -77,6 +77,9 @@ export interface PaginatedResult<T> { items: T[]; total: number; limit: number; 
 export interface SecuritySummary { total: number; by_type: Record<string, number>; top_ips: Array<{ value: string; count: number }>; top_domains: Array<{ domain_id?: Id | null; name?: string | null; count: number }>; }
 export interface AuditEntry { id: Id; actor_type: string; actor_id?: string | null; action: string; resource_type: string; resource_id?: string | null; domain_id?: Id | null; domain_name?: string | null; type?: string | null; details?: unknown; before?: unknown; after?: unknown; created_at: number; }
 export interface ConfigSnapshot { version?: string; generated_at?: number | string; hosts?: unknown[]; upstreams?: unknown[]; geo_upstreams?: unknown[]; headers?: unknown; dns_records?: unknown[]; cache_rules?: unknown[]; [key: string]: unknown; }
+export interface ConfigSnapshotSummary { version: number; generated_at: number; content_hash: string; size: number; active: boolean; }
+export interface ConfigSnapshotChange { path: string; before: unknown; after: unknown; }
+export interface ConfigSnapshotDiff { from_version: number; to_version: number; changes: ConfigSnapshotChange[]; }
 
 export interface OpsDiagnostic {
   domains: number; edges: number; recentSecurityEvents: number; sslRisks: number;

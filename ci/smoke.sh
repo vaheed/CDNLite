@@ -111,6 +111,19 @@ if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
   assert_eq "$settings_code" "200" "PowerDNS settings group should be readable"
   assert_contains "$(cat /tmp/smoke-settings.json)" '"api_key":{"configured":' "PowerDNS API key must be masked"
   record_step PASS "platform-settings" "settings API is readable and secrets are masked"
+
+  ADMIN_SESSION_TOKEN="$admin_token"
+  export ADMIN_SESSION_TOKEN
+  api_get "${CORE_URL}/api/v1/audit?limit=1"
+  assert_http_status "$HTTP_CODE" "200" "global audit query failed against live schema"
+  assert_contains "$HTTP_BODY" '"items":' "global audit response should include items"
+  api_get "${CORE_URL}/api/v1/security/events?limit=1"
+  assert_http_status "$HTTP_CODE" "200" "global security events query failed against live schema"
+  assert_contains "$HTTP_BODY" '"items":' "global security events response should include items"
+  api_get "${CORE_URL}/api/v1/security/summary"
+  assert_http_status "$HTTP_CODE" "200" "global security summary query failed against live schema"
+  assert_contains "$HTTP_BODY" '"by_type":' "global security summary should include by_type"
+  record_step PASS "operations-query-smoke" "audit, global security events, and security summary execute against PostgreSQL"
 fi
 
 waf_action_col="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='waf_rules' AND column_name='action';")"

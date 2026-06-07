@@ -97,6 +97,11 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | GET | `/api/v1/security/events` | bearer when `CDNLITE_API_TOKEN` is set | List security events with domain, edge, type, IP, payload search, time, limit, and offset filters. |
 | GET | `/api/v1/security/summary` | bearer when `CDNLITE_API_TOKEN` is set | Summarize security events by type, top IPs, and top domains. |
 | GET | `/api/v1/audit` | bearer when `CDNLITE_API_TOKEN` is set | List audit entries with actor, action, resource type, domain, time, limit, and offset filters. |
+| GET | `/api/v1/config/snapshots` | bearer when `CDNLITE_API_TOKEN` is set | List stored config versions with hash, size, timestamp, and active state. |
+| GET | `/api/v1/config/snapshots/{version}` | bearer when `CDNLITE_API_TOKEN` is set | Return a stored config snapshot payload. |
+| POST | `/api/v1/config/snapshots/diff` | bearer when `CDNLITE_API_TOKEN` is set | Compare `from_version` and `to_version`, returning changed JSON paths. |
+| POST | `/api/v1/config/snapshots/{version}/rollback` | bearer when `CDNLITE_API_TOKEN` is set | Activate a stored snapshot for subsequent edge pulls. |
+| POST | `/api/v1/config/snapshots/rebuild` | bearer when `CDNLITE_API_TOKEN` is set | Clear rollback activation and regenerate config from current database state. |
 | GET | `/api/v1/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for all domains or one `domain_id`. |
 | GET | `/api/v1/domains/{id}/analytics/summary` | bearer when `CDNLITE_API_TOKEN` is set | Usage summary and time-series points for one domain. |
 | GET | `/api/v1/domains/{id}/analytics/cache` | bearer when `CDNLITE_API_TOKEN` is set | Cache effectiveness analytics for one domain. |

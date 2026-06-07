@@ -2,6 +2,7 @@
 
 namespace App\Modules\Settings\Repositories;
 
+use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
 use PDO;
@@ -99,6 +100,7 @@ class SettingsRepository
 
     public function patch(string $group, array $values, ?string $actor): array
     {
+        $before = $this->group($group);
         $definitions = $this->definitions($group);
         $unknown = array_diff(array_keys($values), array_keys($definitions));
         if ($unknown !== []) {
@@ -118,7 +120,9 @@ class SettingsRepository
             $pdo->rollBack();
             throw $e;
         }
-        return $this->group($group);
+        $after = $this->group($group);
+        AuditLog::write('settings.update', 'settings', $group, null, $before['values'], $after['values'], $actor ?? 'api-token');
+        return $after;
     }
 
     public function validate(string $group, array $values): array

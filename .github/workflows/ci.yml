@@ -104,6 +104,7 @@ jobs:
       - name: Smoke test
         run: |
           chmod +x ci/*.sh
+          # Includes live PostgreSQL execution of audit and global security queries.
           ./ci/smoke.sh
       - name: Service logs
         if: always()
@@ -152,6 +153,7 @@ jobs:
       - name: E2E test
         run: |
           chmod +x ci/*.sh
+          # Verifies domain-scoped and global operations APIs with ingested events.
           ./ci/e2e.sh
       - name: Service logs
         if: always()

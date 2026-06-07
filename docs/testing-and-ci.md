@@ -9,10 +9,11 @@
 | `core/tests/test_contract.py` | Basic response-shape contract example. |
 | `core/tests/test_edge_auth_contract.py` | Edge auth missing-token and replay behavior. |
 | `core/tests/test_hardening_contract.py` | Idempotency, config version reuse, usage aggregate rebuilds. |
+| `core/tests/test_security_events_contract.py` | PostgreSQL-backed domain and global security-event, security-summary, and audit query contracts. |
 | `dash/src/**/*.test.ts` | Dashboard env parsing, session restoration, URL building, HMAC signing, formatting, diagnostics, and Vue component behavior. |
 | `dash/tests/e2e/*.spec.ts` | Playwright browser workflows, including login, password visibility, and session restoration after refresh. |
-| `ci/smoke.sh` | Stack health, DB connectivity, record-level origin schema checks, origin fixture health, edge config path, and dashboard container/SPA health. |
-| `ci/e2e.sh` | Full API, DNS-record origin configuration, HTTPS/443 selection, HTTP/80 fallback, origin certificate `verify`/`ignore`, per-record proxy and geo origins, PowerDNS, edge proxy/auth, usage, security, cache (including stale delivery against a closed loopback origin), and SSL workflows. |
+| `ci/smoke.sh` | Stack health, DB connectivity, live operations SQL queries, record-level origin schema checks, origin fixture health, edge config path, and dashboard container/SPA health. |
+| `ci/e2e.sh` | Full API, DNS-record origin configuration, HTTPS/443 selection, HTTP/80 fallback, origin certificate `verify`/`ignore`, per-record proxy and geo origins, PowerDNS, edge proxy/auth, domain and global security/audit queries, usage, cache (including stale delivery against a closed loopback origin), and SSL workflows. |
 
 The root Compose stack also runs `ssl-scheduler`, which invokes `cdn:ssl:renew-due` hourly. Tests can run the command directly for deterministic renewal checks.
 | `ci/pdns_mock_server.py` | Minimal PowerDNS-compatible mock for CI. |

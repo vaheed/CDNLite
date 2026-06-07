@@ -1,4 +1,5 @@
 services:
+  # CI smoke and e2e execute operations queries against this same root stack.
   postgres:
     image: postgres:16-alpine
     environment:

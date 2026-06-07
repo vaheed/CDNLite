@@ -334,11 +334,13 @@ END $$;
 CREATE TABLE IF NOT EXISTS config_state (
   id SMALLINT PRIMARY KEY,
   version BIGINT NOT NULL,
+  active_snapshot_version BIGINT NULL,
   CONSTRAINT config_state_singleton CHECK (id = 1)
 );
 
 INSERT INTO config_state (id, version) VALUES (1, 0)
 ON CONFLICT (id) DO NOTHING;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS active_snapshot_version BIGINT NULL;
 
 CREATE TABLE IF NOT EXISTS config_snapshots (
   version BIGINT PRIMARY KEY,

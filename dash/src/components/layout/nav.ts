@@ -5,7 +5,7 @@ export const navItems = [
   { to: '/domains', label: 'Domains' },
   { to: '/edge-nodes', label: 'Edge Network' },
   { to: '/usage', label: 'Usage Analytics' },
-  { to: '/config-snapshot', label: 'Config Snapshot' },
+  { to: '/config-snapshots', label: 'Config Snapshots' },
   { to: '/events', label: 'Event Viewer' },
   { to: '/security-events', label: 'Security Events' },
   { to: '/audit-log', label: 'Audit Log' },

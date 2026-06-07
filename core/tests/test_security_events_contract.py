@@ -5,6 +5,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 import pytest
@@ -87,11 +88,12 @@ def test_security_events_endpoint_contract():
 
     try:
         wait_for_server(base_url)
+        domain_name = f"sec-{uuid.uuid4().hex}.test.local"
         domain_code, domain = request_json(
             base_url,
             "POST",
             "/api/v1/domains",
-            body={"name": "Sec Demo", "domain": "sec-demo.local", "origin_host": "core"},
+            body={"name": "Sec Demo", "domain": domain_name, "origin_host": "core"},
             headers={"Authorization": "Bearer stage9-token"},
         )
         assert domain_code == 201
@@ -128,6 +130,36 @@ echo "ok";
         assert code2 == 200
         assert len(body2["data"]) >= 1
         assert all(item["type"] == "waf_match" for item in body2["data"])
+
+        global_code, global_body = request_json(
+            base_url,
+            "GET",
+            f"/api/v1/security/events?domain_id={domain_id}&limit=10",
+            headers={"Authorization": "Bearer stage9-token"},
+        )
+        assert global_code == 200
+        assert global_body["data"]["total"] >= 2
+        assert all(item["domain_id"] == domain_id for item in global_body["data"]["items"])
+
+        summary_code, summary = request_json(
+            base_url,
+            "GET",
+            "/api/v1/security/summary",
+            headers={"Authorization": "Bearer stage9-token"},
+        )
+        assert summary_code == 200
+        assert summary["data"]["by_type"]["waf_match"] >= 1
+        assert summary["data"]["by_type"]["rate_limited"] >= 1
+
+        audit_code, audit = request_json(
+            base_url,
+            "GET",
+            f"/api/v1/audit?domain_id={domain_id}&limit=10",
+            headers={"Authorization": "Bearer stage9-token"},
+        )
+        assert audit_code == 200
+        assert audit["data"]["total"] >= 2
+        assert all(item["domain_id"] == domain_id for item in audit["data"]["items"])
     finally:
         server.terminate()
         server.wait(timeout=5)

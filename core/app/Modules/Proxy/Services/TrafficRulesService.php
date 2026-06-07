@@ -3,6 +3,7 @@
 namespace App\Modules\Proxy\Services;
 
 use App\Support\Database;
+use App\Support\AuditLog;
 use App\Support\Secrets;
 use App\Support\Uuid;
 
@@ -475,7 +476,8 @@ class TrafficRulesService
         return $rows;
     }
     public function listSecurityEvents(string $domainId, ?string $type = null, int $limit = 100): array {
-        $query = 'SELECT id,event,details_json,created_at FROM audit_log WHERE domain_id=:domain_id';
+        $query = "SELECT id,event,details_json,created_at FROM audit_log
+                  WHERE domain_id=:domain_id AND event IN ('waf_match','rate_limited','geo_block')";
         $params = [':domain_id' => $domainId];
         if ($type !== null && $type !== '') {
             $query .= ' AND event=:event';
@@ -536,17 +538,37 @@ class TrafficRulesService
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
         $sql="INSERT INTO {$table} (id,domain_id,{$names},created_at,updated_at) VALUES (:id,:domain_id,{$bind},:created_at,:updated_at)";
         $p=[':id'=>$id,':domain_id'=>$domainId,':created_at'=>$now,':updated_at'=>$now]; foreach($in as $k=>$v){$p[':'.$k]=is_bool($v)?(int)$v:$v;}
-        $s=Database::pdo()->prepare($sql); $s->execute($p); $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $q->execute([':id'=>$id]); return $this->cast((array)$q->fetch());
+        $s=Database::pdo()->prepare($sql); $s->execute($p); $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $q->execute([':id'=>$id]); $created=$this->cast((array)$q->fetch());
+        AuditLog::write($this->auditResource($table).'.create', $this->auditResource($table), $id, $domainId, null, $created);
+        return $created;
     }
     private function update(string $table, string $domainId, string $id, array $in): ?array {
-        $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); if(!$q->fetch()){return null;}
+        $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); $before=$q->fetch(); if(!$before){return null;}
         $sets=[]; $p=[':id'=>$id,':domain'=>$domainId,':u'=>time()];
         foreach($in as $k=>$v){$sets[]="{$k}=:{$k}"; $p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $sets[]='updated_at=:u';
         $s=Database::pdo()->prepare("UPDATE {$table} SET ".implode(',', $sets)." WHERE id=:id AND domain_id=:domain"); $s->execute($p);
-        $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); return $this->cast((array)$r->fetch());
+        $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); $updated=$this->cast((array)$r->fetch());
+        AuditLog::write($this->auditResource($table).'.update', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), $updated);
+        return $updated;
     }
-    private function delete(string $table, string $domainId, string $id): bool { $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND domain_id=:domain"); $s->execute([':id'=>$id,':domain'=>$domainId]); return $s->rowCount()>0; }
+    private function delete(string $table, string $domainId, string $id): bool {
+        $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); $before=$q->fetch();
+        if (!$before) { return false; }
+        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND domain_id=:domain"); $s->execute([':id'=>$id,':domain'=>$domainId]);
+        if ($s->rowCount() > 0) { AuditLog::write($this->auditResource($table).'.delete', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), null); return true; }
+        return false;
+    }
+    private function auditResource(string $table): string {
+        return match ($table) {
+            'rate_limit_rules' => 'rate_limit',
+            'waf_rules' => 'waf_rule',
+            'redirect_rules' => 'redirect',
+            'page_rules' => 'page_rule',
+            'cache_rules' => 'cache_rule',
+            default => rtrim($table, 's'),
+        };
+    }
     private function rateLimitPayload(array $in, bool $partial = false): array {
         $defaults = [
             'enabled' => true,

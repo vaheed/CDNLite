@@ -26,7 +26,7 @@ class OperationsLogService
         $pdo = Database::pdo();
 
         $byType = [];
-        $stmt = $pdo->prepare("SELECT event, COUNT(*) AS count FROM audit_log {$where} GROUP BY event ORDER BY count DESC");
+        $stmt = $pdo->prepare("SELECT a.event, COUNT(*) AS count FROM audit_log a {$where} GROUP BY a.event ORDER BY count DESC");
         $stmt->execute($params);
         foreach ($stmt->fetchAll() as $row) {
             $byType[(string) $row['event']] = (int) $row['count'];
@@ -55,7 +55,7 @@ class OperationsLogService
         $count = $pdo->prepare("SELECT COUNT(*) FROM audit_log a {$where}");
         $count->execute($params);
 
-        $sql = "SELECT a.*, d.name AS domain_name, d.zone_name
+        $sql = "SELECT a.*, d.name AS domain_name
                 FROM audit_log a LEFT JOIN domains d ON d.id=a.domain_id
                 {$where} ORDER BY a.created_at DESC, a.id DESC LIMIT :limit OFFSET :offset";
         $stmt = $pdo->prepare($sql);
@@ -132,7 +132,7 @@ class OperationsLogService
             'resource_type' => (string) $row['resource_type'],
             'resource_id' => $row['resource_id'],
             'domain_id' => $row['domain_id'],
-            'domain_name' => $row['domain_name'] ?? $row['zone_name'] ?? null,
+            'domain_name' => $row['domain_name'] ?? $row['domain_id'] ?? null,
             'type' => $row['event'],
             'details' => $this->decode($row['details_json'] ?? null),
             'before' => $this->decode($row['before_json'] ?? null),
@@ -162,9 +162,9 @@ class OperationsLogService
 
     private function topDomains(string $where, array $params): array
     {
-        $sql = "SELECT a.domain_id, COALESCE(d.name, d.zone_name, a.domain_id) AS name, COUNT(*) AS count
+        $sql = "SELECT a.domain_id, COALESCE(d.name, a.domain_id) AS name, COUNT(*) AS count
                 FROM audit_log a LEFT JOIN domains d ON d.id=a.domain_id {$where}
-                GROUP BY a.domain_id, d.name, d.zone_name ORDER BY count DESC LIMIT 10";
+                GROUP BY a.domain_id, d.name ORDER BY count DESC LIMIT 10";
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
         return array_map(static fn (array $row): array => ['domain_id' => $row['domain_id'], 'name' => $row['name'], 'count' => (int) $row['count']], $stmt->fetchAll());
