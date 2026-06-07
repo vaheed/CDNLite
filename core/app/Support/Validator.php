@@ -113,4 +113,37 @@ final class Validator
         }
         return ['ok' => true, 'value' => strtolower($value)];
     }
+
+    public static function ipv4Cidr(array $body, string $key): array
+    {
+        $string = self::requiredString($body, $key, 64);
+        if (($string['ok'] ?? false) !== true) {
+            return $string;
+        }
+        $parts = explode('/', (string) $string['value'], 2);
+        if (count($parts) !== 2 || filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => $key, 'detail' => 'must_be_valid_ipv4_cidr', 'status' => 422];
+        }
+        if (!ctype_digit($parts[1])) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => $key, 'detail' => 'must_be_valid_ipv4_cidr', 'status' => 422];
+        }
+        $prefix = (int) $parts[1];
+        if ($prefix < 0 || $prefix > 32) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => $key, 'detail' => 'must_be_valid_ipv4_cidr', 'status' => 422];
+        }
+        return ['ok' => true, 'value' => $parts[0] . '/' . $prefix];
+    }
+
+    public static function headerName(array $body, string $key): array
+    {
+        $string = self::requiredString($body, $key, 255);
+        if (($string['ok'] ?? false) !== true) {
+            return $string;
+        }
+        $value = (string) $string['value'];
+        if (!preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $value)) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => $key, 'detail' => 'must_be_valid_http_header_name', 'status' => 422];
+        }
+        return ['ok' => true, 'value' => $value];
+    }
 }

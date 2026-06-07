@@ -213,6 +213,62 @@ Prints edge base-domain settings, active edge nodes, generated edge hostnames, c
 php core/artisan cdn:dns:validate-routing
 ```
 
+## Header Rule Commands
+
+### cdn:header:create
+
+Equivalent API: `POST /api/v1/domains/{id}/headers`.
+
+Required: `--domain_id`, `--operation=set|append|remove`, `--header_name`. Required for `set` and `append`: `--header_value`.
+
+Optional: `--enabled=0|1`, `--priority=100`, `--path_pattern=/*`.
+
+```bash
+php core/artisan cdn:header:create --domain_id=11111111-1111-4111-8111-111111111111 --operation=set --header_name=Strict-Transport-Security --header_value='max-age=31536000; includeSubDomains'
+```
+
+### cdn:header:list
+
+Required: `--domain_id`. Equivalent API: `GET /api/v1/domains/{id}/headers`.
+
+### cdn:header:update
+
+Required: `--domain_id`, `--id`, plus at least one update option.
+
+Optional update fields: `--enabled=0|1`, `--operation`, `--header_name`, `--header_value`, `--path_pattern`, `--priority`.
+
+### cdn:header:delete
+
+Required: `--domain_id`, `--id`. Equivalent API: `DELETE /api/v1/domains/{id}/headers/{ruleId}`.
+
+## IP Access Commands
+
+### cdn:ip-rule:create
+
+Equivalent API: `POST /api/v1/domains/{id}/ip-rules`.
+
+Required: `--domain_id`, `--rule_type=allow|block`, `--cidr=<ipv4-cidr>`.
+
+Optional: `--enabled=0|1`, `--description`.
+
+```bash
+php core/artisan cdn:ip-rule:create --domain_id=11111111-1111-4111-8111-111111111111 --rule_type=block --cidr=192.0.2.0/24
+```
+
+### cdn:ip-rule:list
+
+Required: `--domain_id`. Equivalent API: `GET /api/v1/domains/{id}/ip-rules`.
+
+### cdn:ip-rule:update
+
+Required: `--domain_id`, `--id`, plus at least one update option.
+
+Optional update fields: `--enabled=0|1`, `--rule_type`, `--cidr`, `--description`.
+
+### cdn:ip-rule:delete
+
+Required: `--domain_id`, `--id`. Equivalent API: `DELETE /api/v1/domains/{id}/ip-rules/{ruleId}`.
+
 ## Edge Commands
 
 ## Redirect Commands

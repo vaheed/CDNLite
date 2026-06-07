@@ -34,6 +34,7 @@ def test_stage5_migration_files_exist_in_order():
             "025_force_https_redirect.sql",
             "026_ssl_settings_defaults.sql",
             "027_config_snapshot_activation.sql",
+            "028_header_and_ip_rules.sql",
         ]
 
 

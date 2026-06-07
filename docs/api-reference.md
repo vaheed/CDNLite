@@ -72,6 +72,14 @@ Browser clients must call core from an origin listed in `CDNLITE_CORS_ALLOWED_OR
 | GET | `/api/v1/domains/{id}/waf-rules` | bearer when `CDNLITE_API_TOKEN` is set | List WAF rules. |
 | PATCH | `/api/v1/domains/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Update WAF rule. |
 | DELETE | `/api/v1/domains/{id}/waf-rules/{wafId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete WAF rule. |
+| POST | `/api/v1/domains/{id}/headers` | bearer when `CDNLITE_API_TOKEN` is set | Create custom response header rule. |
+| GET | `/api/v1/domains/{id}/headers` | bearer when `CDNLITE_API_TOKEN` is set | List custom response header rules. |
+| PATCH | `/api/v1/domains/{id}/headers/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update custom response header rule. |
+| DELETE | `/api/v1/domains/{id}/headers/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete custom response header rule. |
+| POST | `/api/v1/domains/{id}/ip-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create IP allow/block rule. |
+| GET | `/api/v1/domains/{id}/ip-rules` | bearer when `CDNLITE_API_TOKEN` is set | List IP allow/block rules. |
+| PATCH | `/api/v1/domains/{id}/ip-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update IP allow/block rule. |
+| DELETE | `/api/v1/domains/{id}/ip-rules/{ruleId}` | bearer when `CDNLITE_API_TOKEN` is set | Delete IP allow/block rule. |
 | POST | `/api/v1/domains/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | Create cache rule. |
 | GET | `/api/v1/domains/{id}/cache-rules` | bearer when `CDNLITE_API_TOKEN` is set | List cache rules. |
 | PATCH | `/api/v1/domains/{id}/cache-rules/{cacheRuleId}` | bearer when `CDNLITE_API_TOKEN` is set | Update cache rule. |
@@ -402,6 +410,46 @@ Patch validation: same constraints apply to provided fields.
 Lists WAF rules for the domain.
 
 ### PATCH /api/v1/domains/{id}/waf-rules/{wafId}
+
+## Custom Response Headers
+
+### POST /api/v1/domains/{id}/headers
+
+Creates a response header rule and records an audit entry. Config snapshots include enabled header rules and the edge applies them by ascending `priority`.
+
+Required JSON fields: `operation` (`set`, `append`, or `remove`), `header_name`. `header_value` is required for `set` and `append`. Optional fields: `enabled` (boolean, default `true`), `priority` (integer `1..100000`, default `100`), `path_pattern` (default `/*`).
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/headers \
+  -H 'Content-Type: application/json' \
+  -d '{"operation":"set","header_name":"Strict-Transport-Security","header_value":"max-age=31536000; includeSubDomains","path_pattern":"/*","priority":10}'
+```
+
+### GET /api/v1/domains/{id}/headers
+### PATCH /api/v1/domains/{id}/headers/{ruleId}
+### DELETE /api/v1/domains/{id}/headers/{ruleId}
+
+Patch accepts any create field. Delete returns `{"ok":true}` or `404 {"error":"header_rule_not_found"}`.
+
+## IP Access Control
+
+### POST /api/v1/domains/{id}/ip-rules
+
+Creates an edge-enforced IPv4 CIDR allow/block rule and records an audit entry. Block rules always deny matching clients. If any enabled allow rule exists, clients outside all allow CIDRs are denied.
+
+Required JSON fields: `rule_type` (`allow` or `block`), `cidr` (IPv4 CIDR such as `192.0.2.0/24`). Optional fields: `enabled` (boolean, default `true`), `description`.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/ip-rules \
+  -H 'Content-Type: application/json' \
+  -d '{"rule_type":"block","cidr":"192.0.2.0/24","description":"Test network"}'
+```
+
+### GET /api/v1/domains/{id}/ip-rules
+### PATCH /api/v1/domains/{id}/ip-rules/{ruleId}
+### DELETE /api/v1/domains/{id}/ip-rules/{ruleId}
+
+Patch accepts any create field. Delete returns `{"ok":true}` or `404 {"error":"ip_rule_not_found"}`.
 
 ## Domain Cache Settings
 

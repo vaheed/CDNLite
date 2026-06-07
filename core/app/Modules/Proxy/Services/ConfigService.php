@@ -77,6 +77,8 @@ class ConfigService
         $redirects = [];
         $rateLimits = [];
         $wafRules = [];
+        $headerRules = [];
+        $ipRules = [];
         $cacheRules = [];
         $cachePurgeVersions = [];
         $pageRules = [];
@@ -86,6 +88,8 @@ class ConfigService
             foreach ($this->rules->listRedirects($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $redirects[] = $row; } }
             foreach ($this->rules->listRateLimits($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $rateLimits[] = $row; } }
             foreach ($this->rules->listWaf($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $wafRules[] = $row; } }
+            foreach ($this->rules->listHeaderRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $headerRules[] = $row; $hosts[$host]['header_rules'][] = $row; } }
+            foreach ($this->rules->listIpRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $ipRules[] = $row; $hosts[$host]['ip_rules'][] = $row; } }
             foreach ($this->rules->listCacheRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $cacheRules[] = $row; } }
             foreach ($this->rules->listCachePurgeVersionsForConfig($domainId, $host) as $row) { $cachePurgeVersions[] = $row; }
             foreach ($this->rules->listPageRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
@@ -93,7 +97,7 @@ class ConfigService
         }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
-        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
+        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'header_rules' => $headerRules, 'ip_rules' => $ipRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
@@ -109,6 +113,8 @@ class ConfigService
                 'redirects' => $redirects,
                 'rate_limits' => $rateLimits,
                 'waf_rules' => $wafRules,
+                'header_rules' => $headerRules,
+                'ip_rules' => $ipRules,
                 'cache_rules' => $cacheRules,
                 'cache_purge_versions' => $cachePurgeVersions,
                 'page_rules' => $pageRules,
@@ -126,6 +132,8 @@ class ConfigService
             'redirects' => $redirects,
             'rate_limits' => $rateLimits,
             'waf_rules' => $wafRules,
+            'header_rules' => $headerRules,
+            'ip_rules' => $ipRules,
             'cache_rules' => $cacheRules,
             'cache_purge_versions' => $cachePurgeVersions,
             'page_rules' => $pageRules,
@@ -146,6 +154,8 @@ class ConfigService
                     'redirects' => $redirects,
                     'rate_limits' => $rateLimits,
                     'waf_rules' => $wafRules,
+                    'header_rules' => $headerRules,
+                    'ip_rules' => $ipRules,
                     'cache_rules' => $cacheRules,
                     'cache_purge_versions' => $cachePurgeVersions,
                     'page_rules' => $pageRules,

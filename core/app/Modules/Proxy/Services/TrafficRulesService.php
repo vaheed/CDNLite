@@ -103,6 +103,34 @@ class TrafficRulesService
     public function updateWaf(string $domainId, string $id, array $in): ?array { return $this->update('waf_rules', $domainId, $id, $in); }
     public function deleteWaf(string $domainId, string $id): bool { return $this->delete('waf_rules', $domainId, $id); }
 
+    public function listHeaderRules(string $domainId): array { return $this->listRows('domain_header_rules', $domainId, 'priority ASC, created_at ASC'); }
+    public function createHeaderRule(string $domainId, array $in): array {
+        $this->assertHeaderRule($in, false);
+        return $this->insert('domain_header_rules', $domainId, [
+            'enabled' => array_key_exists('enabled', $in) ? !empty($in['enabled']) : true,
+            'priority' => (int) ($in['priority'] ?? 100),
+            'operation' => (string) ($in['operation'] ?? 'set'),
+            'header_name' => (string) ($in['header_name'] ?? ''),
+            'header_value' => array_key_exists('header_value', $in) ? (string) $in['header_value'] : null,
+            'path_pattern' => (string) ($in['path_pattern'] ?? '/*'),
+        ]);
+    }
+    public function updateHeaderRule(string $domainId, string $id, array $in): ?array { $this->assertHeaderRule($in, true); return $this->update('domain_header_rules', $domainId, $id, $in); }
+    public function deleteHeaderRule(string $domainId, string $id): bool { return $this->delete('domain_header_rules', $domainId, $id); }
+
+    public function listIpRules(string $domainId): array { return $this->listRows('domain_ip_rules', $domainId); }
+    public function createIpRule(string $domainId, array $in): array {
+        $this->assertIpRule($in, false);
+        return $this->insert('domain_ip_rules', $domainId, [
+            'enabled' => array_key_exists('enabled', $in) ? !empty($in['enabled']) : true,
+            'rule_type' => (string) ($in['rule_type'] ?? 'block'),
+            'cidr' => (string) ($in['cidr'] ?? ''),
+            'description' => array_key_exists('description', $in) ? (string) $in['description'] : null,
+        ]);
+    }
+    public function updateIpRule(string $domainId, string $id, array $in): ?array { $this->assertIpRule($in, true); return $this->update('domain_ip_rules', $domainId, $id, $in); }
+    public function deleteIpRule(string $domainId, string $id): bool { return $this->delete('domain_ip_rules', $domainId, $id); }
+
     public function listCacheRules(string $domainId): array { return $this->listRows('cache_rules', $domainId); }
     public function createCacheRule(string $domainId, array $in): array { return $this->insert('cache_rules', $domainId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
     public function updateCacheRule(string $domainId, string $id, array $in): ?array { return $this->update('cache_rules', $domainId, $id, $in); }
@@ -533,7 +561,7 @@ class TrafficRulesService
         $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE domain_id=:domain"); $s->execute([':domain'=>$domainId]); return $s->rowCount()>0;
     }
 
-    private function listRows(string $table, string $domainId): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY created_at ASC"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
+    private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
     private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
         $sql="INSERT INTO {$table} (id,domain_id,{$names},created_at,updated_at) VALUES (:id,:domain_id,{$bind},:created_at,:updated_at)";
@@ -566,8 +594,38 @@ class TrafficRulesService
             'redirect_rules' => 'redirect',
             'page_rules' => 'page_rule',
             'cache_rules' => 'cache_rule',
+            'domain_header_rules' => 'header_rule',
+            'domain_ip_rules' => 'ip_rule',
             default => rtrim($table, 's'),
         };
+    }
+    private function assertHeaderRule(array $in, bool $partial): void {
+        if ((!$partial || array_key_exists('operation', $in)) && !in_array((string) ($in['operation'] ?? ''), ['set', 'remove', 'append'], true)) {
+            throw new \InvalidArgumentException('invalid_operation');
+        }
+        if (!$partial || array_key_exists('header_name', $in)) {
+            $name = (string) ($in['header_name'] ?? '');
+            if ($name === '' || !preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', $name)) {
+                throw new \InvalidArgumentException('invalid_header_name');
+            }
+        }
+        if (!$partial && (string) ($in['operation'] ?? '') !== 'remove' && trim((string) ($in['header_value'] ?? '')) === '') {
+            throw new \InvalidArgumentException('header_value_required');
+        }
+        if (array_key_exists('path_pattern', $in) && !str_starts_with((string) $in['path_pattern'], '/')) {
+            throw new \InvalidArgumentException('invalid_path_pattern');
+        }
+    }
+    private function assertIpRule(array $in, bool $partial): void {
+        if ((!$partial || array_key_exists('rule_type', $in)) && !in_array((string) ($in['rule_type'] ?? ''), ['allow', 'block'], true)) {
+            throw new \InvalidArgumentException('invalid_rule_type');
+        }
+        if (!$partial || array_key_exists('cidr', $in)) {
+            $parts = explode('/', (string) ($in['cidr'] ?? ''), 2);
+            if (count($parts) !== 2 || filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false || !ctype_digit($parts[1]) || (int) $parts[1] < 0 || (int) $parts[1] > 32) {
+                throw new \InvalidArgumentException('invalid_cidr');
+            }
+        }
     }
     private function rateLimitPayload(array $in, bool $partial = false): array {
         $defaults = [

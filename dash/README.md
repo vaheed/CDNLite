@@ -8,18 +8,20 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 
 - Vue 3, TypeScript, Vite, Vue Router, Pinia, TanStack Query for Vue.
 - Tailwind CSS, Headless UI-compatible component structure, ECharts charts.
-- Typed API clients for sites, DNS, redirects, page rules, cache, purge, WAF, rate limit, SSL, edges, usage, security events, and edge signed developer endpoints.
+- Typed API clients for domains, DNS, redirects, page rules, cache, purge, WAF, rate limit, custom headers, IP access, SSL, edges, usage, security events, and edge signed developer endpoints.
 - Light and dark admin themes use CSS variables for app surfaces, cards, borders, text, actions, success, warning, and danger states. The theme toggle stores `cdnlite.theme` in localStorage.
 - Forms use shared field components with red required asterisks, optional markers, inline help text, non-focusable hover help icons, field-level validation errors, and page-level alerts for API failures.
-- The Sites workflow opens on the sites list and reveals create/edit input details only after Add site or Edit. It supports `PATCH /api/v1/sites/{id}`, proxy enable/disable, active/disabled status changes, copy ID, delete confirmation, and selectable origin scheme/status controls.
+- The Domains workflow opens on the domain list and reveals create/edit input details only after Add domain or Edit. It supports `PATCH /api/v1/domains/{id}`, proxy enable/disable, active/disabled status changes, copy ID, delete confirmation, and selectable origin scheme/status controls.
 - DNS, redirects, page rules, WAF rules, cache rules, and purge requests expose their useful API fields in explicit table columns instead of relying on raw object ordering.
-- Redirect rows support edit, enable/disable with `PATCH /api/v1/sites/{id}/redirects/{redirectId}`, delete confirmation, export, import of the current rule, and test.
+- Redirect rows support edit, enable/disable with `PATCH /api/v1/domains/{id}/redirects/{redirectId}`, delete confirmation, export, import of the current rule, and test.
 - DNS, page rule, WAF, and cache rule rows support edit/delete actions where the API supports them.
+- Headers include quick-add security presets for HSTS, CSP, X-Frame-Options, and X-Content-Type-Options.
+- IP Access supports allow/block IPv4 CIDR rules and bulk import from one-CIDR-per-line text.
 - Feature pages open on their records list and reveal input details only after an add/edit/import action. Page rules include a test action, SSL includes ACME issue, request, and check actions using the API `hostnames` array payload, and purge history includes detail lookup.
-- Purge uses a clear required scope dropdown (`url`, `prefix`, `site`, `everything`) and only requires the URL/prefix value for URL or Prefix purges.
+- Purge uses a clear required scope dropdown (`url`, `prefix`, `domain`, `everything`) and only requires the URL/prefix value for URL or Prefix purges.
 - Charts receive theme-aware labels, legends, axes, and tooltips. Pie charts hide outside slice labels and rely on the legend/tooltip to avoid unreadable label collisions.
 - Known API enum values are rendered as selects, including DNS type, redirect status/match type, cache query mode, WAF type/action, rate-limit key type/action, and usage bucket.
-- Rate Limiting exposes the backend `enabled` flag and saves the active rule with `PUT /api/v1/sites/{id}/rate-limit`.
+- Rate Limiting exposes the backend `enabled` flag and saves the active rule with `PUT /api/v1/domains/{id}/rate-limit`.
 - Troubleshooting includes a runnable diagnostics workflow for core readiness, edge readiness/heartbeats, schema readiness, security events, SSL certificate risk, and cache purge status, with a copyable report.
 - Dockerfile and Nginx runtime image.
 - Unit tests for env parsing, URL building, HMAC signing, formatting, diagnostics, and key forms.
@@ -149,22 +151,24 @@ The dashboard has typed modules for:
 
 - `/health`, `/cdn-health`, `/ready`, and edge `/ready`
 - `/api/v1/admin/login`, `/api/v1/admin/me`, `/api/v1/admin/logout`
-- `/api/v1/sites`
-- `/api/v1/sites/{id}/dns/records`
-- `/api/v1/sites/{id}/redirects`
-- `/api/v1/sites/{id}/page-rules`
-- `/api/v1/sites/{id}/cache/settings`
-- `/api/v1/sites/{id}/cache-rules`
-- `/api/v1/sites/{id}/cache/purge`
-- `/api/v1/sites/{id}/cache/purge-requests`
-- `/api/v1/sites/{id}/cache/purge-requests/{requestId}`
-- `/api/v1/sites/{id}/waf-rules`
-- `/api/v1/sites/{id}/rate-limit`
-- `/api/v1/sites/{id}/ssl/certificates`
-- `/api/v1/sites/{id}/ssl/acme/issue`
-- `/api/v1/sites/{id}/ssl/request`
-- `/api/v1/sites/{id}/ssl/check`
-- `/api/v1/sites/{id}/ssl/manual-certificate`
+- `/api/v1/domains`
+- `/api/v1/domains/{id}/dns/records`
+- `/api/v1/domains/{id}/redirects`
+- `/api/v1/domains/{id}/page-rules`
+- `/api/v1/domains/{id}/cache/settings`
+- `/api/v1/domains/{id}/cache-rules`
+- `/api/v1/domains/{id}/cache/purge`
+- `/api/v1/domains/{id}/cache/purge-requests`
+- `/api/v1/domains/{id}/cache/purge-requests/{requestId}`
+- `/api/v1/domains/{id}/waf-rules`
+- `/api/v1/domains/{id}/headers`
+- `/api/v1/domains/{id}/ip-rules`
+- `/api/v1/domains/{id}/rate-limit`
+- `/api/v1/domains/{id}/ssl/certificates`
+- `/api/v1/domains/{id}/ssl/acme/issue`
+- `/api/v1/domains/{id}/ssl/request`
+- `/api/v1/domains/{id}/ssl/check`
+- `/api/v1/domains/{id}/ssl/manual-certificate`
 - `/api/v1/edge/nodes`
 - `/api/v1/usage/summary`
 - `/api/v1/usage/recalculate`

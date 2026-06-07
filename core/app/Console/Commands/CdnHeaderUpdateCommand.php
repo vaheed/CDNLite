@@ -1,0 +1,4 @@
+<?php
+namespace App\Console\Commands;
+use App\Modules\Proxy\Services\TrafficRulesService; use App\Support\CommandIO;
+class CdnHeaderUpdateCommand { public function __invoke(array $argv): int { $o=CommandIO::parseOptions($argv); if(empty($o['domain_id'])||empty($o['id'])){fwrite(STDERR,"Missing --domain_id/--id\n"); return 1;} $patch=[]; foreach(['operation','header_name','header_value','path_pattern'] as $k){ if(array_key_exists($k,$o)){$patch[$k]=(string)$o[$k];}} if(isset($o['enabled'])){$patch['enabled']=$o['enabled']!=='0';} if(isset($o['priority'])){$patch['priority']=(int)$o['priority'];} if($patch===[]){fwrite(STDERR,"Missing update options\n"); return 1;} $row=(new TrafficRulesService())->updateHeaderRule((string)$o['domain_id'],(string)$o['id'],$patch); if(!$row){fwrite(STDERR,"Header rule not found\n"); return 1;} CommandIO::printJson(['data'=>$row]); return 0; } }

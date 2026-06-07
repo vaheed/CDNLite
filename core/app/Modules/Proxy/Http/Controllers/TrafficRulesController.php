@@ -161,6 +161,100 @@ class TrafficRulesController
     public function listWaf(string $domainId): array { return ['data' => $this->service->listWaf($domainId)]; }
     public function deleteWaf(string $domainId, string $id): array { return $this->service->deleteWaf($domainId,$id)?['ok'=>true]:['error'=>'waf_not_found','status'=>404]; }
 
+    public function createHeaderRule(string $domainId, array $body): array {
+        $error = $this->validateHeaderRule($body, false);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->createHeaderRule($domainId, $body)];
+    }
+    public function listHeaderRules(string $domainId): array { return ['data' => $this->service->listHeaderRules($domainId)]; }
+    public function updateHeaderRule(string $domainId, string $id, array $body): array {
+        $error = $this->validateHeaderRule($body, true);
+        if ($error !== null) { return $error; }
+        $rule = $this->service->updateHeaderRule($domainId, $id, $body);
+        return $rule ? ['data' => $rule] : ['error' => 'header_rule_not_found', 'status' => 404];
+    }
+    public function deleteHeaderRule(string $domainId, string $id): array {
+        return $this->service->deleteHeaderRule($domainId, $id) ? ['ok' => true] : ['error' => 'header_rule_not_found', 'status' => 404];
+    }
+
+    public function createIpRule(string $domainId, array $body): array {
+        $error = $this->validateIpRule($body, false);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->createIpRule($domainId, $body)];
+    }
+    public function listIpRules(string $domainId): array { return ['data' => $this->service->listIpRules($domainId)]; }
+    public function updateIpRule(string $domainId, string $id, array $body): array {
+        $error = $this->validateIpRule($body, true);
+        if ($error !== null) { return $error; }
+        $rule = $this->service->updateIpRule($domainId, $id, $body);
+        return $rule ? ['data' => $rule] : ['error' => 'ip_rule_not_found', 'status' => 404];
+    }
+    public function deleteIpRule(string $domainId, string $id): array {
+        return $this->service->deleteIpRule($domainId, $id) ? ['ok' => true] : ['error' => 'ip_rule_not_found', 'status' => 404];
+    }
+
+    private function validateHeaderRule(array $body, bool $partial): ?array {
+        if ($partial && $body === []) {
+            return ['error' => 'invalid_request', 'detail' => 'at_least_one_field_required', 'status' => 422];
+        }
+        if (array_key_exists('enabled', $body)) {
+            $enabled = Validator::bool($body, 'enabled');
+            if (($enabled['ok'] ?? false) !== true) { return $enabled; }
+        }
+        if (!$partial || array_key_exists('operation', $body)) {
+            $operation = Validator::enum($body, 'operation', ['set', 'remove', 'append']);
+            if (($operation['ok'] ?? false) !== true || (!$partial && ($operation['exists'] ?? false) !== true)) { return ['error' => 'invalid_field', 'field' => 'operation', 'detail' => 'must_be_one_of_set_remove_append', 'status' => 422]; }
+        }
+        if (!$partial || array_key_exists('header_name', $body)) {
+            $name = Validator::headerName($body, 'header_name');
+            if (($name['ok'] ?? false) !== true) { return $name; }
+        }
+        if (array_key_exists('header_value', $body)) {
+            $value = Validator::optionalString($body, 'header_value', 8192);
+            if (($value['ok'] ?? false) !== true) { return $value; }
+        }
+        $operationValue = (string) ($body['operation'] ?? '');
+        if (!$partial && $operationValue !== 'remove' && (!array_key_exists('header_value', $body) || $body['header_value'] === null || trim((string) $body['header_value']) === '')) {
+            return ['error' => 'invalid_field', 'field' => 'header_value', 'detail' => 'required_for_set_or_append', 'status' => 422];
+        }
+        if (array_key_exists('priority', $body)) {
+            $priority = Validator::intRange($body, 'priority', 1, 100000);
+            if (($priority['ok'] ?? false) !== true) { return $priority; }
+        }
+        if (array_key_exists('path_pattern', $body)) {
+            $path = Validator::requiredString($body, 'path_pattern', 2048);
+            if (($path['ok'] ?? false) !== true) { return $path; }
+            if (!str_starts_with((string) $path['value'], '/')) {
+                return ['error' => 'invalid_field', 'field' => 'path_pattern', 'detail' => 'must_start_with_slash', 'status' => 422];
+            }
+        }
+        return null;
+    }
+
+    private function validateIpRule(array $body, bool $partial): ?array {
+        if ($partial && $body === []) {
+            return ['error' => 'invalid_request', 'detail' => 'at_least_one_field_required', 'status' => 422];
+        }
+        if (array_key_exists('enabled', $body)) {
+            $enabled = Validator::bool($body, 'enabled');
+            if (($enabled['ok'] ?? false) !== true) { return $enabled; }
+        }
+        if (!$partial || array_key_exists('rule_type', $body)) {
+            $type = Validator::enum($body, 'rule_type', ['allow', 'block']);
+            if (($type['ok'] ?? false) !== true || (!$partial && ($type['exists'] ?? false) !== true)) { return ['error' => 'invalid_field', 'field' => 'rule_type', 'detail' => 'must_be_one_of_allow_block', 'status' => 422]; }
+        }
+        if (!$partial || array_key_exists('cidr', $body)) {
+            $cidr = Validator::ipv4Cidr($body, 'cidr');
+            if (($cidr['ok'] ?? false) !== true) { return $cidr; }
+            $body['cidr'] = $cidr['value'];
+        }
+        if (array_key_exists('description', $body)) {
+            $description = Validator::optionalString($body, 'description', 2048);
+            if (($description['ok'] ?? false) !== true) { return $description; }
+        }
+        return null;
+    }
+
     public function createCacheRule(string $domainId, array $body): array {
         if (array_key_exists('path_prefix', $body)) {
             $path = Validator::requiredString($body, 'path_prefix', 2048);

@@ -57,6 +57,8 @@ export interface CacheRule { id: Id; enabled: boolean; path_prefix: string; ttl_
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
 export interface RateLimitRule { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
+export interface HeaderRule { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
+export interface IpRule { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
 export interface SslCertificate { id: Id; hostname: string; status?: string; acme_status?: string; days_left?: number; days_until_expiry?: number; not_after?: number; expires_at?: number | string; issuer?: string; subject?: string; last_error?: string; created_at?: number | string; }
 export interface SslSettings { domain_id: Id; force_https: boolean; min_tls_version: '1.2' | '1.3'; auto_renew: boolean; created_at?: number; updated_at?: number; }
 export interface AcmeProgress { certificate_id: Id; hostname: string; status: string; error?: string | null; updated_at: number; }

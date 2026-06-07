@@ -369,11 +369,6 @@ $router->add('PUT', '/api/v1/domains/{domainId}/dns/records/{recordId}/geo-route
     $result = $dnsController->updateGeoRoutes((string) $p['domainId'], (string) $p['recordId'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
-$router->add('GET', '/api/v1/sites/{domainId}/dns-records/{recordId}/geo-routes', static fn (Request $req, array $p) => Response::json($dnsController->geoRoutes((string) $p['domainId'], (string) $p['recordId'])), auth: true);
-$router->add('PUT', '/api/v1/sites/{domainId}/dns-records/{recordId}/geo-routes', static function (Request $req, array $p) use ($dnsController): array {
-    $result = $dnsController->updateGeoRoutes((string) $p['domainId'], (string) $p['recordId'], $req->body);
-    return Response::json($result, (int) ($result['status'] ?? 200));
-}, auth: true);
 
 $router->add('POST', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['domainId'])), auth: true);
@@ -393,6 +388,26 @@ $router->add('POST', '/api/v1/domains/{domainId}/waf-rules', static fn (Request 
 $router->add('GET', '/api/v1/domains/{domainId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->listWaf((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->updateWaf((string) $p['domainId'], (string) $p['wafId'], $req->body)), auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteWaf((string) $p['domainId'], (string) $p['wafId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/headers', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->createHeaderRule((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 201));
+}, auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/headers', static fn (Request $req, array $p) => Response::json($rulesController->listHeaderRules((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/headers/{ruleId}', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->updateHeaderRule((string) $p['domainId'], (string) $p['ruleId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/headers/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteHeaderRule((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ip-rules', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->createIpRule((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 201));
+}, auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/ip-rules', static fn (Request $req, array $p) => Response::json($rulesController->listIpRules((string) $p['domainId'])), auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/ip-rules/{ruleId}', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->updateIpRule((string) $p['domainId'], (string) $p['ruleId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/ip-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteIpRule((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->createCacheRule((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/cache-rules', static fn (Request $req, array $p) => Response::json($rulesController->listCacheRules((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/cache-rules/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateCacheRule((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);

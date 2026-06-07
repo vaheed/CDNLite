@@ -3,6 +3,7 @@ local proxy = require('proxy')
 local cjson = require('cjson.safe')
 local identity = require('identity')
 local origin_selector = require('origin_selector')
+local ip_rules = require('ip_rules')
 
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
@@ -250,6 +251,12 @@ function M.handle()
     return false, 'domain_not_configured'
   end
   ngx.ctx.domain_id = domain.domain_id
+  ngx.ctx.header_rules = domain.header_rules or {}
+
+  local ip_ok = ip_rules.apply(domain)
+  if not ip_ok then
+    return false, 'ip_access_blocked'
+  end
 
   local redirect = match_redirect_rule(cfg, host)
   if redirect then

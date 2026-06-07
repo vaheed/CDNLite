@@ -26,7 +26,10 @@
 | Phase 13 — Security events dashboard | Complete | PHP lint, focused core contracts, dashboard typecheck/tests/build |
 | Phase 14 — Audit log dashboard | Complete | Search, diff viewer, pagination, CSV export, and domain/rule mutation audit coverage implemented |
 | Phase 15 — Config snapshot diff and rollback | Complete | History, JSON view, structured diff, rollback activation, rebuild, dashboard, and contracts implemented |
-| Phase 16+ | Planned | Not started |
+| Phase 16 — Custom response headers | Complete | Schema, CRUD API, CLI, dashboard tab with presets, config snapshots, edge header filter, docs, and contracts implemented |
+| Phase 17 — IP access control | Complete | Schema, CRUD API, CLI, dashboard tab with bulk import, config snapshots, edge CIDR enforcement, docs, and contracts implemented |
+| Phase 18 — SSL certificate automation | Complete | Scheduler, APIs, dashboard, readiness warnings, Compose service, migrations, and contracts implemented |
+| Phase 19+ | Planned | Origin health monitoring and CLI completion follow-up |
 
 ## Rules
 
@@ -1013,6 +1016,17 @@ Add config snapshot diff and rollback to CDNLite.
 
 ## Phase 16 — Custom response headers
 
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Added `domain_header_rules` schema and migration.
+- Added CRUD API and CLI commands under `/api/v1/domains/{domainId}/headers` and `cdn:header:*`.
+- Included enabled header rules in config snapshots and host config.
+- Added OpenResty header-filter enforcement for `set`, `append`, and `remove`.
+- Added the dashboard Headers tab with HSTS, CSP, X-Frame-Options, and X-Content-Type-Options presets.
+- Added docs and release-policy contracts.
+
 **Goal:** Admin can define per-domain header rules (add/remove/replace headers on response). Common CDN use case for security headers, CORS, and custom branding.
 
 ### What changes
@@ -1077,6 +1091,17 @@ Add per-domain custom response header rules to CDNLite.
 ---
 
 ## Phase 17 — IP access control
+
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Added `domain_ip_rules` schema and migration.
+- Added CRUD API and CLI commands under `/api/v1/domains/{domainId}/ip-rules` and `cdn:ip-rule:*`.
+- Included enabled IP rules in config snapshots and host config.
+- Added OpenResty IPv4 CIDR enforcement with block precedence and allow-list default deny.
+- Added dashboard IP Access tab with edit/delete/toggle and one-CIDR-per-line bulk import.
+- Added docs and release-policy contracts.
 
 **Goal:** Per-domain IP allowlist and blocklist with CIDR support. Managed in dashboard, enforced in Lua.
 

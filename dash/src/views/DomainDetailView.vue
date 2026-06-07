@@ -59,7 +59,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   Activity, BarChart3, Database, Gauge, Globe2, LockKeyhole,
-  Network, RefreshCw, Route, ShieldCheck,
+  ListFilter, Network, RefreshCw, Route, ShieldCheck, SlidersHorizontal,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
@@ -75,6 +75,8 @@ import DomainPageRulesTab from './domain-tabs/DomainPageRulesTab.vue';
 import DomainWafTab from './domain-tabs/DomainWafTab.vue';
 import DomainRateLimitsTab from './domain-tabs/DomainRateLimitsTab.vue';
 import DomainAnalyticsTab from './domain-tabs/DomainAnalyticsTab.vue';
+import DomainHeadersTab from './domain-tabs/DomainHeadersTab.vue';
+import DomainIpRulesTab from './domain-tabs/DomainIpRulesTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -89,6 +91,8 @@ const tabs = [
   { key: 'redirects', label: 'Redirects', icon: Route, component: DomainRedirectsTab },
   { key: 'page-rules', label: 'Page Rules', icon: RefreshCw, component: DomainPageRulesTab },
   { key: 'waf', label: 'WAF', icon: ShieldCheck, component: DomainWafTab },
+  { key: 'ip-access', label: 'IP Access', icon: ListFilter, component: DomainIpRulesTab },
+  { key: 'headers', label: 'Headers', icon: SlidersHorizontal, component: DomainHeadersTab },
   { key: 'rate-limits', label: 'Rate Limits', icon: Gauge, component: DomainRateLimitsTab },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, component: DomainAnalyticsTab },
 ];
