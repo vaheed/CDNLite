@@ -3,6 +3,8 @@ import os
 import subprocess
 from pathlib import Path
 
+from db_test_utils import run_php_with_deadlock_retry
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CORE_DIR = REPO_ROOT / "core"
 ARTISAN = CORE_DIR / "artisan"
@@ -69,14 +71,7 @@ if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
   $pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
 }
 '''
-    subprocess.run(
-        ["php", "-r", script],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        check=True,
-        env={**os.environ, **TEST_ENV},
-    )
+    run_php_with_deadlock_retry(script, TEST_ENV)
 
 
 def test_usage_ingest_idempotency_key_deduplicates_retries():

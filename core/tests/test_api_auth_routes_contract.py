@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from db_test_utils import run_php_with_deadlock_retry
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TEST_ENV = {
     "DB_HOST": os.getenv("DB_HOST", "127.0.0.1"),
@@ -42,7 +44,7 @@ if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
   $pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
 }
 '''
-    subprocess.run(["php", "-r", script], cwd=str(REPO_ROOT), capture_output=True, text=True, check=True, env={**os.environ, **TEST_ENV})
+    run_php_with_deadlock_retry(script, TEST_ENV)
 
 
 def require_db_or_skip() -> None:
