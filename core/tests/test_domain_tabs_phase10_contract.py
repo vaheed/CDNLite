@@ -18,6 +18,16 @@ def test_ssl_settings_are_domain_scoped_and_published():
     assert "/api/v1/domains/{domainId}/ssl/settings" in routes
     assert "setSslSettings" in service
     assert "'ssl' => $this->rules->getSslSettings" in snapshot
+    assert "valid_ssl_certificate_required" in service
+    assert "managed_by='force_https'" in service
+    assert "VALUES (:domain_id,false" in service
+
+
+def test_force_https_redirect_is_http_only_and_preserves_request_uri():
+    router = read("edge/openresty/lua/router.lua")
+
+    assert "rule.managed_by == 'force_https' and ngx.var.scheme == 'http'" in router
+    assert "ngx.var.request_uri" in router
 
 
 def test_dashboard_uses_domain_detail_tabs():

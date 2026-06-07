@@ -4,6 +4,7 @@ namespace App\Modules\Proxy\Http\Controllers;
 
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Proxy\Services\AcmeIssuerService;
+use App\Modules\Proxy\Services\CertRenewalService;
 use App\Support\Secrets;
 use App\Support\Validator;
 
@@ -286,7 +287,52 @@ class TrafficRulesController
             $minTls = Validator::enum($body, 'min_tls_version', ['1.2', '1.3']);
             if (($minTls['ok'] ?? false) !== true) { return $minTls; }
         }
-        return ['data' => $this->service->setSslSettings($domainId, $body)];
+        if (array_key_exists('auto_renew', $body)) {
+            $autoRenew = Validator::bool($body, 'auto_renew');
+            if (($autoRenew['ok'] ?? false) !== true) { return $autoRenew; }
+        }
+        try {
+            return ['data' => $this->service->setSslSettings($domainId, $body)];
+        } catch (\DomainException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        } catch (\OutOfBoundsException) {
+            return ['error' => 'domain_not_found', 'status' => 404];
+        }
+    }
+    public function requestAutomatedSslCertificate(string $domainId, array $body): array {
+        $hostnames = $this->sslHostnames($body);
+        if (isset($hostnames['error'])) { return $hostnames; }
+        try {
+            return ['data' => (new CertRenewalService($this->service))->request($domainId, $hostnames)];
+        } catch (\OutOfBoundsException) {
+            return ['error' => 'domain_not_found', 'status' => 404];
+        } catch (\DomainException $e) {
+            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+        }
+    }
+    public function forceRenewSslCertificate(string $domainId): array {
+        try {
+            return ['data' => (new CertRenewalService($this->service))->forceRenew($domainId)];
+        } catch (\OutOfBoundsException $e) {
+            return ['error' => $e->getMessage(), 'status' => 404];
+        }
+    }
+    public function acmeStatus(string $domainId): array {
+        return ['data' => (new CertRenewalService($this->service))->status($domainId)];
+    }
+    private function sslHostnames(array $body): array {
+        if (!array_key_exists('hostnames', $body)) { return []; }
+        if (!is_array($body['hostnames'])) {
+            return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array', 'status' => 422];
+        }
+        $hostnames = [];
+        foreach ($body['hostnames'] as $hostname) {
+            if (!is_string($hostname) || trim($hostname) === '') {
+                return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_non_empty_string_array', 'status' => 422];
+            }
+            $hostnames[] = strtolower(trim($hostname));
+        }
+        return $hostnames;
     }
     public function requestSslCertificate(string $domainId, array $body): array {
         $hostnames = [];

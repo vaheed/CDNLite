@@ -30,6 +30,8 @@ def test_stage5_migration_files_exist_in_order():
             "021_edge_network.sql",
             "022_dns_record_origins.sql",
             "023_dns_routing_model.sql",
+            "024_ssl_automation.sql",
+            "025_force_https_redirect.sql",
         ]
 
 

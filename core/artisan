@@ -40,6 +40,7 @@ use App\Console\Commands\CdnCacheRuleUpdateCommand;
 use App\Console\Commands\CdnCacheRuleDeleteCommand;
 use App\Console\Commands\CdnMigrateCommand;
 use App\Console\Commands\CdnAdminCreateCommand;
+use App\Console\Commands\CdnSslRenewDueCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:admin:create', new CdnAdminCreateCommand());
@@ -78,5 +79,6 @@ $runner->register('cdn:cache-rule:list', new CdnCacheRuleListCommand());
 $runner->register('cdn:cache-rule:update', new CdnCacheRuleUpdateCommand());
 $runner->register('cdn:cache-rule:delete', new CdnCacheRuleDeleteCommand());
 $runner->register('cdn:migrate', new CdnMigrateCommand());
+$runner->register('cdn:ssl:renew-due', new CdnSslRenewDueCommand());
 
 exit($runner->run($argv));

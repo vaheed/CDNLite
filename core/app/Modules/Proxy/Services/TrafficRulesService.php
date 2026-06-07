@@ -157,8 +157,8 @@ class TrafficRulesService
         }
         $now = time();
         Database::pdo()->prepare(
-            'INSERT INTO domain_ssl_settings (domain_id,force_https,min_tls_version,created_at,updated_at)
-             VALUES (:domain_id,true,:min_tls_version,:created_at,:updated_at)'
+            'INSERT INTO domain_ssl_settings (domain_id,force_https,min_tls_version,auto_renew,created_at,updated_at)
+             VALUES (:domain_id,false,:min_tls_version,true,:created_at,:updated_at)'
         )->execute([':domain_id' => $domainId, ':min_tls_version' => '1.2', ':created_at' => $now, ':updated_at' => $now]);
         return $this->getSslSettings($domainId);
     }
@@ -166,16 +166,64 @@ class TrafficRulesService
         $current = $this->getSslSettings($domainId);
         $forceHttps = array_key_exists('force_https', $input) ? !empty($input['force_https']) : (bool) $current['force_https'];
         $minTlsVersion = (string) ($input['min_tls_version'] ?? $current['min_tls_version']);
-        Database::pdo()->prepare(
-            'UPDATE domain_ssl_settings SET force_https=:force_https,min_tls_version=:min_tls_version,updated_at=:updated_at
-             WHERE domain_id=:domain_id'
-        )->execute([
-            ':domain_id' => $domainId,
-            ':force_https' => (int) $forceHttps,
-            ':min_tls_version' => $minTlsVersion,
-            ':updated_at' => time(),
-        ]);
+        $autoRenew = array_key_exists('auto_renew', $input) ? !empty($input['auto_renew']) : (bool) $current['auto_renew'];
+        if ($forceHttps && !$this->hasValidApexCertificate($domainId)) {
+            throw new \DomainException('valid_ssl_certificate_required');
+        }
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare(
+                'UPDATE domain_ssl_settings SET force_https=:force_https,min_tls_version=:min_tls_version,auto_renew=:auto_renew,updated_at=:updated_at
+                 WHERE domain_id=:domain_id'
+            )->execute([
+                ':domain_id' => $domainId,
+                ':force_https' => (int) $forceHttps,
+                ':min_tls_version' => $minTlsVersion,
+                ':auto_renew' => (int) $autoRenew,
+                ':updated_at' => time(),
+            ]);
+            $forceHttps ? $this->ensureForceHttpsRedirect($domainId) : $this->removeForceHttpsRedirect($domainId);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
         return $this->getSslSettings($domainId);
+    }
+    private function hasValidApexCertificate(string $domainId): bool {
+        $s = Database::pdo()->prepare(
+            "SELECT 1 FROM ssl_certificates c
+             JOIN domains d ON d.id=c.domain_id
+             WHERE c.domain_id=:domain_id AND lower(c.hostname)=lower(d.domain)
+               AND c.status='active' AND c.not_after>:now
+               AND c.certificate_pem IS NOT NULL AND c.private_key_pem IS NOT NULL
+             LIMIT 1"
+        );
+        $s->execute([':domain_id' => $domainId, ':now' => time()]);
+        return $s->fetchColumn() !== false;
+    }
+    private function ensureForceHttpsRedirect(string $domainId): void {
+        $domain = Database::pdo()->prepare('SELECT domain FROM domains WHERE id=:id LIMIT 1');
+        $domain->execute([':id' => $domainId]);
+        $hostname = $domain->fetchColumn();
+        if ($hostname === false) {
+            throw new \OutOfBoundsException('domain_not_found');
+        }
+        $now = time();
+        Database::pdo()->prepare(
+            "INSERT INTO redirect_rules (id,domain_id,enabled,source_path,target_url,status_code,priority,match_type,preserve_query,managed_by,created_at,updated_at)
+             VALUES (:id,:domain_id,true,'/',:target_url,308,1,'prefix',true,'force_https',:created_at,:updated_at)
+             ON CONFLICT (domain_id,managed_by) WHERE managed_by='force_https'
+             DO UPDATE SET enabled=true,source_path='/',target_url=EXCLUDED.target_url,status_code=308,priority=1,match_type='prefix',preserve_query=true,updated_at=EXCLUDED.updated_at"
+        )->execute([
+            ':id' => Uuid::v4(), ':domain_id' => $domainId, ':target_url' => 'https://' . strtolower((string) $hostname),
+            ':created_at' => $now, ':updated_at' => $now,
+        ]);
+    }
+    private function removeForceHttpsRedirect(string $domainId): void {
+        Database::pdo()->prepare("DELETE FROM redirect_rules WHERE domain_id=:domain_id AND managed_by='force_https'")
+            ->execute([':domain_id' => $domainId]);
     }
     public function requestSslCertificate(string $domainId, array $hostnames): array {
         $domain = $this->domainForSsl($domainId);
@@ -517,7 +565,7 @@ class TrafficRulesService
         }
         return $payload;
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https', 'auto_renew'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
             return $this->redirectV2ColumnsAvailable;

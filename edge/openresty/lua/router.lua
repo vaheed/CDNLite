@@ -75,8 +75,13 @@ local function match_redirect_rule(cfg, host)
   local rules = cfg.redirects or {}
   local path = ngx.var.uri or '/'
   for _, rule in ipairs(rules) do
-    if rule and rule.host == host and rule.enabled and rule.source_path == path then
-      return rule
+    if rule and rule.host == host and rule.enabled then
+      if rule.managed_by == 'force_https' and ngx.var.scheme == 'http' then
+        return rule
+      end
+      if rule.managed_by ~= 'force_https' and rule.source_path == path then
+        return rule
+      end
     end
   end
   return nil
@@ -248,7 +253,11 @@ function M.handle()
 
   local redirect = match_redirect_rule(cfg, host)
   if redirect then
-    ngx.header['Location'] = tostring(redirect.target_url or '')
+    local target = tostring(redirect.target_url or '')
+    if redirect.managed_by == 'force_https' then
+      target = target .. tostring(ngx.var.request_uri or ngx.var.uri or '/')
+    end
+    ngx.header['Location'] = target
     ngx.header['X-CDNLITE-Rule'] = 'redirect'
     identity.apply()
     ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')

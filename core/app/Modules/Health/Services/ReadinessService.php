@@ -18,7 +18,7 @@ class ReadinessService
 
     public function check(): array
     {
-        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck()];
+        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->certificateExpiryCheck()];
         $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck(), $this->snapshotCheck()];
 
         return [
@@ -106,6 +106,28 @@ class ReadinessService
             return $this->result('config_snapshot', 'ok', 'Config snapshot is fresh');
         }
         return $this->result('config_snapshot', 'warning', sprintf('Config snapshot is %d minutes old', (int) floor($age / 60)), 'Review config generation and edge pulls', '/config-snapshot');
+    }
+
+    private function certificateExpiryCheck(): array
+    {
+        $now = time();
+        $stmt = Database::pdo()->prepare(
+            "SELECT domain_id,hostname,not_after FROM ssl_certificates
+             WHERE status<>'revoked' AND not_after IS NOT NULL AND not_after<:cutoff
+             ORDER BY not_after ASC LIMIT 1"
+        );
+        $stmt->execute([':cutoff' => $now + 14 * 86400]);
+        $certificate = $stmt->fetch();
+        if (!$certificate) {
+            return $this->result('ssl_expiry', 'ok', 'No certificates expire within 14 days');
+        }
+        return $this->result(
+            'ssl_expiry',
+            'warning',
+            sprintf('Certificate for %s expires within 14 days', (string) $certificate['hostname']),
+            'Renew the certificate or verify automatic renewal',
+            '/domains/' . rawurlencode((string) $certificate['domain_id']) . '/ssl'
+        );
     }
 
     private function result(string $key, string $status, string $message, ?string $fix = null, ?string $link = null): array

@@ -440,6 +440,22 @@ Deletes one WAF rule.
 
 ## SSL
 
+### POST /api/v1/domains/{id}/ssl/request-cert
+
+Starts ACME DNS-01 issuance for the domain and returns `202` with the completed attempt state. Core persists `verifying`, `issued`, or `error` progress and a renewal-history row.
+
+### POST /api/v1/domains/{id}/ssl/renew
+
+Forces renewal of the domain's non-revoked ACME certificates. Returns `202`; use the ACME status endpoint to inspect the result and history.
+
+### GET /api/v1/domains/{id}/ssl/acme-status
+
+Returns per-hostname ACME progress and the latest 50 issuance or renewal attempts:
+
+```json
+{"data":{"progress":[{"hostname":"demo.local","status":"issued","error":null}],"history":[{"action":"forced_renewal","status":"issued"}]}}
+```
+
 ### POST /api/v1/domains/{id}/ssl/acme/issue
 
 Issues an ACME certificate for an active proxied domain using DNS-01 through PowerDNS. The body may include `hostnames`; when omitted, core uses the domain domain. Hostnames must be the domain domain or a subdomain of it.
@@ -481,6 +497,8 @@ Refreshes or creates SSL metadata rows for `hostnames`. Missing certificates are
 ### POST /api/v1/domains/{id}/ssl/manual-certificate
 
 Imports PEM certificate material for a hostname. `CDNLITE_SSL_SECRET_KEY` must be configured so the private key can be encrypted at rest.
+
+`PATCH /api/v1/domains/{id}/ssl/settings` also accepts `auto_renew`. The hourly scheduler only renews ACME certificates for domains where this setting is enabled.
 
 ## Security Events
 
@@ -672,4 +690,4 @@ GET   /api/v1/domains/{domainId}/ssl
 PATCH /api/v1/domains/{domainId}/ssl/settings
 ```
 
-The settings payload contains `force_https` and `min_tls_version` (`1.2` or `1.3`). These values are included in the domain entry in edge config snapshots.
+The settings payload contains `force_https`, `auto_renew`, and `min_tls_version` (`1.2` or `1.3`). Force HTTPS defaults to `false`. Enabling it requires an active, unexpired certificate for the domain hostname; otherwise the API returns `422 {"error":"valid_ssl_certificate_required"}`. On enable, core creates a managed `308` HTTP-to-HTTPS redirect that preserves the request path and query. Disabling Force HTTPS removes that managed redirect without changing user-created redirect rules.

@@ -10,7 +10,7 @@ def test_readiness_contract_is_structured_and_routed():
     public_index = (ROOT / "core/public_index.php").read_text()
 
     assert "/api/v1/readiness" in public_index
-    for key in ("postgres", "powerdns_config", "powerdns_reachable", "heartbeat", "identity", "config_snapshot"):
+    for key in ("postgres", "powerdns_config", "powerdns_reachable", "heartbeat", "identity", "config_snapshot", "ssl_expiry"):
         assert f"'{key}'" in service
     assert "'status' => $this->groupStatus" in service
     assert "'checks' =>" in service

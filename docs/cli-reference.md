@@ -12,7 +12,17 @@ Options are parsed only as `--key=value` or bare `--flag`; there is no short-opt
 php core/artisan list
 ```
 
-Registered commands: `cdn:admin:create`, `cdn:domain:create`, `cdn:domain:list`, `cdn:domain:update`, `cdn:domain:delete`, `cdn:dns:add-record`, `cdn:dns:list-records`, `cdn:dns:update-record`, `cdn:dns:delete-record`, `cdn:dns:bootstrap-edge-domain`, `cdn:dns:sync-edge-domain`, `cdn:dns:rebuild-customer-zones`, `cdn:dns:validate-routing`, `cdn:redirect:create`, `cdn:redirect:list`, `cdn:redirect:update`, `cdn:redirect:delete`, `cdn:edge:list`, `cdn:edge:register-token`, `cdn:edge:rotate-token`, `cdn:edge:sync-config`, `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`, `cdn:migrate`.
+Registered commands include `cdn:ssl:renew-due`, which renews eligible ACME certificates.
+
+### cdn:ssl:renew-due
+
+Attempts renewal for non-revoked ACME certificates whose `renewal_due_at` is within 14 days and whose domain has auto-renew enabled.
+
+```bash
+docker compose exec core php artisan cdn:ssl:renew-due
+```
+
+The command exits non-zero when any attempted renewal fails.
 
 ### cdn:migrate
 

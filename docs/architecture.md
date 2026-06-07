@@ -89,4 +89,4 @@ Domain creation stores the expected authoritative nameservers from platform sett
 
 ## Limitations And Assumptions
 
-No TLS automation, production scheduler, enterprise RBAC, or billing layer is implemented. The official dashboard is a static Vue SPA served by the `dashboard` Compose service and backed by admin session auth APIs. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers.
+ACME DNS-01 issuance and hourly certificate renewal are implemented through the core service and `ssl-scheduler`; enterprise RBAC and billing are not implemented. The official dashboard is a static Vue SPA served by the `dashboard` Compose service and backed by admin session auth APIs. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers.

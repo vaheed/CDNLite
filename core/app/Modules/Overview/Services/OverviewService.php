@@ -36,7 +36,12 @@ class OverviewService
         $now ??= time(); $pdo = Database::pdo(); $warnings = [];
         $ssl = $pdo->prepare('SELECT COUNT(*) FROM ssl_certificates WHERE not_after>=:now AND not_after<:expiry');
         $ssl->execute([':now'=>$now, ':expiry'=>$now+2592000]); $count=(int)$ssl->fetchColumn();
-        if ($count) $warnings[]=['severity'=>'warning','message'=>sprintf('%d SSL certificate%s expire within 30 days',$count,$count===1?'':'s'),'link'=>'/domains'];
+        if ($count) {
+            $domain = $pdo->prepare('SELECT domain_id FROM ssl_certificates WHERE not_after>=:now AND not_after<:expiry ORDER BY not_after ASC LIMIT 1');
+            $domain->execute([':now'=>$now, ':expiry'=>$now+2592000]);
+            $domainId = $domain->fetchColumn();
+            $warnings[]=['severity'=>'warning','message'=>sprintf('%d SSL certificate%s expire within 30 days',$count,$count===1?'':'s'),'link'=>$domainId ? '/domains/'.$domainId.'/ssl' : '/domains'];
+        }
         $edges=$pdo->prepare('SELECT COUNT(*) FROM edge_nodes WHERE is_enabled=true AND COALESCE(last_heartbeat_at,last_heartbeat)<:cutoff');
         $edges->execute([':cutoff'=>$now-300]); $count=(int)$edges->fetchColumn();
         if ($count) $warnings[]=['severity'=>'critical','message'=>sprintf('%d edge node%s offline',$count,$count===1?' is':'s are'),'link'=>'/edge-nodes'];

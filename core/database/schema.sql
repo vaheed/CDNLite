@@ -357,6 +357,7 @@ CREATE TABLE IF NOT EXISTS redirect_rules (
   priority INTEGER NOT NULL DEFAULT 100,
   match_type TEXT NOT NULL DEFAULT 'exact_path',
   preserve_query BOOLEAN NOT NULL DEFAULT true,
+  managed_by TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
@@ -472,8 +473,9 @@ CREATE TABLE IF NOT EXISTS ssl_certificates (
 
 CREATE TABLE IF NOT EXISTS domain_ssl_settings (
   domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
-  force_https BOOLEAN NOT NULL DEFAULT true,
+  force_https BOOLEAN NOT NULL DEFAULT false,
   min_tls_version TEXT NOT NULL DEFAULT '1.2',
+  auto_renew BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   CHECK (min_tls_version IN ('1.2', '1.3'))
@@ -481,6 +483,40 @@ CREATE TABLE IF NOT EXISTS domain_ssl_settings (
 
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS private_key_pem TEXT NULL;
+ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS acme_status TEXT NULL;
+ALTER TABLE domain_ssl_settings ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE redirect_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE domain_ssl_settings ALTER COLUMN force_https SET DEFAULT false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_redirect_rules_force_https
+  ON redirect_rules(domain_id, managed_by)
+  WHERE managed_by = 'force_https';
+
+UPDATE domain_ssl_settings s
+SET force_https = false
+WHERE force_https = true
+  AND NOT EXISTS (
+    SELECT 1 FROM redirect_rules r
+    WHERE r.domain_id = s.domain_id AND r.managed_by = 'force_https'
+  );
+
+CREATE TABLE IF NOT EXISTS ssl_renewal_history (
+  id TEXT PRIMARY KEY,
+  certificate_id TEXT NULL REFERENCES ssl_certificates(id) ON DELETE SET NULL,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  hostname TEXT NOT NULL,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  error TEXT NULL,
+  started_at BIGINT NOT NULL,
+  completed_at BIGINT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ssl_certificates_renewal_due
+  ON ssl_certificates(renewal_due_at)
+  WHERE provider = 'acme' AND status <> 'revoked';
+CREATE INDEX IF NOT EXISTS idx_ssl_renewal_history_domain
+  ON ssl_renewal_history(domain_id, started_at DESC);
 
 CREATE TABLE IF NOT EXISTS ssl_acme_accounts (
   id TEXT PRIMARY KEY,

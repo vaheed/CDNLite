@@ -30,7 +30,7 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 
 - Control-plane API auth: available via static bearer token (`CDNLITE_API_TOKEN`) or dashboard admin sessions.
 - Static Vue admin dashboard for non-CLI operation.
-- ACME issuance works synchronously with DNS-01 and PowerDNS. Renewal scheduling, alternate ACME providers/challenge types, key rotation hardening, and retry queueing are still in progress.
+- ACME issuance and hourly renewal work synchronously with DNS-01 and PowerDNS. Alternate ACME providers/challenge types, key rotation hardening, and retry queueing are still in progress.
 
 ## Planned (Roadmap)
 
