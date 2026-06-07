@@ -41,14 +41,14 @@ def test_proxied_default_does_not_require_anycast():
 
 def test_dashboard_record_level_routing_contract():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
-    assert "Origin target" in view
-    assert "Standard DNS" in view
+    assert "Default origin IP or hostname" in view
     assert "Proxy through CDNLite" in view
-    assert "DNS routing" in view
-    assert "Default fallback" in view
+    assert "Geo origin routing" in view
+    assert "country-specific origins" in view
+    assert "geoOriginPayload" in view
     assert "Anycast IPv4" not in view
     assert "Edge node ID" not in view
-    assert "Route to edge country" in view
+    assert "Route to edge country" not in view
 
 
 def test_local_development_edges_are_selectable():

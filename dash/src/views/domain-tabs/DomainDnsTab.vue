@@ -1,51 +1,158 @@
 <template>
   <section class="space-y-5">
-    <div class="flex justify-between"><div><h2 class="text-xl font-black">DNS records</h2><p class="text-sm text-slate-500">Choose whether CDNLite proxies traffic and whether DNS uses standard or country-based routing.</p></div><button class="button-primary" @click="startCreate">Add record</button></div>
-    <form v-if="editing" class="card grid gap-4 p-5 md:grid-cols-3" @submit.prevent="save">
-      <label>Type<select v-model="form.type" class="input"><option>A</option><option>AAAA</option><option>CNAME</option><option>TXT</option><option>MX</option></select></label>
-      <label>Name<input v-model="form.name" class="input" /></label>
-      <label>{{ form.proxied ? 'Origin target' : 'Content' }}<input v-model="form.content" class="input" /></label>
-      <label>TTL<input v-model="form.ttl" type="number" class="input" /></label>
-      <label class="flex items-center gap-2"><input v-model="form.proxied" type="checkbox" /> Proxy through CDNLite</label>
-      <label>DNS routing<select v-model="form.dns_routing" class="input"><option value="standard">Standard DNS</option><option value="geo">Geo DNS</option></select></label>
-      <div v-if="form.proxied" class="md:col-span-3 rounded-xl bg-sky-50 p-3 text-sm text-sky-900">
-        <p><strong>Proxy enabled.</strong> Visitors connect through CDNLite, and Content is used as the origin server.</p>
-        <p v-if="form.name === '@'" class="mt-1 font-semibold">CDNLite will publish healthy edge IPs for this root-domain record and keep them updated.</p>
+    <div class="section-heading">
+      <div><h2>DNS records</h2><p>Control public DNS, CDN proxying, and country-specific origins.</p></div>
+      <button class="button-primary" @click="startCreate"><Plus class="h-4 w-4" /> Add record</button>
+    </div>
+
+    <form v-if="editing" class="panel-section space-y-6" @submit.prevent="save">
+      <div class="section-heading">
+        <div><h2>{{ editingId ? 'Edit DNS record' : 'Add DNS record' }}</h2><p>Public DNS and origin delivery are configured together.</p></div>
+        <button type="button" class="icon-button" title="Close" @click="editing = false"><X class="h-5 w-5" /></button>
       </div>
-      <div v-if="isGeo" class="md:col-span-3 space-y-3">
-        <div class="flex justify-between"><strong>Geo routing</strong><button type="button" class="button-secondary" @click="addGeoRoute">Add country rule</button></div>
-        <p class="text-sm text-slate-600">Choose which edge country serves visitors from each country. The default route handles all other visitors.</p>
-        <div v-for="(route,index) in geoRoutes" :key="index" class="grid gap-2 md:grid-cols-3">
-          <label>Visitor country<select v-model="route.country_code" class="input"><option value="">Default fallback</option><option v-for="country in visitorCountries" :key="country.country_code" :value="country.country_code">{{ country.name || country.country_code }}</option></select></label>
-          <label>Route to edge country<select v-model="route.edge_country_code" class="input"><option value="" disabled>Select edge country</option><option v-for="country in countries" :key="country.country_code" :value="country.country_code">{{ country.name || country.country_code }} ({{ country.node_count }} healthy nodes)</option></select></label>
-          <button type="button" class="button-secondary" @click="geoRoutes.splice(index,1)">Remove</button>
+
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <label><span class="field-label">Type</span><select v-model="form.type" class="input"><option v-for="type in recordTypes" :key="type">{{ type }}</option></select></label>
+        <label><span class="field-label">Name</span><input v-model="form.name" class="input" placeholder="@ or www" /></label>
+        <label class="xl:col-span-2"><span class="field-label">{{ form.proxied ? 'Default origin IP or hostname' : 'Content' }}</span><input v-model="form.content" class="input" placeholder="192.0.2.10" /></label>
+        <label><span class="field-label">TTL</span><select v-model="form.ttl" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="86400">1 day</option></select></label>
+        <label v-if="form.type === 'MX'"><span class="field-label">Priority</span><input v-model.number="form.priority" min="0" type="number" class="input" /></label>
+      </div>
+
+      <div class="grid gap-4 lg:grid-cols-2">
+        <label class="setting-row">
+          <span><b>Proxy through CDNLite</b><small>Hide the origin and apply caching, WAF, and rate limits.</small></span>
+          <input v-model="form.proxied" class="toggle" type="checkbox" />
+        </label>
+        <label class="setting-row" :class="{ 'opacity-50': !form.proxied }">
+          <span><b>Geo origin routing</b><small>Send visitors to a custom origin based on country.</small></span>
+          <input v-model="form.geo_enabled" class="toggle" type="checkbox" :disabled="!form.proxied" />
+        </label>
+      </div>
+
+      <div v-if="form.geo_enabled && form.proxied" class="rounded-md border border-slate-200 dark:border-white/10">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
+          <div><h3 class="text-sm font-semibold">Country origins</h3><p class="text-xs text-slate-500">The default origin above handles countries without a rule.</p></div>
+          <button type="button" class="button-secondary" @click="addGeoOrigin"><Plus class="h-4 w-4" /> Add country</button>
         </div>
+        <div v-if="geoOrigins.length" class="divide-y divide-slate-100 dark:divide-white/5">
+          <div v-for="(origin, index) in geoOrigins" :key="index" class="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] md:items-end">
+            <label><span class="field-label">Visitor country</span><select v-model="origin.country_code" class="input"><option value="" disabled>Select country</option><option v-for="country in countryOptions" :key="country.code" :value="country.code">{{ country.name }}</option></select></label>
+            <label><span class="field-label">Origin IP or hostname</span><input v-model="origin.host" class="input" placeholder="192.168.1.1" /></label>
+            <label class="flex h-10 items-center gap-2 text-sm"><input v-model="origin.verify_tls" type="checkbox" /> Verify TLS</label>
+            <button type="button" class="icon-button text-rose-600" title="Remove country origin" @click="geoOrigins.splice(index, 1)"><Trash2 class="h-4 w-4" /></button>
+          </div>
+        </div>
+        <p v-else class="p-6 text-center text-sm text-slate-500">No country overrides. All traffic uses the default origin.</p>
       </div>
-      <div class="flex gap-2"><button class="button-primary">Save</button><button type="button" class="button-secondary" @click="editing=false">Cancel</button></div>
-      <p v-if="error" class="text-sm text-rose-600">{{ error }}</p>
+
+      <div v-if="form.proxied" class="notice-info">
+        <Cloud class="mt-0.5 h-5 w-5 shrink-0" />
+        <p>Visitors connect to CDNLite edge nodes. The default and country origins remain private backend targets.</p>
+      </div>
+      <p v-if="error" class="state-error">{{ error }}</p>
+      <div class="flex justify-end gap-2"><button type="button" class="button-secondary" @click="editing = false">Cancel</button><button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save record' }}</button></div>
     </form>
-    <DataTable v-else-if="records.length" title="DNS Records" :rows="records" :columns="columns">
-      <template #proxied="{row}">{{ row.proxied ? 'Proxied' : 'DNS only' }}</template>
-      <template #actions="{row}"><div class="flex gap-2"><button class="button-secondary px-2 py-1 text-xs" @click="edit(row)">Edit</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
+
+    <DataTable v-else-if="records.length" title="DNS records" subtitle="Authoritative records for this domain." :rows="records" :columns="columns">
+      <template #type="{ value }"><span class="record-type">{{ value }}</span></template>
+      <template #name="{ value }"><span class="font-mono font-medium">{{ value }}</span></template>
+      <template #content="{ row }"><span class="font-mono text-xs">{{ row.content }}</span><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
+      <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
+      <template #status="{ row }"><StatusBadge :status="row.status === 'active' ? 'healthy' : 'warning'" :label="String(row.status || 'unknown')" /></template>
+      <template #actions="{ row }"><div class="flex gap-2"><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
     </DataTable>
-    <EmptyState v-else title="No DNS records" message="Add a standard, Geo DNS, or proxied CDN record." />
+    <EmptyState v-else title="No DNS records" message="Add your first DNS record to begin routing traffic." />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
-import DataTable from '@/components/ui/DataTable.vue'; import EmptyState from '@/components/ui/EmptyState.vue'; import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
-import { dnsApi } from '@/lib/api/dns'; import type { DnsRecord, EdgeCountry, GeoRoute } from '@/types';
-const props=defineProps<{domainId:string}>(); const records=ref<DnsRecord[]>([]); const countries=ref<EdgeCountry[]>([]); const geoRoutes=ref<GeoRoute[]>([]);
-const editing=ref(false); const editingId=ref(''); const error=ref('');
-const form=reactive({type:'A',name:'@',content:'',ttl:300,proxied:false,dns_routing:'standard' as 'standard'|'geo'});
-const columns=[{key:'type',label:'Type'},{key:'name',label:'Name'},{key:'content',label:'Content / Origin'},{key:'proxied',label:'Proxy'},{key:'routing_policy',label:'DNS routing'},{key:'geo_routes_count',label:'Geo routes'},{key:'actions',label:'Actions'}];
-const isGeo=computed(()=>form.dns_routing==='geo');
-const visitorCountries=computed(()=>countries.value.filter(country=>country.country_code!=='LOCAL'));
-async function load(){[records.value,countries.value]=await Promise.all([dnsApi.list(props.domainId),dnsApi.countries()]);}
-function startCreate(){editingId.value='';Object.assign(form,{type:'A',name:'@',content:'',ttl:300,proxied:false,dns_routing:'standard'});geoRoutes.value=[];editing.value=true;}
-async function edit(value:Record<string,unknown>){const row=value as unknown as DnsRecord;editingId.value=row.id;Object.assign(form,{type:row.type,name:row.name,content:row.content,ttl:row.ttl||300,proxied:!!row.proxied,dns_routing:['geo','geo_anycast'].includes(row.routing_policy||'standard')?'geo':'standard'});geoRoutes.value=isGeo.value?await dnsApi.geoRoutes(props.domainId,row.id):[];editing.value=true;}
-function addGeoRoute(){geoRoutes.value.push({country_code:'',edge_country_code:'',enabled:true});}
-async function save(){error.value='';if(isGeo.value&&!geoRoutes.value.some(r=>!r.country_code)){error.value='A default fallback route is required.';return;}if(isGeo.value&&geoRoutes.value.some(r=>!r.edge_country_code)){error.value='Select an edge country for every Geo route.';return;}try{const payload={type:form.type,name:form.name,content:form.content,ttl:form.ttl,proxied:form.proxied,routing_policy:form.dns_routing,origin_host:form.proxied?form.content:undefined};const saved=editingId.value?await dnsApi.update(props.domainId,editingId.value,payload):await dnsApi.create(props.domainId,payload);if(isGeo.value)await dnsApi.updateGeoRoutes(props.domainId,saved.id,geoRoutes.value);editing.value=false;await load();}catch(e){error.value=e instanceof Error?e.message:'Unable to save DNS record.';}}
-async function remove(value:Record<string,unknown>){const row=value as unknown as DnsRecord;await dnsApi.remove(props.domainId,row.id);await load();} watch(()=>props.domainId,load);onMounted(load);
+import { onMounted, reactive, ref, watch } from 'vue';
+import { Cloud, CloudOff, Pencil, Plus, Trash2, X } from 'lucide-vue-next';
+import DataTable from '@/components/ui/DataTable.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import StatusBadge from '@/components/ui/StatusBadge.vue';
+import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
+import { dnsApi } from '@/lib/api/dns';
+import type { DnsRecord } from '@/types';
+
+type GeoOriginForm = { country_code: string; host: string; verify_tls: boolean };
+const props = defineProps<{ domainId: string }>();
+const records = ref<Array<DnsRecord & { geo_origins_count: number }>>([]);
+const geoOrigins = ref<GeoOriginForm[]>([]);
+const editing = ref(false);
+const editingId = ref('');
+const error = ref('');
+const saving = ref(false);
+const recordTypes = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'CAA', 'NS', 'SRV'];
+const countryOptions = [
+  { code: 'IR', name: 'Iran' }, { code: 'US', name: 'United States' }, { code: 'CA', name: 'Canada' },
+  { code: 'DE', name: 'Germany' }, { code: 'FR', name: 'France' }, { code: 'GB', name: 'United Kingdom' },
+  { code: 'NL', name: 'Netherlands' }, { code: 'TR', name: 'Turkey' }, { code: 'AE', name: 'United Arab Emirates' },
+  { code: 'IN', name: 'India' }, { code: 'SG', name: 'Singapore' }, { code: 'JP', name: 'Japan' },
+  { code: 'AU', name: 'Australia' }, { code: 'BR', name: 'Brazil' }, { code: 'ZA', name: 'South Africa' },
+];
+const form = reactive({ type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false });
+const columns = [
+  { key: 'type', label: 'Type' }, { key: 'name', label: 'Name' }, { key: 'content', label: 'Content / origin' },
+  { key: 'proxied', label: 'Proxy status' }, { key: 'ttl', label: 'TTL' }, { key: 'status', label: 'Status' }, { key: 'actions', label: '' },
+];
+
+async function load() {
+  const result = await dnsApi.list(props.domainId);
+  records.value = result.map((record) => ({ ...record, geo_origins_count: Object.keys(record.geo_origins ?? {}).filter((key) => key !== 'DEFAULT').length }));
+}
+function reset() {
+  Object.assign(form, { type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false });
+  geoOrigins.value = [];
+  error.value = '';
+}
+function startCreate() { editingId.value = ''; reset(); editing.value = true; }
+function edit(value: Record<string, unknown>) {
+  const row = value as unknown as DnsRecord;
+  editingId.value = row.id;
+  Object.assign(form, {
+    type: row.type, name: row.name, content: row.origin_host || row.content, ttl: row.ttl || 300,
+    priority: row.priority ?? 10, proxied: !!row.proxied, geo_enabled: Object.keys(row.geo_origins ?? {}).some((key) => key !== 'DEFAULT'),
+  });
+  geoOrigins.value = Object.entries(row.geo_origins ?? {}).filter(([country]) => country !== 'DEFAULT').map(([country, origin]) => ({
+    country_code: country, host: origin.host, verify_tls: origin.tls_verify !== 'ignore',
+  }));
+  error.value = '';
+  editing.value = true;
+}
+function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', verify_tls: true }); }
+function geoOriginPayload() {
+  const origins: Record<string, { host: string; tls_verify: 'verify' | 'ignore' }> = {};
+  if (form.proxied && form.content.trim()) origins.DEFAULT = { host: form.content.trim(), tls_verify: 'verify' };
+  if (form.proxied && form.geo_enabled) {
+    for (const origin of geoOrigins.value) origins[origin.country_code] = { host: origin.host.trim(), tls_verify: origin.verify_tls ? 'verify' : 'ignore' };
+  }
+  return origins;
+}
+async function save() {
+  error.value = '';
+  if (!form.name.trim() || !form.content.trim()) { error.value = 'Name and content are required.'; return; }
+  if (form.geo_enabled && geoOrigins.value.some((item) => !item.country_code || !item.host.trim())) { error.value = 'Select a country and enter an origin for every Geo-DNS rule.'; return; }
+  if (new Set(geoOrigins.value.map((item) => item.country_code)).size !== geoOrigins.value.length) { error.value = 'Each country can have only one origin.'; return; }
+  saving.value = true;
+  try {
+    const payload = {
+      type: form.type, name: form.name.trim(), content: form.content.trim(), ttl: Number(form.ttl),
+      priority: form.type === 'MX' ? Number(form.priority) : null, proxied: form.proxied,
+      origin_host: form.proxied ? form.content.trim() : undefined, origin_tls_verify: 'verify' as const,
+      geo_origins: geoOriginPayload(), routing_policy: 'standard' as const,
+    };
+    if (editingId.value) await dnsApi.update(props.domainId, editingId.value, payload);
+    else await dnsApi.create(props.domainId, payload);
+    editing.value = false;
+    await load();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save DNS record.';
+  } finally { saving.value = false; }
+}
+async function remove(value: Record<string, unknown>) { await dnsApi.remove(props.domainId, String(value.id)); await load(); }
+
+watch(() => props.domainId, load);
+onMounted(load);
 </script>

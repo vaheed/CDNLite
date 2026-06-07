@@ -9,6 +9,7 @@ This page shows what CDNLite website-CDN capabilities work today and what is pla
 - Domain lifecycle management (`create/list/update/delete`).
 - Nameserver-first domain onboarding, delegation verification, and controlled activation.
 - DNS record CRUD per domain (with optional PowerDNS sync).
+- Country-specific origin routing for proxied records, with a default origin fallback and per-country TLS verification.
 - Edge host-based proxying from config snapshots.
 - Redirect rules (basic path-to-target URL rules).
 - Domain-level rate limit rule (basic model).

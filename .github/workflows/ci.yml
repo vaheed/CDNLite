@@ -14,6 +14,8 @@ env:
   POWERDNS_HOST_PORT: 8089
   PDNS_PORT: 8081
   PDNS_API_KEY: test-key
+  COMPOSE_ANSI: never
+  DOCKER_BUILDKIT: 1
 
 jobs:
   test:
@@ -90,12 +92,15 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
-        run: docker compose up -d --build
+        run: |
+          docker compose config --quiet
+          docker compose up -d --build --wait --wait-timeout 180
       - name: Smoke test
         run: |
           chmod +x ci/*.sh
@@ -129,6 +134,7 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 45
     env:
       EDGE_AGENT_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
@@ -139,11 +145,22 @@ jobs:
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack
-        run: docker compose up -d --build
+        run: |
+          docker compose config --quiet
+          docker compose up -d --build
+          timeout 180 bash -c 'until curl -fsS http://localhost:8080/health && curl -fsS http://localhost:8081/health; do sleep 2; done'
       - name: E2E test
         run: |
           chmod +x ci/*.sh
           ./ci/e2e.sh
+      - name: Service logs
+        if: always()
+        run: |
+          mkdir -p ci/reports
+          docker compose logs --no-color > ci/reports/compose-logs.txt || true
+          for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
+            docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
+          done
       - name: Upload e2e artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -157,13 +174,6 @@ jobs:
           if [ -f ci/reports/e2e-report.md ]; then
             cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Service logs
-        if: always()
-        run: |
-          docker compose logs --no-color > ci/reports/compose-logs.txt || true
-          for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
-            docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
-          done
       - name: Teardown
         if: always()
         run: docker compose down -v
@@ -171,6 +181,7 @@ jobs:
   e2e-powerdns:
     runs-on: ubuntu-latest
     needs: test
+    timeout-minutes: 45
     env:
       EDGE_AGENT_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
@@ -187,11 +198,22 @@ jobs:
       - name: Install helpers
         run: sudo apt-get update && sudo apt-get install -y jq
       - name: Build and start stack with PowerDNS mock
-        run: docker compose --profile powerdns up -d --build
+        run: |
+          docker compose --profile powerdns config --quiet
+          docker compose --profile powerdns up -d --build
+          timeout 180 bash -c 'until curl -fsS http://localhost:8080/health && curl -fsS http://localhost:8081/health && curl -fsS http://localhost:8089/health; do sleep 2; done'
       - name: E2E test with PowerDNS strict
         run: |
           chmod +x ci/*.sh
           ./ci/e2e.sh
+      - name: Service logs
+        if: always()
+        run: |
+          mkdir -p ci/reports
+          docker compose logs --no-color > ci/reports/compose-logs.txt || true
+          for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
+            docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
+          done
       - name: Upload e2e powerdns artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -205,13 +227,6 @@ jobs:
           if [ -f ci/reports/e2e-report.md ]; then
             cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
-      - name: Service logs
-        if: always()
-        run: |
-          docker compose logs --no-color > ci/reports/compose-logs.txt || true
-          for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
-            docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
-          done
       - name: Teardown
         if: always()
         run: docker compose --profile powerdns down -v

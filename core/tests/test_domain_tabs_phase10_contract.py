@@ -47,7 +47,7 @@ def test_dashboard_uses_domain_detail_tabs():
     nav = read("dash/src/components/layout/nav.ts")
 
     for label in ["Overview", "DNS", "SSL", "Cache", "Redirects", "Page Rules", "WAF", "Rate Limits", "Analytics"]:
-        assert f"label:'{label}'" in detail
+        assert f"label: '{label}'" in detail
     assert "/domains/:domainId/:tab?" in router
     assert "DomainFeatureView" not in router
     assert "{ to: '/dns'" not in nav

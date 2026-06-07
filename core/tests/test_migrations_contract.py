@@ -58,3 +58,21 @@ def test_migrate_command_uses_database_pdo_entrypoint():
     assert "Database::connection()" not in command
     assert "preg_replace('/^\\s*--.*$/m'" in command
     assert "trim((string) $executableSql) !== ''" in command
+
+
+def test_schema_application_is_serialized_across_services():
+    repo_root = Path(__file__).resolve().parents[2]
+    database = (repo_root / "core" / "app" / "Support" / "Database.php").read_text()
+
+    assert "pg_advisory_lock" in database
+    assert "pg_advisory_unlock" in database
+    assert "finally" in database
+
+
+def test_numbered_migration_runner_is_serialized_across_services():
+    repo_root = Path(__file__).resolve().parents[2]
+    command = (repo_root / "core" / "app" / "Console" / "Commands" / "CdnMigrateCommand.php").read_text()
+
+    assert "pg_advisory_lock" in command
+    assert "pg_advisory_unlock" in command
+    assert "finally" in command

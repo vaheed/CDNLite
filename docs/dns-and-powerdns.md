@@ -47,7 +47,20 @@ When `routing_policy` is omitted it defaults to `standard`, including for proxie
 
 Global Anycast settings contain two IPv4 and two IPv6 ingress VIPs. They publish as A/AAAA records on `global.edge.<platform-zone>`, while Anycast record hostnames CNAME to that global hostname. CDNLite stores and publishes these VIPs, but real Anycast requires BGP announcements and network configuration outside the PHP application.
 
-Geo routes are stored per DNS record and require a default fallback. Users map a visitor country to an edge country; they never need an edge-node ID. CDNLite resolves the selected edge country to its enabled, online, Geo-capable nodes. The current PowerDNS integration does not yet install a country-aware GeoDNS backend/plugin, so Geo route API persistence is active while country-specific authoritative answers are explicitly reported as inactive.
+For proxied records, the dashboard supports country-specific origin overrides.
+Each rule maps a two-letter visitor country code to an origin IP or hostname,
+for example `IR -> 192.168.1.1` and `US -> 192.168.2.1`. Countries without an
+override use the record's default origin. These rules are stored in
+`dns_records.geo_origins_json`, included in edge configuration snapshots, and
+selected at request time from the visitor country. Origin TLS verification can
+be controlled per country.
+
+The separate Geo route API maps visitor countries to edge countries for
+authoritative DNS routing. Those routes require a default fallback. The current
+PowerDNS integration does not install a country-aware GeoDNS backend/plugin, so
+Geo route persistence is active while country-specific authoritative answers
+are reported as inactive. Country-specific origin routing behind a proxied
+record is fully active and does not depend on that PowerDNS plugin.
 
 ## Per-domain routing
 

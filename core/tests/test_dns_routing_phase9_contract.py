@@ -41,8 +41,11 @@ def test_dashboard_routing_controls_contract():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
     api = read("dash/src/lib/api/dns.ts")
 
-    assert "DNS routing" in view
+    assert "Geo origin routing" in view
     assert "Proxy through CDNLite" in view
+    assert "geo_origins: geoOriginPayload()" in view
+    assert "Visitor country" in view
+    assert "Origin IP or hostname" in view
     assert "Geo + Anycast CDN" not in view
     assert "Anycast IPv4" not in view
     assert "previewRouting" in api

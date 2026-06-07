@@ -61,10 +61,14 @@ core logs from agent polling are ignored.
 `.github/workflows/ci.yml` uses a fast test gate, then runs the stack suites in parallel:
 
 1. `test`: PHP lint, shell syntax checks, marker scan, dashboard `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `pytest -q core/tests` with PostgreSQL service.
-2. `smoke`, `e2e`, and `e2e-powerdns` start independently after `test`.
+2. `smoke`, `e2e`, and `e2e-powerdns` start independently after `test`. Each job validates the Compose model first, has an explicit timeout, and waits for the required HTTP health endpoints before starting assertions.
 3. Playwright dashboard E2E is currently manual-only and is not part of GitHub Actions.
 4. `release_gate` succeeds only after the three stack jobs pass.
 5. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard multi-platform images for `linux/amd64` and `linux/arm64` to GHCR.
+
+Compose logs are collected into `ci/reports` before artifact upload, including
+when a stack assertion fails. This keeps the uploaded report complete and avoids
+artifact upload racing the diagnostic step.
 
 The publish steps use GitHub Actions build caches scoped per image. Independent
 stack jobs intentionally do not depend on one another, reducing the critical
