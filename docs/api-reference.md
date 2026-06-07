@@ -690,4 +690,4 @@ GET   /api/v1/domains/{domainId}/ssl
 PATCH /api/v1/domains/{domainId}/ssl/settings
 ```
 
-The settings payload contains `force_https`, `auto_renew`, and `min_tls_version` (`1.2` or `1.3`). Force HTTPS defaults to `false`. Enabling it requires an active, unexpired certificate for the domain hostname; otherwise the API returns `422 {"error":"valid_ssl_certificate_required"}`. On enable, core creates a managed `308` HTTP-to-HTTPS redirect that preserves the request path and query. Disabling Force HTTPS removes that managed redirect without changing user-created redirect rules.
+The settings payload contains `force_https`, `auto_renew`, and `min_tls_version` (`1.2` or `1.3`). Force HTTPS and auto-renew both default to `false`. Enabling Force HTTPS requires an active, unexpired certificate for the domain hostname; otherwise the API returns `422 {"error":"valid_ssl_certificate_required"}`. On enable, core creates a managed `308` HTTP-to-HTTPS redirect that preserves the request path and query. Disabling Force HTTPS removes that managed redirect without changing user-created redirect rules.

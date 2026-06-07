@@ -9,7 +9,8 @@
           <option value="1.3">TLS 1.3</option>
         </select>
       </label>
-      <button class="button-primary">Save SSL settings</button>
+      <button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save SSL settings' }}</button>
+      <p v-if="saveMessage" class="w-full text-sm" :class="saveError ? 'text-red-600' : 'text-emerald-600'">{{ saveMessage }}</p>
     </form>
 
     <div class="flex flex-wrap justify-end gap-2">
@@ -57,7 +58,10 @@ const props = defineProps<{ domainId: string }>();
 const certificates = ref<SslCertificate[]>([]);
 const status = ref<AcmeStatus>({ progress: [], history: [] });
 const busy = ref(false);
-const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: true });
+const saving = ref(false);
+const saveMessage = ref('');
+const saveError = ref(false);
+const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: false });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
 const rows = computed(() => certificates.value.map(c => ({ ...c, expiry: c.not_after ? formatDate(c.not_after) : '' })));
 let pollTimer: number | undefined;
@@ -72,7 +76,23 @@ async function load() {
   Object.assign(settings, current);
   status.value = acme;
 }
-async function saveSettings() { await sslApi.updateSettings(props.domainId, settings); }
+async function saveSettings() {
+  saving.value = true;
+  saveMessage.value = '';
+  saveError.value = false;
+  try {
+    const saved = await sslApi.updateSettings(props.domainId, settings);
+    Object.assign(settings, saved);
+    saveMessage.value = 'SSL settings saved.';
+  } catch (error) {
+    saveError.value = true;
+    saveMessage.value = error instanceof Error ? error.message : 'Unable to save SSL settings.';
+    const persisted = await sslApi.settings(props.domainId);
+    Object.assign(settings, persisted);
+  } finally {
+    saving.value = false;
+  }
+}
 async function requestCertificate() { await runAction(() => sslApi.requestCertificate(props.domainId)); }
 async function renew() { await runAction(() => sslApi.renew(props.domainId)); }
 async function check() { busy.value = true; try { await sslApi.check(props.domainId); await load(); } finally { busy.value = false; } }

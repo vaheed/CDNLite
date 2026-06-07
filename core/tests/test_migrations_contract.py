@@ -32,6 +32,7 @@ def test_stage5_migration_files_exist_in_order():
             "023_dns_routing_model.sql",
             "024_ssl_automation.sql",
             "025_force_https_redirect.sql",
+            "026_ssl_settings_defaults.sql",
         ]
 
 

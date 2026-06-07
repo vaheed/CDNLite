@@ -21,6 +21,7 @@ def test_ssl_settings_are_domain_scoped_and_published():
     assert "valid_ssl_certificate_required" in service
     assert "managed_by='force_https'" in service
     assert "VALUES (:domain_id,false" in service
+    assert ":min_tls_version,false" in service
 
 
 def test_force_https_redirect_is_http_only_and_preserves_request_uri():
@@ -28,6 +29,16 @@ def test_force_https_redirect_is_http_only_and_preserves_request_uri():
 
     assert "rule.managed_by == 'force_https' and ngx.var.scheme == 'http'" in router
     assert "ngx.var.request_uri" in router
+
+
+def test_ssl_tab_defaults_are_off_and_save_feedback_is_visible():
+    tab = read("dash/src/views/domain-tabs/DomainSslTab.vue")
+    schema = read("core/database/schema.sql")
+
+    assert "auto_renew: false" in tab
+    assert "force_https: false" in tab
+    assert "SSL settings saved." in tab
+    assert "auto_renew BOOLEAN NOT NULL DEFAULT false" in schema
 
 
 def test_dashboard_uses_domain_detail_tabs():

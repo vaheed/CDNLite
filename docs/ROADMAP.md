@@ -1133,6 +1133,21 @@ Add per-domain IP access control to CDNLite.
 
 ## Phase 18 — SSL certificate automation
 
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Added `CertRenewalService` with explicit renewal eligibility for non-revoked ACME certificates due within 14 days.
+- Added `cdn:ssl:renew-due` and the hourly `ssl-scheduler` Compose service.
+- Added certificate request, force-renew, and ACME progress/history endpoints.
+- Persisted per-domain auto-renew settings, ACME progress, and issuance/renewal history.
+- Added readiness warnings for certificates expiring within 14 days, linking directly to the domain SSL tab.
+- Updated the SSL tab with auto-renew, request/renew actions, live ACME status polling, and renewal history.
+- Changed Force HTTPS to default off. Enabling it requires an active, unexpired apex certificate with stored certificate/key material.
+- Changed auto-renew to default off so certificate automation is explicitly enabled per domain.
+- Enabling Force HTTPS creates one managed HTTP-only `308` redirect that preserves the request path and query. Disabling it removes only that managed redirect.
+- Added migrations `024_ssl_automation.sql` and `025_force_https_redirect.sql`, including migration of legacy Force HTTPS defaults to disabled.
+
 **Goal:** ACME-based auto-renewal works, expiry is monitored, and cert status is actionable in the dashboard. The `ssl_acme_accounts` and `ssl_certificates` tables already exist.
 
 ### What changes
@@ -1155,17 +1170,24 @@ Add readiness check: any cert expiring in < 14 days → warning in readiness API
 - ACME challenge status progress (pending DNS-01 → verifying → issued).
 - Renewal history list.
 - Readiness card warning links to SSL tab when cert expiring.
+- Force HTTPS defaults to disabled and cannot be enabled until a valid certificate exists.
+- Enabling Force HTTPS creates a managed HTTP-to-HTTPS redirect; disabling it removes the managed rule.
 
 **Docker Compose** — Add a `cdn:ssl:renew-due` cron entry (or a separate `ssl-scheduler` service running the command every hour).
 
 ### Files changed
 ```
-core/src/Services/CertRenewalService.php
-core/src/Console/Commands/SslRenewDueCommand.php
-core/src/Controllers/SslController.php
-core/routes/api.php
-core/src/Services/ReadinessService.php
+core/app/Modules/Proxy/Services/CertRenewalService.php
+core/app/Console/Commands/CdnSslRenewDueCommand.php
+core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php
+core/app/Modules/Proxy/Services/TrafficRulesService.php
+core/app/Modules/Health/Services/ReadinessService.php
+core/public_index.php
+core/database/migrations/024_ssl_automation.sql
+core/database/migrations/025_force_https_redirect.sql
 dash/src/views/domain-tabs/DomainSslTab.vue
+dash/src/lib/api/ssl.ts
+edge/openresty/lua/router.lua
 docker-compose.yml
 ```
 
@@ -1179,6 +1201,10 @@ docker-compose.yml
 - ACME challenge status is visible in real time.
 - Readiness warning fires for expiring certs.
 - Force renew works from dashboard.
+- Force HTTPS is disabled by default.
+- Force HTTPS cannot be enabled without an active, unexpired certificate for the domain hostname.
+- Force HTTPS creates an HTTP-only `308` redirect that preserves path and query.
+- Disabling Force HTTPS does not remove user-created redirect rules.
 
 ### Agent prompt
 ```

@@ -158,7 +158,7 @@ class TrafficRulesService
         $now = time();
         Database::pdo()->prepare(
             'INSERT INTO domain_ssl_settings (domain_id,force_https,min_tls_version,auto_renew,created_at,updated_at)
-             VALUES (:domain_id,false,:min_tls_version,true,:created_at,:updated_at)'
+             VALUES (:domain_id,false,:min_tls_version,false,:created_at,:updated_at)'
         )->execute([':domain_id' => $domainId, ':min_tls_version' => '1.2', ':created_at' => $now, ':updated_at' => $now]);
         return $this->getSslSettings($domainId);
     }

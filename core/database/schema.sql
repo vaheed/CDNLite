@@ -475,7 +475,7 @@ CREATE TABLE IF NOT EXISTS domain_ssl_settings (
   domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,
   force_https BOOLEAN NOT NULL DEFAULT false,
   min_tls_version TEXT NOT NULL DEFAULT '1.2',
-  auto_renew BOOLEAN NOT NULL DEFAULT true,
+  auto_renew BOOLEAN NOT NULL DEFAULT false,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   CHECK (min_tls_version IN ('1.2', '1.3'))
@@ -484,7 +484,8 @@ CREATE TABLE IF NOT EXISTS domain_ssl_settings (
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS certificate_pem TEXT NULL;
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS private_key_pem TEXT NULL;
 ALTER TABLE ssl_certificates ADD COLUMN IF NOT EXISTS acme_status TEXT NULL;
-ALTER TABLE domain_ssl_settings ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE domain_ssl_settings ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE domain_ssl_settings ALTER COLUMN auto_renew SET DEFAULT false;
 ALTER TABLE redirect_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
 ALTER TABLE domain_ssl_settings ALTER COLUMN force_https SET DEFAULT false;
 
