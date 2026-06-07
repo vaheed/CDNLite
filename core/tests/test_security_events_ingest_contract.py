@@ -16,3 +16,10 @@ def test_security_events_ingest_route_contract():
     assert "push_security_events.sh" in agent_run
     assert "chmod 666" in agent_push
     assert "security-events.ndjson" in router
+
+
+def test_e2e_global_waf_assertion_filters_newer_rate_limit_events():
+    repo_root = Path(__file__).resolve().parents[2]
+    e2e = (repo_root / "ci" / "e2e.sh").read_text()
+
+    assert "/api/v1/security/events?domain_id=${DOMAIN_ID}&type=waf_match&limit=10" in e2e

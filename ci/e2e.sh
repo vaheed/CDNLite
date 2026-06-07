@@ -528,7 +528,7 @@ assert_http_status "$HTTP_CODE" "200" "security rate-limit events list failed"
 assert_contains "$HTTP_BODY" '"type":"rate_limited"' "security rate_limited event missing"
 record_step PASS "security-events" "edge-ingested waf_match and rate_limited visible via api"
 
-api_get "${CORE_URL}/api/v1/security/events?domain_id=${DOMAIN_ID}&limit=10"
+api_get "${CORE_URL}/api/v1/security/events?domain_id=${DOMAIN_ID}&type=waf_match&limit=10"
 assert_http_status "$HTTP_CODE" "200" "global security events list failed"
 assert_contains "$HTTP_BODY" "\"domain_id\":\"${DOMAIN_ID}\"" "global security events missing test domain"
 assert_contains "$HTTP_BODY" '"type":"waf_match"' "global security events missing waf_match"
