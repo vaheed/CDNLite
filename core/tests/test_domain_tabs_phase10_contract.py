@@ -48,6 +48,10 @@ def test_dashboard_uses_domain_detail_tabs():
 
     for label in ["Overview", "DNS", "SSL", "Cache", "Redirects", "Page Rules", "WAF", "Rate Limits", "Analytics"]:
         assert f"label: '{label}'" in detail
+    assert "const wafTabs" in detail
+    assert "label: 'WAF', tabs: wafTabs" in detail
+    assert "Setup needed" in detail
+    assert "Disabled" in detail
     assert "/domains/:domainId/:tab?" in router
     assert "DomainFeatureView" not in router
     assert "{ to: '/dns'" not in nav

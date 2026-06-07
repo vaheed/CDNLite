@@ -14,6 +14,8 @@ php core/artisan list
 
 Registered commands include `cdn:ssl:renew-due`, which renews eligible ACME certificates.
 
+Commands output JSON by default. Add `--format=table` to print a human-readable table for list and object payloads.
+
 ### cdn:ssl:renew-due
 
 Attempts renewal for non-revoked ACME certificates whose `renewal_due_at` is within 14 days and whose domain has auto-renew enabled.
@@ -127,6 +129,24 @@ Purpose: list domains. Equivalent API: `GET /api/v1/domains`.
 {"data":[{"id":"11111111-1111-4111-8111-111111111111","domain":"demo.local"}]}
 ```
 
+### cdn:domain:show
+
+Purpose: show one domain. Equivalent API: `GET /api/v1/domains/{id}`.
+
+Required: `--id`.
+
+### cdn:domain:activate
+
+Purpose: mark a domain active after nameserver verification.
+
+Required: `--id`. Optional: `--force` to bypass the nameserver verification guard.
+
+### cdn:domain:verify-ns
+
+Purpose: run nameserver verification for a domain.
+
+Required: `--id`.
+
 ### cdn:domain:update
 
 Purpose: patch a domain. Equivalent API: `PATCH /api/v1/domains/{id}`.
@@ -155,6 +175,8 @@ Success: `{"ok":true}`. Common errors: `Missing --id`, `Domain not found`.
 
 Equivalent API: `POST /api/v1/domains/{id}/dns/records`.
 
+Alias: `cdn:dns:create`.
+
 Required: `--domain_id`, `--type`, `--name`, `--content`.
 
 Optional: `--ttl=300`, `--priority`, `--proxied=0|1`, `--geo_policy_id=<id>`, `--edge_target=<hostname>`.
@@ -172,6 +194,8 @@ Common errors: `Missing --type`, `Missing --name`, `Missing --content`, `Missing
 ### cdn:dns:list-records
 
 Required: `--domain_id`. Equivalent API: `GET /api/v1/domains/{id}/dns/records`.
+
+Alias: `cdn:dns:list`.
 
 ```json
 {"data":[{"id":"22222222-2222-4222-8222-222222222222","type":"A","name":"@"}]}
@@ -195,7 +219,9 @@ Common errors: `Missing --domain_id or --record_id`, `Missing update options`, `
 
 ### cdn:dns:delete-record
 
-Required: `--domain_id`, `--record_id`. Equivalent API: `DELETE /api/v1/domains/{id}/dns/records/{recordId}`.
+Required: `--domain_id`, `--record_id` or `--id`. Equivalent API: `DELETE /api/v1/domains/{id}/dns/records/{recordId}`.
+
+Alias: `cdn:dns:delete`.
 
 Success: `{"ok":true}`. Common error: `Missing --domain_id or --record_id`, `Record not found`.
 
@@ -329,6 +355,18 @@ Equivalent API: `GET /api/v1/edge/nodes`.
 {"data":[{"edge_id":"edge-local-1","status":"online"}]}
 ```
 
+### cdn:edge:show
+
+Purpose: show one edge node by database `id` or `edge_id`.
+
+Required: `--id`.
+
+### cdn:edge:disable
+
+Purpose: disable one edge node by database `id` or `edge_id`.
+
+Required: `--id`.
+
 ### cdn:edge:register-token
 
 Purpose: create or replace the bcrypt token hash for an edge ID. There is no public API equivalent.
@@ -389,6 +427,8 @@ php core/artisan cdn:usage:ingest --domain_id=11111111-1111-4111-8111-1111111111
 
 Equivalent API: `GET /api/v1/usage/summary`.
 
+Alias: `cdn:analytics:summary`.
+
 Optional: `--domain_id`, `--bucket=minute|hour|day`.
 
 ```json
@@ -404,3 +444,67 @@ Optional: `--domain_id`.
 ```json
 {"ok":true,"domain_id":"11111111-1111-4111-8111-111111111111","inserted":{"minute":1,"hour":1,"day":1},"summary":{"requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1},"aggregates":{"minute":{"bucket":"minute","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1},"hour":{"bucket":"hour","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1},"day":{"bucket":"day","requests_count":10,"bytes_in":1000,"bytes_out":5000,"records":1}}}
 ```
+
+## Settings Commands
+
+### cdn:settings:get
+
+Purpose: print all settings or one settings group.
+
+Optional: `--group=platform.powerdns`.
+
+### cdn:settings:set
+
+Purpose: set one platform setting.
+
+Required: `--key=<group.name>`, `--value=<json-or-string>`.
+
+### cdn:settings:test-powerdns
+
+Purpose: run the PowerDNS health check and print the result.
+
+## Cache Commands
+
+### cdn:cache:purge
+
+Purpose: create a cache purge request.
+
+Required: `--domain_id`, `--type=all|url|prefix`. Required for `url` and `prefix`: `--value`.
+
+### cdn:cache:settings
+
+Purpose: print domain cache settings.
+
+Required: `--domain_id`.
+
+## SSL Commands
+
+### cdn:ssl:list
+
+Purpose: list SSL certificates for a domain.
+
+Required: `--domain_id`.
+
+### cdn:ssl:request
+
+Purpose: request SSL certificate provisioning.
+
+Required: `--domain_id`. Optional: `--hostnames=example.com,www.example.com`.
+
+## Readiness And Bootstrap Commands
+
+### cdn:readiness:check
+
+Purpose: print the same readiness payload returned by `GET /api/v1/readiness`.
+
+### cdn:db:fresh
+
+Purpose: drop and recreate the configured database schema.
+
+Required: `--force`.
+
+### cdn:bootstrap:fresh
+
+Purpose: confirm fresh bootstrap mode. The current `dev` setting seed is installed by schema defaults.
+
+Optional: `--seed-settings=dev`.

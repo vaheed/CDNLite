@@ -35,18 +35,21 @@
     </header>
 
     <nav class="domain-tabs" aria-label="Domain management" role="tablist">
-      <RouterLink
-        v-for="tab in tabs"
-        :key="tab.key"
-        :to="`/domains/${domainId}/${tab.key}`"
-        class="domain-tab"
-        active-class="domain-tab-active"
-        role="tab"
-        :aria-selected="route.params.tab === tab.key"
-      >
-        <component :is="tab.icon" class="h-4 w-4" />
-        <span>{{ tab.label }}</span>
-      </RouterLink>
+      <div v-for="group in tabGroups" :key="group.label ?? 'main'" class="domain-tab-group" role="presentation">
+        <span v-if="group.label" class="domain-tab-group-label">{{ group.label }}</span>
+        <RouterLink
+          v-for="tab in group.tabs"
+          :key="tab.key"
+          :to="`/domains/${domainId}/${tab.key}`"
+          class="domain-tab"
+          active-class="domain-tab-active"
+          role="tab"
+          :aria-selected="route.params.tab === tab.key"
+        >
+          <component :is="tab.icon" class="h-4 w-4" />
+          <span>{{ tab.label }}</span>
+        </RouterLink>
+      </div>
     </nav>
 
     <component :is="activeComponent" :domain-id="domainId" :domain="domain" />
@@ -64,6 +67,7 @@ import {
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import { runtimeConfig } from '@/lib/config/env';
 import { domainsApi } from '@/lib/api/domains';
 import type { Domain, Severity } from '@/types';
 import DomainOverviewTab from './domain-tabs/DomainOverviewTab.vue';
@@ -84,7 +88,7 @@ const router = useRouter();
 const domain = ref<Domain | null>(null);
 const loading = ref(true);
 const domainId = computed(() => String(route.params.domainId));
-const tabs = [
+const mainTabs = [
   { key: 'overview', label: 'Overview', icon: Activity, component: DomainOverviewTab },
   { key: 'dns', label: 'DNS', icon: Network, component: DomainDnsTab },
   { key: 'origins', label: 'Origins', icon: ServerCog, component: DomainOriginsTab },
@@ -92,26 +96,77 @@ const tabs = [
   { key: 'cache', label: 'Cache', icon: Database, component: DomainCacheTab },
   { key: 'redirects', label: 'Redirects', icon: Route, component: DomainRedirectsTab },
   { key: 'page-rules', label: 'Page Rules', icon: RefreshCw, component: DomainPageRulesTab },
+];
+const wafTabs = [
   { key: 'waf', label: 'WAF', icon: ShieldCheck, component: DomainWafTab },
   { key: 'ip-access', label: 'IP Access', icon: ListFilter, component: DomainIpRulesTab },
   { key: 'headers', label: 'Headers', icon: SlidersHorizontal, component: DomainHeadersTab },
   { key: 'rate-limits', label: 'Rate Limits', icon: Gauge, component: DomainRateLimitsTab },
+];
+const secondaryTabs = [
   { key: 'analytics', label: 'Analytics', icon: BarChart3, component: DomainAnalyticsTab },
 ];
+const tabGroups = [
+  { tabs: mainTabs },
+  { label: 'WAF', tabs: wafTabs },
+  { tabs: secondaryTabs },
+];
+const tabs = [...mainTabs, ...wafTabs, ...secondaryTabs];
 const activeComponent = computed(() => tabs.find((tab) => tab.key === route.params.tab)?.component ?? DomainOverviewTab);
-const statusLabel = computed(() => String(domain.value?.status ?? 'unknown').replaceAll('_', ' '));
+const statusLabel = computed(() => lifecycleLabel(domain.value?.status));
 const domainStatus = computed<Severity>(() => {
   if (domain.value?.status === 'active') return 'healthy';
+  if (domain.value?.status === 'disabled') return 'unknown';
   if (domain.value?.status === 'error') return 'critical';
   return 'warning';
 });
 const healthItems = computed(() => [
-  { label: 'DNS', value: String(domain.value?.nameserver_status ?? 'unknown').replaceAll('_', ' '), status: domain.value?.nameserver_status === 'verified' ? 'healthy' : 'warning' },
-  { label: 'SSL', value: domain.value?.status === 'active' ? 'Ready' : 'Pending', status: domain.value?.status === 'active' ? 'healthy' : 'warning' },
-  { label: 'Cache', value: 'Available', status: 'healthy' },
-  { label: 'Edge', value: domain.value?.status === 'active' ? 'Online' : 'Pending', status: domain.value?.status === 'active' ? 'healthy' : 'warning' },
-  { label: 'WAF', value: 'Available', status: 'info' },
+  dnsIndicator(),
+  sslIndicator(),
+  featureIndicator('Cache'),
+  edgeIndicator(),
+  { label: 'WAF', value: 'Policies ready', status: 'info' },
 ]);
+
+function lifecycleLabel(value: unknown): string {
+  const status = String(value ?? 'unknown');
+  if (status === 'active') return 'Active';
+  if (status === 'disabled') return 'Disabled';
+  if (status === 'pending_nameserver') return 'Setup needed';
+  if (status === 'error') return 'Error';
+  return status.charAt(0).toUpperCase() + status.slice(1).replaceAll('_', ' ');
+}
+
+function dnsIndicator() {
+  const status = String(domain.value?.nameserver_status ?? 'unknown');
+  if (status === 'verified') return { label: 'DNS', value: 'Verified', status: 'healthy' };
+  if (domain.value?.status === 'disabled') return { label: 'DNS', value: 'Disabled', status: 'disabled' };
+  if (status === 'not_configured') return { label: 'DNS', value: 'Not set', status: 'warning' };
+  if (status === 'partial') return { label: 'DNS', value: 'Partial', status: 'warning' };
+  return { label: 'DNS', value: 'Unknown', status: 'unknown' };
+}
+
+function sslIndicator() {
+  if (!runtimeConfig.sslTools || domain.value?.status === 'disabled') {
+    return { label: 'SSL', value: 'Disabled', status: 'disabled' };
+  }
+  if (domain.value?.status === 'active') {
+    return { label: 'SSL', value: 'Ready', status: 'healthy' };
+  }
+  return { label: 'SSL', value: 'Setup needed', status: 'warning' };
+}
+
+function edgeIndicator() {
+  if (domain.value?.status === 'disabled') return { label: 'Edge', value: 'Disabled', status: 'disabled' };
+  if (domain.value?.status === 'active') return { label: 'Edge', value: 'Online', status: 'healthy' };
+  if (domain.value?.status === 'error') return { label: 'Edge', value: 'Error', status: 'critical' };
+  return { label: 'Edge', value: 'Setup needed', status: 'warning' };
+}
+
+function featureIndicator(label: string) {
+  if (domain.value?.status === 'disabled') return { label, value: 'Disabled', status: 'disabled' };
+  return { label, value: 'Ready', status: 'healthy' };
+}
 
 async function load() {
   loading.value = true;

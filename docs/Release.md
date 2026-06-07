@@ -349,10 +349,10 @@ Domain detail should be organized by tabs or sections:
 - Cache
 - Redirects
 - Page Rules
-- Rate Limits
 - WAF / Security
 - IP Access
 - Headers
+- Rate Limits
 - Analytics
 - Events
 - Audit

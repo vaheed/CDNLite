@@ -11,7 +11,7 @@ class CdnDnsDeleteRecordCommand
     {
         $opts = CommandIO::parseOptions($argv);
         $domainId = trim((string) ($opts['domain_id'] ?? ''));
-        $recordId = trim((string) ($opts['record_id'] ?? ''));
+        $recordId = trim((string) ($opts['id'] ?? $opts['record_id'] ?? ''));
         if ($domainId === '' || $recordId === '') {
             fwrite(STDERR, "Missing --domain_id or --record_id\n");
             return 1;

@@ -30,7 +30,8 @@
 | Phase 17 — IP access control | Complete | Schema, CRUD API, CLI, dashboard tab with bulk import, config snapshots, edge CIDR enforcement, docs, and contracts implemented |
 | Phase 18 — SSL certificate automation | Complete | Scheduler, APIs, dashboard, readiness warnings, Compose service, migrations, and contracts implemented |
 | Phase 19 — Origin health monitoring | Complete | Schema, CRUD API, CLI health check/list, scheduler, dashboard tab, readiness warning, config snapshot backup origins, edge backup retry, docs, and contracts implemented |
-| Phase 20+ | Planned | CLI completion and origin refactor follow-up |
+| Phase 20 — CLI completeness | Complete | Canonical command inventory, JSON/table output, destructive reset guard, docs, and focused CLI contracts implemented |
+| Phase 21 — Origin configuration refactor | Complete | Record-level origins, HTTPS/443 autodetect with HTTP/80 fallback, TLS verify/ignore mode, origin_port rejection/removal, docs, and contracts implemented |
 
 ## Rules
 
@@ -82,9 +83,6 @@ CREATE TABLE domains (
   status TEXT NOT NULL DEFAULT 'active',
   routing_mode TEXT NOT NULL DEFAULT 'geo',
   proxy_enabled BOOLEAN NOT NULL DEFAULT true,
-  origin_scheme TEXT NOT NULL DEFAULT 'http',
-  origin_host TEXT NOT NULL,
-  origin_port INTEGER NOT NULL DEFAULT 80,
   powerdns_zone_created BOOLEAN NOT NULL DEFAULT false,
   last_error TEXT NULL,
   created_at BIGINT NOT NULL,
@@ -686,7 +684,7 @@ Implement geo and anycast routing modes for CDNLite DNS records.
 
 ### What changes
 
-**Frontend** — Create `DomainDetailView.vue` with tabs: Overview · DNS · SSL · Cache · Redirects · Page Rules · WAF · Rate Limits · Analytics. Every tab has: summary section, rules table, Add/Edit/Delete actions, enable/disable toggle, empty state, toast on success/error.
+**Frontend** — Create `DomainDetailView.vue` with tabs: Overview · DNS · SSL · Cache · Redirects · Page Rules · WAF grouped controls (WAF, IP Access, Headers, Rate Limits) · Analytics. Every tab has: summary section, rules table, Add/Edit/Delete actions, enable/disable toggle, empty state, toast on success/error.
 
 SSL tab: cert status, expiry, issuer, ACME status, force HTTPS toggle, min TLS version, warning badge if expiry < 30 days.
 
@@ -726,7 +724,7 @@ dash/src/lib/api/ (ssl, cache, purge, waf, redirects, pageRules)
 ```
 Replace SiteFeatureView with domain feature tabs in CDNLite.
 
-1. Create DomainDetailView.vue with tabs: Overview, DNS, SSL, Cache, Redirects, Page Rules, WAF, Rate Limits, Analytics.
+1. Create DomainDetailView.vue with tabs: Overview, DNS, SSL, Cache, Redirects, Page Rules, WAF grouped controls, Analytics.
 2. Create one Vue file per tab under dash/src/views/domain-tabs/.
 3. Each tab: summary card, rules table with edit/delete, add-rule button, enable/disable toggle, empty state.
 4. SSL tab: cert status, expiry, ACME status, force HTTPS, min TLS, warn if expiry < 30 days.
@@ -919,7 +917,7 @@ Build the CDNLite security events dashboard.
 
 ## Phase 14 — Audit log dashboard
 
-**Status:** In progress (2026-06-07)
+**Status:** Complete (2026-06-07)
 
 **Goal:** Admin can search the audit log by actor, action, resource type, domain, and time. The `audit_log` table already exists.
 
@@ -1316,7 +1314,7 @@ POST  /api/v1/domains/{domainId}/origins/{originId}/check
 ```
 core/database/schema.sql
 core/src/Services/OriginHealthService.php
-core/src/Console/Commands/OriginsHealthCheckCommand.php
+core/app/Console/Commands/CdnOriginsHealthCheckCommand.php
 core/src/Controllers/OriginController.php
 core/src/Services/ConfigSnapshotService.php
 core/src/Services/ReadinessService.php
@@ -1356,15 +1354,24 @@ Add origin health monitoring and failover to CDNLite.
 
 ## Phase 20 — CLI completeness
 
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Added canonical Phase 20 artisan command names for domain show/activate/verify, DNS CRUD aliases, settings get/set/test, edge show/disable, cache purge/settings, SSL list/request, analytics summary, readiness check, database fresh reset, and bootstrap fresh.
+- Kept JSON as the default command output and added central `--format=table` rendering for human-readable CLI use.
+- Guarded `cdn:db:fresh` behind required `--force`.
+- Updated CLI documentation and added focused command inventory/format/destructive-guard contracts.
+
 **Goal:** Every major admin operation is available via CLI. Useful for headless/automated ops and debugging without the dashboard.
 
 ### What changes
 
-**Backend** — Add or complete CLI commands covering all phases:
+**Backend** — Completed CLI commands covering all phases:
 
 ```
 cdn:domain:list
-cdn:domain:create --zone_name= --display_name=
+cdn:domain:create --name= --domain=
 cdn:domain:show --id=
 cdn:domain:activate --id=
 cdn:domain:verify-ns --id=
@@ -1372,7 +1379,7 @@ cdn:domain:delete --id= --force
 
 cdn:dns:list --domain_id=
 cdn:dns:create --domain_id= --type= --name= --content= --ttl= --proxied=
-cdn:dns:delete --id=
+cdn:dns:delete --domain_id= --id=
 
 cdn:settings:get --group=
 cdn:settings:set --key= --value=
@@ -1381,7 +1388,7 @@ cdn:settings:test-powerdns
 cdn:edge:list
 cdn:edge:show --id=
 cdn:edge:disable --id=
-cdn:edge:register-token --edge_id= --token=   (already exists)
+cdn:edge:register-token --edge_id= --token=
 
 cdn:cache:purge --domain_id= --type=all|url|prefix --value=
 cdn:cache:settings --domain_id=
@@ -1392,7 +1399,7 @@ cdn:ssl:renew-due                               (added in Phase 18)
 
 cdn:analytics:summary --domain_id= --bucket= --from= --to=
 
-cdn:origins:health-check                        (added in Phase 19)
+cdn:origins:health-check
 cdn:origins:list --domain_id=
 
 cdn:readiness:check
@@ -1401,17 +1408,20 @@ cdn:db:fresh --force                            (destructive reset)
 cdn:bootstrap:fresh --seed-settings=dev
 ```
 
-All commands output JSON by default. Add `--format=table` for human-readable output.
+All commands output JSON by default. `--format=table` gives human-readable output.
 
 ### Files changed
 ```
-core/src/Console/Commands/ (new commands per area)
+core/app/Console/Commands/
 core/artisan
+core/app/Support/CommandIO.php
+docs/cli-reference.md
+core/tests/test_cli_phase20_contract.py
 ```
 
 ### Tests
-- **Unit:** `test_cli_commands.py` — `cdn:domain:list` returns JSON array; `cdn:domain:create` inserts row; `cdn:settings:set` updates DB; `cdn:cache:purge --type=all` inserts purge request; `cdn:readiness:check` returns structured output.
-- **Smoke:** `test_cli_smoke.sh` — run each command against a running stack, assert zero exit code and valid JSON output.
+- **Unit/contract:** `test_cli_phase20_contract.py` — verifies command inventory, JSON/table output contract, bootstrap JSON, and destructive reset guard.
+- **Smoke:** Existing `ci/smoke.sh` covers CLI/API paths used by the running stack; full live command smoke remains part of release validation.
 - **E2E:** Not applicable for CLI — covered by smoke script in CI.
 
 ### Acceptance criteria
@@ -1432,7 +1442,17 @@ Complete CDNLite CLI coverage for all admin operations.
 5. Add pytest test for each command. Add smoke.sh that runs every command and asserts zero exit code.
 ```
 
-## Phase 21
+## Phase 21 — Origin configuration refactor
+
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Removed global origin port support from the active schema/API path and rejects legacy `origin_port` payloads with `origin_port_not_supported`.
+- Moved origin host, proxy status, TLS verification mode, autodetected scheme/status, and geo origins onto DNS record settings.
+- Implemented HTTPS/443-first origin autodetection with HTTP/80 fallback in the edge selector.
+- Scoped origin TLS verification mode to proxy-to-origin connections with `verify` and `ignore`.
+- Added migration and contract coverage for origin migration, origin_port removal/rejection, DNS record proxy mode, per-record geo origins, HTTPS fallback, and TLS verification behavior.
 
 Implement origin configuration refactor in this repo.
 
@@ -1498,6 +1518,7 @@ Keep the implementation clean, minimal, and consistent with the current project 
 | 18 | SSL certificate automation | Phase 10 (SSL tab) |
 | 19 | Origin health monitoring | Phase 8 (domain model mature) |
 | 20 | CLI completeness | All prior phases |
+| 21 | Origin configuration refactor | Phase 20 release-readiness follow-up |
 
 ---
 

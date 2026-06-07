@@ -72,6 +72,7 @@ def test_dashboard_exposes_headers_and_ip_access_tabs():
     assert "DomainIpRulesTab" in detail
     assert "label: 'Headers'" in detail
     assert "label: 'IP Access'" in detail
+    assert "const wafTabs" in detail
     assert "Strict-Transport-Security" in headers_tab
     assert "Content-Security-Policy" in headers_tab
     assert "Bulk import" in ip_tab
