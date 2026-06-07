@@ -1,23 +1,26 @@
 <template>
   <div class="space-y-5">
-    <form class="card flex flex-wrap items-end gap-4 p-5" @submit.prevent="saveSettings">
-      <label class="flex items-center gap-2"><input v-model="settings.force_https" type="checkbox" /> Force HTTPS</label>
-      <label class="flex items-center gap-2"><input v-model="settings.auto_renew" type="checkbox" /> Auto-renew</label>
-      <label>Minimum TLS
-        <select v-model="settings.min_tls_version" class="input">
+    <form class="panel-section" @submit.prevent="saveSettings">
+      <div class="section-heading"><div><h2>SSL/TLS settings</h2><p>Control HTTPS enforcement, protocol support, and certificate renewal.</p></div><StatusBadge :status="certificates.length ? 'healthy' : 'warning'" :label="certificates.length ? 'Protected' : 'Certificate needed'" /></div>
+      <div class="grid gap-4 lg:grid-cols-3">
+        <label class="setting-row"><span><b>Force HTTPS</b><small>Redirect all HTTP traffic to HTTPS.</small></span><input v-model="settings.force_https" class="toggle" type="checkbox" /></label>
+        <label class="setting-row"><span><b>Auto-renew</b><small>Renew managed certificates before expiry.</small></span><input v-model="settings.auto_renew" class="toggle" type="checkbox" /></label>
+        <label><span class="field-label">Minimum TLS version</span>
+          <select v-model="settings.min_tls_version" class="input">
           <option value="1.2">TLS 1.2</option>
           <option value="1.3">TLS 1.3</option>
-        </select>
-      </label>
-      <button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save SSL settings' }}</button>
-      <p v-if="saveMessage" class="w-full text-sm" :class="saveError ? 'text-red-600' : 'text-emerald-600'">{{ saveMessage }}</p>
+          </select><span class="mt-1.5 block text-xs text-slate-500">TLS 1.2 provides the broadest modern compatibility.</span></label>
+      </div>
+      <div class="mt-5 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+        <p v-if="saveMessage" class="mr-auto text-sm" :class="saveError ? 'text-red-600' : 'text-emerald-600'">{{ saveMessage }}</p>
+        <button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save settings' }}</button>
+      </div>
     </form>
 
-    <div class="flex flex-wrap justify-end gap-2">
-      <button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button>
-      <button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button>
-      <button class="button-secondary" :disabled="busy" @click="check">Run certificate check</button>
-    </div>
+    <section class="panel-section">
+      <div class="section-heading"><div><h2>Certificate actions</h2><p>Issue, renew, or verify the active certificate.</p></div></div>
+      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button></div>
+    </section>
 
     <div v-if="status.progress.length" class="card p-5">
       <h3 class="font-semibold">ACME challenge status</h3>
@@ -51,6 +54,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { sslApi } from '@/lib/api/ssl';
 import type { AcmeStatus, SslCertificate } from '@/types';
 

@@ -1,6 +1,7 @@
 <template>
-  <section class="space-y-6">
-    <div class="card flex flex-wrap items-end gap-3 p-5">
+  <section class="space-y-5">
+    <div class="panel-section flex flex-wrap items-end gap-3">
+      <div class="mr-auto"><h2 class="text-base font-semibold text-slate-950 dark:text-white">Traffic analytics</h2><p class="mt-1 text-sm text-slate-500">Explore delivery, bandwidth, and cache performance.</p></div>
       <label v-if="showDomainSelector" class="min-w-64 flex-1 space-y-2">
         <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">Domain</span>
         <select v-model="selectedDomainId" class="input" aria-label="Domain">
@@ -16,16 +17,16 @@
           <option>day</option>
         </select>
       </label>
-      <button class="button-primary" @click="load">Refresh</button>
+      <button class="button-primary" @click="load"><RefreshCw class="h-4 w-4" /> Refresh</button>
       <button class="button-secondary" @click="recalculate">Recalculate</button>
     </div>
 
     <p v-if="errorMessage" role="alert" class="rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ errorMessage }}</p>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <div v-for="card in cards" :key="card.label" class="card p-4">
-        <p class="text-slate-500 dark:text-slate-400">{{ card.label }}</p>
-        <p class="text-2xl font-black text-slate-950 dark:text-white">{{ card.value }}</p>
+      <div v-for="card in cards" :key="card.label" class="metric-panel">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+        <p class="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-white">{{ card.value }}</p>
       </div>
     </div>
 
@@ -47,6 +48,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { RefreshCw } from 'lucide-vue-next';
 import ChartCard from '@/components/ui/ChartCard.vue';
 import { cacheApi } from '@/lib/api/cache';
 import { domainsApi } from '@/lib/api/domains';

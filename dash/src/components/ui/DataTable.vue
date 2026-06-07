@@ -5,15 +5,15 @@
         <h3 class="font-semibold text-slate-950 dark:text-white">{{ title }}</h3>
         <p v-if="subtitle" class="text-sm text-slate-500 dark:text-slate-400">{{ subtitle }}</p>
       </div>
-      <input v-model="search" class="input sm:max-w-xs" placeholder="Search table…" />
+      <input v-model="search" class="input sm:max-w-xs" :aria-label="`Search ${title}`" placeholder="Search…" />
     </div>
     <div class="overflow-x-auto">
       <table class="min-w-[760px] divide-y divide-slate-200 text-sm dark:divide-white/10">
         <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500 dark:bg-white/[0.03] dark:text-slate-400">
-          <tr><th v-for="column in columns" :key="column.key" class="px-4 py-3 cursor-pointer" @click="sortBy(column.key)">{{ column.label }} <span v-if="sortKey === column.key">{{ sortDir === 'asc' ? '↑' : '↓' }}</span></th></tr>
+          <tr><th v-for="column in columns" :key="column.key" class="cursor-pointer whitespace-nowrap px-4 py-3" @click="sortBy(column.key)">{{ column.label }} <span v-if="sortKey === column.key">{{ sortDir === 'asc' ? '↑' : '↓' }}</span></th></tr>
         </thead>
         <tbody class="divide-y divide-slate-100 dark:divide-white/5">
-          <tr v-for="row in pagedRows" :key="rowKey(row)" class="hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+          <tr v-for="row in pagedRows" :key="rowKey(row)" class="transition hover:bg-slate-50 dark:hover:bg-white/[0.03]">
             <td v-for="column in columns" :key="column.key" class="max-w-72 break-words px-4 py-3 text-slate-700 dark:text-slate-300">
               <slot :name="column.key" :row="row" :value="row[column.key]">{{ formatCell(row[column.key]) }}</slot>
             </td>

@@ -36,7 +36,7 @@
           <Link2 class="h-5 w-5 text-cyan-700" />
           <div class="min-w-0 flex-1">
             <div class="mb-2 flex gap-4 text-sm"><label><input v-model="purgeType" type="radio" value="url" /> Exact URL</label><label><input v-model="purgeType" type="radio" value="prefix" /> Path prefix</label></div>
-            <div class="flex gap-2"><input v-model="purgeValue" class="input" :placeholder="purgeType === 'url' ? 'https://example.com/app.js' : '/assets/'" /><button class="button-secondary">Purge</button></div>
+            <div class="flex flex-col gap-2 sm:flex-row"><input v-model="purgeValue" class="input" :placeholder="purgeType === 'url' ? 'https://example.com/app.js' : '/assets/'" /><button class="button-secondary">Purge</button></div>
           </div>
         </form>
       </div>
