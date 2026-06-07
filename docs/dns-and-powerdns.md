@@ -47,7 +47,12 @@ When `routing_policy` is omitted it defaults to `standard`, including for proxie
 
 Global Anycast settings contain two IPv4 and two IPv6 ingress VIPs. They publish as A/AAAA records on `global.edge.<platform-zone>`, while Anycast record hostnames CNAME to that global hostname. CDNLite stores and publishes these VIPs, but real Anycast requires BGP announcements and network configuration outside the PHP application.
 
-For proxied records, the dashboard supports country-specific origin overrides.
+The dashboard stores country-specific origin overrides independently from the
+record's proxy toggle. Disabling **Proxy through CDNLite** publishes the normal
+customer record but preserves the Geo origin toggle and country rules, so they
+remain editable and are available when proxying is enabled again.
+
+For proxied traffic, the dashboard applies those country-specific origin overrides.
 Each rule maps a two-letter visitor country code to an origin IP or hostname,
 for example `IR -> 192.168.1.1` and `US -> 192.168.2.1`. Countries without an
 override use the record's default origin. These rules are stored in

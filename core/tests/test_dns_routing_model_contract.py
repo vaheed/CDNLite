@@ -51,6 +51,15 @@ def test_dashboard_record_level_routing_contract():
     assert "Route to edge country" not in view
 
 
+def test_dashboard_geo_origins_are_independent_from_proxy_status():
+    view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
+    assert ':disabled="!form.proxied"' not in view
+    assert 'v-if="form.geo_enabled && form.proxied"' not in view
+    assert "if (form.proxied && form.geo_enabled)" not in view
+    assert "if (form.geo_enabled)" in view
+    assert "origin_host: form.content.trim()" in view
+
+
 def test_local_development_edges_are_selectable():
     service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
     assert "'LOCAL'" in service

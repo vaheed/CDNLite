@@ -24,13 +24,13 @@
           <span><b>Proxy through CDNLite</b><small>Hide the origin and apply caching, WAF, and rate limits.</small></span>
           <input v-model="form.proxied" class="toggle" type="checkbox" />
         </label>
-        <label class="setting-row" :class="{ 'opacity-50': !form.proxied }">
-          <span><b>Geo origin routing</b><small>Send visitors to a custom origin based on country.</small></span>
-          <input v-model="form.geo_enabled" class="toggle" type="checkbox" :disabled="!form.proxied" />
+        <label class="setting-row">
+          <span><b>Geo origin routing</b><small>Keep country-specific origins configured independently from proxy status.</small></span>
+          <input v-model="form.geo_enabled" class="toggle" type="checkbox" />
         </label>
       </div>
 
-      <div v-if="form.geo_enabled && form.proxied" class="rounded-md border border-slate-200 dark:border-white/10">
+      <div v-if="form.geo_enabled" class="rounded-md border border-slate-200 dark:border-white/10">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
           <div><h3 class="text-sm font-semibold">Country origins</h3><p class="text-xs text-slate-500">The default origin above handles countries without a rule.</p></div>
           <button type="button" class="button-secondary" @click="addGeoOrigin"><Plus class="h-4 w-4" /> Add country</button>
@@ -124,8 +124,8 @@ function edit(value: Record<string, unknown>) {
 function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', verify_tls: true }); }
 function geoOriginPayload() {
   const origins: Record<string, { host: string; tls_verify: 'verify' | 'ignore' }> = {};
-  if (form.proxied && form.content.trim()) origins.DEFAULT = { host: form.content.trim(), tls_verify: 'verify' };
-  if (form.proxied && form.geo_enabled) {
+  if (form.content.trim()) origins.DEFAULT = { host: form.content.trim(), tls_verify: 'verify' };
+  if (form.geo_enabled) {
     for (const origin of geoOrigins.value) origins[origin.country_code] = { host: origin.host.trim(), tls_verify: origin.verify_tls ? 'verify' : 'ignore' };
   }
   return origins;
@@ -140,7 +140,7 @@ async function save() {
     const payload = {
       type: form.type, name: form.name.trim(), content: form.content.trim(), ttl: Number(form.ttl),
       priority: form.type === 'MX' ? Number(form.priority) : null, proxied: form.proxied,
-      origin_host: form.proxied ? form.content.trim() : undefined, origin_tls_verify: 'verify' as const,
+      origin_host: form.content.trim(), origin_tls_verify: 'verify' as const,
       geo_origins: geoOriginPayload(), routing_policy: 'standard' as const,
     };
     if (editingId.value) await dnsApi.update(props.domainId, editingId.value, payload);
