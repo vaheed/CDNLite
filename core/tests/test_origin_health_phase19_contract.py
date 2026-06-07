@@ -45,6 +45,8 @@ def test_origin_health_service_and_readiness_contract():
     assert "Check the origin or configure a backup origin" in readiness
     assert "origin-health-scheduler" in compose
     assert "cdn:origins:health-check" in compose
+    assert "CDNLITE_SCHEDULER_IDLE" in compose
+    assert "origin health scheduler idle" in compose
     assert "sleep 30" in compose
 
 

@@ -43,4 +43,6 @@ def test_core_container_applies_pending_migrations_before_start():
 
     assert 'ENTRYPOINT ["/app/docker-entrypoint.sh"]' in dockerfile
     assert "php artisan cdn:migrate" in entrypoint
+    assert "retrying in" in entrypoint
+    assert "attempt" in entrypoint
     assert 'exec "$@"' in entrypoint

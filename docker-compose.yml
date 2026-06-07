@@ -100,7 +100,8 @@ services:
       CDNLITE_ACME_CONTACT_EMAIL: ${CDNLITE_ACME_CONTACT_EMAIL:-admin@example.com}
       CDNLITE_ACME_DNS_PROPAGATION_SECONDS: ${CDNLITE_ACME_DNS_PROPAGATION_SECONDS:-0}
       CDNLITE_ACME_POLL_ATTEMPTS: ${CDNLITE_ACME_POLL_ATTEMPTS:-10}
-    command: ["sh", "-c", "while true; do php artisan cdn:ssl:renew-due || true; sleep 3600; done"]
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep 3600; done"]
     restart: unless-stopped
 
   origin-health-scheduler:
@@ -117,7 +118,8 @@ services:
       DB_DATABASE: ${DB_DATABASE:-cdnlite}
       DB_USERNAME: ${DB_USERNAME:-cdnlite}
       DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-    command: ["sh", "-c", "while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
     restart: unless-stopped
 
   edge:

@@ -77,7 +77,7 @@ path while keeping each job isolated on its own runner and Compose project.
 
 CI uses only the root `docker-compose.yml`. The e2e job starts the root Compose
 `powerdns` profile as part of the full stack and sets `EDGE_AGENT_IDLE=1`,
-`CDNLITE_CACHE_DEFAULT_TTL=1s`, `POWERDNS_ENABLED=1`, and
+`CDNLITE_SCHEDULER_IDLE=1`, `CDNLITE_CACHE_DEFAULT_TTL=1s`, `POWERDNS_ENABLED=1`, and
 `POWERDNS_STRICT=1`. `ci/e2e.sh` provisions the edge token before running the
 agent registration and heartbeat scripts explicitly, refreshes its admin session
 after any conditional core container recreation, and runs the PowerDNS sync
@@ -113,7 +113,15 @@ also resets usage rollups, aggregates, and idempotency keys so exact global tota
 do not depend on tests or traffic that ran earlier in the same stack.
 
 The core image also runs `cdn:migrate` from its POSIX entrypoint before starting
-the PHP server, keeping persisted databases aligned after image upgrades.
+the PHP server, keeping persisted databases aligned after image upgrades. The
+entrypoint retries transient migration failures so CI first boot can recover if
+scheduler services touch the database while PostgreSQL is still settling locks.
+GitHub Actions also sets `CDNLITE_SCHEDULER_IDLE=1` for smoke/e2e so the
+background SSL and origin-health scheduler containers stay alive without running
+database work during deterministic stack assertions.
+The workflow wraps smoke, e2e, and PowerDNS DNS checks in command-level
+`timeout` calls so a stuck HTTP operation fails the step and still allows log
+collection/artifact upload.
 
 Environment examples are split by target: `.env.dev.example` for local Compose,
 `.env.production.example` for production operators, and `dash/.env.example` for

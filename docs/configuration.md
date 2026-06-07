@@ -69,7 +69,7 @@ cp dash/.env.example dash/.env
 | `CDNLITE_ACME_DNS_PROPAGATION_SECONDS` | `0` dev, `30` prod template | core | No | Delay after writing the DNS-01 TXT record before asking ACME to validate. | Not secret. |
 | `CDNLITE_ACME_POLL_ATTEMPTS` | `10` dev, `30` prod template | core | No | Number of one-second ACME authorization/order polling attempts. | Not secret. |
 
-The `ssl-scheduler` Compose service receives the same database, secret-key, and ACME environment values as core and runs `cdn:ssl:renew-due` hourly. The `origin-health-scheduler` service receives database settings and runs `cdn:origins:health-check` every 30 seconds.
+The `ssl-scheduler` Compose service receives the same database, secret-key, and ACME environment values as core and runs `cdn:ssl:renew-due` hourly. The `origin-health-scheduler` service receives database settings and runs `cdn:origins:health-check` every 30 seconds. Set `CDNLITE_SCHEDULER_IDLE=1` to keep scheduler containers alive without running their loops during CI-style deterministic tests. Core retries startup migrations to tolerate transient first-boot database lock conflicts with these schedulers.
 | `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
 | `CDNLITE_CORS_ALLOWED_ORIGINS` | `http://localhost:8082,http://127.0.0.1:8082` | core | No | Comma-separated browser origins allowed to call the core API. Set this to your dashboard URL when accessing CDNLite from another host. | Public endpoint; restrict in production. |
 | `CDNLITE_BOOTSTRAP_ADMIN_USER` | `1` in dev, `0` in production template | core | No | When truthy, core auto-creates or updates one local dashboard admin at startup. Useful for quickstart and volume resets. | Disable outside local development. |
@@ -102,6 +102,7 @@ The `ssl-scheduler` Compose service receives the same database, secret-key, and 
 | `SECURITY_EVENT_PATH` | `/var/lib/cdnlite/security-events.ndjson` | edge, agent | No | Edge security event queue file path consumed by agent push loop. | Contains request metadata (IP/path/method). |
 | `CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS` | `900` | core | No | Maximum config snapshot age before readiness reports a warning. | Not secret. |
 | `EDGE_AGENT_IDLE` | `0` | agent, CI | No | Set to `1` to keep the agent container alive without starting its register/heartbeat/config loop. Used by CI so `ci/e2e.sh` can run agent scripts deterministically after token provisioning. | Test-only. |
+| `CDNLITE_SCHEDULER_IDLE` | `0` | schedulers, CI | No | Set to `1` to keep scheduler containers alive without running SSL renewal or origin health loops. Used by CI to avoid background database work during smoke/e2e startup. | Test-only. |
 | `PDNS_API_KEY` | `test-key` | PowerDNS mock | No | API key accepted by the optional local mock. It is not the platform PowerDNS credential. | Test-only. |
 | `POWERDNS_PUBLIC_API_URL` | `http://localhost:8089` | CI scripts | No | Host-reachable URL for the optional mock PowerDNS service. | Test-only. |
 | `POWERDNS_HOST_PORT` | `8089` | Compose | No | Host port for the mock PowerDNS service when the `powerdns` profile is enabled. | Test-only. |
