@@ -98,6 +98,23 @@ services:
     command: ["sh", "-c", "while true; do php artisan cdn:ssl:renew-due || true; sleep 3600; done"]
     restart: unless-stopped
 
+  origin-health-scheduler:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-cdnlite}
+      DB_USERNAME: ${DB_USERNAME:-cdnlite}
+      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+    command: ["sh", "-c", "while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
+    restart: unless-stopped
+
   edge:
     build:
       context: ./edge

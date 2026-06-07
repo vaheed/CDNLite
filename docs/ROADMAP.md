@@ -29,7 +29,8 @@
 | Phase 16 — Custom response headers | Complete | Schema, CRUD API, CLI, dashboard tab with presets, config snapshots, edge header filter, docs, and contracts implemented |
 | Phase 17 — IP access control | Complete | Schema, CRUD API, CLI, dashboard tab with bulk import, config snapshots, edge CIDR enforcement, docs, and contracts implemented |
 | Phase 18 — SSL certificate automation | Complete | Scheduler, APIs, dashboard, readiness warnings, Compose service, migrations, and contracts implemented |
-| Phase 19+ | Planned | Origin health monitoring and CLI completion follow-up |
+| Phase 19 — Origin health monitoring | Complete | Schema, CRUD API, CLI health check/list, scheduler, dashboard tab, readiness warning, config snapshot backup origins, edge backup retry, docs, and contracts implemented |
+| Phase 20+ | Planned | CLI completion and origin refactor follow-up |
 
 ## Rules
 
@@ -1256,6 +1257,18 @@ Add SSL certificate automation to CDNLite.
 ---
 
 ## Phase 19 — Origin health monitoring
+
+**Status:** Complete (2026-06-07)
+
+### Completion record
+
+- Added `domain_origins` schema and migration with primary-origin backfill from proxied DNS records.
+- Added origin CRUD API and manual health-check endpoint under `/api/v1/domains/{domainId}/origins`.
+- Added `OriginHealthService`, `cdn:origins:health-check`, `cdn:origins:list`, and the 30-second `origin-health-scheduler` Compose service.
+- Included `primary_origin` and `backup_origin` in config snapshots.
+- Added readiness warnings for unhealthy primary origins.
+- Added the dashboard Origins tab with role, health status, check-now, enable/disable, edit, and delete actions.
+- Updated the edge to retry a configured backup origin after primary 502/503/504 and emit `X-CDNLITE-Origin`.
 
 **Goal:** CDNLite actively checks origin health per domain. If the origin is unreachable, the domain shows a warning and edge can failover to a backup origin.
 

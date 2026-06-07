@@ -49,6 +49,8 @@ use App\Console\Commands\CdnIpRuleCreateCommand;
 use App\Console\Commands\CdnIpRuleListCommand;
 use App\Console\Commands\CdnIpRuleUpdateCommand;
 use App\Console\Commands\CdnIpRuleDeleteCommand;
+use App\Console\Commands\CdnOriginsHealthCheckCommand;
+use App\Console\Commands\CdnOriginsListCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:admin:create', new CdnAdminCreateCommand());
@@ -94,6 +96,8 @@ $runner->register('cdn:ip-rule:create', new CdnIpRuleCreateCommand());
 $runner->register('cdn:ip-rule:list', new CdnIpRuleListCommand());
 $runner->register('cdn:ip-rule:update', new CdnIpRuleUpdateCommand());
 $runner->register('cdn:ip-rule:delete', new CdnIpRuleDeleteCommand());
+$runner->register('cdn:origins:health-check', new CdnOriginsHealthCheckCommand());
+$runner->register('cdn:origins:list', new CdnOriginsListCommand());
 $runner->register('cdn:migrate', new CdnMigrateCommand());
 $runner->register('cdn:ssl:renew-due', new CdnSslRenewDueCommand());
 

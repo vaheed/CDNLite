@@ -18,7 +18,7 @@ class ReadinessService
 
     public function check(): array
     {
-        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->certificateExpiryCheck()];
+        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->certificateExpiryCheck(), $this->originHealthCheck()];
         $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck(), $this->snapshotCheck()];
 
         return [
@@ -127,6 +127,27 @@ class ReadinessService
             sprintf('Certificate for %s expires within 14 days', (string) $certificate['hostname']),
             'Renew the certificate or verify automatic renewal',
             '/domains/' . rawurlencode((string) $certificate['domain_id']) . '/ssl'
+        );
+    }
+
+    private function originHealthCheck(): array
+    {
+        $stmt = Database::pdo()->query(
+            "SELECT o.domain_id,d.domain,o.host,o.last_error
+             FROM domain_origins o JOIN domains d ON d.id=o.domain_id
+             WHERE o.enabled=true AND o.is_primary=true AND o.health_status='unhealthy'
+             ORDER BY o.last_check_at DESC NULLS LAST LIMIT 1"
+        );
+        $origin = $stmt->fetch();
+        if (!$origin) {
+            return $this->result('origin_health', 'ok', 'Primary origins are healthy or pending first check');
+        }
+        return $this->result(
+            'origin_health',
+            'warning',
+            sprintf('Primary origin %s for %s is unhealthy', (string) $origin['host'], (string) $origin['domain']),
+            'Check the origin or configure a backup origin',
+            '/domains/' . rawurlencode((string) $origin['domain_id']) . '/origins'
         );
     }
 

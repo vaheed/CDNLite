@@ -69,7 +69,7 @@ cp dash/.env.example dash/.env
 | `CDNLITE_ACME_DNS_PROPAGATION_SECONDS` | `0` dev, `30` prod template | core | No | Delay after writing the DNS-01 TXT record before asking ACME to validate. | Not secret. |
 | `CDNLITE_ACME_POLL_ATTEMPTS` | `10` dev, `30` prod template | core | No | Number of one-second ACME authorization/order polling attempts. | Not secret. |
 
-The `ssl-scheduler` Compose service receives the same database, secret-key, and ACME environment values as core and runs `cdn:ssl:renew-due` hourly.
+The `ssl-scheduler` Compose service receives the same database, secret-key, and ACME environment values as core and runs `cdn:ssl:renew-due` hourly. The `origin-health-scheduler` service receives database settings and runs `cdn:origins:health-check` every 30 seconds.
 | `CDNLITE_ADMIN_SESSION_TTL_SECONDS` | `28800` | core | No | Dashboard admin session lifetime after `/api/v1/admin/login`. | Not secret. |
 | `CDNLITE_CORS_ALLOWED_ORIGINS` | `http://localhost:8082,http://127.0.0.1:8082` | core | No | Comma-separated browser origins allowed to call the core API. Set this to your dashboard URL when accessing CDNLite from another host. | Public endpoint; restrict in production. |
 | `CDNLITE_BOOTSTRAP_ADMIN_USER` | `1` in dev, `0` in production template | core | No | When truthy, core auto-creates or updates one local dashboard admin at startup. Useful for quickstart and volume resets. | Disable outside local development. |

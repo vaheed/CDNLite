@@ -62,4 +62,4 @@ Lua sets response headers `X-CDNLITE: 1`, `X-CDNLITE-Edge` (the configured `EDGE
 
 ## Upstream Failures
 
-If the origin is unreachable or returns an intercepted 5xx, the edge serves a stale cached response when one is available. Without a cached response, it returns a custom HTML page with request ID, edge location, timestamp, client IP, and host. Unknown configured host failures are surfaced as 502.
+If the primary origin returns an intercepted 502, 503, or 504 and a backup origin is configured, the edge retries through the backup origin and emits `X-CDNLITE-Origin: backup`. Primary responses emit `X-CDNLITE-Origin: primary`. If no backup is configured, the edge serves a stale cached response when one is available. Without a cached response, it returns a custom HTML page with request ID, edge location, timestamp, client IP, and host. Unknown configured host failures are surfaced as 502.

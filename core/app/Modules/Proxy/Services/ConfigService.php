@@ -11,9 +11,11 @@ class ConfigService
     public function __construct(
         private DomainService $domains,
         private DnsService $dns,
-        private ?TrafficRulesService $rules = null
+        private ?TrafficRulesService $rules = null,
+        private ?OriginHealthService $origins = null
     ) {
         $this->rules ??= new TrafficRulesService();
+        $this->origins ??= new OriginHealthService();
     }
 
     public function buildSnapshot(): array
@@ -51,14 +53,19 @@ class ConfigService
             if ($originHost === '') {
                 continue;
             }
+            $configuredOrigins = $this->origins->primaryAndBackupForDomain((string) $domain['id']);
+            $primaryOrigin = [
+                'host' => $originHost,
+                'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
+                'scheme' => $record['origin_scheme'] ?? null,
+                'status' => (string) ($record['origin_status'] ?? 'pending'),
+            ];
+            $backupOrigin = $configuredOrigins['backup'] !== null ? $this->originForSnapshot($configuredOrigins['backup']) : null;
             $hosts[$domain['domain']] = [
                 'domain_id' => (string) $domain['id'],
-                'origin' => [
-                    'host' => $originHost,
-                    'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
-                    'scheme' => $record['origin_scheme'] ?? null,
-                    'status' => (string) ($record['origin_status'] ?? 'pending'),
-                ],
+                'origin' => $primaryOrigin,
+                'primary_origin' => $primaryOrigin,
+                'backup_origin' => $backupOrigin,
                 'geo_origins' => $this->buildGeoOrigins($record['geo_origins'] ?? []),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
@@ -247,6 +254,7 @@ class ConfigService
     private function nextVersion(): int
     {
         $pdo = Database::pdo();
+        $pdo->exec('INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING');
         $pdo->exec('UPDATE config_state SET version = version + 1 WHERE id = 1');
         $stmt = $pdo->query('SELECT version FROM config_state WHERE id = 1');
         $row = (array) $stmt->fetch();
@@ -281,6 +289,18 @@ class ConfigService
             ':generated_at' => (int) $payload['generated_at'],
         ]);
         return $stmt->rowCount() === 1;
+    }
+
+    private function originForSnapshot(array $origin): array
+    {
+        return [
+            'id' => (string) $origin['id'],
+            'host' => (string) $origin['host'],
+            'scheme' => (string) $origin['scheme'],
+            'port' => (int) $origin['port'],
+            'status' => (string) $origin['health_status'],
+            'health_status' => (string) $origin['health_status'],
+        ];
     }
 
     private function primaryProxiedRecord(array $records): ?array

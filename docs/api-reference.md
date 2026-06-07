@@ -332,6 +332,24 @@ curl -s -X DELETE http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-1
 
 Unknown domain or record: `404 {"error":"record_not_found"}`.
 
+## Origins
+
+`GET /api/v1/domains/{domainId}/origins` lists primary and backup origins with health status. `POST /api/v1/domains/{domainId}/origins` creates an origin. `PATCH` and `DELETE` use `/api/v1/domains/{domainId}/origins/{originId}`. `POST /api/v1/domains/{domainId}/origins/{originId}/check` runs an immediate HTTP health check.
+
+Accepted fields: `scheme` (`http` or `https`, default `http`), `host`, `port` (`80` or `443`), `is_primary`, `enabled`, `health_check_path`, `health_check_interval_seconds`, and `health_check_timeout_seconds`.
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/domains/11111111-1111-4111-8111-111111111111/origins \
+  -H 'Content-Type: application/json' \
+  -d '{"host":"backup-origin.local","scheme":"http","port":80,"is_primary":false}'
+```
+
+```json
+{"data":{"id":"33333333-3333-4333-8333-333333333333","host":"backup-origin.local","is_primary":false,"health_status":"unknown","enabled":true}}
+```
+
+Config snapshots include `primary_origin` and `backup_origin`. The edge retries the backup origin when the primary returns an intercepted 502, 503, or 504 and emits `X-CDNLITE-Origin: primary|backup`.
+
 ## Redirect Rules
 
 Redirect rule fields: `id`, `domain_id`, `enabled`, `source_path`, `target_url`, `status_code`, `priority`, `match_type`, `preserve_query`, `created_at`, `updated_at`.

@@ -46,6 +46,7 @@ function M.forward(domain)
   end
 
   ngx.var.target_upstream = upstream
+  ngx.var.target_backup_upstream = tostring(ngx.ctx.backup_upstream or '')
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'
   if rule_ttl and not cache_no_store then
@@ -55,6 +56,7 @@ function M.forward(domain)
   end
   identity.apply()
   ngx.header['X-CDNLITE-Domain'] = tostring(domain.domain_id)
+  ngx.header['X-CDNLITE-Origin'] = 'primary'
   ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   return true
 end

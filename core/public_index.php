@@ -12,8 +12,10 @@ use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
 use App\Modules\Edge\Services\EdgeAuthService;
 use App\Modules\Edge\Services\EdgeService;
+use App\Modules\Proxy\Http\Controllers\OriginController;
 use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Proxy\Services\ConfigService;
+use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Domains\Http\Controllers\DomainController;
 use App\Modules\Domains\Services\DomainService;
@@ -196,6 +198,7 @@ $edgeController = new EdgeController($edgeService);
 $collectorController = new CollectorController(new CollectorService());
 $configService = new ConfigService($domainService, $dnsService);
 $rulesController = new TrafficRulesController(new TrafficRulesService());
+$originController = new OriginController(new OriginHealthService());
 $edgeAuth = new EdgeAuthService();
 $adminAuth = new AdminAuthService();
 $adminAuthController = new AdminAuthController($adminAuth);
@@ -367,6 +370,21 @@ $router->add('POST', '/api/v1/domains/{domainId}/dns/records/{recordId}/preview-
 $router->add('GET', '/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes', static fn (Request $req, array $p) => Response::json($dnsController->geoRoutes((string) $p['domainId'], (string) $p['recordId'])), auth: true);
 $router->add('PUT', '/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes', static function (Request $req, array $p) use ($dnsController): array {
     $result = $dnsController->updateGeoRoutes((string) $p['domainId'], (string) $p['recordId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+
+$router->add('GET', '/api/v1/domains/{domainId}/origins', static fn (Request $req, array $p) => Response::json($originController->list((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/origins', static function (Request $req, array $p) use ($originController): array {
+    $result = $originController->create((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 201));
+}, auth: true);
+$router->add('PATCH', '/api/v1/domains/{domainId}/origins/{originId}', static function (Request $req, array $p) use ($originController): array {
+    $result = $originController->update((string) $p['domainId'], (string) $p['originId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('DELETE', '/api/v1/domains/{domainId}/origins/{originId}', static fn (Request $req, array $p) => Response::json($originController->delete((string) $p['domainId'], (string) $p['originId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/origins/{originId}/check', static function (Request $req, array $p) use ($originController): array {
+    $result = $originController->check((string) $p['domainId'], (string) $p['originId']);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
 

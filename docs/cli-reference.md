@@ -101,6 +101,24 @@ Example output:
 
 Common error: `Missing --name` or `Missing --domain` on stderr with exit code 1.
 
+### cdn:origins:list
+
+Purpose: list primary and backup origins for a domain. Equivalent API: `GET /api/v1/domains/{domainId}/origins`.
+
+Required: `--domain_id`.
+
+```bash
+php core/artisan cdn:origins:list --domain_id=11111111-1111-4111-8111-111111111111
+```
+
+### cdn:origins:health-check
+
+Purpose: run due origin health checks. Compose runs this command every 30 seconds through the `origin-health-scheduler` service.
+
+```bash
+php core/artisan cdn:origins:health-check
+```
+
 ### cdn:domain:list
 
 Purpose: list domains. Equivalent API: `GET /api/v1/domains`.

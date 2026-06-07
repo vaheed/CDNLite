@@ -59,7 +59,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   Activity, BarChart3, Database, Gauge, Globe2, LockKeyhole,
-  ListFilter, Network, RefreshCw, Route, ShieldCheck, SlidersHorizontal,
+  ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, SlidersHorizontal,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
@@ -77,6 +77,7 @@ import DomainRateLimitsTab from './domain-tabs/DomainRateLimitsTab.vue';
 import DomainAnalyticsTab from './domain-tabs/DomainAnalyticsTab.vue';
 import DomainHeadersTab from './domain-tabs/DomainHeadersTab.vue';
 import DomainIpRulesTab from './domain-tabs/DomainIpRulesTab.vue';
+import DomainOriginsTab from './domain-tabs/DomainOriginsTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -86,6 +87,7 @@ const domainId = computed(() => String(route.params.domainId));
 const tabs = [
   { key: 'overview', label: 'Overview', icon: Activity, component: DomainOverviewTab },
   { key: 'dns', label: 'DNS', icon: Network, component: DomainDnsTab },
+  { key: 'origins', label: 'Origins', icon: ServerCog, component: DomainOriginsTab },
   { key: 'ssl', label: 'SSL', icon: LockKeyhole, component: DomainSslTab },
   { key: 'cache', label: 'Cache', icon: Database, component: DomainCacheTab },
   { key: 'redirects', label: 'Redirects', icon: Route, component: DomainRedirectsTab },

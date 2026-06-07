@@ -59,6 +59,13 @@ export interface WafRule { id: Id; type: string; pattern: string; action: 'block
 export interface RateLimitRule { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
 export interface HeaderRule { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
 export interface IpRule { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
+export interface DomainOrigin {
+  id: Id; domain_id: Id; scheme: 'http' | 'https'; host: string; port: 80 | 443 | number;
+  is_primary: boolean; health_check_path: string; health_check_interval_seconds: number;
+  health_check_timeout_seconds: number; health_status: 'healthy' | 'unhealthy' | 'unknown' | string;
+  last_check_at?: number | null; last_error?: string | null; enabled: boolean;
+  created_at?: number; updated_at?: number;
+}
 export interface SslCertificate { id: Id; hostname: string; status?: string; acme_status?: string; days_left?: number; days_until_expiry?: number; not_after?: number; expires_at?: number | string; issuer?: string; subject?: string; last_error?: string; created_at?: number | string; }
 export interface SslSettings { domain_id: Id; force_https: boolean; min_tls_version: '1.2' | '1.3'; auto_renew: boolean; created_at?: number; updated_at?: number; }
 export interface AcmeProgress { certificate_id: Id; hostname: string; status: string; error?: string | null; updated_at: number; }

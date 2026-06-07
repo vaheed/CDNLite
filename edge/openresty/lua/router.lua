@@ -280,11 +280,14 @@ function M.handle()
   if not rate_limit_ok then
     return false, 'rate_limited'
   end
-  local upstream, scheme_or_error = origin_selector.select(domain, request_country())
+  local country = request_country()
+  local upstream, scheme_or_error = origin_selector.select(domain, country, 'primary')
   if not upstream then
     return false, scheme_or_error
   end
+  local backup_upstream = origin_selector.select(domain, country, 'backup')
   ngx.ctx.upstream = upstream
+  ngx.ctx.backup_upstream = backup_upstream
   ngx.ctx.origin_scheme = scheme_or_error
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
   return proxy.forward(domain)

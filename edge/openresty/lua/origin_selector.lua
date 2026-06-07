@@ -1,14 +1,24 @@
 local M = {}
 
-local function selected_origin(domain, country)
+local function selected_origin(domain, country, role)
+  if role == 'backup' then
+    return domain.backup_origin
+  end
   local geo = domain.geo_origins or {}
-  return geo[country] or geo.DEFAULT or domain.origin
+  return geo[country] or geo.DEFAULT or domain.primary_origin or domain.origin
 end
 
-function M.select(domain, country)
-  local origin = selected_origin(domain, country)
+function M.select(domain, country, role)
+  local origin = selected_origin(domain, country, role)
   if type(origin) ~= 'table' or type(origin.host) ~= 'string' or origin.host == '' then
     return nil, 'missing_origin'
+  end
+
+  if origin.scheme == 'http' and tonumber(origin.port or 80) == 80 then
+    return 'http://' .. origin.host .. ':80', 'http'
+  end
+  if origin.scheme == 'https' and tonumber(origin.port or 443) == 443 then
+    return 'https://' .. origin.host .. ':443', 'https'
   end
 
   local sock = ngx.socket.tcp()

@@ -36,6 +36,7 @@ It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest
 
 Administrative operations APIs include paginated global security event search at `/api/v1/security/events`, threat summaries at `/api/v1/security/summary`, and audit history at `/api/v1/audit`.
 Config operations under `/api/v1/config/snapshots` list and inspect stored versions, compare JSON paths, activate a previous snapshot for edge pulls, and rebuild from current database state.
+Origin operations under `/api/v1/domains/{domainId}/origins` manage primary and backup origins, expose manual health checks, and feed readiness warnings plus edge backup retry config.
 
 ## Services And Ports
 
@@ -43,6 +44,7 @@ Config operations under `/api/v1/config/snapshots` list and inspect stored versi
 |---|---|---:|---:|---|
 | PostgreSQL | `postgres` | `5432` | `5432` | Persistent state. |
 | Core API | `core` | `8080` | `8080` | PHP API and CLI runtime. |
+| Origin health scheduler | `origin-health-scheduler` | none | none | Runs due origin checks every 30 seconds. |
 | Edge proxy | `edge` | `8081` | `8081` | OpenResty proxy. |
 | Edge agent | `edge-agent` | none | none | Background sync loop. |
 | Admin dashboard | `dashboard` | `80` | `8082` | Static Vue operations dashboard. |
