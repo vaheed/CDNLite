@@ -84,7 +84,8 @@ environment variables. `PDNS_API_KEY` configures the mock service, while
 `POWERDNS_API_KEY` is the value the E2E script saves as the platform credential.
 In both jobs, `ci/e2e.sh`
 provisions the edge token before running the agent registration and heartbeat
-scripts explicitly.
+scripts explicitly. The script also refreshes its admin session after any
+conditional core container recreation before continuing authenticated API calls.
 
 Dashboard checks use the root `dashboard` Compose service. The SPA is served by
 Nginx at `DASHBOARD_PORT` (default `8082`), but CI validates it from inside the

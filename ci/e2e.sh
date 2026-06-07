@@ -150,6 +150,17 @@ edge_status_is_success() {
   [[ "$code" -ge 200 && "$code" -lt 400 ]]
 }
 
+login_admin() {
+  local login_code
+  login_code="$(curl -sS -o /tmp/e2e-admin-login.json -w '%{http_code}' \
+    -X POST "${CORE_URL}/api/v1/admin/login" \
+    -H 'Content-Type: application/json' \
+    -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
+  assert_eq "$login_code" "200" "admin login should return 200"
+  ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/e2e-admin-login.json)" '.data.token')"
+  export ADMIN_SESSION_TOKEN
+}
+
 edge_wait_status() {
   local host="$1"
   local expected="$2"
@@ -240,13 +251,7 @@ if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
 fi
 
 docker compose exec -T core php artisan cdn:admin:create --username="$ADMIN_USERNAME" --password="$ADMIN_PASSWORD" --display_name="E2E Admin" >/dev/null
-admin_login_code="$(curl -sS -o /tmp/e2e-admin-login.json -w '%{http_code}' \
-  -X POST "${CORE_URL}/api/v1/admin/login" \
-  -H 'Content-Type: application/json' \
-  -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
-assert_eq "$admin_login_code" "200" "admin login should return 200"
-ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/e2e-admin-login.json)" '.data.token')"
-export ADMIN_SESSION_TOKEN
+login_admin
 api_get "${CORE_URL}/api/v1/admin/me"
 assert_http_status "$HTTP_CODE" "200" "admin me failed"
 assert_contains "$HTTP_BODY" "$ADMIN_USERNAME" "admin me should include username"
@@ -269,6 +274,7 @@ ssl_key_present="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_
 if [[ "$ssl_key_present" != "set" ]]; then
   CDNLITE_SSL_SECRET_KEY="$CDNLITE_SSL_SECRET_KEY" docker compose up -d --force-recreate core >/dev/null
   retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
+  login_admin
   record_step PASS "core-recreate-ssl-secret" "recreated core with CDNLITE_SSL_SECRET_KEY for stage10 checks"
 fi
 

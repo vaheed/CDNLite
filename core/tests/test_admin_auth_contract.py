@@ -35,3 +35,14 @@ def test_admin_auth_schema_and_secret_handling_contract():
     assert "cdn:admin:create" not in command
     assert "--username" in command
     assert "--password" in command
+
+
+def test_e2e_refreshes_admin_session_after_core_recreation():
+    repo_root = Path(__file__).resolve().parents[2]
+    e2e = (repo_root / "ci" / "e2e.sh").read_text()
+
+    assert "login_admin()" in e2e
+    recreate = e2e.index("docker compose up -d --force-recreate core")
+    relogin = e2e.index("login_admin", recreate)
+    domain_create = e2e.index('# Domain lifecycle')
+    assert recreate < relogin < domain_create

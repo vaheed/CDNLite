@@ -19,7 +19,7 @@
 
     <section class="panel-section">
       <div class="section-heading"><div><h2>Certificate actions</h2><p>Issue, renew, or verify the active certificate.</p></div></div>
-      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button></div>
+      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button></div>
     </section>
 
     <div v-if="status.progress.length" class="card p-5">
