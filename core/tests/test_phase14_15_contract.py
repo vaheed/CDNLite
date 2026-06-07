@@ -39,6 +39,8 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     assert "public function rollback" in service
     assert "public function rebuild" in service
     assert "private function activeSnapshot" in service
+    assert "private function activateSnapshotVersion" in service
+    assert "$this->activateSnapshotVersion($version)" in service
 
 
 def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
@@ -50,6 +52,8 @@ def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
     for label in ("View", "Rollback", "Rebuild", "Compare selected"):
         assert label in view
     for label in ("Snapshot History", "Active version", "Latest generated"):
+        assert label in view
+    for label in ("Before", "After", "bg-red-50", "bg-emerald-50"):
         assert label in view
     assert "HorizontalScrollFrame" in view
     for operation in ("list:", "get:", "diff:", "rollback:", "rebuild:"):

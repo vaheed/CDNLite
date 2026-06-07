@@ -31,8 +31,23 @@
     </div>
     <DetailsDrawer :open="detail !== null" title="Snapshot JSON" @close="detail=null"><pre class="overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-white">{{ json(detail) }}</pre></DetailsDrawer>
     <DetailsDrawer :open="diff !== null" title="Snapshot diff" @close="diff=null">
-      <div v-if="diff" class="space-y-3"><p class="font-bold">v{{ diff.from_version }} to v{{ diff.to_version }}</p><div v-for="change in diff.changes" :key="change.path" class="rounded-lg border p-3"><code>{{ change.path }}</code><pre class="mt-2 overflow-auto text-xs">- {{ json(change.before) }}
-+ {{ json(change.after) }}</pre></div><p v-if="!diff.changes.length">No differences.</p></div>
+      <div v-if="diff" class="space-y-4">
+        <p class="font-bold text-slate-950 dark:text-white">v{{ diff.from_version }} to v{{ diff.to_version }}</p>
+        <div v-for="change in diff.changes" :key="change.path" class="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-950">
+          <code class="break-all rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">{{ change.path }}</code>
+          <div class="mt-3 grid gap-3 lg:grid-cols-2">
+            <section class="overflow-hidden rounded-lg border border-red-200 bg-red-50 dark:border-red-400/20 dark:bg-red-400/10">
+              <h3 class="border-b border-red-200 px-3 py-2 text-xs font-bold uppercase text-red-800 dark:border-red-400/20 dark:text-red-200">Before</h3>
+              <pre class="max-h-80 overflow-auto p-3 text-xs leading-5 text-red-950 dark:text-red-50">{{ json(change.before) }}</pre>
+            </section>
+            <section class="overflow-hidden rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+              <h3 class="border-b border-emerald-200 px-3 py-2 text-xs font-bold uppercase text-emerald-800 dark:border-emerald-400/20 dark:text-emerald-200">After</h3>
+              <pre class="max-h-80 overflow-auto p-3 text-xs leading-5 text-emerald-950 dark:text-emerald-50">{{ json(change.after) }}</pre>
+            </section>
+          </div>
+        </div>
+        <p v-if="!diff.changes.length" class="rounded-lg border border-slate-200 p-4 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">No differences.</p>
+      </div>
     </DetailsDrawer>
   </section>
 </template>

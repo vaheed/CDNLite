@@ -108,6 +108,7 @@ class ConfigService
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
+            $this->activateSnapshotVersion((int) $existing['version']);
             if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                 return ['not_modified' => true, 'version' => (int) $existing['version']];
             }
@@ -149,6 +150,7 @@ class ConfigService
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
             if ($existing !== null) {
+                $this->activateSnapshotVersion((int) $existing['version']);
                 if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                     return ['not_modified' => true, 'version' => (int) $existing['version']];
                 }
@@ -173,6 +175,7 @@ class ConfigService
 
             throw new \RuntimeException('config_snapshot_store_failed');
         }
+        $this->activateSnapshotVersion($version);
 
         if ($ifVersion !== null && $ifVersion === $version) {
             return ['not_modified' => true, 'version' => $version];
@@ -289,6 +292,12 @@ class ConfigService
             ':generated_at' => (int) $payload['generated_at'],
         ]);
         return $stmt->rowCount() === 1;
+    }
+
+    private function activateSnapshotVersion(int $version): void
+    {
+        Database::pdo()->prepare('UPDATE config_state SET active_snapshot_version = :version WHERE id = 1')
+            ->execute([':version' => $version]);
     }
 
     private function originForSnapshot(array $origin): array
