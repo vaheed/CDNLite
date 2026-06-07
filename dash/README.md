@@ -13,11 +13,12 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 - Forms use shared field components with red required asterisks, optional markers, inline help text, non-focusable hover help icons, field-level validation errors, and page-level alerts for API failures.
 - The Domains workflow opens on the domain list and reveals create/edit input details only after Add domain or Edit. It supports `PATCH /api/v1/domains/{id}`, proxy enable/disable, active/disabled status changes, copy ID, delete confirmation, and selectable origin scheme/status controls.
 - DNS, redirects, page rules, WAF rules, cache rules, and purge requests expose their useful API fields in explicit table columns instead of relying on raw object ordering.
+- Wide tables use subtle edge fades with clickable scroll controls so operators can discover hidden columns without guessing.
 - Redirect rows support edit, enable/disable with `PATCH /api/v1/domains/{id}/redirects/{redirectId}`, delete confirmation, export, import of the current rule, and test.
 - DNS, page rule, WAF, and cache rule rows support edit/delete actions where the API supports them.
 - Headers include quick-add security presets for HSTS, CSP, X-Frame-Options, and X-Content-Type-Options.
 - IP Access supports allow/block IPv4 CIDR rules and bulk import from one-CIDR-per-line text.
-- Feature pages open on their records list and reveal input details only after an add/edit/import action. Page rules include a test action, SSL includes ACME issue, request, and check actions using the API `hostnames` array payload, and purge history includes detail lookup.
+- Feature pages open on their records list and reveal input details only after an add/edit/import action. Page rules include a test action, SSL includes ACME issue, request, manual certificate import, and check actions using the API `hostnames` array payload, and purge history includes detail lookup.
 - Purge uses a clear required scope dropdown (`url`, `prefix`, `domain`, `everything`) and only requires the URL/prefix value for URL or Prefix purges.
 - Charts receive theme-aware labels, legends, axes, and tooltips. Pie charts hide outside slice labels and rely on the legend/tooltip to avoid unreadable label collisions.
 - Known API enum values are rendered as selects, including DNS type, redirect status/match type, cache query mode, WAF type/action, rate-limit key type/action, and usage bucket.

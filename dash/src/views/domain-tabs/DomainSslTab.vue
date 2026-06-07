@@ -18,9 +18,25 @@
     </form>
 
     <section class="panel-section">
-      <div class="section-heading"><div><h2>Certificate actions</h2><p>Issue, renew, or verify the active certificate.</p></div></div>
-      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button></div>
+      <div class="section-heading"><div><h2>Certificate actions</h2><p>Issue managed certificates, verify status, or import a certificate supplied by the customer.</p></div></div>
+      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button><button class="button-secondary" :disabled="busy" @click="showManualImport = !showManualImport">{{ showManualImport ? 'Close manual import' : 'Import manual certificate' }}</button></div>
+      <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+        Customers without access to managed commercial SSL can provide their own certificate and private key here.
+      </div>
     </section>
+
+    <form v-if="showManualImport" class="panel-section" @submit.prevent="importManual">
+      <div class="section-heading"><div><h2>Manual certificate</h2><p>Paste PEM material generated outside CDNLite.</p></div></div>
+      <div class="grid gap-4">
+        <label><span class="field-label">Hostname</span><input v-model="manual.hostname" class="input" placeholder="www.example.com" required /></label>
+        <label><span class="field-label">Certificate PEM</span><textarea v-model="manual.certificate_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN CERTIFICATE-----" /></label>
+        <label><span class="field-label">Private key PEM</span><textarea v-model="manual.private_key_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN PRIVATE KEY-----" /></label>
+      </div>
+      <div class="mt-5 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+        <p v-if="manualMessage" class="mr-auto text-sm" :class="manualError ? 'text-red-600' : 'text-emerald-600'">{{ manualMessage }}</p>
+        <button class="button-primary" :disabled="busy">Import certificate</button>
+      </div>
+    </form>
 
     <div v-if="status.progress.length" class="card p-5">
       <h3 class="font-semibold">ACME challenge status</h3>
@@ -33,7 +49,7 @@
       </div>
     </div>
 
-    <EmptyState v-if="certificates.length === 0" title="No certificates" message="Request an ACME certificate for this domain." />
+    <EmptyState v-if="certificates.length === 0" title="No certificates" message="Request an ACME certificate or import a manual certificate for this domain." />
     <DataTable v-else title="Certificates" :columns="columns" :rows="rows" id-key="id" />
 
     <div class="card p-5">
@@ -65,7 +81,11 @@ const busy = ref(false);
 const saving = ref(false);
 const saveMessage = ref('');
 const saveError = ref(false);
+const showManualImport = ref(false);
+const manualMessage = ref('');
+const manualError = ref(false);
 const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: false });
+const manual = reactive({ hostname: '', certificate_pem: '', private_key_pem: '' });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
 const rows = computed(() => certificates.value.map(c => ({ ...c, expiry: c.not_after ? formatDate(c.not_after) : '' })));
 let pollTimer: number | undefined;
@@ -101,6 +121,23 @@ async function requestCertificate() { await runAction(() => sslApi.requestCertif
 async function renew() { await runAction(() => sslApi.renew(props.domainId)); }
 async function check() { busy.value = true; try { await sslApi.check(props.domainId); await load(); } finally { busy.value = false; } }
 async function runAction(action: () => Promise<unknown>) { busy.value = true; try { await action(); await load(); } finally { busy.value = false; } }
+async function importManual() {
+  busy.value = true;
+  manualMessage.value = '';
+  manualError.value = false;
+  try {
+    await sslApi.manualCertificate(props.domainId, manual);
+    Object.assign(manual, { hostname: '', certificate_pem: '', private_key_pem: '' });
+    showManualImport.value = false;
+    manualMessage.value = 'Manual certificate imported.';
+    await load();
+  } catch (error) {
+    manualError.value = true;
+    manualMessage.value = error instanceof Error ? error.message : 'Unable to import manual certificate.';
+  } finally {
+    busy.value = false;
+  }
+}
 function progressLabel(value: string) { return ({ pending_dns: 'Pending DNS-01', verifying: 'Verifying', issued: 'Issued', error: 'Failed', idle: 'Idle' } as Record<string, string>)[value] ?? value; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
 function startPolling() {

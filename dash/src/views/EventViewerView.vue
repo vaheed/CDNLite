@@ -17,7 +17,7 @@
       <button v-if="hasFilters" class="button-secondary" @click="clearFilters">Clear filters</button>
     </EmptyState>
     <div v-else class="card overflow-hidden">
-      <div class="hidden overflow-x-auto md:block">
+      <HorizontalScrollFrame class="hidden md:block" :watch-key="filteredEvents.length">
         <table class="w-full text-left text-sm">
           <thead class="table-head"><tr><th>Severity</th><th>Event</th><th>Domain</th><th>Decision</th><th>Timestamp</th><th><span class="sr-only">Actions</span></th></tr></thead>
           <tbody class="divide-y divide-slate-100 dark:divide-white/5">
@@ -29,7 +29,7 @@
             </tr>
           </tbody>
         </table>
-      </div>
+      </HorizontalScrollFrame>
       <div class="divide-y divide-slate-100 md:hidden dark:divide-white/5">
         <article v-for="event in filteredEvents" :key="event.id" class="space-y-3 p-4">
           <div class="flex items-start justify-between gap-3"><div><StatusBadge :status="event.severity" /><h2 class="mt-2 font-bold text-slate-950 dark:text-white">{{ event.type }}</h2></div><span class="text-xs text-slate-500">{{ event.time }}</span></div>
@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import DetailsDrawer from '@/components/ui/DetailsDrawer.vue'; import EmptyState from '@/components/ui/EmptyState.vue'; import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'; import PageHeader from '@/components/ui/PageHeader.vue'; import StatusBadge from '@/components/ui/StatusBadge.vue';
+import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
 import { domainsApi } from '@/lib/api/domains'; import { loadSecurityEventsForDomains } from '@/lib/api/securityEvents'; import { purgeApi } from '@/lib/api/purge'; import { formatDate } from '@/lib/utils/format'; import type { Domain, SecurityEvent } from '@/types';
 type EventRow = { id: string; domain: string; type: string; severity: string; decision: string; time: string; timestamp: number; summary: string; raw: unknown };
 const events = ref<EventRow[]>([]); const loading = ref(true); const error = ref(''); const selected = ref<EventRow | null>(null);

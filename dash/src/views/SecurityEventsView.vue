@@ -20,7 +20,8 @@
     <div v-if="error" class="state-error">{{ error }}</div>
     <LoadingSkeleton v-else-if="loading" />
     <EmptyState v-else-if="!result.items.length" title="No security events" message="No events match the selected filters." />
-    <div v-else class="card overflow-x-auto">
+    <div v-else class="card overflow-hidden">
+      <HorizontalScrollFrame :watch-key="result.items.length">
       <table class="w-full text-left text-sm">
         <thead class="table-head"><tr><th>Time</th><th>Domain</th><th>Edge</th><th>Type</th><th>IP</th><th>Path</th><th>Action</th></tr></thead>
         <tbody class="divide-y divide-slate-100 dark:divide-white/5"><tr v-for="event in result.items" :key="event.id">
@@ -29,6 +30,7 @@
           <td class="table-cell font-mono text-xs">{{ detail(event, 'ip') }}</td><td class="table-cell">{{ detail(event, 'path') }}</td><td class="table-cell">{{ detail(event, 'decision') || event.action || 'observed' }}</td>
         </tr></tbody>
       </table>
+      </HorizontalScrollFrame>
     </div>
     <div class="flex items-center justify-between text-sm"><span>{{ result.total }} events</span><div class="flex gap-2"><button class="button-secondary" :disabled="offset === 0" @click="page(-1)">Previous</button><button class="button-secondary" :disabled="offset + limit >= result.total" @click="page(1)">Next</button></div></div>
   </section>
@@ -36,6 +38,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import PageHeader from '@/components/ui/PageHeader.vue'; import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'; import EmptyState from '@/components/ui/EmptyState.vue';
+import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
 import { domainsApi } from '@/lib/api/domains'; import { securityEventsApi, type SecurityEventFilters } from '@/lib/api/securityEvents'; import { formatDate } from '@/lib/utils/format';
 import type { Domain, PaginatedResult, SecurityEvent, SecuritySummary } from '@/types';
 const domains=ref<Domain[]>([]), summary=ref<SecuritySummary|null>(null), loading=ref(true), error=ref(''), fromInput=ref(''), toInput=ref(''); const limit=50; const offset=ref(0);

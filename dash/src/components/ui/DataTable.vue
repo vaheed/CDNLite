@@ -10,7 +10,7 @@
         <input v-model="search" class="input pl-9" :aria-label="`Search ${title}`" :placeholder="searchPlaceholder ?? `Search ${title.toLowerCase()}...`" />
       </label>
     </div>
-    <div class="overflow-x-auto">
+    <HorizontalScrollFrame :watch-key="[pagedRows.length, columns.length]">
       <table class="w-full min-w-[860px] border-collapse text-sm">
         <thead class="bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:bg-white/[0.025] dark:text-slate-400">
           <tr>
@@ -35,7 +35,7 @@
           </tr>
         </tbody>
       </table>
-    </div>
+    </HorizontalScrollFrame>
     <div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/40 px-5 py-3.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-white/[0.015] dark:text-slate-400">
       <span>{{ filteredRows.length }} {{ filteredRows.length === 1 ? 'record' : 'records' }}</span>
       <div class="flex items-center gap-2">
@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ArrowUp, ArrowUpDown, Search } from 'lucide-vue-next';
+import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
 
 type Row = Record<string, unknown>;
 type Column = { key: string; label: string; sortable?: boolean; align?: 'left' | 'right'; class?: string };

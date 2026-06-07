@@ -20,8 +20,13 @@ def test_domains_dashboard_has_scannable_identity_status_and_actions():
 
 def test_shared_table_keeps_search_sort_and_empty_state_accessible():
     table = (ROOT / "dash/src/components/ui/DataTable.vue").read_text()
+    scroll_frame = (ROOT / "dash/src/components/ui/HorizontalScrollFrame.vue").read_text()
 
     assert ":aria-label=\"`Search ${title}`\"" in table
     assert 'type="button"' in table
     assert "No matching records found." in table
     assert "sortable !== false" in table
+    assert "HorizontalScrollFrame" in table
+    assert "canScrollLeft" in scroll_frame
+    assert "canScrollRight" in scroll_frame
+    assert "scrollBy({ left:" in scroll_frame

@@ -49,6 +49,9 @@ def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
 
     for label in ("View", "Rollback", "Rebuild", "Compare selected"):
         assert label in view
+    for label in ("Snapshot History", "Active version", "Latest generated"):
+        assert label in view
+    assert "HorizontalScrollFrame" in view
     for operation in ("list:", "get:", "diff:", "rollback:", "rebuild:"):
         assert operation in api
     assert "/config-snapshots" in router

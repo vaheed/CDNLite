@@ -40,7 +40,7 @@ Example output:
 {"ok":true,"applied":2}
 ```
 
-CI release validation uses `./ci/release_check.sh`, which runs `./ci/smoke.sh` then `./ci/e2e.sh` in sequence.
+GitHub Actions gates releases through the `smoke` and full `e2e` jobs directly; `ci/release_check.sh` remains a local helper for running `./ci/smoke.sh` then `./ci/e2e.sh` in sequence.
 
 ### cdn:admin:create
 

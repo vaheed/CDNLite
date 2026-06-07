@@ -62,9 +62,9 @@ core logs from agent polling are ignored.
 `.github/workflows/ci.yml` uses a fast test gate, then runs the stack suites in parallel:
 
 1. `test`: PHP lint, shell syntax checks, marker scan, dashboard `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, and `pytest -q core/tests` with PostgreSQL service.
-2. `smoke`, `e2e`, and `e2e-powerdns` start independently after `test`. Each job validates the Compose model first, has an explicit timeout, and waits for the required HTTP health endpoints before starting assertions. The root Compose stack declares healthchecks for core, edge, and dashboard so `docker compose up --wait` tracks application readiness instead of only container startup.
+2. `smoke` and `e2e` start independently after `test`. Each job validates the Compose model first, has an explicit timeout, and waits for the required HTTP health endpoints before starting assertions. The root Compose stack declares healthchecks for core, edge, and dashboard so `docker compose up --wait` tracks application readiness instead of only container startup.
 3. Playwright dashboard E2E is currently manual-only and is not part of GitHub Actions.
-4. `release_gate` succeeds only after the three stack jobs pass.
+4. `release_gate` succeeds only after the two stack jobs pass.
 5. `build_and_push`: on push, publishes core, edge, edge-agent, and dashboard multi-platform images for `linux/amd64` and `linux/arm64` to GHCR.
 
 Compose logs are collected into `ci/reports` before artifact upload, including
@@ -75,18 +75,20 @@ The publish steps use GitHub Actions build caches scoped per image. Independent
 stack jobs intentionally do not depend on one another, reducing the critical
 path while keeping each job isolated on its own runner and Compose project.
 
-CI uses only the root `docker-compose.yml`. The plain e2e job sets
-`EDGE_AGENT_IDLE=1`, `CDNLITE_CACHE_DEFAULT_TTL=1s`, and PowerDNS off. The
-PowerDNS e2e job uses the same Compose file with `--profile powerdns`,
-`POWERDNS_ENABLED=1`, and `POWERDNS_STRICT=1`. These CI variables are inputs to
-`ci/e2e.sh`, which writes the effective PowerDNS values through the authenticated
-Platform Settings API; the core container does not consume them as operational
-environment variables. `PDNS_API_KEY` configures the mock service, while
-`POWERDNS_API_KEY` is the value the E2E script saves as the platform credential.
-In both jobs, `ci/e2e.sh`
-provisions the edge token before running the agent registration and heartbeat
-scripts explicitly. The script also refreshes its admin session after any
-conditional core container recreation before continuing authenticated API calls.
+CI uses only the root `docker-compose.yml`. The e2e job starts the root Compose
+`powerdns` profile as part of the full stack and sets `EDGE_AGENT_IDLE=1`,
+`CDNLITE_CACHE_DEFAULT_TTL=1s`, `POWERDNS_ENABLED=1`, and
+`POWERDNS_STRICT=1`. `ci/e2e.sh` provisions the edge token before running the
+agent registration and heartbeat scripts explicitly, refreshes its admin session
+after any conditional core container recreation, and runs the PowerDNS sync
+assertions in the same full e2e flow.
+
+After the full e2e assertions, the same job runs `ci/powerdns_dns_checks.sh`.
+That check logs DNS resolution for the core, edge, dashboard, postgres, origin,
+and PowerDNS endpoints from inside the Compose network and validates the mock
+PowerDNS API accepts the configured key and rejects a bad one. `PDNS_API_KEY`
+configures the mock service, while `POWERDNS_API_KEY` is used by the e2e and DNS
+check clients.
 
 Dashboard checks use the root `dashboard` Compose service. The SPA is served by
 Nginx at `DASHBOARD_PORT` (default `8082`), but CI validates it from inside the

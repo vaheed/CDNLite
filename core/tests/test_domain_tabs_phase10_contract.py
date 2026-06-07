@@ -38,6 +38,8 @@ def test_ssl_tab_defaults_are_off_and_save_feedback_is_visible():
     assert "auto_renew: false" in tab
     assert "force_https: false" in tab
     assert "SSL settings saved." in tab
+    assert "Import manual certificate" in tab
+    assert "sslApi.manualCertificate" in tab
     assert "auto_renew BOOLEAN NOT NULL DEFAULT false" in schema
 
 
