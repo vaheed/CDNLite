@@ -1,5 +1,5 @@
 <template>
-  <button type="button" class="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-100 dark:hover:bg-white/[0.06]" @click="$emit('click')">
+  <button type="button" class="inline-flex items-center rounded-full transition hover:brightness-95 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:hover:brightness-110" @click="$emit('click')">
     <StatusBadge :status="status" :label="`${label} ${status === 'ok' ? 'Ready' : status === 'unknown' ? 'Unknown' : status}`" />
   </button>
 </template>

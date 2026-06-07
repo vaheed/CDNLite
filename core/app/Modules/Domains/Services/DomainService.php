@@ -103,7 +103,7 @@ class DomainService
         $stmt = Database::pdo()->prepare('UPDATE domains SET powerdns_zone_created = true, updated_at = :updated_at WHERE id = :id');
         $stmt->execute(['updated_at' => time(), 'id' => $domainId]);
         $updated = $this->find($domainId);
-        AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);
+        AuditLog::write('domain.update', 'domain', $domainId, $domainId, $domain, $updated);
         return $updated;
     }
 

@@ -1,10 +1,10 @@
 <template>
-  <div class="card p-4">
-    <div class="mb-4">
-      <h3 class="font-semibold text-slate-950 dark:text-white">{{ title }}</h3>
+  <div :class="bare ? '' : 'card p-4'">
+    <div v-if="title || subtitle" class="mb-4">
+      <h3 v-if="title" class="font-semibold text-slate-950 dark:text-white">{{ title }}</h3>
       <p v-if="subtitle" class="text-sm text-slate-500 dark:text-slate-400">{{ subtitle }}</p>
     </div>
-    <VChart class="h-72 w-full" :option="themedOption" autoresize />
+    <VChart :class="compact ? 'h-48' : 'h-72'" class="w-full" :option="themedOption" autoresize />
   </div>
 </template>
 <script setup lang="ts">
@@ -16,7 +16,7 @@ import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/compon
 import VChart from 'vue-echarts';
 import { useUiStore } from '@/stores/ui';
 use([CanvasRenderer, BarChart, LineChart, PieChart, GaugeChart, GridComponent, TooltipComponent, LegendComponent]);
-const props = defineProps<{ title: string; subtitle?: string; option: Record<string, unknown> }>();
+const props = defineProps<{ title?: string; subtitle?: string; option: Record<string, unknown>; bare?: boolean; compact?: boolean }>();
 const ui = useUiStore();
 const themedOption = computed(() => {
   const text = ui.darkMode ? '#f8fafc' : '#0f172a';
@@ -32,7 +32,7 @@ const themedOption = computed(() => {
   }) : option.series;
   return {
     ...option,
-    color: ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+    color: option.color ?? ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
     textStyle: { color: text },
     tooltip: { backgroundColor: ui.darkMode ? '#111827' : '#ffffff', borderColor: border, textStyle: { color: text }, ...(option.tooltip as Record<string, unknown> ?? {}) },
     legend: { textStyle: { color: muted }, ...(option.legend as Record<string, unknown> ?? {}) },

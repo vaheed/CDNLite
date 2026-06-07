@@ -7,7 +7,7 @@
         <div class="border-b border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-slate-950 lg:hidden">
           <button class="button-secondary w-full justify-between" aria-controls="mobile-navigation" :aria-expanded="mobileOpen" @click="mobileOpen = true"><span>Navigate</span><span>{{ currentPage }}</span></button>
         </div>
-        <main class="mx-auto max-w-7xl space-y-6 p-3 sm:p-4 lg:p-6">
+        <main class="mx-auto max-w-[1440px] space-y-6 p-4 sm:p-6 lg:p-8">
           <RouterView />
         </main>
       </div>
