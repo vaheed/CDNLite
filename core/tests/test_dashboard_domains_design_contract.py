@@ -10,7 +10,10 @@ def test_domains_dashboard_has_scannable_identity_status_and_actions():
     assert 'title="Domain inventory"' in domains
     assert "Search by name, domain, or ID" in domains
     assert "nameserver_status" in domains
-    assert "NS unknown" in domains
+    assert "compact :status" in domains
+    assert "lifecycleLabel" in domains
+    assert "nameserverSeverity" in domains
+    assert "NS status" in domains
     assert "ArrowUpRight" in domains
     assert "sr-only" in domains
 

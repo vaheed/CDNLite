@@ -21,8 +21,12 @@
         </div>
       </template>
       <template #domain="{ value }"><span class="block max-w-72 truncate font-medium text-slate-700 dark:text-slate-200" :title="String(value)">{{ value }}</span></template>
-      <template #status="{ row }"><StatusBadge :status="String(row.status ?? 'active')" /></template>
-      <template #nameserver_status="{ value }"><StatusBadge :status="String(value ?? 'unknown')" :label="nameserverLabel(value)" /></template>
+      <template #status="{ row }">
+        <StatusBadge compact :status="String(row.status ?? 'active')" :label="lifecycleLabel(row.status)" :title="`Lifecycle: ${String(row.status ?? 'active').replaceAll('_', ' ')}`" />
+      </template>
+      <template #nameserver_status="{ value }">
+        <StatusBadge compact :status="nameserverSeverity(value)" :label="nameserverLabel(value)" :title="`Nameserver status: ${String(value ?? 'unknown').replaceAll('_', ' ')}`" />
+      </template>
       <template #actions="{ row }">
         <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
           <RouterLink class="button-secondary h-9 px-3 text-xs" :to="`/domains/${row.id}/overview`">Manage <ArrowUpRight class="h-3.5 w-3.5" /></RouterLink>
@@ -52,11 +56,11 @@ const form=reactive({name:'',domain:'',status:'active'});
 const schema=z.object({name:z.string().min(1,'Domain name is required.'),domain:z.string().min(1,'Domain is required.')});
 const help={name:{label:'Name',what:'Human-readable domain name.',works:'Used only for administration.',example:'Main website',required:true},domain:{label:'Domain',what:'Hostname served by the CDN.',works:'Matches the incoming Host header.',example:'example.com',required:true}};
 const columns=[
-  {key:'identity',label:'Identity',class:'w-[30%]'},
-  {key:'domain',label:'Domain',class:'w-[24%]'},
-  {key:'status',label:'Lifecycle',class:'w-[14%]'},
-  {key:'nameserver_status',label:'Nameservers',class:'w-[14%]'},
-  {key:'actions',label:'Actions',sortable:false,align:'right' as const,class:'w-[18%]'},
+  {key:'identity',label:'Identity',class:'w-[31%]'},
+  {key:'domain',label:'Domain',class:'w-[25%]'},
+  {key:'status',label:'Lifecycle',class:'w-[11%]'},
+  {key:'nameserver_status',label:'NS status',class:'w-[11%]'},
+  {key:'actions',label:'Actions',sortable:false,align:'right' as const,class:'w-[22%]'},
 ];
 const domainRows=computed(()=>domains.value.map(domain=>({...domain,actions:''})));
 async function load(){try{domains.value=await domainsApi.list();}catch(error){formError.value=messageFor(error,'Unable to load domains.');}}
@@ -69,6 +73,8 @@ async function onOnboardingCompleted(){resetForm();await load();}
 function resetForm(){editingId.value='';showForm.value=false;Object.assign(form,{name:'',domain:'',status:'active'});clearErrors();}
 function clearErrors(){formError.value='';Object.keys(fieldErrors).forEach(key=>delete fieldErrors[key]);}
 function messageFor(error:unknown,fallback:string){return error instanceof CdnLiteApiError||error instanceof Error?error.message:fallback;}
-function nameserverLabel(value:unknown){const status=String(value??'unknown');return status==='verified'?'NS verified':status==='unknown'?'NS unknown':`NS ${status.replaceAll('_',' ')}`;}
+function lifecycleLabel(value:unknown){const status=String(value??'active');return status==='pending_nameserver'?'Pending':status.charAt(0).toUpperCase()+status.slice(1).replaceAll('_',' ');}
+function nameserverLabel(value:unknown){const status=String(value??'unknown');if(status==='verified')return'Verified';if(status==='not_configured')return'Not set';return status.charAt(0).toUpperCase()+status.slice(1).replaceAll('_',' ');}
+function nameserverSeverity(value:unknown){const status=String(value??'unknown');if(status==='verified')return'ok';if(status==='partial'||status==='not_configured')return'warning';return'unknown';}
 onMounted(load);
 </script>

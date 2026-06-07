@@ -1,12 +1,12 @@
 <template>
-  <span :class="classes" class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset">
-    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true" />
+  <span :class="[classes, compact ? 'gap-1 px-2 py-0.5 text-[11px]' : 'gap-1.5 px-2.5 py-1 text-xs']" class="inline-flex items-center rounded-full font-semibold leading-4 ring-1 ring-inset">
+    <span :class="compact ? 'h-1 w-1' : 'h-1.5 w-1.5'" class="rounded-full bg-current opacity-80" aria-hidden="true" />
     {{ label ?? humanizedStatus }}
   </span>
 </template>
 <script setup lang="ts">
 import { computed } from 'vue';
-const props = defineProps<{ status?: string; label?: string }>();
+const props = defineProps<{ status?: string; label?: string; compact?: boolean }>();
 const humanizedStatus = computed(() => (props.status ?? '').replaceAll('_', ' '));
 const classes = computed(() => {
   const status = (props.status ?? '').toLowerCase();
