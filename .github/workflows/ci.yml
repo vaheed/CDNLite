@@ -101,6 +101,7 @@ jobs:
         run: |
           docker compose config --quiet
           docker compose up -d --build --wait --wait-timeout 180
+          timeout 180 bash -c 'until curl -fsS http://localhost:8080/health && curl -fsS http://localhost:8081/health; do sleep 2; done'
       - name: Smoke test
         run: |
           chmod +x ci/*.sh

@@ -75,6 +75,11 @@ services:
       CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS: ${CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS:-900}
     ports:
       - "${CORE_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
 
   ssl-scheduler:
     image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
@@ -128,6 +133,11 @@ services:
     ports:
       - "${EDGE_HOST_PORT:-8081}:8081"
       - "${EDGE_TLS_HOST_PORT:-8443}:8443"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1 || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_REGION: ${EDGE_REGION:-local}
