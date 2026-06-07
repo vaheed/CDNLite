@@ -18,8 +18,8 @@ class ReadinessService
 
     public function check(): array
     {
-        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->certificateExpiryCheck(), $this->originHealthCheck()];
-        $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck(), $this->snapshotCheck()];
+        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->snapshotCheck(), $this->certificateExpiryCheck(), $this->originHealthCheck()];
+        $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck()];
 
         return [
             'core' => ['status' => $this->groupStatus($coreChecks), 'checks' => $coreChecks],

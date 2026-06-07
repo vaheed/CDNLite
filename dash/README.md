@@ -14,6 +14,7 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 - The Domains workflow opens on the domain list and reveals create/edit input details only after Add domain or Edit. It supports `PATCH /api/v1/domains/{id}`, proxy enable/disable, active/disabled status changes, copy ID, delete confirmation, and selectable origin scheme/status controls.
 - DNS, redirects, page rules, WAF rules, cache rules, and purge requests expose their useful API fields in explicit table columns instead of relying on raw object ordering.
 - Wide tables use subtle edge fades with clickable scroll controls so operators can discover hidden columns without guessing.
+- Top status separates Core readiness from Edge readiness: snapshot freshness belongs to Core, while Edge readiness tracks node heartbeat and identity.
 - Redirect rows support edit, enable/disable with `PATCH /api/v1/domains/{id}/redirects/{redirectId}`, delete confirmation, export, import of the current rule, and test.
 - DNS, page rule, WAF, and cache rule rows support edit/delete actions where the API supports them.
 - Headers include quick-add security presets for HSTS, CSP, X-Frame-Options, and X-Content-Type-Options.

@@ -16,6 +16,17 @@ def test_readiness_contract_is_structured_and_routed():
     assert "'checks' =>" in service
 
 
+def test_snapshot_readiness_belongs_to_core_group_not_edge_nodes():
+    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    core_checks = service.split("$coreChecks = [", 1)[1].split("];", 1)[0]
+    edge_checks = service.split("$edgeChecks = [", 1)[1].split("];", 1)[0]
+
+    assert "$this->snapshotCheck()" in core_checks
+    assert "$this->snapshotCheck()" not in edge_checks
+    assert "$this->heartbeatCheck()" in edge_checks
+    assert "$this->identityCheck()" in edge_checks
+
+
 def test_powerdns_missing_configuration_is_detectable():
     php = r"""
 require 'core/app/Support/bootstrap.php';
