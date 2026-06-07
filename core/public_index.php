@@ -21,6 +21,8 @@ use App\Modules\Health\Http\Controllers\ReadinessController;
 use App\Modules\Health\Services\ReadinessService;
 use App\Modules\Overview\Http\Controllers\OverviewController;
 use App\Modules\Overview\Services\OverviewService;
+use App\Modules\Operations\Http\Controllers\OperationsLogController;
+use App\Modules\Operations\Services\OperationsLogService;
 use App\Modules\Settings\Http\Controllers\SettingsController;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\ApiAuth;
@@ -200,6 +202,7 @@ $adminAuthController = new AdminAuthController($adminAuth);
 $readinessController = new ReadinessController(new ReadinessService());
 $settingsController = new SettingsController(new SettingsRepository());
 $overviewController = new OverviewController(new OverviewService());
+$operationsLogController = new OperationsLogController(new OperationsLogService());
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -267,6 +270,9 @@ $router->add('GET', '/ready', static function () use ($configService): array {
 $router->add('GET', '/api/v1/readiness', static fn (): array => Response::json($readinessController->index()), auth: true);
 $router->add('GET', '/api/v1/overview', static fn (): array => Response::json($overviewController->index()), auth: true);
 $router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response::json($overviewController->warnings()), auth: true);
+$router->add('GET', '/api/v1/security/events', static fn (Request $req): array => Response::json($operationsLogController->securityEvents($req->query)), auth: true);
+$router->add('GET', '/api/v1/security/summary', static fn (Request $req): array => Response::json($operationsLogController->securitySummary($req->query)), auth: true);
+$router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);
 $router->add('GET', '/api/v1/settings', static fn (): array => Response::json($settingsController->index()), auth: true);
 $router->add('GET', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController): array {
     try {

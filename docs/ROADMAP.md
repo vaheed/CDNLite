@@ -23,7 +23,9 @@
 | Phase 10 — Domain feature tabs | Complete | PHP lint, focused core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 11 — Overview dashboard and report exports | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
 | Phase 12 — Edge network expanded and platform DNS | Complete | PHP lint, core contracts, dashboard tests/typecheck/build; manual smoke/E2E follow-up |
-| Phase 13+ | Planned | Not started |
+| Phase 13 — Security events dashboard | Complete | PHP lint, focused core contracts, dashboard typecheck/tests/build |
+| Phase 14 — Audit log dashboard | In progress | Search, diff viewer, pagination, and CSV export implemented; mutation audit coverage remains |
+| Phase 15+ | Planned | Not started |
 
 ## Rules
 
@@ -782,7 +784,7 @@ Build the CDNLite overview dashboard and report export.
 
 ## Phase 12 — Edge network expanded and platform DNS
 
-**Status:** Complete (2026-06-07)
+**Status:** In progress (2026-06-07)
 
 **Goal:** Admin can see edge pools, pool membership, and platform edge DNS records.
 
@@ -863,6 +865,8 @@ Expand CDNLite edge management with pools and platform DNS.
 
 ## Phase 13 — Security events dashboard
 
+**Status:** Complete (2026-06-07)
+
 **Goal:** Admin can search and filter security events by domain, edge, IP, event type, and time range. Threat summary on overview.
 
 ### What changes
@@ -909,6 +913,8 @@ Build the CDNLite security events dashboard.
 ---
 
 ## Phase 14 — Audit log dashboard
+
+**Status:** In progress (2026-06-07)
 
 **Goal:** Admin can search the audit log by actor, action, resource type, domain, and time. The `audit_log` table already exists.
 

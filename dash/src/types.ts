@@ -72,7 +72,10 @@ export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_i
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: UsagePoint[]; }
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }
 export interface CacheAnalytics { rows?: CacheAnalyticsRow[]; total_requests?: number; bytes_out?: number; hit?: number; miss?: number; expired?: number; stale?: number; bypass?: number; unknown?: number; hit_ratio?: number; }
-export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; type?: string; decision?: string; action?: string; severity?: Severity | string; timestamp?: number | string; created_at?: number | string; payload?: unknown; }
+export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; actor_id?: string | null; edge_id?: string | null; type?: string; decision?: string; action?: string; severity?: Severity | string; timestamp?: number | string; created_at?: number | string; payload?: unknown; details?: Record<string, unknown> | null; }
+export interface PaginatedResult<T> { items: T[]; total: number; limit: number; offset: number; }
+export interface SecuritySummary { total: number; by_type: Record<string, number>; top_ips: Array<{ value: string; count: number }>; top_domains: Array<{ domain_id?: Id | null; name?: string | null; count: number }>; }
+export interface AuditEntry { id: Id; actor_type: string; actor_id?: string | null; action: string; resource_type: string; resource_id?: string | null; domain_id?: Id | null; domain_name?: string | null; type?: string | null; details?: unknown; before?: unknown; after?: unknown; created_at: number; }
 export interface ConfigSnapshot { version?: string; generated_at?: number | string; hosts?: unknown[]; upstreams?: unknown[]; geo_upstreams?: unknown[]; headers?: unknown; dns_records?: unknown[]; cache_rules?: unknown[]; [key: string]: unknown; }
 
 export interface OpsDiagnostic {

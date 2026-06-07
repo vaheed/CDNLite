@@ -34,6 +34,8 @@ It manages domains, DNS records, edge nodes, config snapshots, edge usage ingest
 
 `core/` is the control plane. It serves HTTP from `core/public_index.php`, registers CLI commands in `core/artisan`, stores data in PostgreSQL, builds edge config, and ingests usage and security events. `edge/openresty/` is the data plane. It reads `/var/lib/cdnlite/config.json`, routes by `Host`, proxies to origins, and writes metrics and security decisions. `edge/agent/` signs calls to core and keeps the edge registered, configured, and reporting runtime queues.
 
+Administrative operations APIs include paginated global security event search at `/api/v1/security/events`, threat summaries at `/api/v1/security/summary`, and audit history at `/api/v1/audit`.
+
 ## Services And Ports
 
 | Service | Compose name | Container port | Host port default | Purpose |

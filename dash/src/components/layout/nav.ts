@@ -7,6 +7,8 @@ export const navItems = [
   { to: '/usage', label: 'Usage Analytics' },
   { to: '/config-snapshot', label: 'Config Snapshot' },
   { to: '/events', label: 'Event Viewer' },
+  { to: '/security-events', label: 'Security Events' },
+  { to: '/audit-log', label: 'Audit Log' },
   { to: '/settings', label: 'Settings' },
   ...(runtimeConfig.edgeDevTools ? [{ to: '/edge-dev-tools', label: 'Edge Developer Tools' }] : []),
 ];
