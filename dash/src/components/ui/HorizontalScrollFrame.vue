@@ -64,6 +64,9 @@ onMounted(() => {
   if (scroller.value && 'ResizeObserver' in window) {
     resizeObserver = new ResizeObserver(updateState);
     resizeObserver.observe(scroller.value);
+    if (scroller.value.firstElementChild instanceof HTMLElement) {
+      resizeObserver.observe(scroller.value.firstElementChild);
+    }
   }
   window.addEventListener('resize', updateState);
 });

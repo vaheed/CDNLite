@@ -558,7 +558,9 @@ class TrafficRulesService
     }
     public function disableRateLimit(string $domainId): bool {
         $table = $this->rateLimitV2Supported() ? 'rate_limit_rules' : 'rate_limit_rules';
-        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE domain_id=:domain"); $s->execute([':domain'=>$domainId]); return $s->rowCount()>0;
+        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE domain_id=:domain"); $s->execute([':domain'=>$domainId]);
+        if ($s->rowCount() > 0) { $this->invalidateConfigSnapshot(); return true; }
+        return false;
     }
 
     private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
@@ -568,6 +570,7 @@ class TrafficRulesService
         $p=[':id'=>$id,':domain_id'=>$domainId,':created_at'=>$now,':updated_at'=>$now]; foreach($in as $k=>$v){$p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $s=Database::pdo()->prepare($sql); $s->execute($p); $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $q->execute([':id'=>$id]); $created=$this->cast((array)$q->fetch());
         AuditLog::write($this->auditResource($table).'.create', $this->auditResource($table), $id, $domainId, null, $created);
+        $this->invalidateConfigSnapshot();
         return $created;
     }
     private function update(string $table, string $domainId, string $id, array $in): ?array {
@@ -578,14 +581,18 @@ class TrafficRulesService
         $s=Database::pdo()->prepare("UPDATE {$table} SET ".implode(',', $sets)." WHERE id=:id AND domain_id=:domain"); $s->execute($p);
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); $updated=$this->cast((array)$r->fetch());
         AuditLog::write($this->auditResource($table).'.update', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), $updated);
+        $this->invalidateConfigSnapshot();
         return $updated;
     }
     private function delete(string $table, string $domainId, string $id): bool {
         $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); $before=$q->fetch();
         if (!$before) { return false; }
         $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE id=:id AND domain_id=:domain"); $s->execute([':id'=>$id,':domain'=>$domainId]);
-        if ($s->rowCount() > 0) { AuditLog::write($this->auditResource($table).'.delete', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), null); return true; }
+        if ($s->rowCount() > 0) { AuditLog::write($this->auditResource($table).'.delete', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), null); $this->invalidateConfigSnapshot(); return true; }
         return false;
+    }
+    private function invalidateConfigSnapshot(): void {
+        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
     }
     private function auditResource(string $table): string {
         return match ($table) {
