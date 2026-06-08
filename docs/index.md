@@ -7,6 +7,7 @@ CDNLite is a compact CDN platform for learning, local experimentation, and small
 ## Navigation
 
 - [Setup](setup.md)
+- [CDN In A Minute](cdn-in-a-minute.md)
 - [User Guide](usage/user.md)
 - [Admin Guide](usage/admin.md)
 - [API Reference](api/api.md)

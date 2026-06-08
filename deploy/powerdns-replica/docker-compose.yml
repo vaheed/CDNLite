@@ -1,0 +1,24 @@
+services:
+  pdns-replica:
+    image: powerdns/pdns-auth-49
+    restart: unless-stopped
+    entrypoint: ["/etc/powerdns/entrypoint.sh"]
+    ports:
+      - "${PDNS_DNS_PORT}:53/udp"
+      - "${PDNS_DNS_PORT}:53/tcp"
+    volumes:
+      - ./config/pdns-replica.conf:/etc/powerdns/pdns.conf:ro
+      - ./config/entrypoint.sh:/etc/powerdns/entrypoint.sh:ro
+      - ./config/seed-supermasters.sh:/etc/powerdns/seed-supermasters.sh:ro
+      - pdnsreplica:/var/lib/powerdns
+    environment:
+      PDNS_PRIMARY_IP: ${PDNS_PRIMARY_IP}
+      PDNS_PRIMARY_ACCOUNT: ${PDNS_PRIMARY_ACCOUNT}
+    healthcheck:
+      test: ["CMD-SHELL", "pdns_control ping 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  pdnsreplica:

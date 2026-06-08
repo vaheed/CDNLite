@@ -1,0 +1,50 @@
+services:
+  edge:
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:latest
+    restart: unless-stopped
+    ports:
+      - "${EDGE_HOST_PORT}:8081"
+      - "${EDGE_TLS_HOST_PORT}:8443"
+    volumes:
+      - cdnlite-edge-data:/var/lib/cdnlite
+    environment:
+      EDGE_ID: ${EDGE_ID}
+      EDGE_REGION: ${EDGE_REGION}
+      DEV_MODE: ${DEV_MODE}
+      CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL}
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS}
+      EDGE_SYNC_STATUS_PATH: ${EDGE_SYNC_STATUS_PATH}
+      SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1 || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
+  edge-agent:
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:latest
+    restart: unless-stopped
+    depends_on:
+      edge:
+        condition: service_healthy
+    volumes:
+      - cdnlite-edge-data:/var/lib/cdnlite
+    environment:
+      CORE_URL: ${CORE_URL}
+      EDGE_ID: ${EDGE_ID}
+      EDGE_TOKEN: ${EDGE_TOKEN}
+      EDGE_HOSTNAME: ${EDGE_HOSTNAME}
+      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP}
+      EDGE_REGION: ${EDGE_REGION}
+      EDGE_VERSION: ${EDGE_VERSION}
+      DEV_MODE: ${DEV_MODE}
+      EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH}
+      EDGE_CONFIG_CACHE_PATH: ${EDGE_CONFIG_CACHE_PATH}
+      EDGE_SYNC_STATUS_PATH: ${EDGE_SYNC_STATUS_PATH}
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS}
+      METRIC_PATH: ${METRIC_PATH}
+      SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH}
+      EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE}
+
+volumes:
+  cdnlite-edge-data:

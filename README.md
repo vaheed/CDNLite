@@ -62,6 +62,7 @@ See the [User Guide](docs/usage/user.md), [Admin Guide](docs/usage/admin.md), an
 The documentation site is built with VitePress from `docs/`.
 
 - [Documentation Home](docs/index.md)
+- [CDN In A Minute](docs/cdn-in-a-minute.md)
 - [Setup](docs/setup.md)
 - [OpenAPI YAML](docs/public/api/openapi.yaml)
 - [Architecture](docs/architecture.md)
