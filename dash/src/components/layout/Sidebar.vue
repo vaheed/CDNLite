@@ -6,7 +6,7 @@
     </RouterLink>
     <p class="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
     <nav class="space-y-1">
-      <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="block rounded-lg border-l-2 border-transparent px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white" active-class="!border-cyan-600 !bg-cyan-50 !text-cyan-800 dark:!border-cyan-400 dark:!bg-cyan-400/10 dark:!text-cyan-200">{{ item.label }}</RouterLink>
+      <RouterLink v-for="item in navItems" :key="item.to" :to="item.to" class="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100/80 hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white" active-class="!bg-cyan-50 !text-cyan-800 dark:!bg-cyan-400/10 dark:!text-cyan-200">{{ item.label }}</RouterLink>
     </nav>
   </aside>
 </template>
