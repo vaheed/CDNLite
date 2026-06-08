@@ -15,7 +15,7 @@ Install Docker 24 or newer and Docker Compose v2 on each server. Open firewall p
 Clone the repository on the control-plane server:
 
 ```bash
-git clone https://github.com/CHANGE_ME_OWNER/CDNLite.git
+git clone https://github.com/vaheed/CDNLite.git
 cd CDNLite/deploy/core
 cp .env.example .env
 ```
