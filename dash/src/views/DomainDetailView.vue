@@ -34,23 +34,25 @@
       </div>
     </header>
 
-    <nav class="domain-tabs" aria-label="Domain management" role="tablist">
-      <div v-for="group in tabGroups" :key="group.label ?? 'main'" class="domain-tab-group" role="presentation">
-        <span v-if="group.label" class="domain-tab-group-label">{{ group.label }}</span>
-        <RouterLink
-          v-for="tab in group.tabs"
-          :key="tab.key"
-          :to="`/domains/${domainId}/${tab.key}`"
-          class="domain-tab"
-          active-class="domain-tab-active"
-          role="tab"
-          :aria-selected="route.params.tab === tab.key"
-        >
-          <component :is="tab.icon" class="h-4 w-4" />
-          <span>{{ tab.label }}</span>
-        </RouterLink>
-      </div>
-    </nav>
+    <HorizontalScrollFrame class="domain-tabs-frame" :watch-key="[domainId, route.params.tab]">
+      <nav class="domain-tabs" aria-label="Domain management" role="tablist">
+        <div v-for="group in tabGroups" :key="group.label ?? 'main'" class="domain-tab-group" role="presentation">
+          <span v-if="group.label" class="domain-tab-group-label">{{ group.label }}</span>
+          <RouterLink
+            v-for="tab in group.tabs"
+            :key="tab.key"
+            :to="`/domains/${domainId}/${tab.key}`"
+            class="domain-tab"
+            active-class="domain-tab-active"
+            role="tab"
+            :aria-selected="route.params.tab === tab.key"
+          >
+            <component :is="tab.icon" class="h-4 w-4" />
+            <span>{{ tab.label }}</span>
+          </RouterLink>
+        </div>
+      </nav>
+    </HorizontalScrollFrame>
 
     <component :is="activeComponent" :domain-id="domainId" :domain="domain" />
   </section>
@@ -65,6 +67,7 @@ import {
   ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, SlidersHorizontal,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { runtimeConfig } from '@/lib/config/env';

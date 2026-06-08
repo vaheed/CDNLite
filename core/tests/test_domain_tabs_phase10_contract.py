@@ -52,6 +52,8 @@ def test_dashboard_uses_domain_detail_tabs():
         assert f"label: '{label}'" in detail
     assert "const wafTabs" in detail
     assert "label: 'WAF', tabs: wafTabs" in detail
+    assert "HorizontalScrollFrame" in detail
+    assert "domain-tabs-frame" in detail
     assert "Setup needed" in detail
     assert "Disabled" in detail
     assert "/domains/:domainId/:tab?" in router
