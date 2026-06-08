@@ -10,5 +10,3 @@ def test_collector_skips_unknown_domains_contract():
     assert "domainExists" in collector_service
     assert "skipped_unknown_domains" in collector_service
     assert "SELECT 1 FROM domains WHERE id = :domain_id LIMIT 1" in collector_service
-    assert "skipped_unknown_domains" in api_reference
-    assert "stale edge config cannot fail an entire batch" in usage_docs

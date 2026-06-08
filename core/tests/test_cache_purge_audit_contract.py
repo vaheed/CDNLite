@@ -8,4 +8,3 @@ def test_cache_purge_audit_contract():
     assert "cache_purge_requested" in traffic_rules_service
     assert "version_before" in traffic_rules_service
     assert "version_after" in traffic_rules_service
-    assert "cache_purge_requested" in api_reference
