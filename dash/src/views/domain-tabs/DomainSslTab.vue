@@ -2,6 +2,11 @@
   <div class="space-y-5">
     <form class="panel-section" @submit.prevent="saveSettings">
       <div class="section-heading"><div><h2>SSL/TLS settings</h2><p>Control HTTPS enforcement, protocol support, and certificate renewal.</p></div><StatusBadge :status="certificates.length ? 'healthy' : 'warning'" :label="certificates.length ? 'Protected' : 'Certificate needed'" /></div>
+      <div class="help-panel">
+        <div class="help-item"><b>Force HTTPS</b><span>Enable after the certificate is issued so visitors are redirected from HTTP to HTTPS.</span></div>
+        <div class="help-item"><b>TLS version</b><span>TLS 1.2 is the safest compatibility default. TLS 1.3 only is stricter and may reject older clients.</span></div>
+        <div class="help-item"><b>Auto-renew</b><span>Keep enabled for managed certificates so renewal runs before expiry.</span></div>
+      </div>
       <div class="grid gap-4 lg:grid-cols-3">
         <label class="setting-row"><span><b>Force HTTPS</b><small>Redirect all HTTP traffic to HTTPS.</small></span><input v-model="settings.force_https" class="toggle" type="checkbox" /></label>
         <label class="setting-row"><span><b>Auto-renew</b><small>Renew managed certificates before expiry.</small></span><input v-model="settings.auto_renew" class="toggle" type="checkbox" /></label>
@@ -19,6 +24,11 @@
 
     <section class="panel-section">
       <div class="section-heading"><div><h2>Certificate actions</h2><p>Issue managed certificates, verify status, or import a certificate supplied by the customer.</p></div></div>
+      <div class="help-panel">
+        <div class="help-item"><b>Managed certificate</b><span>Use Request Certificate when DNS points at CDNLite and you want automated issuance.</span></div>
+        <div class="help-item"><b>Check status</b><span>Use after DNS changes or failed issuance to refresh challenge and certificate state.</span></div>
+        <div class="help-item"><b>Manual import</b><span>Use only when you already have a PEM certificate and matching private key.</span></div>
+      </div>
       <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button><button class="button-secondary" :disabled="busy" @click="showManualImport = !showManualImport">{{ showManualImport ? 'Close manual import' : 'Import manual certificate' }}</button></div>
       <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
         Customers without access to managed commercial SSL can provide their own certificate and private key here.
@@ -27,10 +37,15 @@
 
     <form v-if="showManualImport" class="panel-section" @submit.prevent="importManual">
       <div class="section-heading"><div><h2>Manual certificate</h2><p>Paste PEM material generated outside CDNLite.</p></div></div>
+      <div class="help-panel">
+        <div class="help-item"><b>Hostname</b><span>Use the exact covered hostname, such as example.com or www.example.com.</span></div>
+        <div class="help-item"><b>Certificate PEM</b><span>Paste the full certificate chain if your issuer provides intermediates.</span></div>
+        <div class="help-item"><b>Private key</b><span>Paste the private key that matches this certificate. Keep it secret outside this form.</span></div>
+      </div>
       <div class="grid gap-4">
-        <label><span class="field-label">Hostname</span><input v-model="manual.hostname" class="input" placeholder="www.example.com" required /></label>
-        <label><span class="field-label">Certificate PEM</span><textarea v-model="manual.certificate_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN CERTIFICATE-----" /></label>
-        <label><span class="field-label">Private key PEM</span><textarea v-model="manual.private_key_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN PRIVATE KEY-----" /></label>
+        <label><span class="field-label">Hostname</span><input v-model="manual.hostname" class="input" placeholder="www.example.com" required /><span class="field-description">This must match a name in the certificate SAN list.</span></label>
+        <label><span class="field-label">Certificate PEM</span><textarea v-model="manual.certificate_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN CERTIFICATE-----" /><span class="field-description">Include BEGIN/END lines and any intermediate certificates.</span></label>
+        <label><span class="field-label">Private key PEM</span><textarea v-model="manual.private_key_pem" class="input min-h-40 py-3 font-mono" required placeholder="-----BEGIN PRIVATE KEY-----" /><span class="field-description">Use the matching private key. Do not paste a CSR or public certificate here.</span></label>
       </div>
       <div class="mt-5 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
         <p v-if="manualMessage" class="mr-auto text-sm" :class="manualError ? 'text-red-600' : 'text-emerald-600'">{{ manualMessage }}</p>

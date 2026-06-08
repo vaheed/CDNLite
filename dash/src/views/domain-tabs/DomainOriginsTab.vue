@@ -12,12 +12,17 @@
         <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge retries the first enabled backup when the primary returns 502, 503, or 504.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>Host examples</b><span>Use origin.example.com or 192.0.2.10. Do not include http://, https://, or a path.</span></div>
+        <div class="help-item"><b>Primary vs backup</b><span>Keep one healthy primary. Backups are used only after primary 502, 503, or 504 responses.</span></div>
+        <div class="help-item"><b>Health checks</b><span>Use a lightweight path such as /health that returns 200 without expensive work.</span></div>
+      </div>
       <div class="grid gap-4 md:grid-cols-3">
-        <label><span class="field-label">Scheme</span><select v-model="form.scheme" class="input"><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
-        <label class="md:col-span-2"><span class="field-label">Host</span><input v-model="form.host" class="input" placeholder="origin.example.com" /></label>
-        <label><span class="field-label">Port</span><select v-model.number="form.port" class="input"><option :value="80">80</option><option :value="443">443</option></select></label>
-        <label><span class="field-label">Health path</span><input v-model="form.health_check_path" class="input" placeholder="/" /></label>
-        <label><span class="field-label">Timeout</span><input v-model.number="form.health_check_timeout_seconds" class="input" type="number" min="1" max="60" /></label>
+        <label><span class="field-label">Scheme</span><select v-model="form.scheme" class="input"><option value="http">HTTP</option><option value="https">HTTPS</option></select><span class="field-description">Use HTTPS when your origin has a valid certificate.</span></label>
+        <label class="md:col-span-2"><span class="field-label">Host</span><input v-model="form.host" class="input" placeholder="origin.example.com" /><span class="field-description">Hostname or IP only, without protocol or path.</span></label>
+        <label><span class="field-label">Port</span><select v-model.number="form.port" class="input"><option :value="80">80</option><option :value="443">443</option></select><span class="field-description">Use 443 for HTTPS and 80 for HTTP.</span></label>
+        <label><span class="field-label">Health path</span><input v-model="form.health_check_path" class="input" placeholder="/health" /><span class="field-description">Must begin with / and should be cheap for the origin to serve.</span></label>
+        <label><span class="field-label">Timeout</span><input v-model.number="form.health_check_timeout_seconds" class="input" type="number" min="1" max="60" /><span class="field-description">Use 5 seconds for most origins; raise only for slower backends.</span></label>
       </div>
       <div class="mt-5 grid gap-3 md:grid-cols-2">
         <label class="setting-row">

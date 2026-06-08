@@ -11,6 +11,7 @@ This folder is the official CDNLite admin dashboard. It lives in the repository 
 - Typed API clients for domains, DNS, redirects, page rules, cache, purge, WAF, rate limit, custom headers, IP access, SSL, edges, usage, security events, and edge signed developer endpoints.
 - Light and dark admin themes use CSS variables for app surfaces, cards, borders, text, actions, success, warning, and danger states. The theme toggle stores `cdnlite.theme` in localStorage.
 - Forms use shared field components with red required asterisks, optional markers, inline help text, non-focusable hover help icons, field-level validation errors, and page-level alerts for API failures.
+- Domain feature forms include compact help panels, examples, and best-practice hints for DNS records, origins, SSL, cache, redirects, page rules, WAF, rate limits, IP access, and header rules.
 - The Domains workflow opens on the domain list and reveals create/edit input details only after Add domain or Edit. It supports `PATCH /api/v1/domains/{id}`, proxy enable/disable, active/disabled status changes, copy ID, delete confirmation, and selectable origin scheme/status controls.
 - DNS, redirects, page rules, WAF rules, cache rules, and purge requests expose their useful API fields in explicit table columns instead of relying on raw object ordering.
 - Wide tables use subtle edge fades with clickable scroll controls so operators can discover hidden columns without guessing.

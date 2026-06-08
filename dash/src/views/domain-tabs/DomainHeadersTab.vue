@@ -18,12 +18,17 @@
         <div><h2>{{ editingId ? 'Edit header rule' : 'Add header rule' }}</h2><p>Rules run by priority before the response leaves the edge.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>Security presets</b><span>Use the quick buttons for common headers, then adjust values if your app needs third-party scripts or framing.</span></div>
+        <div class="help-item"><b>Operation choice</b><span>Set replaces existing values, Append adds another value, and Remove strips the header.</span></div>
+        <div class="help-item"><b>Scope carefully</b><span>Start with /* for global security headers, or a narrower path such as /assets/* for file-specific headers.</span></div>
+      </div>
       <div class="grid gap-4 md:grid-cols-2">
-        <label><span class="field-label">Operation</span><select v-model="form.operation" class="input"><option value="set">Set</option><option value="append">Append</option><option value="remove">Remove</option></select></label>
-        <label><span class="field-label">Header name</span><input v-model="form.header_name" class="input" placeholder="Strict-Transport-Security" /></label>
-        <label class="md:col-span-2"><span class="field-label">Header value</span><input v-model="form.header_value" class="input" :disabled="form.operation === 'remove'" /></label>
-        <label><span class="field-label">Path pattern</span><input v-model="form.path_pattern" class="input" placeholder="/*" /></label>
-        <label><span class="field-label">Priority</span><input v-model.number="form.priority" type="number" class="input" /></label>
+        <label><span class="field-label">Operation</span><select v-model="form.operation" class="input"><option value="set">Set</option><option value="append">Append</option><option value="remove">Remove</option></select><span class="field-description">Best practice: use Set unless you specifically need multiple header values.</span></label>
+        <label><span class="field-label">Header name</span><input v-model="form.header_name" class="input" placeholder="Strict-Transport-Security" /><span class="field-description">Use the exact HTTP header name, for example Content-Security-Policy.</span></label>
+        <label class="md:col-span-2"><span class="field-label">Header value</span><input v-model="form.header_value" class="input" :disabled="form.operation === 'remove'" placeholder="max-age=31536000; includeSubDomains" /><span class="field-description">Leave empty only when removing a header.</span></label>
+        <label><span class="field-label">Path pattern</span><input v-model="form.path_pattern" class="input" placeholder="/*" /><span class="field-description">Use /* for every path or a narrower pattern such as /downloads/*.</span></label>
+        <label><span class="field-label">Priority</span><input v-model.number="form.priority" type="number" class="input" placeholder="100" /><span class="field-description">Lower numbers run first when multiple header rules match.</span></label>
       </div>
       <label class="setting-row mt-5">
         <span><b>Enabled</b><small>Turn this rule on without changing its configuration.</small></span>

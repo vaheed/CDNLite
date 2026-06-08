@@ -9,9 +9,14 @@
       <div class="section-heading">
         <div><h2>Bulk import</h2><p>Paste one CIDR per line and choose how those ranges should be handled.</p></div>
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>CIDR examples</b><span>Use 203.0.113.4/32 for one IPv4 address or 203.0.113.0/24 for a subnet.</span></div>
+        <div class="help-item"><b>Allow lists</b><span>If any allow rule exists, unmatched visitors are denied. Add all trusted networks first.</span></div>
+        <div class="help-item"><b>Block lists</b><span>Block rules win over allow rules and are best for abusive sources.</span></div>
+      </div>
       <div class="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-end">
-        <label><span class="field-label">Type</span><select v-model="bulkType" class="input"><option value="block">Block</option><option value="allow">Allow</option></select></label>
-        <label><span class="field-label">CIDRs</span><textarea v-model="bulkText" class="input min-h-24 py-3 font-mono" placeholder="203.0.113.0/24" /></label>
+        <label><span class="field-label">Type</span><select v-model="bulkType" class="input"><option value="block">Block</option><option value="allow">Allow</option></select><span class="field-description">Choose one action for every CIDR in the paste box.</span></label>
+        <label><span class="field-label">CIDRs</span><textarea v-model="bulkText" class="input min-h-24 py-3 font-mono" placeholder="203.0.113.0/24&#10;198.51.100.10/32" /><span class="field-description">Paste one IPv4 CIDR per line.</span></label>
         <button class="button-secondary">Import</button>
       </div>
     </form>
@@ -24,9 +29,9 @@
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        <label><span class="field-label">Type</span><select v-model="form.rule_type" class="input"><option value="block">Block</option><option value="allow">Allow</option></select></label>
-        <label><span class="field-label">CIDR</span><input v-model="form.cidr" class="input" placeholder="192.0.2.0/24" /></label>
-        <label class="md:col-span-2"><span class="field-label">Description</span><input v-model="form.description" class="input" /></label>
+        <label><span class="field-label">Type</span><select v-model="form.rule_type" class="input"><option value="block">Block</option><option value="allow">Allow</option></select><span class="field-description">Block denies matching visitors. Allow creates a trusted list when any allow rule exists.</span></label>
+        <label><span class="field-label">CIDR</span><input v-model="form.cidr" class="input" placeholder="192.0.2.0/24" /><span class="field-description">Use /32 for one IP address, such as 198.51.100.10/32.</span></label>
+        <label class="md:col-span-2"><span class="field-label">Description</span><input v-model="form.description" class="input" placeholder="Office VPN or abusive scanner range" /><span class="field-description">Describe who owns the range or why it is blocked.</span></label>
       </div>
       <label class="setting-row mt-5">
         <span><b>Enabled</b><small>Turn this rule on without changing its configuration.</small></span>

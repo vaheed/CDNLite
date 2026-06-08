@@ -10,13 +10,18 @@
         <div><h2>{{ editingId ? 'Edit DNS record' : 'Add DNS record' }}</h2><p>Public DNS and origin delivery are configured together.</p></div>
         <button type="button" class="icon-button" title="Close" @click="editing = false"><X class="h-5 w-5" /></button>
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>Common records</b><span>Use A for an IP address, CNAME for another hostname, TXT for verification, and MX for mail routing.</span></div>
+        <div class="help-item"><b>Proxied records</b><span>When proxy is on, content is the private origin target and visitors connect through CDNLite.</span></div>
+        <div class="help-item"><b>Safe TTL</b><span>Use 5 minutes while changing records, then increase to 1 hour or 1 day after things are stable.</span></div>
+      </div>
 
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label><span class="field-label">Type</span><select v-model="form.type" class="input"><option v-for="type in recordTypes" :key="type">{{ type }}</option></select></label>
-        <label><span class="field-label">Name</span><input v-model="form.name" class="input" placeholder="@ or www" /></label>
-        <label class="xl:col-span-2"><span class="field-label">{{ form.proxied ? 'Default origin IP or hostname' : 'Content' }}</span><input v-model="form.content" class="input" placeholder="192.0.2.10" /></label>
-        <label><span class="field-label">TTL</span><select v-model="form.ttl" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="86400">1 day</option></select></label>
-        <label v-if="form.type === 'MX'"><span class="field-label">Priority</span><input v-model.number="form.priority" min="0" type="number" class="input" /></label>
+        <label><span class="field-label">Type</span><select v-model="form.type" class="input"><option v-for="type in recordTypes" :key="type">{{ type }}</option></select><span class="field-description">Choose the DNS record kind you want to publish.</span></label>
+        <label><span class="field-label">Name</span><input v-model="form.name" class="input" placeholder="@ or www" /><span class="field-description">@ means the root domain. Use www, api, or mail for subdomains.</span></label>
+        <label class="xl:col-span-2"><span class="field-label">{{ form.proxied ? 'Default origin IP or hostname' : 'Content' }}</span><input v-model="form.content" class="input" placeholder="192.0.2.10" /><span class="field-description">{{ form.proxied ? 'Example: origin.example.com or 192.0.2.10. Avoid exposing this directly to visitors.' : 'Example: 192.0.2.10 for A, target.example.com for CNAME, or verification text for TXT.' }}</span></label>
+        <label><span class="field-label">TTL</span><select v-model="form.ttl" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="86400">1 day</option></select><span class="field-description">Lower TTLs update faster but increase DNS query volume.</span></label>
+        <label v-if="form.type === 'MX'"><span class="field-label">Priority</span><input v-model.number="form.priority" min="0" type="number" class="input" /><span class="field-description">Lower numbers are preferred first by mail senders.</span></label>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -37,9 +42,9 @@
         </div>
         <div v-if="geoOrigins.length" class="divide-y divide-slate-100 dark:divide-white/5">
           <div v-for="(origin, index) in geoOrigins" :key="index" class="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] md:items-end">
-            <label><span class="field-label">Visitor country</span><select v-model="origin.country_code" class="input"><option value="" disabled>Select country</option><option v-for="country in countryOptions" :key="country.code" :value="country.code">{{ country.name }}</option></select></label>
-            <label><span class="field-label">Origin IP or hostname</span><input v-model="origin.host" class="input" placeholder="192.168.1.1" /></label>
-            <label class="flex h-10 items-center gap-2 text-sm"><input v-model="origin.verify_tls" type="checkbox" /> Verify TLS</label>
+            <label><span class="field-label">Visitor country</span><select v-model="origin.country_code" class="input"><option value="" disabled>Select country</option><option v-for="country in countryOptions" :key="country.code" :value="country.code">{{ country.name }}</option></select><span class="field-description">Traffic from this country uses the origin below.</span></label>
+            <label><span class="field-label">Origin IP or hostname</span><input v-model="origin.host" class="input" placeholder="origin-us.example.com" /><span class="field-description">Use a backend close to that visitor region.</span></label>
+            <label class="flex min-h-10 items-center gap-2 text-sm"><input v-model="origin.verify_tls" type="checkbox" /> Verify TLS</label>
             <button type="button" class="icon-button text-rose-600" title="Remove country origin" @click="geoOrigins.splice(index, 1)"><Trash2 class="h-4 w-4" /></button>
           </div>
         </div>

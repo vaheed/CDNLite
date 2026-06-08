@@ -5,6 +5,11 @@
         <div><h2>Cache configuration</h2><p>Set the default behavior for content stored at the edge.</p></div>
         <StatusBadge :status="settings.enabled ? 'healthy' : 'unknown'" :label="settings.enabled ? 'Enabled' : 'Disabled'" />
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>Best default</b><span>Enable edge cache, respect origin Cache-Control, and use 1 hour TTL for ordinary static assets.</span></div>
+        <div class="help-item"><b>Dynamic pages</b><span>Keep sensitive or personalized paths uncached with a short cache rule or origin headers.</span></div>
+        <div class="help-item"><b>Stale content</b><span>Use stale-if-error so visitors can still receive cached content during an origin outage.</span></div>
+      </div>
       <div class="divide-y divide-slate-100 dark:divide-white/5">
         <label class="setting-row border-0 px-0">
           <span><b>Edge cache</b><small>Store eligible origin responses on CDNLite edge nodes.</small></span>
@@ -30,6 +35,11 @@
         <div><h2>Purge cache</h2><p>Remove cached content from every edge node.</p></div>
         <Trash2 class="h-5 w-5 text-slate-400" />
       </div>
+      <div class="help-panel">
+        <div class="help-item"><b>Exact URL</b><span>Use a full URL such as https://example.com/app.css after deploying one changed file.</span></div>
+        <div class="help-item"><b>Path prefix</b><span>Use /assets/ or /images/ when a whole folder changed.</span></div>
+        <div class="help-item"><b>Purge everything</b><span>Use sparingly. It clears all cached files and can increase origin load.</span></div>
+      </div>
       <div class="grid gap-4 lg:grid-cols-3">
         <button class="purge-option" @click="purge('everything')"><RefreshCcw class="h-5 w-5 text-rose-600" /><span><b>Purge everything</b><small>Clear all cached files for this domain.</small></span></button>
         <form class="purge-option lg:col-span-2" @submit.prevent="purge(purgeType)">
@@ -42,7 +52,7 @@
       </div>
     </section>
 
-    <DomainRulesTab :domain-id="domainId" title="Cache Rules" summary="Override the edge TTL for matching path prefixes." :fields="fields" :columns="columns" :list="() => cacheApi.rules(domainId)" :create="(value) => cacheApi.createRule(domainId, value)" :update="(id, value) => cacheApi.updateRule(domainId, id, value)" :remove="(id) => cacheApi.removeRule(domainId, id)" />
+    <DomainRulesTab :domain-id="domainId" title="Cache Rules" summary="Override the edge TTL for matching path prefixes." :fields="fields" :columns="columns" :help-items="ruleHelpItems" :list="() => cacheApi.rules(domainId)" :create="(value) => cacheApi.createRule(domainId, value)" :update="(id, value) => cacheApi.updateRule(domainId, id, value)" :remove="(id) => cacheApi.removeRule(domainId, id)" />
     <DataTable title="Recent purges" subtitle="Cache invalidation requests and their current state." :rows="purges" :columns="purgeColumns">
       <template #status="{ row }"><StatusBadge :status="row.status === 'completed' ? 'healthy' : row.status === 'failed' ? 'critical' : 'warning'" :label="String(row.status || 'pending')" /></template>
     </DataTable>
@@ -65,7 +75,8 @@ const purgeValue = ref('');
 const purgeType = ref('url');
 const saving = ref(false);
 const message = ref('');
-const fields = [{ key: 'enabled', label: 'Enabled', type: 'checkbox' as const, default: true }, { key: 'path_prefix', label: 'Path prefix', default: '/' }, { key: 'ttl_seconds', label: 'TTL seconds', type: 'number' as const, default: 3600 }];
+const ruleHelpItems = [{ title: 'Prefix examples', body: 'Use /assets/ for static files, /api/ for API responses, or / for the whole site.' }, { title: 'TTL examples', body: '300 is 5 minutes, 3600 is 1 hour, 86400 is 1 day.' }, { title: 'Rule order', body: 'Use narrower prefixes when overriding the default cache behavior.' }];
+const fields = [{ key: 'enabled', label: 'Enabled', type: 'checkbox' as const, default: true, help: 'Keep disabled while drafting a cache override.' }, { key: 'path_prefix', label: 'Path prefix', default: '/', placeholder: '/assets/', help: 'Match requests whose path starts with this value.' }, { key: 'ttl_seconds', label: 'TTL seconds', type: 'number' as const, default: 3600, placeholder: '3600', help: 'How long matching responses should stay cached at the edge.' }];
 const columns = [{ key: 'enabled', label: 'Status' }, { key: 'path_prefix', label: 'Path' }, { key: 'ttl_seconds', label: 'Edge TTL' }, { key: 'actions', label: '' }];
 const purgeColumns = [{ key: 'type', label: 'Scope' }, { key: 'value', label: 'Target' }, { key: 'status', label: 'Status' }, { key: 'created_at', label: 'Created' }];
 

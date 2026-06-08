@@ -10,17 +10,24 @@
         <div><h2>{{ editingId ? `Edit ${singularTitle}` : `Add ${singularTitle}` }}</h2><p>Configure the match criteria and edge behavior.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
+      <div v-if="helpItems.length" class="help-panel">
+        <div v-for="item in helpItems" :key="item.title" class="help-item">
+          <b>{{ item.title }}</b>
+          <span>{{ item.body }}</span>
+        </div>
+      </div>
       <div class="grid gap-4 md:grid-cols-2">
         <label v-for="field in nonBooleanFields" :key="field.key">
           <span class="field-label">{{ field.label }}</span>
-          <textarea v-if="field.type === 'textarea'" v-model="form[field.key]" class="input min-h-32 py-3 font-mono" />
+          <textarea v-if="field.type === 'textarea'" v-model="form[field.key]" class="input min-h-32 py-3 font-mono" :placeholder="field.placeholder" />
           <select v-else-if="field.options" v-model="form[field.key]" class="input"><option v-for="option in field.options" :key="option" :value="option">{{ humanize(option) }}</option></select>
-          <input v-else v-model="form[field.key]" :type="field.type === 'number' ? 'number' : 'text'" class="input" />
+          <input v-else v-model="form[field.key]" :type="field.type === 'number' ? 'number' : 'text'" class="input" :placeholder="field.placeholder" />
+          <span v-if="field.help" class="field-description">{{ field.help }}</span>
         </label>
       </div>
       <div v-if="booleanFields.length" class="mt-5 grid gap-3 md:grid-cols-2">
         <label v-for="field in booleanFields" :key="field.key" class="setting-row">
-          <span><b>{{ field.label }}</b><small>Turn this behavior on or off without deleting the rule.</small></span>
+          <span><b>{{ field.label }}</b><small>{{ field.help || 'Turn this behavior on or off without deleting the rule.' }}</small></span>
           <input v-model="form[field.key]" class="toggle" type="checkbox" />
         </label>
       </div>
@@ -44,11 +51,13 @@ import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
 import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
-type Field = { key: string; label: string; type?: 'text' | 'number' | 'checkbox' | 'textarea'; options?: string[]; default: string | number | boolean };
-const props = defineProps<{ domainId: string; title: string; summary: string; fields: Field[]; columns: Array<{ key: string; label: string }>; list: () => Promise<unknown[]>; create: (input: Record<string, unknown>) => Promise<unknown>; update: (id: string, input: Record<string, unknown>) => Promise<unknown>; remove: (id: string) => Promise<unknown> }>();
+type Field = { key: string; label: string; type?: 'text' | 'number' | 'checkbox' | 'textarea'; options?: string[]; default: string | number | boolean; placeholder?: string; help?: string };
+type HelpItem = { title: string; body: string };
+const props = defineProps<{ domainId: string; title: string; summary: string; fields: Field[]; columns: Array<{ key: string; label: string }>; helpItems?: HelpItem[]; list: () => Promise<unknown[]>; create: (input: Record<string, unknown>) => Promise<unknown>; update: (id: string, input: Record<string, unknown>) => Promise<unknown>; remove: (id: string) => Promise<unknown> }>();
 const rows = ref<Record<string, unknown>[]>([]); const loading = ref(false); const saving = ref(false); const editing = ref(false); const editingId = ref(''); const message = ref(''); const form = reactive<Record<string, any>>({});
 const booleanFields = computed(() => props.fields.filter((field) => field.type === 'checkbox'));
 const nonBooleanFields = computed(() => props.fields.filter((field) => field.type !== 'checkbox'));
+const helpItems = computed(() => props.helpItems ?? []);
 const singularTitle = computed(() => props.title.replace(/ Rules$/, ' rule').replace(/s$/, ''));
 function humanize(value: string) { return value.replaceAll('_', ' '); }
 function reset() { props.fields.forEach((field) => { form[field.key] = field.default; }); }
