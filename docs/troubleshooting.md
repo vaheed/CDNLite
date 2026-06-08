@@ -1,23 +1,179 @@
 # Troubleshooting
 
+## Quick Diagnostics
 
-[Back to docs index](index.md)
+```bash
+docker compose ps
+curl -fsS http://localhost:8080/health
+curl -fsS http://localhost:8080/ready
+curl -fsS http://localhost:8081/health
+docker compose logs --tail=120 core
+docker compose logs --tail=120 edge
+docker compose logs --tail=120 edge-agent
+```
 
-| Problem | Symptom | Likely cause | Diagnostic command | Fix |
-|---|---|---|---|---|
-| Docker build failure | Image build exits non-zero | Network, base image, Dockerfile package install | `docker compose build --no-cache` | Retry with network; inspect failing Dockerfile layer. |
-| Database connection failure | Core 500 or CLI PDO error | PostgreSQL not ready or DB env mismatch | `docker compose exec postgres pg_isready -U cdnlite -d cdnlite` | Start DB; align `DB_*` and `POSTGRES_*`. |
-| Core health failure | `curl /health` fails | Core container down or port changed | `docker compose ps core && docker compose logs core` | Start core; check `CORE_HOST_PORT`. |
-| Edge health failure | `curl :8081/health` fails | Edge container down or port changed | `docker compose logs edge` | Start edge; check `EDGE_HOST_PORT`. |
-| Edge readiness failure | `curl :8081/ready` returns 503 | Missing or invalid edge config JSON | `curl -i http://localhost:8081/ready && docker compose exec edge-agent sh -lc 'cat "$EDGE_CONFIG_PATH"'` | Run `/agent/pull_config.sh`; fix invalid JSON payload generation. |
-| Edge returns 502 | Custom error page | Unknown host, disabled proxy, missing config, or origin failure | `docker compose exec edge-agent sh -lc 'cat "$EDGE_CONFIG_PATH"'` | Pull config, enable proxy, fix origin. |
-| Domain not found | API returns `domain_not_found` | Wrong UUID or deleted domain | `curl -s http://localhost:8080/api/v1/domains` | Use returned domain ID. |
-| DNS sync failure | 502 or log `powerdns_*_failed` | PowerDNS disabled/misconfigured/API key bad | `docker compose logs core | grep powerdns` | Open Settings → PowerDNS, correct the values, and run Test PowerDNS connection. |
-| Edge auth 401 | `edge_auth_*` error | Missing token, invalid signature, stale timestamp | `docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token` | Register correct token; rebuild signature. |
-| Edge public IP wrong | `cdn:edge:list` shows empty, private, or old `public_ip` | Public detection blocked or override is stale | `docker compose exec edge-agent sh -lc '. /agent/lib.sh; cdnlite_public_ip; echo'` | Set `EDGE_PUBLIC_IP=auto` or a concrete IPv4; run `/agent/register.sh` or `/agent/heartbeat.sh`. |
-| Replay 409 | `edge_auth_replay_detected` | Reused nonce | Inspect signing script nonce generation | Use a new nonce per request. |
-| Validation 422 | Required field error | Missing body field or invalid query | Check response JSON | Add required fields; use valid bucket. |
-| Empty usage summary | Counts are zero | No raw usage or aggregates not rebuilt | `php core/artisan cdn:usage:summary` | Push/ingest usage; run recalculate for bucket summaries. |
-| Config not updating | Edge routes old host state | Agent has not pulled, snapshot unchanged, or downloaded config failed validation | `docker compose exec edge-agent sh -lc '/agent/pull_config.sh && cat "$EDGE_CONFIG_PATH"'` | Force pull; confirm domain `proxy_enabled=true`. The agent preserves the last-known-good config on HTTP or JSON validation failure. |
-| Cache result unexpected | `X-CDNLITE-Cache` is `MISS`, `BYPASS`, `UNKNOWN`, or empty | First request for a key, `Authorization`, `Cache-Control: no-cache/no-store`, non-GET/HEAD method, expired item, empty upstream cache status, or no stored stale response | `curl -i -H 'Host: example.test' http://localhost:8081/path` | Repeat the same GET/HEAD without bypass headers; verify `CDNLITE_CACHE_DEFAULT_TTL`, origin status, and whether the upstream exposes a cache status. |
-| Metrics not clearing | `METRIC_PATH` remains non-empty after push | Collector returned 4xx/5xx or network failed | `docker compose logs edge-agent` | Fix collector/API/auth issue. The agent keeps metrics and a `.payload` spool until ingest succeeds. |
+Use this order during incidents:
+
+1. Confirm containers are running.
+2. Check core `/ready`.
+3. Check edge `/health`.
+4. Check config snapshot and edge sync status.
+5. Check origin health.
+6. Check security events for blocks/challenges.
+7. Check metrics queues and collector ingest.
+
+## Common Issues
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Dashboard cannot reach core | `VITE_CDNLITE_CORE_URL` points at an internal Compose hostname or CORS blocks origin. | Set a browser-reachable URL, rebuild dashboard, and include dashboard origin in `CDNLITE_CORS_ALLOWED_ORIGINS`. |
+| Login fails with known credentials | Bootstrap disabled or admin password changed. | Create a user with `cdn:admin:create` or verify bootstrap variables before first boot. |
+| `/ready` reports `api_token` warn | `CDNLITE_API_TOKEN` is empty in local mode. | Accept for local dev, set a strong token for production. |
+| `/ready` reports schema failure | Migrations/schema missing. | Run `docker compose exec core php artisan cdn:migrate` or rebuild a fresh local stack. |
+| Edge returns unknown host page | Host is not in `config.json` or edge has stale config. | Activate the domain, rebuild snapshot, and confirm edge agent pulled config. |
+| Edge agent auth fails | Edge token mismatch, bad timestamp, reused nonce, or signature mismatch. | Re-register/rotate token, check system clock, and run `edge/agent/doctor.sh`. |
+| DNS publishing fails | PowerDNS URL/key/server ID wrong or mock profile not running. | Start `docker compose --profile powerdns up -d` and run `cdn:settings:test-powerdns`. |
+| SSL issuance stuck | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
+| Cache assertions are flaky in tests | Default TTL too long for e2e timing. | Use `CDNLITE_CACHE_DEFAULT_TTL=1s` in e2e. |
+| Usage analytics are empty | Edge metrics queue not pushed or domain filter mismatch. | Check `METRIC_PATH`, agent logs, collector endpoint, and domain names. |
+| Config snapshot rollback appears ignored | Edge has not pulled the active version yet. | Run the edge agent config pull or wait for the polling loop, then inspect `edge-sync-status.json`. |
+| ACME renewal fails after restart | `CDNLITE_SSL_SECRET_KEY` changed or DNS settings changed. | Restore the original secret if possible, test PowerDNS, and retry staging issuance first. |
+| API clients get 404 after docs change | Client generated from an old spec or wrong base URL. | Regenerate from `docs/public/api/openapi.yaml` and confirm server URL. |
+| PowerDNS works locally but not in CI | Missing `powerdns` profile or wrong strict env. | Use `docker compose --profile powerdns config --quiet` and verify `POWERDNS_API_URL`. |
+
+## Log Locations
+
+| Logs | Location |
+| --- | --- |
+| Core API | `docker compose logs core` |
+| Dashboard Nginx | `docker compose logs dashboard` |
+| Edge OpenResty | `docker compose logs edge` and `edge/logs/` |
+| Edge agent | `docker compose logs edge-agent` |
+| PostgreSQL | `docker compose logs postgres` |
+| CI reports | `ci/reports/` |
+
+## Config Files To Inspect
+
+```bash
+ls -la edge/config
+cat edge/config/edge-sync-status.json
+docker compose exec edge sh -c 'test -f /var/lib/cdnlite/config.json && wc -c /var/lib/cdnlite/config.json'
+```
+
+Useful config checks:
+
+```bash
+docker compose exec edge-agent sh -c 'cat "$EDGE_SYNC_STATUS_PATH"'
+docker compose exec edge-agent sh -c 'test -f "$EDGE_CONFIG_PATH" && head -c 500 "$EDGE_CONFIG_PATH"'
+docker compose exec core php artisan cdn:edge:list
+docker compose exec core php artisan cdn:readiness:check
+```
+
+If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs.
+
+## Debugging API Calls
+
+Use the API token when configured:
+
+```bash
+curl -s http://localhost:8080/api/v1/domains \
+  -H "Authorization: Bearer $CDNLITE_API_TOKEN"
+```
+
+For validation errors, look for `error`, `field`, and `status` keys in the JSON response.
+
+Common validation errors:
+
+| Error | Meaning |
+| --- | --- |
+| `invalid_json` | Request body was not parseable JSON. |
+| `invalid_json_object_expected` | JSON body was valid but not an object. |
+| `domain_already_exists` | Another domain entry already uses the hostname. |
+| `domain_not_found` | Domain ID is wrong or deleted. |
+| `record_not_found` | DNS record ID is wrong or deleted. |
+| `origin_port_not_supported` | Domain create/update no longer accepts legacy origin port fields. |
+| `bucket_must_be_one_of_minute_hour_day` | Analytics bucket must be `minute`, `hour`, or `day`. |
+
+## Debugging Edge Auth
+
+Run the agent doctor:
+
+```bash
+docker compose exec edge-agent sh /opt/cdnlite-agent/doctor.sh
+```
+
+Check these values:
+
+- `EDGE_ID` matches the registered edge.
+- `EDGE_TOKEN` matches the token in core.
+- Container clock is reasonably current.
+- Request path in the HMAC canonical string excludes the query string.
+- Request body hash matches the exact raw body.
+
+Fast edge-auth triage:
+
+```bash
+docker compose exec core php artisan cdn:edge:show --edge_id=edge-local-1
+docker compose exec core php artisan cdn:edge:register-token --edge_id=edge-local-1 --token=edge-dev-token
+docker compose exec edge-agent sh /opt/cdnlite-agent/heartbeat.sh
+docker compose logs --tail=80 edge-agent
+```
+
+Replay errors are usually caused by scripts reusing the same nonce while retrying. Generate the nonce inside the retry loop.
+
+## Debugging DNS And PowerDNS
+
+```bash
+docker compose --profile powerdns ps
+curl -fsS http://localhost:8089/health
+docker compose exec core php artisan cdn:settings:test-powerdns
+docker compose logs --tail=120 powerdns
+```
+
+If DNS publishing fails, separate three questions:
+
+- Does core have the right settings?
+- Is the PowerDNS API reachable from core?
+- Is the public or mock DNS state what the domain workflow expects?
+
+## Debugging Cache
+
+```bash
+curl -i http://localhost:8081/path \
+  -H 'Host: example.test'
+
+curl -i http://localhost:8081/path \
+  -H 'Host: example.test' \
+  -H 'Cache-Control: no-cache'
+```
+
+Cache bypass is expected for non-`GET`/`HEAD` requests, `Authorization` headers, and explicit no-cache/no-store headers. Compare normal browser-like requests before assuming the cache is broken.
+
+## Debugging Analytics
+
+```bash
+docker compose exec edge-agent sh -c 'test -f "$METRIC_PATH" && wc -l "$METRIC_PATH" || true'
+docker compose logs --tail=120 edge-agent
+curl -s http://localhost:8080/api/v1/usage/summary \
+  -H "Authorization: Bearer $CDNLITE_API_TOKEN"
+```
+
+If raw metrics exist but analytics are empty, check collector auth and recalculate aggregates:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/usage/recalculate \
+  -H "Authorization: Bearer $CDNLITE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"bucket":"hour"}'
+```
+
+## Resetting Local Development
+
+This deletes the local PostgreSQL volume:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Do not run this in production.

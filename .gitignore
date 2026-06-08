@@ -20,6 +20,10 @@ dash/test-results/analytics-domain-filter-gl-3b3fb-ero-totals-and-cache-states/t
 dash/test-results/analytics-domain-filter-do-a7595-scoped-while-buckets-change/trace.zip
 dash/test-results/analytics-domain-filter-do-74d45-olates-every-analytics-card/trace.zip
 dash/test-results/analytics-domain-filter-do-74d45-olates-every-analytics-card/error-context.md
+docs/node_modules/
+docs/.vitepress/.temp/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 .gitignore
 .gitignore
 dash/test-results/analytics-domain-filter-do-a7595-scoped-while-buckets-change/error-context.md

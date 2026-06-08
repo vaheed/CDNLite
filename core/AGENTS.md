@@ -15,11 +15,11 @@ Applies to all files under `core/`.
 
 ## Documentation requirements
 
-- If endpoint behavior changes, update root `README.md` endpoint section.
+- If endpoint behavior changes, update root `README.md` usage/documentation section.
 - If CLI behavior changes, update root `README.md` CLI examples.
-- If endpoint behavior changes, update `docs/api-reference.md`.
-- If CLI behavior changes, update `docs/cli-reference.md`.
-- If execution flow changes, update `docs/architecture.md`, `docs/project-overview.md`, or the relevant runtime guide.
+- If endpoint behavior changes, update `docs/api/api.md`.
+- If CLI behavior changes, update `docs/setup.md` and `docs/examples/index.md`.
+- If execution flow changes, update `docs/architecture.md` or the relevant runtime guide.
 
 ## Delivery checks
 

@@ -14,8 +14,8 @@ Applies to all files under `edge/`.
 
 ## Documentation requirements
 
-- If agent timing or behavior changes, update `docs/edge-agent.md` and `README.md`.
-- If edge request flow changes, update `docs/edge-runtime.md` and `docs/architecture.md`.
+- If agent timing or behavior changes, update `docs/architecture.md`, `docs/troubleshooting.md`, and `README.md`.
+- If edge request flow changes, update `docs/architecture.md`, `docs/security.md`, and `docs/api/api.md`.
 
 ## Delivery checks
 

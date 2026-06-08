@@ -1,92 +1,100 @@
 # Architecture
 
-[Back to docs index](index.md)
+CDNLite is split into a control plane, dashboard, data-plane edge, and agent loop.
 
-## System Diagram
+## System Overview
 
-```mermaid
-flowchart LR
-  Client[Client] --> Edge[OpenResty edge :8081]
-  Edge --> Origin[Origin]
-  Edge --> Metrics[/metrics.ndjson/]
-  Agent[edge-agent] -->|signed register heartbeat config usage| Core[PHP core :8080]
-  Agent --> Config[/config.json/]
-  Core --> DB[(PostgreSQL)]
-  Core -->|optional| PDNS[PowerDNS API]
-  Config --> Edge
-  Metrics --> Agent
+```text
+Operator Browser
+      |
+      v
+Vue Dashboard -----> Core PHP API -----> PostgreSQL
+      |                    |
+      |                    +----> PowerDNS API or local mock
+      |                    |
+      |                    +----> Config snapshots
+      |
+      v
+OpenResty Edge <---- Edge Agent <---- signed config/heartbeat endpoints
+      |
+      v
+Customer Origins
 ```
+
+## Components
+
+| Component | Technology | Responsibility |
+| --- | --- | --- |
+| Core API | PHP 8.3, custom router | Domain, DNS, rules, SSL, settings, analytics, admin auth, edge auth. |
+| Database | PostgreSQL 16 | Domains, records, rules, snapshots, usage, events, audits, admins. |
+| Dashboard | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, ECharts | Browser admin console. |
+| Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |
+| Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
+| CI and mocks | Bash, Python, Docker Compose | Smoke/e2e validation, origin mocks, PowerDNS mock. |
 
 ## Request Flow
 
-```mermaid
-flowchart TD
-  A[Request] --> B{Path /health?}
-  B -->|yes| C[Return edge health]
-  B -->|no| D[Normalize Host]
-  D --> E[Load config.json]
-  E --> F{Host configured?}
-  F -->|no| G[502 custom error]
-  F -->|yes| H[Pick country or default upstream]
-  H --> I{Cache HIT or usable STALE?}
-  I -->|yes| J[Serve cached response]
-  I -->|no| K[Proxy to origin]
-  K --> L[Store cacheable GET/HEAD response]
-  J --> M[Add X-CDNLITE headers]
-  L --> M
-  M --> N[Append metric]
+```text
+Client request
+  -> OpenResty listens on 8081 or 8443
+  -> Lua router reads /var/lib/cdnlite/config.json
+  -> host/domain lookup chooses origin and rules
+  -> redirects, WAF, rate limit, IP, cache, and headers are evaluated
+  -> request proxies to primary origin or backup origin
+  -> metrics/security events are appended to local queue files
+  -> edge agent later pushes queues to core
 ```
 
-## Edge Registration And Config Sync
+## Config Flow
 
-```mermaid
-sequenceDiagram
-  participant Operator
-  participant Core
-  participant Agent
-  participant DB
-  Operator->>Core: cdn:edge:register-token
-  Core->>DB: upsert token hash
-  Agent->>Core: POST /api/v1/edge/register signed
-  Core->>DB: upsert edge_nodes
-  Agent->>Core: GET /api/v1/edge/config signed
-  Core->>DB: read domains, DNS, snapshots
-  Core-->>Agent: snapshot JSON
-  Agent->>Agent: write EDGE_CONFIG_PATH
+```text
+Admin/API change
+  -> Core validates and writes PostgreSQL
+  -> ConfigService builds a snapshot
+  -> Snapshot version is stored
+  -> Edge agent signs GET /api/v1/edge/config
+  -> Agent writes config.json atomically
+  -> OpenResty Lua modules read fresh config
 ```
 
-## Usage Ingestion
+## Data Flow
 
-```mermaid
-sequenceDiagram
-  participant Edge
-  participant Agent
-  participant Core
-  participant DB
-  Edge->>Edge: append metrics.ndjson
-  Agent->>Core: POST /api/v1/collector/usage signed
-  Core->>DB: insert usage_rollups
-  Core->>DB: store idempotency key if present
-  Operator->>Core: POST /api/v1/usage/recalculate
+| Data | Producer | Consumer |
+| --- | --- | --- |
+| Domain and rule state | Dashboard, API, CLI | Core services and config snapshot builder. |
+| Config snapshot JSON | Core `ConfigService` | Edge agent and OpenResty runtime. |
+| Metrics NDJSON | OpenResty edge | Edge agent, collector API, usage aggregates. |
+| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. |
+| Origin health | Scheduler/CLI | Readiness service and edge backup routing config. |
+| Audit records | Core services | Audit log dashboard and API. |
 
-## Domain Onboarding
+## Deployment Topology
 
-Domain creation stores the expected authoritative nameservers from platform settings but does not create a PowerDNS zone. Verification compares public NS records with that stored set. Activation requires a verified delegation unless an admin development override is supplied. The PowerDNS zone is created lazily when the first DNS record is written.
-  Core->>DB: rebuild aggregates
+The root `docker-compose.yml` is the supported local and CI stack:
+
+```text
+postgres
+core
+ssl-scheduler
+origin-health-scheduler
+edge
+edge-agent
+dashboard
+origin-http
+origin-tls
+powerdns profile
 ```
 
-## Failure Paths
+CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables and profiles for job-specific behavior.
 
-| Failure | Behavior |
-|---|---|
-| Missing config | Edge loads version `0` with empty hosts. |
-| Unknown host | Edge returns 502 custom error page. |
-| Origin failure | Nginx serves a stale cached response when available; otherwise it maps 500/502/503/504 to custom HTML. |
-| Missing edge auth | Core returns `401` and `edge_auth_required`. |
-| Replay nonce | Core returns `409` and `edge_auth_replay_detected`. |
-| Invalid usage bucket | Core returns `422` and `bucket_must_be_one_of_minute_hour_day`. |
-| PowerDNS strict failure | API returns 502 or CLI exits non-zero. |
+## Storage
 
-## Limitations And Assumptions
+PostgreSQL is the supported backend. The edge uses mounted local files under `/var/lib/cdnlite` for config, sync status, metrics queues, and security-event queues. Logs are written under OpenResty log paths and surfaced through Compose logs.
 
-ACME DNS-01 issuance and hourly certificate renewal are implemented through the core service and `ssl-scheduler`; enterprise RBAC and billing are not implemented. The official dashboard is a static Vue SPA served by the `dashboard` Compose service and backed by admin session auth APIs. Config updates are pull-based. Routing is by host, with optional country-based upstream selection from headers.
+## Security Boundaries
+
+- Browser admin sessions are short-lived bearer tokens from `/api/v1/admin/login`.
+- API token auth protects control-plane endpoints when `CDNLITE_API_TOKEN` is configured.
+- Edge endpoints require edge ID, bearer token, timestamp, nonce, and HMAC signature.
+- SSL material depends on `CDNLITE_SSL_SECRET_KEY`; keep it stable and private.
+- Dashboard Vite variables are compiled into browser assets and must not contain production secrets unless the deployment is private and separately protected.

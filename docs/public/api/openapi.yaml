@@ -1,0 +1,1553 @@
+openapi: 3.1.0
+info:
+  title: CDNLite API
+  version: 0.1.0
+  summary: Control-plane, edge, collector, analytics, and operations API for CDNLite.
+  description: |
+    CDNLite exposes a JSON API for domain onboarding, DNS records, origins, traffic rules,
+    cache, SSL, analytics, settings, edge registration, signed config pulls, and collector ingest.
+
+    Control-plane endpoints use bearer auth when `CDNLITE_API_TOKEN` is configured or when an
+    admin session token is returned from `/api/v1/admin/login`.
+
+    Edge endpoints require bearer token plus CDNLite replay-protection headers and HMAC signature.
+servers:
+  - url: http://localhost:8080
+    description: Local Docker Compose core service
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Admin
+  - name: Operations
+  - name: Domains
+  - name: DNS
+  - name: Origins
+  - name: Traffic Rules
+  - name: Cache
+  - name: SSL
+  - name: Edge
+  - name: Collector
+  - name: Config
+  - name: Settings
+  - name: Analytics
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Core liveness
+      security: []
+      responses:
+        "200":
+          description: Core is alive.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /cdn-health:
+    get:
+      tags: [Health]
+      summary: CDN health endpoint
+      security: []
+      responses:
+        "200":
+          description: CDN health response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /ready:
+    get:
+      tags: [Health]
+      summary: Core readiness checks
+      security: []
+      responses:
+        "200":
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Not ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+  /api/v1/readiness:
+    get:
+      tags: [Health]
+      summary: Detailed dashboard readiness model
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/login:
+    post:
+      tags: [Admin]
+      summary: Create an admin dashboard session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginRequest"
+      responses:
+        "200":
+          description: Login succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResponse"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/me:
+    get:
+      tags: [Admin]
+      summary: Get current admin user
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/admin/logout:
+    post:
+      tags: [Admin]
+      summary: Revoke current admin session
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/overview:
+    get:
+      tags: [Operations]
+      summary: Aggregate operations overview
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/overview/warnings:
+    get:
+      tags: [Operations]
+      summary: Readiness and operational warnings
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/security/events:
+    get:
+      tags: [Operations]
+      summary: List global security events
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/DomainIdQuery"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/security/summary:
+    get:
+      tags: [Operations]
+      summary: Security event summary
+      parameters:
+        - $ref: "#/components/parameters/DomainIdQuery"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/audit:
+    get:
+      tags: [Operations]
+      summary: Audit history
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/domains:
+    get:
+      tags: [Domains]
+      summary: List domains
+      responses:
+        "200":
+          description: Domain list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Domain"
+    post:
+      tags: [Domains]
+      summary: Create a domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainCreateRequest"
+      responses:
+        "201":
+          description: Domain created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: "#/components/schemas/Domain"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+    get:
+      tags: [Domains]
+      summary: Get a domain
+      responses:
+        "200":
+          $ref: "#/components/responses/DomainObject"
+        "404":
+          $ref: "#/components/responses/Error"
+    patch:
+      tags: [Domains]
+      summary: Update a domain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainUpdateRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/DomainObject"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [Domains]
+      summary: Delete a domain
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/verify-nameservers:
+    post:
+      tags: [Domains]
+      summary: Verify nameserver delegation
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/DomainObject"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/activate:
+    post:
+      tags: [Domains]
+      summary: Activate a domain
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                override:
+                  type: boolean
+                  default: false
+      responses:
+        "200":
+          $ref: "#/components/responses/DomainObject"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/dns/records:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+    get:
+      tags: [DNS]
+      summary: List DNS records
+      responses:
+        "200":
+          $ref: "#/components/responses/DnsRecordArray"
+    post:
+      tags: [DNS]
+      summary: Create DNS record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnsRecordRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/DnsRecordObject"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/dns/records/{recordId}:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+      - $ref: "#/components/parameters/RecordId"
+    patch:
+      tags: [DNS]
+      summary: Update DNS record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DnsRecordPatchRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/DnsRecordObject"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+    delete:
+      tags: [DNS]
+      summary: Delete DNS record
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/routing:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+    get:
+      tags: [DNS]
+      summary: Show domain routing settings
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    patch:
+      tags: [DNS]
+      summary: Update domain routing settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutingSettingsRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing:
+    post:
+      tags: [DNS]
+      summary: Preview routing for a DNS record
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+      - $ref: "#/components/parameters/RecordId"
+    get:
+      tags: [DNS]
+      summary: List Geo DNS routes
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+    put:
+      tags: [DNS]
+      summary: Replace Geo DNS routes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routes]
+              properties:
+                routes:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/GeoRoute"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/domains/{domainId}/origins:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+    get:
+      tags: [Origins]
+      summary: List origins
+      responses:
+        "200":
+          $ref: "#/components/responses/OriginArray"
+    post:
+      tags: [Origins]
+      summary: Create origin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OriginRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/OriginObject"
+  /api/v1/domains/{domainId}/origins/{originId}:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+      - name: originId
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Origins]
+      summary: Update origin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OriginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/OriginObject"
+    delete:
+      tags: [Origins]
+      summary: Delete origin
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+  /api/v1/domains/{domainId}/origins/{originId}/check:
+    post:
+      tags: [Origins]
+      summary: Run origin health check
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: originId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/redirects:
+    $ref: "#/components/pathItems/RedirectCollection"
+  /api/v1/domains/{domainId}/redirects/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/redirects/import:
+    post:
+      tags: [Traffic Rules]
+      summary: Import redirects
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/redirects/export:
+    get:
+      tags: [Traffic Rules]
+      summary: Export redirects
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/redirects/test:
+    post:
+      tags: [Traffic Rules]
+      summary: Test redirect rules
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/rate-limit:
+    put:
+      tags: [Traffic Rules]
+      summary: Set legacy active rate limit
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    get:
+      tags: [Traffic Rules]
+      summary: Get legacy active rate limit
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    delete:
+      tags: [Traffic Rules]
+      summary: Disable legacy active rate limit
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+  /api/v1/domains/{domainId}/rate-limits:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/rate-limits/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/waf-rules:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/waf-rules/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/headers:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/headers/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/ip-rules:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/ip-rules/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/cache-rules:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/cache-rules/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/page-rules:
+    $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/page-rules/{ruleId}:
+    $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/page-rules/test:
+    post:
+      tags: [Traffic Rules]
+      summary: Test page rules
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/cache/settings:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+    get:
+      tags: [Cache]
+      summary: Get domain cache settings
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    put:
+      tags: [Cache]
+      summary: Replace domain cache settings
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/cache/purge:
+    post:
+      tags: [Cache]
+      summary: Create cache purge request
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CachePurgeRequest"
+      responses:
+        "201":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/cache/purge-requests:
+    get:
+      tags: [Cache]
+      summary: List cache purge requests
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/domains/{domainId}/cache/purge-requests/{requestId}:
+    get:
+      tags: [Cache]
+      summary: Get cache purge request
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/analytics/cache:
+    get:
+      tags: [Cache, Analytics]
+      summary: Cache analytics
+      parameters:
+        - $ref: "#/components/parameters/DomainIdQuery"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl:
+    get:
+      tags: [SSL]
+      summary: Get SSL settings
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/settings:
+    patch:
+      tags: [SSL]
+      summary: Update SSL settings
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/certificates:
+    get:
+      tags: [SSL]
+      summary: List SSL certificates
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/domains/{domainId}/ssl/request:
+    post:
+      tags: [SSL]
+      summary: Request SSL flow
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/acme/issue:
+    post:
+      tags: [SSL]
+      summary: Issue ACME certificate
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/request-cert:
+    post:
+      tags: [SSL]
+      summary: Request automated certificate
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "202":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/renew:
+    post:
+      tags: [SSL]
+      summary: Force SSL renewal
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "202":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/acme-status:
+    get:
+      tags: [SSL]
+      summary: Get ACME status
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/check:
+    post:
+      tags: [SSL]
+      summary: Check SSL certificates
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/manual-certificate:
+    post:
+      tags: [SSL]
+      summary: Import manual certificate
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edge/nodes:
+    get:
+      tags: [Edge]
+      summary: List edge nodes
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/edges/pools:
+    get:
+      tags: [Edge]
+      summary: Edge pools
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edges/dns:
+    get:
+      tags: [Edge]
+      summary: Edge DNS model
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edge/register:
+    post:
+      tags: [Edge]
+      summary: Register edge node
+      security:
+        - edgeAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EdgeIdHeader"
+        - $ref: "#/components/parameters/EdgeTimestampHeader"
+        - $ref: "#/components/parameters/EdgeNonceHeader"
+        - $ref: "#/components/parameters/EdgeSignatureHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EdgeRegisterRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/edge/heartbeat:
+    post:
+      tags: [Edge]
+      summary: Heartbeat edge node
+      security:
+        - edgeAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EdgeIdHeader"
+        - $ref: "#/components/parameters/EdgeTimestampHeader"
+        - $ref: "#/components/parameters/EdgeNonceHeader"
+        - $ref: "#/components/parameters/EdgeSignatureHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EdgeHeartbeatRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edge/config:
+    get:
+      tags: [Edge]
+      summary: Fetch edge config snapshot
+      security:
+        - edgeAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EdgeIdHeader"
+        - $ref: "#/components/parameters/EdgeTimestampHeader"
+        - $ref: "#/components/parameters/EdgeNonceHeader"
+        - $ref: "#/components/parameters/EdgeSignatureHeader"
+        - name: if_version
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/collector/usage:
+    post:
+      tags: [Collector]
+      summary: Ingest edge usage events
+      security:
+        - edgeAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EdgeIdHeader"
+        - $ref: "#/components/parameters/EdgeTimestampHeader"
+        - $ref: "#/components/parameters/EdgeNonceHeader"
+        - $ref: "#/components/parameters/EdgeSignatureHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageIngestRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/collector/security-events:
+    post:
+      tags: [Collector]
+      summary: Ingest edge security events
+      security:
+        - edgeAuth: []
+      parameters:
+        - $ref: "#/components/parameters/EdgeIdHeader"
+        - $ref: "#/components/parameters/EdgeTimestampHeader"
+        - $ref: "#/components/parameters/EdgeNonceHeader"
+        - $ref: "#/components/parameters/EdgeSignatureHeader"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/config/snapshots:
+    get:
+      tags: [Config]
+      summary: List config snapshots
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/config/snapshots/{version}:
+    get:
+      tags: [Config]
+      summary: Get config snapshot
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/config/snapshots/diff:
+    post:
+      tags: [Config]
+      summary: Diff two config snapshots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_version, to_version]
+              properties:
+                from_version:
+                  type: integer
+                to_version:
+                  type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/config/snapshots/{version}/rollback:
+    post:
+      tags: [Config]
+      summary: Roll back active config snapshot
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/config/snapshots/rebuild:
+    post:
+      tags: [Config]
+      summary: Rebuild config snapshot from database state
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/settings:
+    get:
+      tags: [Settings]
+      summary: List settings groups
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/settings/{group}:
+    parameters:
+      - name: group
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Settings]
+      summary: Show settings group
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    patch:
+      tags: [Settings]
+      summary: Update settings group
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/settings/validate:
+    post:
+      tags: [Settings]
+      summary: Validate settings payload
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/settings/test/powerdns:
+    post:
+      tags: [Settings]
+      summary: Test PowerDNS connection
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/admin/edge-network/anycast:
+    get:
+      tags: [Settings, Edge]
+      summary: Show anycast settings
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    put:
+      tags: [Settings, Edge]
+      summary: Update anycast settings
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edge-countries:
+    get:
+      tags: [Settings, Edge]
+      summary: List edge country data
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/usage/summary:
+    get:
+      tags: [Analytics]
+      summary: Global or domain usage summary
+      parameters:
+        - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/Bucket"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/usage/recalculate:
+    post:
+      tags: [Analytics]
+      summary: Recalculate usage aggregates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageRecalculateRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/analytics/summary:
+    get:
+      tags: [Analytics]
+      summary: Domain usage summary
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/Bucket"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/analytics/cache:
+    get:
+      tags: [Analytics, Cache]
+      summary: Domain cache analytics
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/security/events:
+    get:
+      tags: [Analytics, Operations]
+      summary: Domain security events
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Control-plane API token or admin session token.
+    edgeAuth:
+      type: http
+      scheme: bearer
+      description: Edge token plus required CDNLite HMAC headers.
+  parameters:
+    DomainId:
+      name: domainId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Opaque domain identifier.
+    RecordId:
+      name: recordId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Opaque DNS record identifier.
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Opaque traffic rule identifier.
+    DomainIdQuery:
+      name: domain_id
+      in: query
+      required: false
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+    Offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    Bucket:
+      name: bucket
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [minute, hour, day]
+    EdgeIdHeader:
+      name: X-CDNLITE-Edge-Id
+      in: header
+      required: true
+      schema:
+        type: string
+    EdgeTimestampHeader:
+      name: X-CDNLITE-Timestamp
+      in: header
+      required: true
+      schema:
+        type: integer
+    EdgeNonceHeader:
+      name: X-CDNLITE-Nonce
+      in: header
+      required: true
+      schema:
+        type: string
+    EdgeSignatureHeader:
+      name: X-CDNLITE-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+  requestBodies:
+    GenericObject:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+  responses:
+    Ok:
+      description: Operation succeeded.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/OkResponse"
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    GenericObject:
+      description: Generic object response.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    GenericArray:
+      description: Generic list response.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+            additionalProperties: true
+    DomainObject:
+      description: Domain response.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: "#/components/schemas/Domain"
+    DnsRecordObject:
+      description: DNS record response.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: "#/components/schemas/DnsRecord"
+    DnsRecordArray:
+      description: DNS record list.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DnsRecord"
+    OriginObject:
+      description: Origin response.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: "#/components/schemas/Origin"
+    OriginArray:
+      description: Origin list.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Origin"
+  pathItems:
+    RuleCollection:
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      get:
+        tags: [Traffic Rules]
+        summary: List rules
+        responses:
+          "200":
+            $ref: "#/components/responses/GenericArray"
+      post:
+        tags: [Traffic Rules]
+        summary: Create rule
+        requestBody:
+          $ref: "#/components/requestBodies/GenericObject"
+        responses:
+          "201":
+            $ref: "#/components/responses/GenericObject"
+    RedirectCollection:
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      get:
+        tags: [Traffic Rules]
+        summary: List redirects
+        responses:
+          "200":
+            $ref: "#/components/responses/GenericArray"
+      post:
+        tags: [Traffic Rules]
+        summary: Create redirect
+        requestBody:
+          $ref: "#/components/requestBodies/GenericObject"
+        responses:
+          "201":
+            $ref: "#/components/responses/GenericObject"
+    RuleMember:
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RuleId"
+      patch:
+        tags: [Traffic Rules]
+        summary: Update rule
+        requestBody:
+          $ref: "#/components/requestBodies/GenericObject"
+        responses:
+          "200":
+            $ref: "#/components/responses/GenericObject"
+      delete:
+        tags: [Traffic Rules]
+        summary: Delete rule
+        responses:
+          "200":
+            $ref: "#/components/responses/Ok"
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        time:
+          type: integer
+    ReadinessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, fail]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          const: true
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        field:
+          type: string
+        detail:
+          type: string
+      additionalProperties: true
+    AdminLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    AdminLoginResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            user:
+              type: object
+              additionalProperties: true
+            expires_at:
+              type: integer
+          additionalProperties: true
+    Domain:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        name:
+          type: string
+        domain:
+          type: string
+        status:
+          type: string
+          enum: [pending_nameserver, active, disabled]
+        created_at:
+          type: integer
+        updated_at:
+          type: integer
+      additionalProperties: true
+    DomainCreateRequest:
+      type: object
+      required: [domain]
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+        domain:
+          type: string
+          example: example.com
+        zone_name:
+          type: string
+        origin_shield_header_name:
+          type: string
+        origin_shield_secret:
+          type: string
+          format: password
+      additionalProperties: true
+    DomainUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+        domain:
+          type: string
+        status:
+          type: string
+        origin_shield_header_name:
+          type: string
+        origin_shield_secret:
+          type: string
+          format: password
+      additionalProperties: true
+    DnsRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        domain_id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+        ttl:
+          type: integer
+        proxied:
+          type: boolean
+      additionalProperties: true
+    DnsRecordRequest:
+      type: object
+      required: [type, name, content]
+      properties:
+        type:
+          type: string
+          example: A
+        name:
+          type: string
+          example: www
+        content:
+          type: string
+          example: 203.0.113.10
+        ttl:
+          type: integer
+          minimum: 60
+          maximum: 86400
+          default: 300
+        proxied:
+          type: boolean
+        routing_policy:
+          type: string
+      additionalProperties: true
+    DnsRecordPatchRequest:
+      type: object
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        content:
+          type: string
+        ttl:
+          type: integer
+          minimum: 60
+          maximum: 86400
+        proxied:
+          type: boolean
+        routing_policy:
+          type: string
+      additionalProperties: true
+    RoutingSettingsRequest:
+      type: object
+      required: [routing_mode]
+      properties:
+        routing_mode:
+          type: string
+          enum: [geo, anycast, dns_only]
+        geo_health_port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        anycast_ipv4:
+          type: string
+        anycast_ipv6:
+          type: string
+      additionalProperties: true
+    GeoRoute:
+      type: object
+      properties:
+        scope:
+          type: string
+          enum: [country, continent, region, default]
+        code:
+          type: string
+        target:
+          type: string
+      additionalProperties: true
+    Origin:
+      type: object
+      properties:
+        id:
+          type: string
+        domain_id:
+          type: string
+        host:
+          type: string
+        scheme:
+          type: string
+          enum: [http, https]
+        port:
+          type: integer
+        role:
+          type: string
+          enum: [primary, backup]
+        enabled:
+          type: boolean
+        health_status:
+          type: string
+      additionalProperties: true
+    OriginRequest:
+      type: object
+      properties:
+        host:
+          type: string
+          example: origin.example.com
+        scheme:
+          type: string
+          enum: [http, https]
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        role:
+          type: string
+          enum: [primary, backup]
+        enabled:
+          type: boolean
+      additionalProperties: true
+    CachePurgeRequest:
+      type: object
+      required: [scope]
+      properties:
+        scope:
+          type: string
+          enum: [url, prefix, domain, everything]
+        value:
+          type: string
+          description: Required for url and prefix purges.
+      additionalProperties: true
+    EdgeRegisterRequest:
+      type: object
+      required: [edge_id]
+      properties:
+        edge_id:
+          type: string
+        hostname:
+          type: string
+        public_ip:
+          type: string
+        region:
+          type: string
+        version:
+          type: string
+      additionalProperties: true
+    EdgeHeartbeatRequest:
+      type: object
+      required: [edge_id]
+      properties:
+        edge_id:
+          type: string
+        hostname:
+          type: string
+        public_ip:
+          type: string
+        region:
+          type: string
+        version:
+          type: string
+      additionalProperties: true
+    UsageIngestRequest:
+      type: object
+      properties:
+        idempotency_key:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              domain:
+                type: string
+              path:
+                type: string
+              status:
+                type: integer
+              bytes:
+                type: integer
+              cache_status:
+                type: string
+              timestamp:
+                type: integer
+            additionalProperties: true
+      additionalProperties: true
+    UsageRecalculateRequest:
+      type: object
+      properties:
+        bucket:
+          type: string
+          enum: [minute, hour, day]
+        domain_id:
+          type: string
+      additionalProperties: true

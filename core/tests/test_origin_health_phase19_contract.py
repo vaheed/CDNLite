@@ -74,7 +74,7 @@ def test_dashboard_and_docs_expose_origins():
     detail = read("dash/src/views/DomainDetailView.vue")
     tab = read("dash/src/views/domain-tabs/DomainOriginsTab.vue")
     api = read("dash/src/lib/api/origins.ts")
-    docs = read("docs/api-reference.md")
+    docs = read("docs/api/api.md")
 
     assert "DomainOriginsTab" in detail
     assert "label: 'Origins'" in detail
