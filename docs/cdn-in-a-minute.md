@@ -127,4 +127,4 @@ A `200` response means the edge accepted the hostname, loaded config from core, 
 
 ## Next Steps
 
-Read [Production Readiness](production-readiness.md), [Security](security.md), and [Operations Runbook](operations-runbook.md) before sending real traffic. The existing [Operations Runbooks](runbooks/index.md) are also useful for day-two checks.
+Read [Security](security.md) and  before sending real traffic. The existing [Operations Runbooks](runbooks/index.md) are also useful for day-two checks.
