@@ -100,6 +100,7 @@ class ConfigService
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
+            $existing = $this->refreshSnapshotGeneratedAt($existing);
             $this->activateSnapshotVersion((int) $existing['version']);
             if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                 return ['not_modified' => true, 'version' => (int) $existing['version']];
@@ -142,6 +143,7 @@ class ConfigService
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
             if ($existing !== null) {
+                $existing = $this->refreshSnapshotGeneratedAt($existing);
                 $this->activateSnapshotVersion((int) $existing['version']);
                 if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                     return ['not_modified' => true, 'version' => (int) $existing['version']];
@@ -268,6 +270,28 @@ class ConfigService
         }
 
         return (array) $row;
+    }
+
+    private function refreshSnapshotGeneratedAt(array $snapshot): array
+    {
+        $generatedAt = time();
+        $payload = json_decode((string) ($snapshot['payload_json'] ?? ''), true);
+        if (is_array($payload)) {
+            $payload['generated_at'] = $generatedAt;
+            Database::pdo()->prepare(
+                'UPDATE config_snapshots SET generated_at = :generated_at, payload_json = :payload_json WHERE version = :version'
+            )->execute([
+                ':generated_at' => $generatedAt,
+                ':payload_json' => json_encode($payload, JSON_UNESCAPED_SLASHES),
+                ':version' => (int) $snapshot['version'],
+            ]);
+        } else {
+            Database::pdo()->prepare('UPDATE config_snapshots SET generated_at = :generated_at WHERE version = :version')
+                ->execute([':generated_at' => $generatedAt, ':version' => (int) $snapshot['version']]);
+        }
+
+        $snapshot['generated_at'] = $generatedAt;
+        return $snapshot;
     }
 
     private function storeSnapshot(int $version, string $contentHash, array $payload): bool

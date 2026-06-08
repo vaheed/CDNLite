@@ -670,6 +670,8 @@ Unchanged `if_version` example:
 {"not_modified":true,"version":1}
 ```
 
+Unchanged config content reuses the same version. Core refreshes the reused snapshot's `generated_at` timestamp during successful no-op syncs so readiness does not report stale config while agents are pulling normally.
+
 ### Edge-to-Origin Request Forwarding
 
 Request/response path:

@@ -61,6 +61,6 @@ Core hashes the `hosts` content. If the content is unchanged, it reuses the exis
 {"not_modified":true,"version":1}
 ```
 
-`generated_at` is intentionally excluded from the content hash so no-op syncs do not create new versions.
+`generated_at` is intentionally excluded from the content hash so no-op syncs do not create new versions. When unchanged content is reused, core refreshes the stored `generated_at` timestamp so readiness reflects successful config generation and edge pulls.
 
 `cache_rules` includes enabled rules across hosts. At the edge, the longest matching `path_prefix` for the request host is applied.

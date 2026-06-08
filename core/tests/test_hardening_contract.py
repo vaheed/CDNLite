@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 from db_test_utils import run_php_with_deadlock_retry
@@ -129,12 +130,14 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     )
 
     first = run_artisan("cdn:edge:sync-config")
+    time.sleep(1)
     second = run_artisan("cdn:edge:sync-config")
     not_modified = run_artisan(f"cdn:edge:sync-config", f"--if_version={first['version']}")
 
     assert first["version"] >= 1
     assert second["version"] == first["version"]
     assert second["reused"] is True
+    assert second["generated_at"] > first["generated_at"]
     assert not_modified["version"] == first["version"]
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
 
