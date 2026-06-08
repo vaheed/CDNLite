@@ -25,14 +25,6 @@ class ConfigService
 
     public function buildSnapshotForVersion(?int $ifVersion = null): array
     {
-        $active = $this->activeSnapshot();
-        if ($active !== null) {
-            if ($ifVersion !== null && $ifVersion === (int) $active['version']) {
-                return ['not_modified' => true, 'version' => (int) $active['version']];
-            }
-            return $active['payload'];
-        }
-
         return $this->rebuild($ifVersion);
     }
 
