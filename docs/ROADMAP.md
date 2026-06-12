@@ -1,1637 +1,1291 @@
-## 1. Architecture
-
-### 1.1 System model
-
-```text
-Dashboard / API / CLI
-        |
-        v
-CDNLite PostgreSQL source of truth
-  - zones
-  - record intents
-  - origins
-  - edge nodes
-  - edge pools
-  - edge policies
-  - proxy routes
-        |
-        +-----------------------------+
-        |                             |
-        v                             v
-DNS Compiler                    Proxy Manifest Compiler
-        |                             |
-        v                             v
-Generated authoritative DNS      Signed edge route manifest
-output for PowerDNS              pulled by edge agents
-        |                             |
-        v                             v
-PowerDNS Authoritative           OpenResty edge proxy
-with Lua records                 Host/SNI based routing
-```
-
-### 1.2 Key decision
-
-PowerDNS is the **authoritative DNS engine**, not the source of truth.
-
-CDNLite owns all intent and policy in its own PostgreSQL tables. PowerDNS only receives generated authoritative output from the CDNLite DNS compiler.
-
-### 1.3 Why this is simpler than a custom DNS answerer
-
-Do **not** build a custom DNS answerer first.
-
-Use production PowerDNS features:
-
-- Generic PostgreSQL or PowerDNS-managed backend tables for authoritative serving.
-- PowerDNS HTTP API for deterministic zone/RRset replacement.
-- PowerDNS Lua records for GeoDNS, health-aware edge answers, and closest-edge selection.
-- PowerDNS ALIAS for apex hostname-like behavior.
-- A CDNLite compiler/publisher that makes PowerDNS a generated runtime projection.
-
-This avoids an always-online custom DNS microservice while still keeping PostgreSQL/CDNLite as the source of truth.
+# CDNLite DNSGeo + PowerDNS ALIAS Roadmap
 
 ---
 
-## 2. Delete The Old DNS System
+## 0. Final target behavior
 
-Remove or rewrite these concepts completely.
+When CDNLite is fixed, this must be true:
 
-### 2.1 Delete old DNS service assumptions
-
-Delete or replace:
-
-```text
-core/app/Modules/Dns/Services/DnsService.php
-core/app/Modules/Dns/Services/DnsPublishingPlanner.php
-core/app/Modules/Dns/Services/CustomerDnsService.php
-core/app/Modules/Dns/Services/EdgeDnsService.php
-core/app/Modules/Dns/Services/EdgeHealthRecordBuilder.php
-core/app/Modules/Dns/Services/PowerDnsRecordBuilder.php
-```
-
-Keep only a small `PowerDnsClient` if useful, but it must be infrastructure-only and must not contain business rules.
-
-### 2.2 Delete old table meaning
-
-Remove or stop using:
-
-```text
-dns_records.proxied
-dns_records.public_type
-dns_records.public_content
-dns_records.origin_type
-dns_records.origin_content
-dns_records.edge_target
-dns_records.routing_policy
-dns_records.canonical_edge_hostname
-dns_record_geo_routes
-domain_routing_settings
-edge_dns_state
-```
-
-Do not migrate old data automatically unless a separate one-time import tool is explicitly written. The product itself should not support the old model.
-
-### 2.3 Delete old snapshot behavior
-
-The current config snapshot is too broad. Replace it with two separate generated artifacts:
-
-```text
-DNS compiled output
-  - goes to PowerDNS only
-  - contains authoritative zones and RRsets
-
-Proxy route manifest
-  - goes to OpenResty edges only
-  - contains active proxied hostnames and origin/security/cache/TLS config
-```
-
-DNS data should not be shipped to the edge unless the edge needs it for HTTP routing diagnostics.
+1. PowerDNS records are really created, updated, deleted, verified, and visible in PowerDNS.
+2. Core remains the source of truth; PowerDNS always converges to Core state.
+3. `@` apex domains can be proxied using PowerDNS `ALIAS`.
+4. Proxied subdomains use `CNAME` to a stable CDN hostname.
+5. Edge IP changes do **not** require updating every customer domain/record.
+6. DNSGeo is integrated into the CDNLite project as the PowerDNS + GeoDNS + Poweradmin stack.
+7. No `docker compose --profile` is required.
+8. Admin pages make PowerDNS setup, sync status, zones, records, DNSGeo, and failures easy to see.
+9. User pages make proxy DNS behavior simple: proxy on/off, apex ALIAS, subdomain CNAME, validation status.
+10. Frontend and backend behavior are aligned.
+11. CI, e2e, smoke, and production stress tests prove all DNS paths work.
+12. Final stress test covers **10k domains with 1k records each** and verifies that changing one edge IP does not trigger mass updates for proxied customer zones.
 
 ---
 
-## 3. New Mental Model
+## 1. Correct DNS model
 
-### 3.1 Four separate objects
+### 1.1 Do not write edge IPs into every proxied customer record
 
-```text
-DNS zone
-  The domain CDNLite is authoritative for.
-
-DNS record intent
-  What the user wants: DNS-only A/TXT/CNAME/ALIAS, or proxied HTTP hostname.
-
-Edge policy
-  Which edge IPs should DNS return for proxied records.
-
-Proxy route
-  What OpenResty does when a request reaches an edge with Host/SNI.
-```
-
-Never collapse these into one row.
-
-### 3.2 DNS modes
-
-Use exactly these user-facing modes:
+The scalable model is:
 
 ```text
-DNS only
-Proxied
+Customer zone: example.com.
+
+@       ALIAS   site-123.cdn.example.net.
+www     CNAME   site-123.cdn.example.net.
+api     CNAME   site-123.cdn.example.net.
 ```
 
-Internally:
+CDN zone:
 
 ```text
-dns_only_real
-dns_only_alias
-proxied_http
+site-123.cdn.example.net.   CNAME   proxy.cdn.example.net.
+proxy.cdn.example.net.      LUA A    ifportup(... pickclosest edge pools ...)
+proxy.cdn.example.net.      LUA AAAA ifportup(... pickclosest edge pools ...)
 ```
 
-Do not expose PowerDNS Lua to normal users.
+This gives three benefits:
+
+1. Customer apex uses PowerDNS `ALIAS`, so Core does not flatten apex into IPs.
+2. Customer subdomains are normal `CNAME` records.
+3. Edge IP changes only update the shared `proxy.cdn.example.net` Lua records, not all customer domains.
+
+### 1.2 Why this is better than per-site Lua records
+
+A per-site Lua record like this:
+
+```text
+site-123.cdn.example.net. LUA A "ifportup(443, {{edge ips}}, {selector='pickclosest'})"
+```
+
+works, but if every site stores the full edge IP list, then changing one edge IP requires updating every site Lua record. That fails the production stress requirement.
+
+Use this instead:
+
+```text
+site-123.cdn.example.net. CNAME proxy.cdn.example.net.
+proxy.cdn.example.net.    LUA A/AAAA with all healthy edge pools
+```
+
+Only `proxy.cdn.example.net` changes when edge IPs change.
+
+### 1.3 Optional advanced mode
+
+Later, if site-specific DNS health checks are required, add an advanced per-site target mode:
+
+```text
+site-123.cdn.example.net. LUA A "ifurlup('https://site-specific-health-url', ...)"
+```
+
+But this must be optional because it creates more PowerDNS writes and can hurt large-scale performance.
+
+Default production mode should be **shared edge-pool Lua**.
 
 ---
 
-## 4. Production DNS Strategy
+## 2. PowerDNS ALIAS requirements for apex
 
-### 4.1 DNS-only real records
+PowerDNS `ALIAS` needs PowerDNS authoritative to expand the alias when an A/AAAA query arrives.
 
-These are returned directly:
+Required PowerDNS config:
+
+```ini
+expand-alias=yes
+resolver=<real recursive resolver, not PowerDNS authoritative itself>
+```
+
+Important rule:
 
 ```text
-A
-AAAA
-CNAME
-TXT
-MX
-NS
-SRV
-CAA
-PTR where appropriate
+Do not point resolver to the same authoritative PowerDNS process.
+```
+
+Otherwise ALIAS expansion can loop or fail.
+
+For CDNLite + DNSGeo, use one of these options:
+
+### Option A — recommended for production
+
+Run a small local recursive resolver container beside PowerDNS, for example Unbound or PowerDNS Recursor:
+
+```ini
+resolver=recursor:5300
+expand-alias=yes
+```
+
+The recursor must be able to resolve `cdn.<base-domain>` by querying the authoritative DNSGeo/PowerDNS server normally.
+
+### Option B — acceptable for simple setups
+
+Use a trusted external recursive resolver:
+
+```ini
+resolver=1.1.1.1:53
+expand-alias=yes
+```
+
+This is easier, but production control is weaker.
+
+### Acceptance test for ALIAS
+
+For a proxied apex:
+
+```bash
+dig @127.0.0.1 example.com A +short
+dig @127.0.0.1 example.com AAAA +short
+dig @127.0.0.1 site-123.cdn.example.net A +short
+dig @127.0.0.1 proxy.cdn.example.net A +short
+```
+
+Expected:
+
+```text
+example.com A/AAAA resolves through ALIAS to the same effective edge answer as site-123.cdn.example.net.
+```
+
+PowerDNS raw zone API should show:
+
+```text
+example.com. ALIAS site-123.cdn.example.net.
+```
+
+It should not show Core-written apex A/AAAA records for proxied apex unless ALIAS is explicitly disabled as a fallback.
+
+---
+
+## 3. Integrate DNSGeo into CDNLite without Compose profiles
+
+### 3.1 Import strategy
+
+Bring `vaheed/DNSGeo` into CDNLite as one of these:
+
+Preferred:
+
+```text
+infra/dnsgeo/
+```
+
+Alternative:
+
+```text
+services/dnsgeo/
+```
+
+Use a Git subtree or vendored copy so CI can run without fetching another repository at runtime.
+
+Recommended command:
+
+```bash
+git subtree add --prefix=infra/dnsgeo https://github.com/vaheed/DNSGeo main --squash
+```
+
+Future updates:
+
+```bash
+git subtree pull --prefix=infra/dnsgeo https://github.com/vaheed/DNSGeo main --squash
+```
+
+### 3.2 Compose rule
+
+Do not use:
+
+```bash
+docker compose --profile powerdns up -d
+```
+
+Use normal startup:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+The root `docker-compose.yml` in CDNLite should include these services by default for local/dev/e2e:
+
+```text
+pdns-postgres-primary
+pdns-db-init
+pdns-mmdb-updater
+pdns-auth
+poweradmin
+pdns-recursor or unbound
+```
+
+For production, allow operators to disable bundled DNS only with an env var or separate override file, not with a profile.
+
+Example env:
+
+```env
+CDNLITE_BUNDLED_DNS_ENABLED=true
+```
+
+If false, Core uses an external PowerDNS API endpoint.
+
+### 3.3 Required DNSGeo features to keep
+
+From DNSGeo, keep:
+
+```text
+PowerDNS Authoritative 5.x
+PostgreSQL backend
+Lua records
+GeoIP/MMDB support
+edns-subnet-processing=yes
+Poweradmin
+MMDB updater
+example API scripts adapted into CDNLite tests
+```
+
+Also add ALIAS support to DNSGeo config:
+
+```ini
+expand-alias=yes
+resolver=recursor:5300
+```
+
+If DNSGeo does not already include a recursor service, add one.
+
+---
+
+## 4. Environment variables
+
+### 4.1 New canonical env vars
+
+```env
+CDNLITE_SYNC_INTERVAL_SECONDS=30
+CDNLITE_DNS_PROVIDER=powerdns
+CDNLITE_POWERDNS_ENABLED=true
+CDNLITE_POWERDNS_API_BASE=http://pdns-auth:8081/api/v1/servers/localhost
+CDNLITE_POWERDNS_API_KEY=change-this
+CDNLITE_POWERDNS_SERVER_ID=localhost
+CDNLITE_POWERDNS_VERIFY_AFTER_WRITE=true
+CDNLITE_POWERDNS_RETRIES=3
+CDNLITE_POWERDNS_RETRY_SLEEP_MS=250
+CDNLITE_POWERDNS_TIMEOUT_SECONDS=10
+CDNLITE_POWERDNS_CONNECT_TIMEOUT_SECONDS=3
+
+CDNLITE_DNS_BASE_DOMAIN=example.net
+CDNLITE_CDN_ZONE=cdn.example.net
+CDNLITE_CDN_PROXY_HOST=proxy.cdn.example.net
+CDNLITE_APEX_PROXY_MODE=ALIAS
+CDNLITE_SUBDOMAIN_PROXY_MODE=CNAME
+
+CDNLITE_EDGE_HEALTH_PORT=443
+CDNLITE_EDGE_MIN_FAILURES=2
+CDNLITE_EDGE_UNKNOWN_HEALTH_IS_HEALTHY=false
+
+CDNLITE_BUNDLED_DNS_ENABLED=true
+CDNLITE_POWERADMIN_ENABLED=true
+```
+
+### 4.2 Deprecated aliases to keep stable behavior
+
+Keep these as compatibility aliases with warnings:
+
+```env
+CDNLITE_EDGE_TTL                    # derive from CDNLITE_SYNC_INTERVAL_SECONDS * 2
+CDNLITE_EDGE_HEALTH_INTERVAL        # derive from CDNLITE_SYNC_INTERVAL_SECONDS
+CDNLITE_EDGE_APEX_MODE              # alias for CDNLITE_APEX_PROXY_MODE
+CDNLITE_EDGE_SELECTOR               # map to Lua selector config
+CDNLITE_EDGE_BACKUP_SELECTOR        # map to Lua fallback config
+CDNLITE_GEO_*                       # map to DNSGeo/CDN zone config where possible
 ```
 
 Rules:
 
 ```text
-- CNAME is allowed only below apex.
-- CNAME cannot coexist with any other RRSet at the same owner.
-- Apex CNAME is rejected.
-- TXT escaping is normalized.
-- MX/SRV/NS targets must be hostnames.
-```
-
-### 4.2 DNS-only ALIAS
-
-This is the Cloudflare-like flattened CNAME behavior.
-
-User sees:
-
-```text
-Name: @
-Type: ALIAS
-Target: app.example.net
-Mode: DNS only
-```
-
-Compiled DNS:
-
-```text
-example.com. ALIAS app.example.net.
-```
-
-PowerDNS expands this into A/AAAA answers.
-
-Rules:
-
-```text
-- ALIAS is allowed at apex.
-- ALIAS may be allowed on subdomains if admin enables it.
-- Do not return a literal apex CNAME.
-- Configure PowerDNS resolver and expand-alias.
-- Prevent resolver loops.
-```
-
-### 4.3 Proxied HTTP records
-
-User sees:
-
-```text
-Name: @
-Mode: Proxied
-Target: origin pool
-Routing: country-routing
-```
-
-Compiled DNS:
-
-```text
-@     ALIAS policy-country-routing.edge.cdn.example.net.
-www   CNAME policy-country-routing.edge.cdn.example.net.
-api   CNAME policy-country-routing.edge.cdn.example.net.
-```
-
-The target hostname is a CDNLite service-zone hostname. It resolves to CDN edge IPs using PowerDNS Lua. It never exposes the origin.
-
-### 4.4 GeoDNS with PowerDNS Lua
-
-Use PowerDNS Lua only in the CDNLite service zone, not as arbitrary customer-provided Lua.
-
-Example service zone:
-
-```text
-edge.cdn.example.net.
-```
-
-Example generated policy hostnames:
-
-```text
-policy-global.edge.cdn.example.net.
-policy-country-routing.edge.cdn.example.net.
-policy-ir-primary.edge.cdn.example.net.
-policy-eu-primary.edge.cdn.example.net.
-```
-
-Example generated PowerDNS Lua A record:
-
-```text
-policy-country-routing.edge.cdn.example.net. 60 IN LUA A "; if country('IR') then return ifportup(443, {'185.142.95.17','185.142.95.18'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2}) elseif continent('EU') then return ifportup(443, {'203.0.113.10','203.0.113.11'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2}) else return ifportup(443, {'198.51.100.10'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2}) end"
-```
-
-Generate separate A and AAAA Lua records because PowerDNS Lua record snippets are tied to the declared output query type.
-
-### 4.5 Anycast
-
-Anycast is optional.
-
-If anycast exists:
-
-```text
-policy-global.edge.cdn.example.net. A    <anycast IPv4>
-policy-global.edge.cdn.example.net. AAAA <anycast IPv6>
-```
-
-If anycast does not exist:
-
-```text
-policy-global.edge.cdn.example.net. LUA A    "ifportup(...)"
-policy-global.edge.cdn.example.net. LUA AAAA "ifportup(...)"
-```
-
-GeoDNS and anycast can coexist:
-
-```text
-- default policy returns anycast VIPs
-- special countries return regional unicast edge IPs
-- unhealthy regional pools fall back to global anycast
+If new env is present, it wins.
+If only old env is present, use it and show deprecation warning in /cdn-health and admin setup page.
+Never allow old and new env to silently conflict.
 ```
 
 ---
 
-## 5. New Database Schema
+## 5. Database changes
 
-Use UUIDs and timestamps. These tables replace the old DNS model.
+### 5.1 `edge_state`
 
-### 5.1 `dns_zones`
+Create a single view/table used by DNS, admin UI, edge runtime config, and tests.
 
 ```sql
-CREATE TABLE dns_zones (
-  id UUID PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  status TEXT NOT NULL CHECK (status IN ('pending','active','suspended','deleted')),
-  ns_set_id UUID NULL,
-  soa_serial BIGINT NOT NULL DEFAULT 1,
-  soa_refresh INTEGER NOT NULL DEFAULT 3600,
-  soa_retry INTEGER NOT NULL DEFAULT 600,
-  soa_expire INTEGER NOT NULL DEFAULT 604800,
-  soa_minimum INTEGER NOT NULL DEFAULT 60,
-  dnssec_mode TEXT NOT NULL DEFAULT 'off',
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
+CREATE VIEW edge_state AS
+SELECT
+  id AS edge_id,
+  public_ip AS ip,
+  CASE
+    WHEN public_ip LIKE '%:%' THEN 'AAAA'
+    ELSE 'A'
+  END AS ip_family,
+  region,
+  anycast_enabled AS anycast,
+  CASE
+    WHEN is_enabled = true
+     AND status = 'online'
+     AND health_status = 'healthy'
+     AND last_heartbeat_at > EXTRACT(EPOCH FROM NOW()) - 90
+    THEN true
+    ELSE false
+  END AS healthy,
+  last_health_check_at AS last_check_at,
+  updated_at AS state_updated_at
+FROM edge_nodes;
+```
+
+Add a real table instead if generation tracking is required:
+
+```sql
+CREATE TABLE edge_state_generations (
+  id BIGSERIAL PRIMARY KEY,
+  state_hash TEXT NOT NULL UNIQUE,
+  created_at BIGINT NOT NULL
 );
 ```
 
-### 5.2 `dns_record_intents`
+### 5.2 `desired_dns_rrsets`
+
+Generated desired state, not user-edited.
 
 ```sql
-CREATE TABLE dns_record_intents (
-  id UUID PRIMARY KEY,
-  zone_id UUID NOT NULL REFERENCES dns_zones(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  fqdn TEXT NOT NULL,
-  mode TEXT NOT NULL CHECK (mode IN ('dns_only','proxied')),
-  kind TEXT NOT NULL CHECK (kind IN ('real','alias','http_proxy')),
-  rrtype TEXT NOT NULL,
-  content TEXT NULL,
-  priority INTEGER NULL,
-  ttl INTEGER NOT NULL,
-  origin_pool_id UUID NULL,
-  edge_policy_id UUID NULL,
-  metadata JSONB NOT NULL DEFAULT '{}',
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-
-CREATE INDEX dns_record_intents_zone_fqdn_idx ON dns_record_intents(zone_id, fqdn);
-CREATE INDEX dns_record_intents_mode_idx ON dns_record_intents(mode);
-CREATE INDEX dns_record_intents_edge_policy_idx ON dns_record_intents(edge_policy_id);
-CREATE INDEX dns_record_intents_origin_pool_idx ON dns_record_intents(origin_pool_id);
-```
-
-Important: CNAME exclusivity is enforced in the validator/service layer and tested heavily.
-
-### 5.3 `origin_pools`
-
-```sql
-CREATE TABLE origin_pools (
-  id UUID PRIMARY KEY,
-  zone_id UUID NOT NULL REFERENCES dns_zones(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  mode TEXT NOT NULL DEFAULT 'failover'
-    CHECK (mode IN ('failover','weighted')),
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-### 5.4 `origins`
-
-```sql
-CREATE TABLE origins (
-  id UUID PRIMARY KEY,
-  origin_pool_id UUID NOT NULL REFERENCES origin_pools(id) ON DELETE CASCADE,
-  address TEXT NOT NULL,
-  scheme TEXT NOT NULL DEFAULT 'https' CHECK (scheme IN ('http','https')),
-  port INTEGER NOT NULL,
-  host_header TEXT NULL,
-  sni TEXT NULL,
-  tls_verify BOOLEAN NOT NULL DEFAULT TRUE,
-  weight INTEGER NOT NULL DEFAULT 100,
-  priority INTEGER NOT NULL DEFAULT 0,
-  health_status TEXT NOT NULL DEFAULT 'unknown'
-    CHECK (health_status IN ('healthy','unhealthy','unknown')),
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-### 5.5 `edge_nodes`
-
-```sql
-CREATE TABLE edge_nodes (
-  id UUID PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  hostname TEXT NOT NULL,
-  site_code TEXT NOT NULL,
-  country_code CHAR(2) NULL,
-  region TEXT NULL,
-  latitude DOUBLE PRECISION NULL,
-  longitude DOUBLE PRECISION NULL,
-  ipv4 INET[] NOT NULL DEFAULT '{}',
-  ipv6 INET[] NOT NULL DEFAULT '{}',
-  public_http_ports INTEGER[] NOT NULL DEFAULT '{80}',
-  public_https_ports INTEGER[] NOT NULL DEFAULT '{443}',
-  status TEXT NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active','draining','disabled','deleted')),
-  health_status TEXT NOT NULL DEFAULT 'unknown'
-    CHECK (health_status IN ('healthy','unhealthy','unknown')),
-  last_heartbeat_at TIMESTAMPTZ NULL,
-  version BIGINT NOT NULL DEFAULT 1,
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-Changing `ipv4`, `ipv6`, `status`, or `health_status` must increment `version` and mark dependent edge policies dirty.
-
-### 5.6 `edge_pools`
-
-```sql
-CREATE TABLE edge_pools (
-  id UUID PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  mode TEXT NOT NULL DEFAULT 'geo'
-    CHECK (mode IN ('geo','anycast','weighted','failover')),
-  status TEXT NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active','disabled')),
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-### 5.7 `edge_pool_members`
-
-```sql
-CREATE TABLE edge_pool_members (
-  edge_pool_id UUID NOT NULL REFERENCES edge_pools(id) ON DELETE CASCADE,
-  edge_node_id UUID NOT NULL REFERENCES edge_nodes(id) ON DELETE CASCADE,
-  weight INTEGER NOT NULL DEFAULT 100,
-  priority INTEGER NOT NULL DEFAULT 0,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  PRIMARY KEY(edge_pool_id, edge_node_id)
-);
-```
-
-### 5.8 `edge_policies`
-
-```sql
-CREATE TABLE edge_policies (
-  id UUID PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  mode TEXT NOT NULL CHECK (mode IN ('anycast','geodns','weighted','failover')),
-  fallback_edge_pool_id UUID NOT NULL REFERENCES edge_pools(id),
-  default_ttl INTEGER NOT NULL DEFAULT 60,
-  min_ttl INTEGER NOT NULL DEFAULT 30,
-  max_ttl INTEGER NOT NULL DEFAULT 300,
-  version BIGINT NOT NULL DEFAULT 1,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-### 5.9 `edge_policy_rules`
-
-```sql
-CREATE TABLE edge_policy_rules (
-  id UUID PRIMARY KEY,
-  edge_policy_id UUID NOT NULL REFERENCES edge_policies(id) ON DELETE CASCADE,
-  priority INTEGER NOT NULL DEFAULT 100,
-  match_type TEXT NOT NULL CHECK (match_type IN ('country','continent','cidr','default')),
-  match_value TEXT NULL,
-  edge_pool_id UUID NOT NULL REFERENCES edge_pools(id),
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMPTZ NOT NULL,
-  updated_at TIMESTAMPTZ NOT NULL
-);
-```
-
-### 5.10 Compiled DNS output tables
-
-These are generated, not user-edited.
-
-```sql
-CREATE TABLE dns_compile_runs (
-  id UUID PRIMARY KEY,
-  status TEXT NOT NULL CHECK (status IN ('running','compiled','published','failed')),
-  input_hash TEXT NOT NULL,
-  output_hash TEXT NULL,
-  error TEXT NULL,
-  started_at TIMESTAMPTZ NOT NULL,
-  finished_at TIMESTAMPTZ NULL
-);
-
-CREATE TABLE dns_compiled_rrsets (
-  id UUID PRIMARY KEY,
-  compile_run_id UUID NOT NULL REFERENCES dns_compile_runs(id) ON DELETE CASCADE,
+CREATE TABLE desired_dns_rrsets (
+  id BIGSERIAL PRIMARY KEY,
   zone_name TEXT NOT NULL,
-  name TEXT NOT NULL,
-  rrtype TEXT NOT NULL,
+  rrset_name TEXT NOT NULL,
+  rrset_type TEXT NOT NULL,
   ttl INTEGER NOT NULL,
-  records JSONB NOT NULL,
-  source_kind TEXT NOT NULL,
-  source_id UUID NULL,
-  content_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
+  records_json JSONB NOT NULL,
+  owner TEXT NOT NULL DEFAULT 'cdnlite',
+  source TEXT NOT NULL,
+  generation_id BIGINT,
+  desired_hash TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  UNIQUE(zone_name, rrset_name, rrset_type, owner)
 );
-
-CREATE UNIQUE INDEX dns_compiled_rrsets_identity_idx
-  ON dns_compiled_rrsets(compile_run_id, zone_name, name, rrtype);
 ```
 
-### 5.11 Proxy route manifest tables
+### 5.3 `dns_sync_state`
 
 ```sql
-CREATE TABLE proxy_manifest_runs (
-  id UUID PRIMARY KEY,
-  status TEXT NOT NULL CHECK (status IN ('running','compiled','active','failed')),
-  content_hash TEXT NULL,
-  manifest_json JSONB NULL,
-  error TEXT NULL,
-  started_at TIMESTAMPTZ NOT NULL,
-  finished_at TIMESTAMPTZ NULL
+CREATE TABLE dns_sync_state (
+  id BIGSERIAL PRIMARY KEY,
+  zone_name TEXT NOT NULL UNIQUE,
+  desired_hash TEXT,
+  applied_hash TEXT,
+  generation_id BIGINT,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  last_attempt_at BIGINT,
+  last_success_at BIGINT,
+  last_error TEXT,
+  last_status_code INTEGER,
+  pending_changes INTEGER NOT NULL DEFAULT 0,
+  in_progress BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at BIGINT NOT NULL
 );
+```
 
-CREATE TABLE proxy_manifest_state (
-  id SMALLINT PRIMARY KEY CHECK (id = 1),
-  active_run_id UUID NULL REFERENCES proxy_manifest_runs(id),
-  active_version BIGINT NOT NULL DEFAULT 0,
-  updated_at TIMESTAMPTZ NOT NULL
+### 5.4 `dns_sync_events`
+
+```sql
+CREATE TABLE dns_sync_events (
+  id BIGSERIAL PRIMARY KEY,
+  zone_name TEXT NOT NULL,
+  rrset_name TEXT,
+  rrset_type TEXT,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  status_code INTEGER,
+  error TEXT,
+  desired_hash TEXT,
+  applied_hash TEXT,
+  generation_id BIGINT,
+  created_at BIGINT NOT NULL
 );
 ```
 
 ---
 
-## 6. DNS Compiler
+## 6. Backend services to implement/change
 
-### 6.1 Compiler responsibility
+### 6.1 `PowerDnsClient`
 
-The compiler converts source-of-truth intent into legal authoritative RRsets.
+Replace raw/weak HTTP calls with a real client.
 
-Input:
+Required methods:
+
+```php
+health(): PowerDnsHealthResult;
+ensureZone(string $zone): PowerDnsResult;
+getZone(string $zone, bool $includeRrsets = true): PowerDnsZone;
+patchRrsets(string $zone, array $rrsets): PowerDnsResult;
+verifyRrsets(string $zone, array $desiredRrsets): PowerDnsVerifyResult;
+deleteRrsets(string $zone, array $rrsets): PowerDnsResult;
+```
+
+Requirements:
 
 ```text
-dns_zones
-dns_record_intents
-edge_nodes
-edge_pools
-edge_policies
-edge_policy_rules
-platform nameservers
-service zone settings
+- real HTTP client or cURL wrapper
+- connect timeout
+- request timeout
+- retries for connection errors, HTTP 429, and HTTP 5xx
+- no infinite retry for invalid 4xx payloads
+- redact API key in logs
+- add request/correlation id
+- normalize FQDNs
+- normalize ALIAS target content
+- normalize CNAME target content
+- support batch PATCH per zone
+- verify after write by reading PowerDNS zone
 ```
 
-Output:
+### 6.2 `DnsDesiredStateBuilder`
+
+Build all physical PowerDNS rrsets from Core logical state.
+
+For every proxied site:
 
 ```text
-dns_compiled_rrsets
-PowerDNS zones
-PowerDNS RRsets
-PowerDNS metadata
+customer apex @             => ALIAS site-id.cdn.<base-domain>.
+customer subdomain          => CNAME site-id.cdn.<base-domain>.
+site-id.cdn.<base-domain>.  => CNAME proxy.cdn.<base-domain>.
 ```
 
-### 6.2 Compiler rules
-
-#### Zone base
-
-Every active zone gets:
+For CDN shared proxy:
 
 ```text
-SOA
-NS
-customer DNS-only records
-customer proxied records as CNAME/ALIAS to service-zone policy hostnames
+proxy.cdn.<base-domain>. LUA A    ifportup(443, edge IPv4 pools, {selector='pickclosest'})
+proxy.cdn.<base-domain>. LUA AAAA ifportup(443, edge IPv6 pools, {selector='pickclosest'})
 ```
 
-#### Service zone
-
-The CDNLite service zone gets:
+For unproxied records:
 
 ```text
-SOA
-NS
-policy hostnames
-Lua A/AAAA records for GeoDNS policies
-static A/AAAA records for anycast policies
+publish exactly what user configured, subject to normal DNS validation
 ```
 
-Example:
+### 6.3 `DnsReconciler`
+
+One reconciler must handle all sync triggers:
 
 ```text
-edge.cdn.example.net. SOA ...
-edge.cdn.example.net. NS ns1.cdn.example.net.
-policy-country-routing.edge.cdn.example.net. LUA A "..."
-policy-country-routing.edge.cdn.example.net. LUA AAAA "..."
-policy-global.edge.cdn.example.net. A 203.0.113.10
+- scheduled tick every CDNLITE_SYNC_INTERVAL_SECONDS
+- DNS record create/update/delete
+- domain/site proxy mode change
+- edge register/update/delete
+- edge heartbeat health transition
+- admin forced sync
+- bootstrap after startup
 ```
 
-#### DNS-only real
+Important:
 
 ```text
-api.example.com. A 192.0.2.10
-www.example.com. CNAME app.hosting.net.
+All triggers call the same reconciler.
+No separate edge DNS sync path.
+No separate customer DNS sync path.
+No hidden PowerDNS write path from UI controllers.
 ```
 
-#### DNS-only alias
+### 6.4 `DnsSyncLock`
+
+Add a DB advisory lock or Redis lock.
+
+Rules:
 
 ```text
-example.com. ALIAS app.hosting.net.
+- only one reconciler run at a time
+- event-triggered sync can request a run while scheduled sync is active
+- queued run executes after current run if desired_hash changed
+- never run two overlapping PowerDNS PATCH sequences for the same zone
 ```
 
-#### Proxied apex
+### 6.5 `DnsSyncVerifier`
+
+After PowerDNS PATCH:
 
 ```text
-example.com. ALIAS policy-country-routing.edge.cdn.example.net.
-```
-
-#### Proxied subdomain
-
-```text
-www.example.com. CNAME policy-country-routing.edge.cdn.example.net.
-```
-
-### 6.3 Generated Lua policy structure
-
-The generated Lua must be deterministic and built only from validated edge policies.
-
-For country routing:
-
-```lua
-; if country('IR') then
-    return ifportup(443, {'185.142.95.17','185.142.95.18'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2})
-  elseif continent('EU') then
-    return ifportup(443, {'203.0.113.10','203.0.113.11'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2})
-  else
-    return ifportup(443, {'198.51.100.10'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2})
-  end
-```
-
-For simple global GeoDNS:
-
-```lua
-ifportup(443, {'203.0.113.10','203.0.113.11','198.51.100.10'}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2})
-```
-
-For failover:
-
-```lua
-ifportup(443, {{'203.0.113.10','203.0.113.11'}, {'198.51.100.10'}}, {selector='pickclosest', timeout=1, interval=10, minimumFailures=2})
-```
-
-### 6.4 Lua safety rules
-
-- Do not allow user-written Lua.
-- Generate Lua from structured `edge_policies`.
-- Escape all strings.
-- Limit maximum generated record length.
-- Use configuration include records only for service-zone internal records, not customer zones.
-- Enable Lua records only for the CDNLite service zone unless absolutely required.
-- Keep Lua records out of zone transfers unless secondaries support them.
-- Document that PowerDNS Lua is a PowerDNS-specific feature.
-
----
-
-## 7. PowerDNS Publisher
-
-### 7.1 PowerDNS integration mode
-
-Use PowerDNS HTTP API for publishing zones/RRsets.
-
-The publisher does:
-
-```text
-1. Read latest compiled RRsets.
-2. Ensure PowerDNS zone exists.
-3. Ensure Lua metadata exists for service zone.
-4. Apply RRset diffs.
-5. Increment zone serial.
-6. Verify readback from PowerDNS API.
-7. Mark compile run published.
-```
-
-### 7.2 RRset replacement rule
-
-Always replace whole RRsets, never write one record at a time.
-
-Payload shape:
-
-```json
-{
-  "rrsets": [
-    {
-      "name": "policy-global.edge.cdn.example.net.",
-      "type": "LUA",
-      "ttl": 60,
-      "changetype": "REPLACE",
-      "records": [
-        {
-          "content": "A \"ifportup(443, {'203.0.113.10'}, {selector='pickclosest'})\"",
-          "disabled": false
-        }
-      ]
-    }
-  ]
-}
-```
-
-For multi-value A/AAAA:
-
-```json
-{
-  "rrsets": [
-    {
-      "name": "policy-anycast.edge.cdn.example.net.",
-      "type": "A",
-      "ttl": 60,
-      "changetype": "REPLACE",
-      "records": [
-        {"content": "203.0.113.10", "disabled": false},
-        {"content": "203.0.113.11", "disabled": false}
-      ]
-    }
-  ]
-}
-```
-
-### 7.3 No direct writes from API actions
-
-The dashboard/API must never call PowerDNS directly.
-
-Flow:
-
-```text
-API writes intent
-  -> mark DNS dirty
-  -> compiler builds desired output
-  -> publisher applies output
-  -> verification checks PowerDNS
-```
-
-### 7.4 Failure behavior
-
-If publishing fails:
-
-```text
-- keep previous PowerDNS state
-- mark compile run failed
-- show error in dashboard
-- retry with backoff
-- do not claim record is published
-```
-
-This is production-safe because PowerDNS keeps serving the last good state.
-
----
-
-## 8. Proxy Route Manifest
-
-### 8.1 Purpose
-
-The edge manifest replaces the old broad config snapshot.
-
-It contains only what OpenResty needs to serve HTTP/S traffic.
-
-### 8.2 Manifest shape
-
-```json
-{
-  "schema": 1,
-  "version": 1042,
-  "generated_at": 1760000000,
-  "routes": {
-    "example.com": {
-      "zone_id": "uuid",
-      "record_intent_id": "uuid",
-      "origin_pool": {
-        "mode": "failover",
-        "origins": [
-          {
-            "address": "origin.example.com",
-            "scheme": "https",
-            "port": 443,
-            "host_header": "example.com",
-            "sni": "origin.example.com",
-            "tls_verify": true,
-            "priority": 0,
-            "weight": 100
-          }
-        ]
-      },
-      "cache": {},
-      "waf": {},
-      "headers": {},
-      "tls": {}
-    },
-    "www.example.com": {
-      "zone_id": "uuid",
-      "record_intent_id": "uuid",
-      "origin_pool": {
-        "mode": "failover",
-        "origins": []
-      }
-    }
-  }
-}
-```
-
-### 8.3 Compiler rules
-
-Generate one route per active proxied intent.
-
-```text
-proxied @     -> example.com
-proxied www   -> www.example.com
-proxied api   -> api.example.com
-proxied *.cdn -> wildcard route if implemented
-```
-
-Do not select only one primary record per zone.
-
-### 8.4 Edge runtime behavior
-
-OpenResty should:
-
-```text
-- load manifest atomically
-- route by normalized Host/SNI
-- select origin from origin pool
-- preserve configured Host header behavior
-- apply cache/WAF/headers/TLS rules
-- expose manifest version in /ready
-```
-
-### 8.5 Edge manifest is not DNS
-
-Do not include DNS-only records in the proxy manifest.
-
-DNS-only records are PowerDNS concern only.
-
----
-
-## 9. API Replacement
-
-Do not add `/api/v2`.
-
-Replace existing DNS APIs with the new semantics.
-
-### 9.1 Zones
-
-```text
-GET    /api/v1/zones
-POST   /api/v1/zones
-GET    /api/v1/zones/{zone}
-PATCH  /api/v1/zones/{zone}
-DELETE /api/v1/zones/{zone}
-```
-
-### 9.2 Records
-
-```text
-GET    /api/v1/zones/{zone}/records
-POST   /api/v1/zones/{zone}/records
-PATCH  /api/v1/zones/{zone}/records/{record}
-DELETE /api/v1/zones/{zone}/records/{record}
-```
-
-DNS-only A:
-
-```json
-{
-  "name": "api",
-  "mode": "dns_only",
-  "kind": "real",
-  "rrtype": "A",
-  "content": "192.0.2.10",
-  "ttl": 300
-}
-```
-
-DNS-only ALIAS:
-
-```json
-{
-  "name": "@",
-  "mode": "dns_only",
-  "kind": "alias",
-  "rrtype": "ALIAS",
-  "content": "app.hosting.net",
-  "ttl": 60
-}
-```
-
-Proxied record:
-
-```json
-{
-  "name": "@",
-  "mode": "proxied",
-  "kind": "http_proxy",
-  "rrtype": "PROXIED",
-  "origin_pool_id": "uuid",
-  "edge_policy_id": "uuid",
-  "ttl": 60
-}
-```
-
-### 9.3 Edge and policy APIs
-
-```text
-GET    /api/v1/edge-nodes
-POST   /api/v1/edge-nodes
-PATCH  /api/v1/edge-nodes/{edge}
-
-GET    /api/v1/edge-pools
-POST   /api/v1/edge-pools
-PATCH  /api/v1/edge-pools/{pool}
-
-GET    /api/v1/edge-policies
-POST   /api/v1/edge-policies
-PATCH  /api/v1/edge-policies/{policy}
-
-POST   /api/v1/edge-policies/{policy}/rules
-PATCH  /api/v1/edge-policies/{policy}/rules/{rule}
-DELETE /api/v1/edge-policies/{policy}/rules/{rule}
-```
-
-### 9.4 Simulation APIs
-
-```text
-POST /api/v1/dns/simulate
-POST /api/v1/proxy/simulate
-GET  /api/v1/dns/health
-GET  /api/v1/proxy/manifest
-```
-
-DNS simulate example:
-
-```json
-{
-  "qname": "example.com",
-  "qtype": "A",
-  "resolver_ip": "1.1.1.1",
-  "country": "IR"
-}
-```
-
-Output:
-
-```json
-{
-  "zone": "example.com",
-  "intent": "proxied @",
-  "compiled_record": "example.com. ALIAS policy-country-routing.edge.cdn.example.net.",
-  "edge_policy": "country-routing",
-  "selected_pool": "ir-primary",
-  "generated_powerdns_record": "LUA A",
-  "answers": ["185.142.95.17"],
-  "ttl": 60
-}
+1. GET zone from PowerDNS
+2. compare every CDNLite-owned rrset
+3. run dig checks in e2e/smoke, not in every production request
+4. write dns_sync_state
+5. write dns_sync_events
 ```
 
 ---
 
-## 10. Central Validator
+## 7. Config snapshot decision
 
-Use one validator for API, CLI, dashboard, imports, tests, and compiler.
+Current config snapshot is confusing and should not stay as a user-facing feature unless it becomes operationally useful.
 
-### 10.1 Name rules
+### 7.1 Rename concept
+
+Replace “Config Snapshot” with:
 
 ```text
-- normalize zones to lowercase without trailing dot
-- accept @ as apex
-- accept relative names like www/api
-- accept full FQDN only if inside the zone
-- reject records outside the zone
-- normalize fqdn without trailing dot in source tables
-- add trailing dot only in compiled PowerDNS output
+Edge Runtime Release
 ```
 
-### 10.2 Record rules
+### 7.2 What an Edge Runtime Release must show
+
+Admin page:
 
 ```text
-A      => valid IPv4
-AAAA   => valid IPv6
-CNAME  => non-apex hostname target only
-ALIAS  => hostname target
-TXT    => safe string
-MX     => priority + hostname target
-SRV    => priority + weight + port + hostname target
-CAA    => flag/tag/value
-NS     => admin-only at apex unless delegation feature is implemented
-PROXIED => internal only; never a real DNS type
+Release ID
+Created time
+Created by: auto/manual/deploy
+Included domains count
+Included routes count
+Included WAF/cache/routing rules count
+Edge state generation
+DNS desired generation
+Checksum/hash
+Which edges pulled it
+Which edges are stale
+Diff from previous release
+Rollback button
 ```
 
-### 10.3 CNAME rules
+User page:
 
 ```text
-- @ CNAME rejected
-- CNAME cannot coexist with any other RRSet at same name
-- no other RRSet can coexist with CNAME at same name
+Do not show raw config snapshots.
+Show only: “Your site is active on X/Y edges” and “Last edge config deployed at ...”.
 ```
 
-### 10.4 Proxy rules
+### 7.3 If this cannot be implemented now
 
-```text
-- Proxied allowed only for HTTP/S hostnames.
-- MX/TXT/NS/SRV/CAA cannot be proxied.
-- Proxied record requires origin_pool_id.
-- Proxied record requires edge_policy_id.
-- Proxied record never stores edge IPs.
-- Proxied record never publishes origin hostname/IP.
-```
+Hide config snapshots from user pages.
 
-### 10.5 Lua policy rules
+Keep only admin/debug API:
 
-```text
-- edge policy must have fallback pool
-- every referenced edge pool must have at least one enabled node
-- generated Lua must have legal IPv4/IPv6 lists
-- A and AAAA are compiled separately
-- disabled/deleted nodes are excluded
-- draining nodes are included only if policy allows emergency fallback
+```bash
+php artisan cdn:edge:release:list
+php artisan cdn:edge:release:show <id>
+php artisan cdn:edge:release:diff <old> <new>
 ```
 
 ---
 
-## 11. Dashboard Replacement
+## 8. Admin UI requirements
 
-### 11.1 DNS records page
+Add an admin DNS setup/status section.
 
-Columns:
+### 8.1 PowerDNS setup page
+
+Fields:
 
 ```text
-Name
-Mode
-Type / Kind
-Target
-Routing
-TTL
+PowerDNS enabled
+PowerDNS API base URL
+Server ID
+API key configured: yes/no, never show key
+DNS base domain
+CDN zone
+CDN proxy host
+Apex proxy mode: ALIAS
+Bundled DNSGeo enabled: yes/no
+Poweradmin URL
+Last successful API health check
+```
+
+Buttons:
+
+```text
+Test PowerDNS API
+Ensure base zone
+Ensure CDN zone
+Force sync now
+Dry-run sync
+View desired rrsets
+View last errors
+```
+
+### 8.2 Zone sync page
+
+Table:
+
+```text
+Zone
 Status
-Actions
+Pending changes
+Last attempt
+Last success
+Last error
+Desired hash
+Applied hash
+Generation
+Actions: sync, verify, view desired, view actual
 ```
 
-Examples:
+### 8.3 DNSGeo page
+
+Show:
 
 ```text
-@       Proxied    PROXY   origin-pool-main     country-routing   60
-www     Proxied    PROXY   origin.example.com   global            60
-@       DNS only   ALIAS   app.hosting.net      flattened         60
-api     DNS only   A       192.0.2.10           direct            300
-@       DNS only   TXT     "v=spf1 ..."         direct            300
+PowerDNS auth status
+PostgreSQL status
+MMDB status
+EDNS subnet processing enabled
+Lua records enabled
+ALIAS expansion enabled
+Resolver configured
+Poweradmin link
 ```
 
-### 11.2 Add record flow
-
-Step 1:
+Warn if:
 
 ```text
-Mode:
-- DNS only
-- Proxied
-```
-
-If DNS only:
-
-```text
-Type:
-A, AAAA, CNAME, ALIAS, TXT, MX, NS, SRV, CAA
-```
-
-If proxied:
-
-```text
-Origin:
-- origin hostname
-- origin IP
-- existing origin pool
-
-Routing:
-- global
-- GeoDNS
-- anycast
-- failover
-```
-
-### 11.3 Edge policy page
-
-Must manage:
-
-```text
-edge nodes
-edge pools
-edge policy rules
-default/fallback pool
-generated Lua preview
-policy health
-```
-
-Show generated Lua preview for admins only.
-
-### 11.4 DNS simulator page
-
-Inputs:
-
-```text
-qname
-qtype
-resolver IP
-country override
-continent override
-```
-
-Output:
-
-```text
-intent selected
-compiled customer RRSet
-service-zone policy record
-Lua policy branch
-edge pool
-edge node/IP candidates
-final answer
-TTL
-warnings
+expand-alias is disabled
+resolver is missing
+resolver points to authoritative PowerDNS itself
+edns-subnet-processing is disabled
+PowerDNS API is publicly exposed
 ```
 
 ---
 
-## 12. CLI Commands
+## 9. User UI requirements
 
-Add or replace:
+### 9.1 DNS record editor
+
+For each record, show:
+
+```text
+Proxy toggle: DNS only / Proxied
+Effective DNS result
+PowerDNS sync status
+Last synced at
+Last error if failed
+```
+
+### 9.2 Apex proxied domain UX
+
+When user proxies `@`, show:
+
+```text
+Your apex will be published as:
+@ ALIAS site-123.cdn.example.net.
+```
+
+Do not show fake A/AAAA values as if Core owns them.
+
+### 9.3 Subdomain proxied UX
+
+When user proxies `www`, show:
+
+```text
+www CNAME site-123.cdn.example.net.
+```
+
+### 9.4 Validation page
+
+Show:
+
+```text
+Expected record
+Actual PowerDNS record
+Actual public DNS answer if check is available
+Status: ok / pending / failed
+```
+
+---
+
+## 10. Frontend alignment checklist
+
+Frontend must match backend exactly.
+
+Remove/hide old options that no longer match backend behavior:
+
+```text
+Apex mode: A flattening
+Apex mode: normal CNAME
+Manual edge IP selection for proxied records
+Any UI that says proxied apex is stored as A/AAAA
+```
+
+Add/update frontend labels:
+
+```text
+Apex proxied = PowerDNS ALIAS
+Subdomain proxied = CNAME to CDN
+CDN target = site-id.cdn.<base-domain>
+Shared edge pool = proxy.cdn.<base-domain>
+```
+
+Admin errors must show actionable messages:
+
+```text
+PowerDNS API unreachable
+PowerDNS API key invalid
+PowerDNS zone missing
+ALIAS expansion disabled
+Resolver missing
+Lua records disabled
+EDNS subnet processing disabled
+MMDB missing
+No healthy edges
+No IPv6 edges
+```
+
+---
+
+## 11. PowerDNS record examples
+
+Assume:
+
+```text
+Base domain: example.net
+CDN zone: cdn.example.net
+Customer domain: customer.com
+Site ID: site-123
+Shared proxy host: proxy.cdn.example.net
+```
+
+### Customer zone
+
+```text
+customer.com.      ALIAS   site-123.cdn.example.net.
+www.customer.com.  CNAME   site-123.cdn.example.net.
+api.customer.com.  CNAME   site-123.cdn.example.net.
+```
+
+### CDN zone
+
+```text
+site-123.cdn.example.net.  CNAME  proxy.cdn.example.net.
+
+proxy.cdn.example.net. LUA A    "ifportup(443, {{'203.0.113.10','203.0.113.20'}, {'198.51.100.10'}}, {selector='pickclosest'})"
+proxy.cdn.example.net. LUA AAAA "ifportup(443, {{'2001:db8::10','2001:db8::20'}, {'2001:db8:1::10'}}, {selector='pickclosest'})"
+```
+
+### Anycast priority
+
+If anycast is enabled:
+
+```text
+proxy.cdn.example.net. LUA A "ifportup(443, {{'192.0.2.10'}, {'203.0.113.10','203.0.113.20'}, {'198.51.100.10'}}, {selector='pickclosest'})"
+```
+
+Ordering rule:
+
+```text
+1. anycast shared IPs first
+2. same-region healthy unicast next
+3. other healthy unicast next
+4. stable sort by region, family, IP, edge_id
+```
+
+---
+
+## 12. Tests
+
+### 12.1 Unit tests
+
+Add tests for:
+
+```text
+PowerDnsClient payload normalization
+PowerDnsClient retry behavior
+ALIAS rrset generation for @ apex
+CNAME rrset generation for subdomains
+CDN zone site CNAME generation
+shared proxy Lua A generation
+shared proxy Lua AAAA generation
+edge_state filtering
+anycast ordering
+stale rrset deletion
+sync status update
+config env alias/deprecation behavior
+```
+
+### 12.2 Integration tests
+
+Use a real PowerDNS/DNSGeo container stack from the normal project Compose setup.
+
+Do not use profiles.
+
+Test:
+
+```text
+create zone through Core
+create unproxied A record
+verify PowerDNS raw zone contains A
+create proxied @ record
+verify PowerDNS raw zone contains ALIAS
+verify dig A for apex returns synthesized edge IP
+create proxied www record
+verify PowerDNS raw zone contains CNAME
+verify dig A for www follows CNAME to edge IP
+update record
+delete record
+verify stale rrsets are removed
+```
+
+### 12.3 E2E smoke test script
+
+Create or extend:
 
 ```bash
-php artisan cdn:dns:compile
-php artisan cdn:dns:publish
-php artisan cdn:dns:publish --dry-run
-php artisan cdn:dns:simulate example.com A --country=IR
-php artisan cdn:dns:validate-all
-php artisan cdn:dns:check-zone example.com
-php artisan cdn:edge-policy:compile country-routing
-php artisan cdn:edge-policy:validate country-routing
-php artisan cdn:edge-ip:update edge-ir-01 --ipv4=185.142.95.18
-php artisan cdn:proxy:compile-manifest
-php artisan cdn:proxy:manifest-status
+ci/e2e.sh
+ci/smoke-powerdns.sh
+ci/stress-dns.sh
 ```
 
-Production rule:
+Required e2e flow:
 
 ```text
-Every command must return non-zero exit status on invalid config.
+1. Start normal docker compose stack.
+2. Wait for Core, PostgreSQL, DNSGeo PostgreSQL, PowerDNS, MMDB updater, Poweradmin.
+3. Run PowerDNS doctor.
+4. Register two edges:
+   - edge-eu, region=eu, IPv4 + optional IPv6
+   - edge-us, region=us, IPv4 + optional IPv6
+5. Mark both healthy.
+6. Create customer domain.
+7. Enable proxy for @ and www.
+8. Force DNS sync.
+9. Verify PowerDNS raw zone:
+   - @ has ALIAS to site-id.cdn.<base-domain>
+   - www has CNAME to site-id.cdn.<base-domain>
+   - site-id.cdn has CNAME to proxy.cdn.<base-domain>
+   - proxy.cdn has LUA A/AAAA
+10. Verify dig:
+   - apex A resolves
+   - www A resolves
+   - site-id CDN target resolves
+   - proxy CDN target resolves
+11. Mark one edge unhealthy.
+12. Wait one sync interval.
+13. Verify proxy.cdn Lua record changed or effective answer excludes unhealthy edge.
+14. Verify customer zone did not need mass rewrite.
+15. Verify /cdn-health shows powerdns status ok.
+```
+
+### 12.4 ALIAS-specific test
+
+```text
+Assert @ is ALIAS in PowerDNS raw zone.
+Assert @ is not Core-written A/AAAA for proxied apex.
+Assert dig A @ returns same answer set as resolving site-id.cdn target at that moment.
+Assert ALIAS fails visibly if resolver/expand-alias is disabled.
+```
+
+### 12.5 Frontend smoke tests
+
+Use Playwright or existing frontend test framework.
+
+Test admin:
+
+```text
+PowerDNS setup page loads
+Test API button shows success/failure
+Zone sync page shows status
+DNSGeo page warns when ALIAS config missing
+Force sync button works
+```
+
+Test user:
+
+```text
+Create domain
+Add @ proxied record
+UI shows ALIAS target
+Add www proxied record
+UI shows CNAME target
+Disable proxy
+UI shows normal DNS-only record
 ```
 
 ---
 
-## 13. Health And Readiness
+## 13. Production stress tests
 
-### 13.1 Core readiness
+### 13.1 Dataset
+
+Generate:
 
 ```text
-database reachable
-source-of-truth schema migrated
-service zone configured
-PowerDNS API reachable
-PowerDNS Lua enabled for service zone
-PowerDNS ALIAS resolver configured
-latest DNS compile published
-latest proxy manifest active
+10,000 domains
+1,000 records per domain
+10,000,000 logical records total
+At least 10% proxied
+At least 10% apex proxied
+At least 10 edge nodes
+At least 3 regions
+IPv4 and IPv6 pools where available
 ```
 
-### 13.2 DNS readiness
+### 13.2 Critical edge IP change test
+
+Test case:
 
 ```text
-SOA lookup works
-NS lookup works
-service-zone Lua A lookup works
-service-zone Lua AAAA lookup works if IPv6 configured
-ALIAS expansion works
-test proxied apex resolves
-test proxied subdomain resolves
+1. Load dataset.
+2. Run full sync.
+3. Record number of PowerDNS rrsets changed.
+4. Change one edge IP.
+5. Run sync.
+6. Assert changed rrsets are limited to shared CDN proxy records and required metadata.
+7. Assert customer zones are not mass-updated.
 ```
 
-### 13.3 Edge readiness
+Expected result:
 
 ```text
-manifest exists
-manifest schema accepted
-manifest age below threshold
-edge can route known host
-origin health checks are current
-TLS cert loader works
+Changing one edge IP should not rewrite 10,000 domains or 10,000,000 records.
+Only proxy.cdn.<base-domain> A/AAAA Lua rrsets should change in normal shared-proxy mode.
+```
+
+### 13.3 Performance metrics to collect
+
+```text
+Full desired-state build time
+Diff time
+PowerDNS PATCH count
+PowerDNS GET/verify count
+Database CPU
+Database memory
+PowerDNS CPU
+PowerDNS memory
+Queue lag
+Sync duration p50/p95/p99
+API error count
+Dig latency p50/p95/p99
+```
+
+### 13.4 Pass/fail targets
+
+Initial acceptable targets:
+
+```text
+Small sync after one edge IP change: < 10 seconds
+No customer-zone mass rewrite after edge IP change
+PowerDNS sync status remains ok
+No overlapping sync jobs
+No duplicate rrsets
+No stale proxied records after delete
+```
+
+Production target after optimization:
+
+```text
+Small sync after edge IP change: < 2 seconds
+Full sync of 10M logical records: bounded, resumable, observable
+PowerDNS API writes batched per affected zone
 ```
 
 ---
 
-## 14. Implementation Phases
+## 14. Implementation phases
 
-Every phase must leave the repository testable. No phase is a production shortcut. The first several phases may intentionally break the old application until the replacement is complete.
+## Phase 0 — DNSGeo import and no-profile Compose
 
----
-
-### Phase 0: Remove Old Assumptions
-
-Goal: make the repository stop pretending old DNS is correct.
+Goal: DNSGeo runs inside CDNLite with normal `docker compose up -d`.
 
 Tasks:
 
 ```text
-- inventory every DNS class, route, controller, dashboard page, test, CLI command, and doc
-- delete or quarantine old DNS services
-- delete old PowerDNS planner behavior
-- delete old edge DNS Lua generator
-- delete old proxied boolean model
-- mark old dashboard DNS pages for replacement
-- write failing tests for required new behavior
+- import DNSGeo into infra/dnsgeo or services/dnsgeo
+- merge required services into root docker-compose.yml
+- add PowerDNS authoritative service
+- add PostgreSQL backend service
+- add MMDB updater service
+- add Poweradmin service
+- add recursor/unbound service for ALIAS expansion
+- enable Lua records
+- enable GeoIP/MMDB
+- enable edns-subnet-processing=yes
+- enable expand-alias=yes
+- configure resolver=recursor:5300 or equivalent
+- add healthchecks for every DNS service
 ```
 
-Deliverables:
+Acceptance:
 
-```text
-- deletion checklist
-- failing tests:
-  - apex CNAME rejected
-  - proxied @ does not publish origin
-  - proxied www creates proxy route
-  - edge IP change does not touch dns_record_intents
+```bash
+docker compose build
+docker compose up -d
+./scripts/check.sh
+php artisan cdn:powerdns:doctor
 ```
+
+No `--profile` anywhere.
 
 ---
 
-### Phase 1: New Schema And Domain Services
+## Phase 1 — make PowerDNS writes real and verified
 
-Goal: source-of-truth model exists.
+Goal: records truly appear in PowerDNS.
 
 Tasks:
 
 ```text
-- add new schema tables
-- create ZoneService
-- create RecordIntentService
-- create OriginPoolService
-- create EdgeInventoryService
-- create EdgePolicyService
-- create central DnsIntentValidator
-- create audit events
-- replace old seed/bootstrap DNS data
+- implement PowerDnsClient
+- implement ensureZone
+- implement batch rrset PATCH
+- implement verify-after-write
+- implement dns_sync_state
+- implement dns_sync_events
+- add /cdn-health powerdns section
+- add artisan doctor/dry-run/force-sync commands
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- unit tests for validation
-- unit tests for edge policy model
-- no direct PowerDNS writes from domain services
+Create/update/delete in Core is visible in PowerDNS raw zone API.
+Failed PowerDNS writes show failed status.
+No mock-only success path.
 ```
 
 ---
 
-### Phase 2: DNS Compiler
+## Phase 2 — desired-state reconciler
 
-Goal: compile source-of-truth intent into legal authoritative DNS output.
+Goal: one sync path for everything.
 
 Tasks:
 
 ```text
-- implement DnsCompiler
-- implement SOA/NS compiler
-- implement DNS-only real compiler
-- implement ALIAS compiler
-- implement proxied customer record compiler
-- implement service-zone policy hostname compiler
-- implement LuaPolicyCompiler for GeoDNS
-- store compiled RRsets in dns_compiled_rrsets
-- add dry-run diff output
+- implement DnsDesiredStateBuilder
+- implement DnsReconciler
+- add sync lock
+- route all DNS mutations through reconciler
+- remove direct PowerDNS writes from controllers/services
+- add stale rrset delete for CDNLite-owned records
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- compile customer zones
-- compile service zone
-- compile deterministic Lua records
-- compile output hash stable across no-op runs
+Scheduled sync and event sync produce the same desired state.
+No double writes.
+No stale records after delete.
 ```
 
 ---
 
-### Phase 3: PowerDNS Publisher
+## Phase 3 — edge_state and shared proxy CDN record
 
-Goal: PowerDNS serves generated output.
+Goal: edge routing has one source of truth and one shared proxy target.
 
 Tasks:
 
 ```text
-- implement PowerDnsClient as infrastructure only
-- implement PowerDnsPublisher
-- ensure zones
-- enable service-zone Lua metadata
-- configure resolver and expand-alias
-- publish RRset diffs with REPLACE
-- delete stale RRsets not in compiled output
-- verify readback
-- update docker-compose powerdns profile
+- add edge_state view/table
+- add healthy edge filtering
+- add anycast boolean support
+- build proxy.cdn.<base-domain> Lua A from edge_state IPv4
+- build proxy.cdn.<base-domain> Lua AAAA from edge_state IPv6
+- prioritize anycast IPs
+- use stable ordering
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- PowerDNS answers SOA/NS
-- PowerDNS answers DNS-only A/TXT/CNAME
-- PowerDNS expands ALIAS
-- PowerDNS returns Lua-based GeoDNS answers
+Edge health change updates only shared CDN proxy records.
+PowerDNS Lua answers route to healthy edges.
+Unhealthy edge does not remain in generated Lua pool.
 ```
 
 ---
 
-### Phase 4: Proxy Route Manifest
+## Phase 4 — apex ALIAS and subdomain CNAME
 
-Goal: OpenResty receives a clean route manifest generated from proxied intents.
+Goal: proxied customer records use stable names, not edge IPs.
 
 Tasks:
 
 ```text
-- implement ProxyManifestCompiler
-- generate one route per proxied intent
-- remove DNS-only records from edge config
-- update edge agent to pull new manifest
-- update config_loader.lua to validate manifest schema
-- update router.lua to route by manifest routes
-- expose manifest version in /ready
+- implement @ apex ALIAS generation
+- implement subdomain CNAME generation
+- implement site-id.cdn CNAME generation
+- remove/default-disable apex A/AAAA flattener
+- keep old env alias CDNLITE_EDGE_APEX_MODE with warning
+- validate that @ cannot be normal CNAME
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- proxied @ route works
-- proxied www route works
-- Host/SNI routing works
-- old generic config snapshot removed or unused
+@ proxied => ALIAS site-id.cdn.<base-domain>.
+www proxied => CNAME site-id.cdn.<base-domain>.
+site-id.cdn => CNAME proxy.cdn.<base-domain>.
+No edge IPs written into customer proxied records.
 ```
 
 ---
 
-### Phase 5: GeoDNS With Lua
+## Phase 5 — admin and user UI
 
-Goal: production GeoDNS is driven by edge policies and PowerDNS Lua.
+Goal: easy setup and visible status.
 
 Tasks:
 
 ```text
-- implement country rules
-- implement continent rules
-- implement default/fallback rules
-- compile A and AAAA Lua separately
-- support ifportup health-aware answers
-- support pickclosest selector
-- support anycast static answers
-- add generated Lua preview
-- add simulator explanation
+- add admin PowerDNS setup page
+- add admin DNSGeo status page
+- add zone sync status page
+- add force sync/dry run buttons
+- add user DNS effective-record display
+- show ALIAS for apex proxied domains
+- show CNAME for subdomain proxied domains
+- show sync errors per domain/record
+- hide or rename config snapshots
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- IR resolver returns IR edge pool
-- EU resolver returns EU edge pool
-- unknown resolver returns fallback pool
-- unhealthy edge falls back
-- edge IP change updates only edge_nodes and service-zone policy output
+Admin can set up and debug DNS without reading logs.
+User can understand exactly what DNS record CDNLite publishes.
+Frontend never claims apex is A/AAAA when backend publishes ALIAS.
 ```
 
 ---
 
-### Phase 6: API Replacement
+## Phase 6 — tests/e2e/smoke
 
-Goal: dashboard/API only speak the new model.
+Goal: every important DNS path is covered.
 
 Tasks:
 
 ```text
-- replace old DNS endpoints
-- replace old origin endpoints if needed
-- replace old edge policy/routing endpoints
-- add DNS simulate endpoint
-- add proxy simulate endpoint
-- update OpenAPI docs
-- remove old proxy toggle semantics
+- add unit tests
+- add integration tests with real PowerDNS
+- add e2e with normal docker compose, no profile
+- add dig verification
+- add raw PowerDNS zone verification
+- add frontend smoke tests
+- add failure-mode tests
 ```
 
-Deliverables:
+Acceptance:
 
 ```text
-- API can create DNS-only A
-- API rejects @ CNAME
-- API creates @ ALIAS
-- API creates proxied @
-- API creates proxied www
-- API triggers compile/publish workflow
+CI fails if PowerDNS does not really contain the expected records.
+CI fails if ALIAS expansion is disabled.
+CI fails if proxied apex becomes A/AAAA instead of ALIAS.
+CI fails if frontend displays wrong effective DNS behavior.
 ```
 
 ---
 
-### Phase 7: Dashboard Replacement
+## Phase 7 — production stress and scale proof
 
-Goal: operators can manage production DNS/proxy correctly.
+Goal: prove the design does not rewrite the world.
 
 Tasks:
 
 ```text
-- replace raw DNS row UI
-- add mode-based DNS create/edit UI
-- add ALIAS UX
-- add proxied record UX
-- add origin pool UI
-- add edge node/pool/policy UI
-- add DNS simulator UI
-- add PowerDNS publish status UI
-- remove normal-user Lua exposure
-```
-
-Deliverables:
-
-```text
-- dashboard can manage DNS-only records
-- dashboard can manage proxied records
-- dashboard can manage GeoDNS policies
-- dashboard shows generated Lua only to admins
-- dashboard surfaces publish failures
-```
-
----
-
-### Phase 8: Production Tests
-
-Goal: prove the replacement works.
-
-Unit tests:
-
-```text
-- normalize zone names
-- reject records outside zone
-- reject @ CNAME
-- allow @ ALIAS
-- reject CNAME coexistence
-- reject proxied MX/TXT/NS/SRV/CAA
-- compile proxied apex as ALIAS to service policy hostname
-- compile proxied subdomain as CNAME to service policy hostname
-- compile country GeoDNS Lua
-- compile anycast static service records
-```
-
-Integration tests:
-
-```text
-- PowerDNS API zone ensure
-- PowerDNS RRset REPLACE
-- PowerDNS Lua enabled
-- PowerDNS ALIAS expansion
-- PowerDNS answers DNS-only A
-- PowerDNS answers DNS-only CNAME
-- PowerDNS answers proxied apex A through ALIAS
-- PowerDNS answers proxied www A through CNAME -> Lua target
-```
-
-E2E tests:
-
-```text
-1. create zone test.com
-2. create DNS-only A api.test.com -> 192.0.2.10
-3. dig api.test.com A returns 192.0.2.10
-4. attempt @ CNAME returns validation error
-5. create @ ALIAS app.example.net
-6. dig test.com A returns flattened answer
-7. create edge nodes IR/EU/US
-8. create GeoDNS edge policy
-9. create proxied @ using the policy
-10. dig test.com A with IR resolver fixture returns IR edge
-11. dig test.com A with EU resolver fixture returns EU edge
-12. update IR edge IP
-13. assert dns_record_intents unchanged
-14. publish DNS
-15. dig returns new IR IP
-16. curl edge with Host: test.com returns origin response
-```
-
-Scale test:
-
-```text
-- seed 10,000 zones
-- seed 10,000 proxied records using same edge policy
+- generate 10k domains x 1k records
+- run full sync
 - change one edge IP
-- assert only edge node + compile/publish state changes
-- assert customer dns_record_intents unchanged
-- assert service-zone policy RRSet changed
-- run 1,000 simulated DNS lookups
+- measure changed rrsets
+- verify only shared CDN proxy Lua records changed
+- measure sync time and PowerDNS load
+- run repeated edge health flapping test
+- run concurrent user DNS changes during edge updates
+```
+
+Acceptance:
+
+```text
+Edge IP change does not rewrite all customer domains.
+No sync lock deadlocks.
+No stale PowerDNS rrsets.
+No missing ALIAS/CNAME records.
+No frontend/backend mismatch.
+PowerDNS remains healthy under stress.
 ```
 
 ---
 
-### Phase 9: Production Hardening
+## 15. Documentation updates
 
-Goal: safe operations.
-
-Tasks:
+Update:
 
 ```text
-- structured logs for compile/publish
-- audit events for all DNS/policy/edge changes
-- retry/backoff for publisher
-- PowerDNS API timeout handling
-- alert when latest compile is unpublished
-- alert when PowerDNS readback differs
-- alert when service-zone Lua is disabled
-- alert when ALIAS resolver misconfigured
-- runbooks
+docs/architecture.md
+docs/security.md
+docs/dns.md or create it
+docs/admin-dns.md or create it
+.env.example
+.env.production.example
+docker-compose.yml
+README.md
+AGENTS.md checklist compliance notes if needed
 ```
 
-Deliverables:
+Documentation must explain:
 
 ```text
-- operational docs
-- restore procedure
-- rollback to last compiled DNS run
-- rollback to last proxy manifest
-- production readiness checklist
+- DNSGeo integration
+- no docker compose profile
+- PowerDNS ALIAS for apex
+- why ALIAS requires resolver + expand-alias
+- why subdomains use CNAME
+- why shared proxy.cdn avoids mass updates
+- Poweradmin role
+- PowerDNS API security
+- EDNS Client Subnet behavior
+- MMDB updates
+- how to run e2e/smoke/stress tests
 ```
 
 ---
 
-## 15. Exact File/Module Layout
+## 16. Security requirements
 
-Use names without `v2`.
+PowerDNS API must not be public.
+
+Required:
 
 ```text
-core/app/Modules/Dns/Domain/
-  Zone.php
-  RecordIntent.php
-  DnsMode.php
-  RecordKind.php
-
-core/app/Modules/Dns/Services/
-  ZoneService.php
-  RecordIntentService.php
-  DnsIntentValidator.php
-  DnsCompiler.php
-  LuaPolicyCompiler.php
-  DnsCompileRepository.php
-  PowerDnsPublisher.php
-
-core/app/Modules/Dns/Infrastructure/
-  PowerDnsClient.php
-
-core/app/Modules/Edge/Services/
-  EdgeInventoryService.php
-  EdgePoolService.php
-  EdgePolicyService.php
-  EdgePolicyValidator.php
-
-core/app/Modules/Proxy/Services/
-  ProxyManifestCompiler.php
-  ProxyManifestRepository.php
-
-edge/openresty/lua/
-  config_loader.lua
-  router.lua
-  origin_selector.lua
+- bind API to internal network where possible
+- allowlist Core container/IP only
+- redact API key from logs and UI
+- rotate API key documentation
+- show warning if API is publicly reachable
+- restrict Poweradmin access
+- document HTTPS/VPN/reverse proxy requirements
 ```
 
-Do not name folders or classes `V2`.
+Lua records are powerful. Only Core/admin should create them.
+
+User-created DNS records must not allow arbitrary Lua content.
 
 ---
 
-## 16. Acceptance Criteria
+## 17. Definition of done
 
-The replacement is complete only when all are true:
+This roadmap is done only when all are true:
 
 ```text
-- old DNS model is removed from production paths
-- no backward compatibility code remains
-- PostgreSQL CDNLite tables are the source of truth
-- PowerDNS is generated authoritative runtime only
-- raw apex CNAME is rejected
-- ALIAS works for apex flattening
-- proxied apex does not create real CNAME
-- proxied records never expose origin in DNS
-- proxied records never store edge IPs as durable content
-- GeoDNS is implemented with generated PowerDNS Lua records
-- Lua is generated only from trusted structured edge policies
-- edge IP change does not rewrite customer record intents
-- proxy manifest contains every active proxied hostname
-- OpenResty routes by Host/SNI using the manifest
-- DNS-only records are standards-compliant
-- PowerDNS readback verification works
-- dashboard is mode-based
-- CI includes unit, integration, e2e, docs, and scale tests
+- normal docker compose starts Core + DNSGeo stack without profiles
+- PowerDNS API doctor passes
+- PowerDNS raw zone shows expected ALIAS/CNAME/LUA records
+- dig proves apex ALIAS resolves
+- user proxied apex uses ALIAS, not A/AAAA flattening
+- user proxied subdomain uses CNAME
+- shared proxy.cdn Lua record is generated from edge_state
+- edge IP change updates only shared CDN proxy records
+- /cdn-health shows sync status
+- admin UI shows DNSGeo/PowerDNS health and sync details
+- user UI shows effective DNS behavior
+- config snapshot is either hidden or replaced by Edge Runtime Release
+- tests cover create/update/delete/sync/verify/failure
+- e2e uses real PowerDNS/DNSGeo, not mocks
+- stress test with 10k domains x 1k records passes scale criteria
 ```
 
 ---
 
-## 17. Validation Commands
+## 18. References
 
-Final implementation must provide equivalent commands:
+- DNSGeo repository: https://github.com/vaheed/DNSGeo
+- PowerDNS ALIAS records: https://doc.powerdns.com/authoritative/guides/alias.html
+- PowerDNS Lua records: https://doc.powerdns.com/authoritative/lua-records/
+- PowerDNS Lua functions: https://doc.powerdns.com/authoritative/lua-records/functions.html
+- PowerDNS HTTP Zone API: https://doc.powerdns.com/authoritative/http-api/zone.html
 
-```bash
-docker compose config --quiet
-find core -name '*.php' -print0 | xargs -0 -n1 php -l
-pytest -q core/tests
-cd dash && npm ci && npm run typecheck && npm test && npm run build
-cd docs && npm ci && npm run docs:build
-docker compose up -d --build --wait
-./ci/smoke.sh
-./ci/e2e.sh
-./ci/powerdns_dns_checks.sh
-./ci/dns_compile_checks.sh
-./ci/dns_geo_lua_checks.sh
-./ci/proxy_manifest_checks.sh
-./ci/dns_scale_10k.sh
-```
-
----
-
-## 18. Implementation Principle
-
-Do not patch the old system.
-
-Replace it with:
-
-```text
-intent tables
-central validator
-DNS compiler
-PowerDNS publisher
-generated Lua GeoDNS service zone
-proxy manifest compiler
-OpenResty host/SNI routing
-mode-based dashboard
-full tests
-```
-
-Keep it simple:
-
-```text
-No custom DNS answerer process.
-No Remote Backend in the first production design.
-No per-request database lookup for DNS answers.
-No per-domain Lua hardcoding.
-No edge IPs stored in customer record intents.
-No old compatibility layer.
-```
-
-PowerDNS serves DNS. CDNLite owns truth. Lua does GeoDNS. OpenResty does proxying.
