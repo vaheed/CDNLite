@@ -1,5 +1,17 @@
 # DNSGeo and PowerDNS
 
+## Desired-State Reconciliation
+
+Core generates all durable customer and edge rrsets into `desired_dns_rrsets`. Event-driven
+changes and the `dns-reconciler` scheduler both run `php artisan cdn:dns:reconcile`.
+A PostgreSQL advisory lock prevents overlapping runs. Each run compares desired state with
+the live PowerDNS zone, sends one batch PATCH per changed zone, verifies the write, and
+deletes rrsets that were previously owned by CDNLite but are no longer desired.
+
+Use `CDNLITE_SYNC_INTERVAL_SECONDS` to set the scheduled convergence interval (default:
+`30`). `php artisan cdn:powerdns:dry-run` previews desired rrsets, while
+`php artisan cdn:powerdns:force-sync` forces a full replacement pass.
+
 The root `docker-compose.yml` starts the project DNS stack by default:
 
 - `pdns-postgres`: PostgreSQL backend dedicated to DNS data.

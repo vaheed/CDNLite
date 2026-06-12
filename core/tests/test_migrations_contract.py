@@ -1,81 +1,22 @@
 from pathlib import Path
 
 
-def test_stage5_migration_files_exist_in_order():
-    repo_root = Path(__file__).resolve().parents[2]
-    migration_dir = repo_root / "core" / "database" / "migrations"
-    files = sorted(path.name for path in migration_dir.glob("*.sql"))
-
-    assert files == [
-        "001_api_auth_and_audit.sql",
-        "002_rule_indexes.sql",
-        "003_ssl_metadata.sql",
-        "004_page_rules.sql",
-        "005_cache_purge.sql",
-        "006_domain_cache_settings.sql",
-        "007_cache_purge_requests.sql",
-        "008_redirects_v2.sql",
-        "009_page_rules_v1.sql",
-        "010_ssl_certificates_v1.sql",
-        "011_ssl_manual_certificates.sql",
-        "012_waf_rules_v2.sql",
-        "013_rate_limit_rules.sql",
-        "014_origin_shield_header.sql",
-        "015_usage_rollups_cache_analytics.sql",
-        "016_admin_users.sql",
-        "017_ssl_acme_accounts.sql",
-        "018_usage_aggregates_cache_status.sql",
-            "019_platform_settings.sql",
-            "020_domain_onboarding.sql",
-            "021_edge_network.sql",
-            "022_dns_record_origins.sql",
-            "023_dns_routing_model.sql",
-            "024_ssl_automation.sql",
-            "025_force_https_redirect.sql",
-            "026_ssl_settings_defaults.sql",
-            "027_config_snapshot_activation.sql",
-            "028_header_and_ip_rules.sql",
-            "029_domain_origins.sql",
-        ]
+ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_stage5_index_and_audit_sql_present():
-    repo_root = Path(__file__).resolve().parents[2]
-    m1 = (repo_root / "core" / "database" / "migrations" / "001_api_auth_and_audit.sql").read_text()
-    m2 = (repo_root / "core" / "database" / "migrations" / "002_rule_indexes.sql").read_text()
-    m18 = (repo_root / "core" / "database" / "migrations" / "018_usage_aggregates_cache_status.sql").read_text()
-
-    assert "CREATE TABLE IF NOT EXISTS schema_migrations" in m1
-    assert "CREATE TABLE IF NOT EXISTS audit_log" in m1
-    assert "CREATE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain);" in m2
-    assert "CREATE INDEX IF NOT EXISTS idx_usage_aggregates_lookup ON usage_aggregates(domain_id, bucket, bucket_ts);" in m2
-    assert "IF NOT EXISTS (" in m18
-    assert "conname = 'usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key'" in m18
-
-
-def test_migrate_command_uses_database_pdo_entrypoint():
-    repo_root = Path(__file__).resolve().parents[2]
-    command = (repo_root / "core" / "app" / "Console" / "Commands" / "CdnMigrateCommand.php").read_text()
-
-    assert "Database::pdo()" in command
-    assert "Database::connection()" not in command
-    assert "preg_replace('/^\\s*--.*$/m'" in command
-    assert "trim((string) $executableSql) !== ''" in command
+def test_fresh_install_has_one_canonical_schema_and_no_numbered_migrations():
+    assert (ROOT / "core/database/schema.sql").is_file()
+    assert not list((ROOT / "core/database/migrations").glob("*.sql"))
 
 
 def test_schema_application_is_serialized_across_services():
-    repo_root = Path(__file__).resolve().parents[2]
-    database = (repo_root / "core" / "app" / "Support" / "Database.php").read_text()
-
+    database = (ROOT / "core/app/Support/Database.php").read_text()
     assert "pg_advisory_lock" in database
     assert "pg_advisory_unlock" in database
     assert "finally" in database
 
 
-def test_numbered_migration_runner_is_serialized_across_services():
-    repo_root = Path(__file__).resolve().parents[2]
-    command = (repo_root / "core" / "app" / "Console" / "Commands" / "CdnMigrateCommand.php").read_text()
-
-    assert "pg_advisory_lock" in command
-    assert "pg_advisory_unlock" in command
-    assert "finally" in command
+def test_migrate_command_documents_fresh_install_only_contract():
+    command = (ROOT / "core/app/Console/Commands/CdnMigrateCommand.php").read_text()
+    assert "fresh_install_only" in command
+    assert "historical migrations are unsupported" in command

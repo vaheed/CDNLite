@@ -23,52 +23,38 @@ class EdgeDnsService
 
     public function bootstrap(): array
     {
-        $result = $this->ensureBaseZone();
-        if (($result['ok'] ?? false) !== true) {
-            return $result;
-        }
-
-        $this->syncBootstrapRecords();
-        return $this->sync(true);
+        return (new DnsReconciler())->reconcile(true);
     }
 
     public function sync(bool $force = false): array
     {
-        $pool = $this->activeEdgePool();
-        $rrsets = $this->buildEdgeRecords($pool);
-        $hash = hash('sha256', json_encode($rrsets, JSON_UNESCAPED_SLASHES) ?: '[]');
-        if (!$force && $this->lastHash() === $hash) {
-            return ['ok' => true, 'skipped' => true, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
-        }
+        return (new DnsReconciler())->reconcile($force);
+    }
 
-        if (!$this->powerDns->isEnabled()) {
-            return ['ok' => true, 'powerdns_enabled' => false, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
-        }
-
-        $zoneResult = $this->ensureBaseZone();
-        if (($zoneResult['ok'] ?? false) !== true) {
-            return $zoneResult;
-        }
-
-        foreach ($rrsets as $rrset) {
-            $result = $this->powerDns->syncReplace(
-                $this->baseDomain(),
-                (string) $rrset['name'],
-                (string) $rrset['type'],
-                (int) $rrset['ttl'],
-                (string) $rrset['content']
-            );
-            if (($result['ok'] ?? false) !== true) {
-                Logger::error('edge_dns_sync_failed', ['rrset' => $rrset, 'result' => $result]);
-                if ($this->powerDns->isStrict()) {
-                    throw new \RuntimeException((string) ($result['error'] ?? 'edge_dns_sync_failed'));
-                }
-                return $result;
+    public function desiredRrsets(): array
+    {
+        $base = $this->baseDomain();
+        $ttl = $this->ttl();
+        $records = [
+            $this->desired('@', 'SOA', $ttl, [$this->records->soa($base)], 'platform_soa'),
+            $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
+        ];
+        foreach (['CDNLITE_NS1_IP' => 'ns1', 'CDNLITE_NS2_IP' => 'ns2'] as $env => $name) {
+            $ip = trim((string) (getenv($env) ?: ''));
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                $records[] = $this->desired($name, 'A', $ttl, [$ip], 'platform_nameserver_address');
             }
         }
-
-        $this->saveHash($hash);
-        return ['ok' => true, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
+        foreach ($this->buildEdgeRecords($this->activeEdgePool()) as $record) {
+            $records[] = $this->desired(
+                (string) $record['name'],
+                (string) $record['type'],
+                (int) $record['ttl'],
+                [(string) $record['content']],
+                'edge_network'
+            );
+        }
+        return $records;
     }
 
     public function validate(): array
@@ -111,7 +97,8 @@ class EdgeDnsService
         $pool = $this->activeEdgePool();
         $records = $this->buildEdgeRecords($pool);
         $state = Database::pdo()->query(
-            'SELECT effective_hash, synced_at FROM edge_dns_state WHERE id = 1 LIMIT 1'
+            "SELECT desired_hash, last_success_at FROM dns_sync_state
+             WHERE zone_name = '" . $this->baseDomain() . ".' LIMIT 1"
         )->fetch();
 
         return [
@@ -120,8 +107,8 @@ class EdgeDnsService
             'powerdns_enabled' => $this->powerDns->isEnabled(),
             'records' => $records,
             'warnings' => $pool['warnings'],
-            'effective_hash' => $state === false ? null : (string) $state['effective_hash'],
-            'synced_at' => $state === false ? null : (int) $state['synced_at'],
+            'effective_hash' => $state === false ? null : (string) $state['desired_hash'],
+            'synced_at' => $state === false ? null : (int) $state['last_success_at'],
         ];
     }
 
@@ -133,23 +120,20 @@ class EdgeDnsService
         return $this->powerDns->ensureZone($this->baseDomain());
     }
 
-    private function syncBootstrapRecords(): void
+    private function desired(string $name, string $type, int $ttl, array $contents, string $source): array
     {
-        if (!$this->powerDns->isEnabled()) {
-            return;
-        }
-
-        $ttl = $this->ttl();
-        $base = $this->baseDomain();
-        $this->powerDns->syncReplace($base, '@', 'SOA', $ttl, $this->records->soa($base));
-        $this->powerDns->syncReplaceMany($base, '@', 'NS', $ttl, $this->records->nameservers());
-
-        foreach (['CDNLITE_NS1_IP' => 'ns1', 'CDNLITE_NS2_IP' => 'ns2'] as $env => $name) {
-            $ip = trim((string) (getenv($env) ?: ''));
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-                $this->powerDns->syncReplace($base, $name, 'A', $ttl, $ip);
-            }
-        }
+        $zone = rtrim(strtolower($this->baseDomain()), '.') . '.';
+        $fqdn = $name === '@' ? $zone : strtolower($name) . '.' . $zone;
+        $rrset = [
+            'zone_name' => $zone,
+            'rrset_name' => $fqdn,
+            'rrset_type' => strtoupper($type),
+            'ttl' => $ttl,
+            'records' => array_values($contents),
+            'source' => $source,
+        ];
+        $rrset['desired_hash'] = hash('sha256', json_encode($rrset, JSON_UNESCAPED_SLASHES) ?: '[]');
+        return $rrset;
     }
 
     private function buildEdgeRecords(array $pool): array
@@ -314,23 +298,6 @@ class EdgeDnsService
         $value = strtolower(trim($value));
         $value = preg_replace('/[^a-z0-9-]/', '-', $value) ?? '';
         return trim($value, '-') ?: 'unknown';
-    }
-
-    private function lastHash(): ?string
-    {
-        $stmt = Database::pdo()->query('SELECT effective_hash FROM edge_dns_state WHERE id = 1 LIMIT 1');
-        $value = $stmt->fetchColumn();
-        return is_string($value) ? $value : null;
-    }
-
-    private function saveHash(string $hash): void
-    {
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO edge_dns_state (id, effective_hash, synced_at)
-             VALUES (1, :hash, :synced_at)
-             ON CONFLICT(id) DO UPDATE SET effective_hash = excluded.effective_hash, synced_at = excluded.synced_at'
-        );
-        $stmt->execute([':hash' => $hash, ':synced_at' => time()]);
     }
 
     private function baseDomain(): string

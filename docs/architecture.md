@@ -2,6 +2,17 @@
 
 CDNLite is split into a control plane, dashboard, data-plane edge, and agent loop.
 
+## DNS Reconciler
+
+Durable DNS publishing has one path. `DnsDesiredStateBuilder` projects Core state,
+`DnsReconciler` serializes runs with a PostgreSQL advisory lock, and `PowerDnsService`
+applies and verifies batched rrset changes. The persisted desired table is also the
+ownership ledger used to remove stale rrsets after records or domains are deleted.
+
+The Compose `dns-reconciler` service runs the same command used by mutation-triggered
+and operator-triggered syncs. ACME DNS-01 TXT records are deliberately excluded because
+they are short-lived challenge state rather than durable product DNS state.
+
 ## System Overview
 
 ```text

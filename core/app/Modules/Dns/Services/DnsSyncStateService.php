@@ -6,6 +6,23 @@ use App\Support\Database;
 
 class DnsSyncStateService
 {
+    public function markConverged(string $zone, array $rrsets, int $generationId): void
+    {
+        $zone = $this->zone($zone);
+        $hash = $this->hash($rrsets);
+        $now = time();
+        Database::pdo()->prepare(
+            "INSERT INTO dns_sync_state
+             (zone_name, desired_hash, applied_hash, generation_id, status, last_attempt_at,
+              last_success_at, pending_changes, in_progress, updated_at)
+             VALUES (:zone, :hash, :hash, :generation, 'ok', :now, :now, 0, false, :now)
+             ON CONFLICT (zone_name) DO UPDATE SET desired_hash = EXCLUDED.desired_hash,
+              applied_hash = EXCLUDED.applied_hash, generation_id = EXCLUDED.generation_id,
+              status = 'ok', last_attempt_at = EXCLUDED.last_attempt_at,
+              last_success_at = EXCLUDED.last_success_at, last_error = NULL,
+              pending_changes = 0, in_progress = false, updated_at = EXCLUDED.updated_at"
+        )->execute(['zone' => $zone, 'hash' => $hash, 'generation' => $generationId, 'now' => $now]);
+    }
     public function begin(string $zone, array $rrsets, string $action): string
     {
         $zone = $this->zone($zone);

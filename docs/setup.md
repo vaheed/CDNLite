@@ -63,16 +63,22 @@ docker compose exec core php artisan cdn:admin:create \
 
 ## Backend Setup
 
-The core image runs PHP from `core/public_index.php` and CLI commands from `core/artisan`. The database schema is in `core/database/schema.sql`, with migrations in `core/database/migrations/`.
+The core image runs PHP from `core/public_index.php` and CLI commands from `core/artisan`. Fresh installations apply the single canonical schema in `core/database/schema.sql`; upgrade migrations are intentionally unsupported.
 
 Useful commands:
 
 ```bash
 docker compose exec core php artisan cdn:migrate
+docker compose exec core php artisan cdn:dns:reconcile
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 ```
+
+`cdn:migrate` is retained as an informational fresh-install command; it does not apply
+historical upgrades. The canonical schema is applied automatically. Durable DNS state
+is reconciled after mutations and by the `dns-reconciler` service every
+`CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
 Fresh local reset:
 
@@ -80,6 +86,10 @@ Fresh local reset:
 docker compose down -v
 docker compose up -d --build
 ```
+
+The root Compose topology does not assign registry tags to locally built CDNLite
+services. Core, schedulers, Edge, and the Edge agent are built from the currently
+checked-out branch and use Compose project-scoped image names.
 
 ## Frontend Setup
 

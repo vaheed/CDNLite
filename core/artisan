@@ -106,6 +106,7 @@ $runner->register('cdn:settings:test-powerdns', new CdnSettingsTestPowerDnsComma
 $runner->register('cdn:powerdns:doctor', new CdnPowerDnsDoctorCommand());
 $runner->register('cdn:powerdns:dry-run', new CdnPowerDnsDryRunCommand());
 $runner->register('cdn:powerdns:force-sync', new CdnPowerDnsForceSyncCommand());
+$runner->register('cdn:dns:reconcile', new \App\Console\Commands\CdnDnsReconcileCommand());
 $runner->register('cdn:readiness:check', new CdnReadinessCheckCommand());
 $runner->register('cdn:redirect:create', new CdnRedirectCreateCommand());
 $runner->register('cdn:redirect:list', new CdnRedirectListCommand());

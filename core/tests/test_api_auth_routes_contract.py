@@ -30,7 +30,7 @@ $username = getenv('DB_USERNAME') ?: 'cdnlite';
 $password = getenv('DB_PASSWORD') ?: 'cdnlite';
 $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$tables = ['usage_aggregates','usage_ingest_keys','usage_rollups','edge_request_nonces','edge_tokens','edge_dns_state','edge_nodes','dns_records','domains','config_snapshots','config_state'];
+$tables = ['usage_aggregates','usage_ingest_keys','usage_rollups','edge_request_nonces','edge_tokens','desired_dns_rrsets','dns_desired_generations','edge_nodes','dns_records','domains','config_snapshots','config_state'];
 $existing = [];
 foreach ($tables as $table) {
   if ($pdo->query("SELECT to_regclass('public." . $table . "')")->fetchColumn()) {

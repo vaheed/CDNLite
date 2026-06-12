@@ -10,12 +10,10 @@ def read(path: str) -> str:
 
 def test_origin_port_removed_and_rejected():
     schema = read("core/database/schema.sql")
-    migration = read("core/database/migrations/022_dns_record_origins.sql")
     domains = read("core/app/Modules/Domains/Http/Controllers/DomainController.php")
     dns = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
 
     assert "origin_port INTEGER" not in schema
-    assert "DROP COLUMN IF EXISTS origin_port" in migration
     assert "origin_port_not_supported" in domains
     assert "origin_port_not_supported" in dns
 
@@ -45,9 +43,7 @@ def test_https_first_fallback_and_tls_verification_modes():
     assert "return 'http://' .. origin.host .. ':80'" in selector
 
 
-def test_legacy_origin_is_migrated_to_dns_record():
-    migration = read("core/database/migrations/022_dns_record_origins.sql")
-
-    assert "SET origin_host = d.origin_host" in migration
-    assert "geo_origins_json = d.geo_origins_json" in migration
-    assert "CASE WHEN r2.name = '@' THEN 0 ELSE 1 END" in migration
+def test_fresh_install_does_not_include_legacy_origin_upgrade_sql():
+    assert not (ROOT / "core/database/migrations").exists() or not list(
+        (ROOT / "core/database/migrations").glob("*.sql")
+    )

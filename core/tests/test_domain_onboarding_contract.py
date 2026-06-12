@@ -29,10 +29,10 @@ def test_dashboard_has_four_step_onboarding_wizard():
     assert "<AddDomainWizard" in domains
 
 
-def test_lazy_zone_provisioning_audits_defined_before_and_after_states():
+def test_domain_updates_audit_defined_before_and_after_states():
     service = (ROOT / "core/app/Modules/Domains/Services/DomainService.php").read_text()
 
-    assert "AuditLog::write('domain.update', 'domain', $domainId, $domainId, $domain, $updated);" in service
+    assert "AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);" in service
     ensure_zone_ready = service.split("public function ensureZoneReady", 1)[1].split("public function update", 1)[0]
     assert "$existing" not in ensure_zone_ready
 

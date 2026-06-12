@@ -21,7 +21,7 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | --- | --- | --- |
 | Phase 0 - DNSGeo import and no-profile Compose | DONE | DNSGeo runtime, PostgreSQL, MMDB updater, Recursor, authoritative PowerDNS, and Poweradmin run healthy in the default root Compose topology; real API writes and ALIAS expansion were verified. |
 | Phase 1 - real and verified PowerDNS writes | DONE | Real writes use retries and read-back verification; every write persists per-zone state and events, `/cdn-health` exposes API/sync status, and doctor/dry-run/force-sync commands are available. Core e2e and the bundled PowerDNS checks validate real records. |
-| Phase 2 - desired-state reconciler | PENDING | Core still performs immediate writes from multiple services. |
+| Phase 2 - desired-state reconciler | DONE | Customer, domain, edge, scheduled, bootstrap, and operator triggers use one advisory-locked desired-state reconciler with batched writes and stale owned-rrset deletion. |
 | Phase 3 - edge state and shared proxy record | PENDING | Existing edge DNS behavior has not been converted to the roadmap shared proxy model. |
 | Phase 4 - apex ALIAS and subdomain CNAME | PARTIAL | Existing planner supports ALIAS/CNAME concepts, but the full stable site target and shared proxy model is not implemented or proven against real PowerDNS. |
 | Phase 5 - admin and user UI | PENDING | Roadmap-specific DNS status and effective-record UI is not implemented. |
@@ -29,6 +29,61 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - branch-local Compose images
+
+Completed:
+
+```text
+- removed explicit :dev application image tags from the root Compose topology
+- made locally built CDNLite services use the current checkout build context
+- documented project-scoped local image behavior
+```
+
+Validation:
+
+```text
+- docker compose config --quiet passed
+- no :dev image references remain in Compose configuration
+```
+
+Remaining gaps:
+
+```text
+- release deployment Compose files continue to use published :latest images by design
+```
+
+#### 2026-06-13 - Phase 2 desired-state reconciler
+
+Completed:
+
+```text
+- added persisted DNS desired generations and CDNLite-owned desired rrsets
+- added one PostgreSQL advisory-locked reconciler for event, scheduled, bootstrap, and forced sync
+- changed customer, domain, edge, and anycast mutations to invoke the same reconciler
+- batched PowerDNS PATCH operations per zone and deleted stale previously-owned rrsets
+- added no-op live-zone comparison and converged sync-state persistence
+- added the default dns-reconciler Compose scheduler
+- removed the historical migration chain and made the canonical schema fresh-install only
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed
+- docker compose config --quiet passed
+- complete Core test suite: 131 passed
+- canonical schema executed successfully on a clean PostgreSQL database
+- git diff --check passed
+```
+
+Remaining gaps:
+
+```text
+- ACME DNS-01 remains an intentionally ephemeral direct PowerDNS write and is not desired state
+- Phase 3 must replace the existing per-record edge target model with one shared proxy hostname
+- live Compose PowerDNS reconciliation and stale-delete checks remain in Phase 6 e2e expansion
+```
 
 #### 2026-06-13 - Phase 1 PowerDNS observability and operations
 

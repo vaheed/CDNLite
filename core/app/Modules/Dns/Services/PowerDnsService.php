@@ -47,7 +47,7 @@ class PowerDnsService
         ];
     }
 
-    public function syncReplace(string $zoneDomain, string $name, string $type, int $ttl, string $content): array
+    public function putEphemeralRecord(string $zoneDomain, string $name, string $type, int $ttl, string $content): array
     {
         $fqdn = $this->toFqdn($name, $zoneDomain);
         $zoneId = $this->zoneId($zoneDomain);
@@ -67,39 +67,7 @@ class PowerDnsService
         return $this->patchZone($zoneId, $payload);
     }
 
-    public function syncReplaceMany(string $zoneDomain, string $name, string $type, int $ttl, array $contents): array
-    {
-        $fqdn = $this->toFqdn($name, $zoneDomain);
-        $zoneId = $this->zoneId($zoneDomain);
-
-        $records = [];
-        foreach ($contents as $content) {
-            if (!is_string($content) || trim($content) === '') {
-                continue;
-            }
-            $records[] = [
-                'content' => $this->normalizeContent($type, $content),
-                'disabled' => false,
-            ];
-        }
-        if ($records === []) {
-            return ['ok' => false, 'error' => 'powerdns_records_empty', 'status' => 0, 'response' => ''];
-        }
-
-        $payload = [
-            'rrsets' => [[
-                'name' => $fqdn,
-                'type' => strtoupper($type),
-                'ttl' => $ttl,
-                'changetype' => 'REPLACE',
-                'records' => $records,
-            ]],
-        ];
-
-        return $this->patchZone($zoneId, $payload);
-    }
-
-    public function syncDelete(string $zoneDomain, string $name, string $type): array
+    public function deleteEphemeralRecord(string $zoneDomain, string $name, string $type): array
     {
         $fqdn = $this->toFqdn($name, $zoneDomain);
         $zoneId = $this->zoneId($zoneDomain);

@@ -24,7 +24,6 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     routes = (ROOT / "core/public_index.php").read_text()
     service = (ROOT / "core/app/Modules/Proxy/Services/ConfigService.php").read_text()
     schema = (ROOT / "core/database/schema.sql").read_text()
-    migration = (ROOT / "core/database/migrations/027_config_snapshot_activation.sql").read_text()
 
     for route in (
         "/api/v1/config/snapshots",
@@ -34,7 +33,7 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
         "/api/v1/config/snapshots/rebuild",
     ):
         assert route in routes
-    assert "active_snapshot_version" in schema and "active_snapshot_version" in migration
+    assert "active_snapshot_version" in schema
     assert "public function diff" in service
     assert "public function rollback" in service
     assert "public function rebuild" in service

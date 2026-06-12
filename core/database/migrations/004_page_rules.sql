@@ -1,2 +1,0 @@
--- Reserved for Stage 7+ page rules.
--- Intentionally no-op in Stage 5.

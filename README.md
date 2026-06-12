@@ -1,5 +1,19 @@
 # CDNLite
 
+CDNLite uses a fresh-install-only database model. `core/database/schema.sql` is the
+authoritative schema and no historical upgrade migrations are shipped.
+
+Durable customer and edge DNS records converge through one desired-state path:
+
+```bash
+docker compose exec core php artisan cdn:dns:reconcile
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
+```
+
+The default `dns-reconciler` service runs the same path every
+`CDNLITE_SYNC_INTERVAL_SECONDS` seconds.
+
 [![CI](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)

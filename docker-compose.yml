@@ -20,7 +20,6 @@ services:
     build:
       context: ./core
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,7 +87,6 @@ services:
       retries: 60
 
   ssl-scheduler:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     build:
       context: ./core
       dockerfile: Dockerfile
@@ -111,7 +109,6 @@ services:
     restart: unless-stopped
 
   origin-health-scheduler:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     build:
       context: ./core
       dockerfile: Dockerfile
@@ -128,11 +125,30 @@ services:
     command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
     restart: unless-stopped
 
+  dns-reconciler:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pdns-auth:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-cdnlite}
+      DB_USERNAME: ${DB_USERNAME:-cdnlite}
+      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+      CDNLITE_SYNC_INTERVAL_SECONDS: ${CDNLITE_SYNC_INTERVAL_SECONDS:-30}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'dns reconciler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:dns:reconcile || true; sleep \"$${CDNLITE_SYNC_INTERVAL_SECONDS:-30}\"; done"]
+    restart: unless-stopped
+
   edge:
     build:
       context: ./edge
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge:dev
     depends_on:
       - core
     volumes:
@@ -159,7 +175,6 @@ services:
     build:
       context: ./edge
       dockerfile: agent/Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge-agent:dev
     depends_on:
       - core
     environment:

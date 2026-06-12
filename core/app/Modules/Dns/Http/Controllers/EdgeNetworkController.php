@@ -2,7 +2,7 @@
 
 namespace App\Modules\Dns\Http\Controllers;
 
-use App\Modules\Dns\Services\EdgeDnsService;
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\GeoRoutingService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 
@@ -38,7 +38,7 @@ class EdgeNetworkController
             }
         }
         $group = $this->settings->patch('platform.edge_dns', $values, $actor);
-        (new EdgeDnsService())->sync(true);
+        (new DnsReconciler())->reconcile(true);
         return ['data' => $this->anycastPayload($group['values'])];
     }
 

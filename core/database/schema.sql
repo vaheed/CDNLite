@@ -165,17 +165,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS domain_origins_one_primary_idx
   ON domain_origins (domain_id)
   WHERE is_primary = true;
 
-CREATE TABLE IF NOT EXISTS edge_dns_state (
-  id SMALLINT PRIMARY KEY,
-  effective_hash TEXT NOT NULL,
-  synced_at BIGINT NOT NULL,
-  CONSTRAINT edge_dns_state_singleton CHECK (id = 1)
+CREATE TABLE IF NOT EXISTS dns_desired_generations (
+  id BIGSERIAL PRIMARY KEY,
+  desired_hash TEXT NOT NULL UNIQUE,
+  created_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS desired_dns_rrsets (
+  id BIGSERIAL PRIMARY KEY,
+  zone_name TEXT NOT NULL,
+  rrset_name TEXT NOT NULL,
+  rrset_type TEXT NOT NULL,
+  ttl INTEGER NOT NULL,
+  records_json JSONB NOT NULL,
+  owner TEXT NOT NULL DEFAULT 'cdnlite',
+  source TEXT NOT NULL,
+  generation_id BIGINT NOT NULL REFERENCES dns_desired_generations(id),
+  desired_hash TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  UNIQUE(zone_name, rrset_name, rrset_type, owner)
 );
 
 CREATE TABLE IF NOT EXISTS dns_sync_state (
   zone_name TEXT PRIMARY KEY,
   desired_hash TEXT NULL,
   applied_hash TEXT NULL,
+  generation_id BIGINT NULL REFERENCES dns_desired_generations(id),
   status TEXT NOT NULL DEFAULT 'unknown',
   last_attempt_at BIGINT NULL,
   last_success_at BIGINT NULL,
@@ -198,69 +214,12 @@ CREATE TABLE IF NOT EXISTS dns_sync_events (
   error TEXT NULL,
   desired_hash TEXT NULL,
   applied_hash TEXT NULL,
+  generation_id BIGINT NULL REFERENCES dns_desired_generations(id),
   created_at BIGINT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_dns_sync_events_zone_created
   ON dns_sync_events(zone_name, created_at DESC);
-
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_policy_id TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS edge_target TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_type TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_content TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_type TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS public_content TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_host TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_tls_verify TEXT NOT NULL DEFAULT 'verify';
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_scheme TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_status TEXT NOT NULL DEFAULT 'pending';
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_origins_json TEXT NULL;
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS routing_policy TEXT NOT NULL DEFAULT 'standard';
-ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS canonical_edge_hostname TEXT NULL;
-
-INSERT INTO domain_origins (
-  id, domain_id, scheme, host, port, is_primary, health_check_path,
-  health_check_interval_seconds, health_check_timeout_seconds,
-  health_status, last_check_at, last_error, enabled, created_at, updated_at
-)
-SELECT DISTINCT ON (r.domain_id)
-  'origin-' || r.domain_id || '-' || r.id,
-  r.domain_id,
-  COALESCE(NULLIF(r.origin_scheme, ''), 'http'),
-  COALESCE(NULLIF(r.origin_host, ''), NULLIF(r.origin_content, ''), r.content),
-  CASE COALESCE(NULLIF(r.origin_scheme, ''), 'http') WHEN 'https' THEN 443 ELSE 80 END,
-  true,
-  '/',
-  30,
-  5,
-  'unknown',
-  NULL,
-  NULL,
-  true,
-  COALESCE(r.created_at, EXTRACT(EPOCH FROM NOW())::bigint),
-  COALESCE(r.updated_at, EXTRACT(EPOCH FROM NOW())::bigint)
-FROM dns_records r
-WHERE r.proxied = true
-  AND COALESCE(NULLIF(r.origin_host, ''), NULLIF(r.origin_content, ''), r.content) IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM domain_origins o WHERE o.domain_id = r.domain_id AND o.is_primary = true)
-ORDER BY r.domain_id, (r.name='@') DESC, r.created_at ASC;
-
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv4 TEXT NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS public_ipv6 TEXT NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS country TEXT NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS continent TEXT NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS is_enabled BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS last_heartbeat_at BIGINT NULL;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS health_status TEXT NOT NULL DEFAULT 'unknown';
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 100;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 100;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS geo_enabled BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS anycast_enabled BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS proxy_enabled BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS dns_enabled BOOLEAN NOT NULL DEFAULT true;
-ALTER TABLE edge_nodes ADD COLUMN IF NOT EXISTS cache_enabled BOOLEAN NOT NULL DEFAULT true;
 
 CREATE TABLE IF NOT EXISTS edge_tokens (
   edge_id TEXT PRIMARY KEY,

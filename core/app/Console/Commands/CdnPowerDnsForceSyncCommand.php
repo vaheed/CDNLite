@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Dns\Services\DnsService;
-use App\Modules\Dns\Services\EdgeDnsService;
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Support\CommandIO;
 
 class CdnPowerDnsForceSyncCommand
@@ -11,10 +10,9 @@ class CdnPowerDnsForceSyncCommand
     public function __invoke(array $argv): int
     {
         try {
-            $customer = (new DnsService())->rebuildCustomerZones();
-            $edge = (new EdgeDnsService())->sync(true);
-            CommandIO::printJson(['data' => ['customer' => $customer, 'edge' => $edge]]);
-            return (($customer['ok'] ?? false) && ($edge['ok'] ?? false)) ? 0 : 1;
+            $result = (new DnsReconciler())->reconcile(true);
+            CommandIO::printJson(['data' => $result]);
+            return ($result['ok'] ?? false) ? 0 : 1;
         } catch (\Throwable $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);
             return 1;

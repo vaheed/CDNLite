@@ -89,7 +89,7 @@ class AcmeIssuerService
         $keyAuthorization = $token . '.' . $account['thumbprint'];
         $txtValue = $this->b64(hash('sha256', $keyAuthorization, true));
         $name = $this->challengeRecordName($identifier, $zoneDomain);
-        $dns = $this->powerDns->syncReplace($zoneDomain, $name, 'TXT', 60, $txtValue);
+        $dns = $this->powerDns->putEphemeralRecord($zoneDomain, $name, 'TXT', 60, $txtValue);
         if (($dns['ok'] ?? false) !== true) {
             throw new \RuntimeException((string) ($dns['error'] ?? 'powerdns_challenge_sync_failed'));
         }
@@ -101,7 +101,7 @@ class AcmeIssuerService
 
         $this->signedPost((string) $challenge['url'], new \stdClass(), $account);
         $this->pollAuthorization($authUrl, $account);
-        $this->powerDns->syncDelete($zoneDomain, $name, 'TXT');
+        $this->powerDns->deleteEphemeralRecord($zoneDomain, $name, 'TXT');
     }
 
     private function pollAuthorization(string $url, array $account): void
