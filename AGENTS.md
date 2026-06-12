@@ -24,6 +24,12 @@ Agents must preserve these product goals:
 ## Change Discipline
 
 * Treat code, tests, docs, examples, Compose, and CI as one product surface.
+* After every change that implements, advances, blocks, or changes the scope of
+  roadmap work, update the progress section in `docs/ROADMAP.md` in the same
+  change.
+* Roadmap progress entries must state the date, completed work, validation run,
+  remaining gaps, and must not mark a phase complete before all acceptance
+  criteria for that phase have passed.
 * Any behavior change must include matching tests or CI checks.
 * If a test is not practical, document the reason in the final handoff.
 * Any user-visible behavior, command, endpoint, config, environment variable, script flow, or operational behavior change must update the relevant docs in the same change.

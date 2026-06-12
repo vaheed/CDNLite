@@ -32,6 +32,11 @@ Customer Origins
 | Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
 | CI and mocks | Bash, Python, Docker Compose | Smoke/e2e validation, origin mocks, PowerDNS mock. |
 
+Core treats a PowerDNS PATCH as successful only after an optional zone
+read-back confirms the requested replacement or deletion. Retryable transport,
+rate-limit, and server failures use bounded exponential backoff; invalid 4xx
+requests are returned immediately.
+
 ## Request Flow
 
 ```text

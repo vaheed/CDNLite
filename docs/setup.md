@@ -143,6 +143,13 @@ Dashboard variables:
 
 ## PowerDNS Mock
 
+PowerDNS writes are verified by reading the affected zone back after each
+successful PATCH. Temporary connection failures, HTTP 429 responses, and HTTP
+5xx responses are retried with exponential backoff. Configure this behavior
+with `CDNLITE_POWERDNS_VERIFY_AFTER_WRITE`,
+`CDNLITE_POWERDNS_RETRIES`, `CDNLITE_POWERDNS_RETRY_SLEEP_MS`, and
+`CDNLITE_POWERDNS_TIMEOUT_SECONDS`.
+
 Run the optional profile when DNS publishing behavior needs to be validated:
 
 ```bash

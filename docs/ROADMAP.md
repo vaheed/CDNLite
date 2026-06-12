@@ -2,6 +2,76 @@
 
 ---
 
+## Progress
+
+Last updated: 2026-06-13
+
+Status legend:
+
+```text
+DONE       implemented and validated for the stated scope
+PARTIAL    implementation has started but phase acceptance is not complete
+PENDING    not started
+BLOCKED    cannot proceed until the documented dependency is resolved
+```
+
+### Phase status
+
+| Phase | Status | Current progress |
+| --- | --- | --- |
+| Phase 0 - DNSGeo import and no-profile Compose | PENDING | Root Compose still uses the Python PowerDNS mock behind a `powerdns` profile. |
+| Phase 1 - real and verified PowerDNS writes | PARTIAL | Existing real HTTP writes now have bounded retries, exponential backoff, request IDs, hostname normalization, and optional zone read-back verification. Sync state/events, health details, doctor/dry-run/force-sync commands, and real PowerDNS integration validation remain. |
+| Phase 2 - desired-state reconciler | PENDING | Core still performs immediate writes from multiple services. |
+| Phase 3 - edge state and shared proxy record | PENDING | Existing edge DNS behavior has not been converted to the roadmap shared proxy model. |
+| Phase 4 - apex ALIAS and subdomain CNAME | PARTIAL | Existing planner supports ALIAS/CNAME concepts, but the full stable site target and shared proxy model is not implemented or proven against real PowerDNS. |
+| Phase 5 - admin and user UI | PENDING | Roadmap-specific DNS status and effective-record UI is not implemented. |
+| Phase 6 - tests/e2e/smoke | PARTIAL | Core contract coverage exists for the hardened client; real DNSGeo/PowerDNS, dig, failure-mode, and frontend smoke coverage remain. |
+| Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
+
+### Completed increments
+
+#### 2026-06-13 - PowerDNS client hardening
+
+Completed:
+
+```text
+- retry connection failures, HTTP 429, and HTTP 5xx with bounded exponential backoff
+- add a correlation request ID to PowerDNS requests
+- normalize ALIAS, CNAME, MX, NS, and PTR hostname content as FQDNs
+- optionally verify replacements and deletions by reading the zone back
+- add settings and environment controls for verification, retries, delay, and timeout
+- add focused Core contract tests
+- document retry and verification behavior
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed
+- focused PowerDNS/settings/readiness tests: 11 passed
+- complete Core test suite: 123 passed
+- git diff --check passed
+```
+
+Not yet validated:
+
+```text
+- root Compose smoke/e2e
+- real PowerDNS or DNSGeo API writes
+- ALIAS expansion through a recursive resolver
+- production stress tests
+```
+
+Next priority:
+
+```text
+Replace the profiled Python mock in the normal root Compose topology with the
+project DNSGeo/PowerDNS stack, including PostgreSQL, resolver, ALIAS support,
+health checks, and real API/dig validation.
+```
+
+---
+
 ## 0. Final target behavior
 
 When CDNLite is fixed, this must be true:
@@ -1288,4 +1358,3 @@ This roadmap is done only when all are true:
 - PowerDNS Lua records: https://doc.powerdns.com/authoritative/lua-records/
 - PowerDNS Lua functions: https://doc.powerdns.com/authoritative/lua-records/functions.html
 - PowerDNS HTTP Zone API: https://doc.powerdns.com/authoritative/http-api/zone.html
-

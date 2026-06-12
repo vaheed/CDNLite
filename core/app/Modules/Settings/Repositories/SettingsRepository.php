@@ -17,6 +17,10 @@ class SettingsRepository
             'api_key' => ['type' => 'string', 'default' => '', 'secret' => true, 'description' => 'PowerDNS API key.'],
             'server_id' => ['type' => 'string', 'default' => 'localhost', 'description' => 'PowerDNS server identifier.'],
             'zone_kind' => ['type' => 'string', 'default' => 'NATIVE', 'description' => 'PowerDNS zone kind.'],
+            'verify_after_write' => ['env' => 'CDNLITE_POWERDNS_VERIFY_AFTER_WRITE', 'type' => 'bool', 'default' => true, 'description' => 'Read the zone back after writes and verify the requested RRsets.'],
+            'retries' => ['env' => 'CDNLITE_POWERDNS_RETRIES', 'type' => 'int', 'default' => 3, 'description' => 'Retries for connection failures, HTTP 429, and HTTP 5xx.'],
+            'retry_sleep_ms' => ['env' => 'CDNLITE_POWERDNS_RETRY_SLEEP_MS', 'type' => 'int', 'default' => 250, 'description' => 'Initial retry delay in milliseconds.'],
+            'timeout_seconds' => ['env' => 'CDNLITE_POWERDNS_TIMEOUT_SECONDS', 'type' => 'int', 'default' => 10, 'description' => 'PowerDNS HTTP request timeout in seconds.'],
         ],
         'platform.nameservers' => [
             'hostnames' => ['type' => 'list', 'default' => ['ns1.local.', 'ns2.local.'], 'description' => 'Authoritative nameserver hostnames.'],
