@@ -19,7 +19,7 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 | Phase | Status | Current progress |
 | --- | --- | --- |
-| Phase 0 - DNSGeo import and no-profile Compose | PENDING | Root Compose still uses the Python PowerDNS mock behind a `powerdns` profile. |
+| Phase 0 - DNSGeo import and no-profile Compose | DONE | DNSGeo runtime, PostgreSQL, MMDB updater, Recursor, authoritative PowerDNS, and Poweradmin run healthy in the default root Compose topology; real API writes and ALIAS expansion were verified. |
 | Phase 1 - real and verified PowerDNS writes | PARTIAL | Existing real HTTP writes now have bounded retries, exponential backoff, request IDs, hostname normalization, and optional zone read-back verification. Sync state/events, health details, doctor/dry-run/force-sync commands, and real PowerDNS integration validation remain. |
 | Phase 2 - desired-state reconciler | PENDING | Core still performs immediate writes from multiple services. |
 | Phase 3 - edge state and shared proxy record | PENDING | Existing edge DNS behavior has not been converted to the roadmap shared proxy model. |
@@ -29,6 +29,72 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - CDNLite DNS runtime cleanup and CI contract
+
+Completed:
+
+```text
+- removed imported seed-zone and example Lua configuration from Compose and SQL initialization
+- retained the required reserved .invalid GeoIP bootstrap zone and MMDB update runtime
+- retained TLS/SCRAM PostgreSQL replication roles, WAL configuration, certificates, and replica image
+- personalized every DNS runtime Dockerfile with CDNLite labels and entrypoint names
+- changed GitHub Actions to lint every DNS script and install the dig client
+- made CI create, write, resolve, and delete an isolated real PowerDNS zone
+- added deployment contract tests for GeoIP, replication, image ownership, and CI behavior
+```
+
+Validation:
+
+```text
+- implementation validation is recorded after the current checks complete
+```
+
+Remaining gaps:
+
+```text
+- the optional PostgreSQL replica is not started in the default single-primary Compose topology
+- Phase 1 persisted sync state and reconciliation work remains
+```
+
+#### 2026-06-13 - DNSGeo default Compose topology
+
+Completed:
+
+```text
+- vendored the DNSGeo PostgreSQL, PowerDNS, MMDB, and Poweradmin runtime under infra/dnsgeo
+- replaced the profiled Python mock with default pdns-postgres, pdns-db-init,
+  pdns-mmdb-updater, pdns-recursor, pdns-auth, and poweradmin services
+- enabled Lua records, EDNS Client Subnet, expand-alias, and a separate Recursor
+- bound the PowerDNS API and Poweradmin to loopback by default
+- wired CI to the bundled service while keeping operational credentials database-backed in Core
+- changed CI and smoke checks to use the root Compose topology and real API/dig checks
+- removed the obsolete Python PowerDNS mock
+- documented DNSGeo topology, configuration, security, MMDB, and ALIAS behavior
+```
+
+Validation:
+
+```text
+- docker compose config --quiet passed
+- DNS service images built successfully
+- complete root docker compose topology started with all long-running services healthy
+- real PowerDNS API created PostgreSQL-backed test zones and ALIAS rrsets
+- dig returned the same 192.0.2.44 answer for the ALIAS apex and CDN target
+- Poweradmin, MMDB updater, Recursor, Authoritative, and DNS PostgreSQL health checks passed
+- complete Core test suite: 123 passed
+- imported and new shell scripts passed syntax checks
+- PHP syntax lint passed
+- docker compose config --quiet and git diff --check passed
+- no operational Compose profile or Python PowerDNS mock references remain
+```
+
+Remaining gaps:
+
+```text
+- Phase 1 doctor/dry-run/force-sync commands and persisted sync status remain
+- Phase 6 must move the manual ALIAS proof into the automated e2e path
+```
 
 #### 2026-06-13 - PowerDNS client hardening
 

@@ -54,7 +54,7 @@ The dashboard admin model is simple. It does not implement fine-grained RBAC, pe
 | API auth can be disabled by empty `CDNLITE_API_TOKEN`. | Treat empty token as local-only; fail production readiness if missing. |
 | Browser-built assets can expose Vite values. | Avoid secret `VITE_*` values. |
 | Edge config contains routing and origin details. | Restrict filesystem and container access to operators. |
-| Live DNS and ACME integrations mutate external services. | Use the PowerDNS mock and staging ACME directory in tests. |
+| Live DNS and ACME integrations mutate external services. | Use the bundled isolated PowerDNS stack and staging ACME directory in tests. |
 
 ## Reporting Security Issues
 

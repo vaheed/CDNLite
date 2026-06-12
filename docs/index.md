@@ -35,7 +35,7 @@ CDNLite lets operators register domains, manage DNS records, define origins, con
 - SSL automation, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
 - Edge registration, heartbeat, config polling, usage ingest, and security-event ingest with HMAC replay protection.
 - Vue dashboard for operations, domain management, edge status, analytics, events, audit logs, settings, and optional edge developer tools.
-- Docker Compose stack with PostgreSQL, core, edge, edge agent, dashboard, origin mocks, and optional PowerDNS mock.
+- Docker Compose stack with PostgreSQL, core, edge, edge agent, dashboard, origin mocks, and bundled DNSGeo/PowerDNS.
 
 ## Repository Map
 
@@ -45,7 +45,7 @@ CDNLite lets operators register domains, manage DNS records, define origins, con
 | `dash/` | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, and ECharts dashboard. |
 | `edge/openresty/` | OpenResty Nginx config and Lua runtime modules. |
 | `edge/agent/` | POSIX shell agent that signs edge calls and syncs config/metrics/events. |
-| `ci/` | Bash smoke/e2e scripts, origin mocks, and PowerDNS mock server. |
+| `ci/` | Bash smoke/e2e scripts and controlled origin services. |
 | `docs/` | GitHub Pages-compatible documentation. |
 
 ## Fast Path

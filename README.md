@@ -23,7 +23,7 @@ CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL datab
 ## Features
 
 - Domain lifecycle, nameserver verification, activation, and deletion.
-- DNS records with proxy toggles, anycast, DNS-only mode, Geo DNS routes, and optional PowerDNS publishing.
+- DNS records with proxy toggles, anycast, DNS-only mode, GeoDNS routes, and bundled DNSGeo/PowerDNS publishing.
 - Origin management with primary/backup origins and scheduled health checks.
 - Cache settings, cache rules, purge workflows, and cache analytics.
 - Redirects, page rules, WAF rules, rate limits, response headers, and IP access rules.

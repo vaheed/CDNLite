@@ -197,17 +197,6 @@ services:
     ports:
       - "${DASHBOARD_PORT}:80"
 
-  powerdns:
-    image: powerdns/pdns-auth-49
-    profiles: ["powerdns"]
-    restart: unless-stopped
-    environment:
-      PDNS_API_KEY: ${PDNS_API_KEY}
-    ports:
-      - "${PDNS_DNS_PORT}:53/udp"
-      - "${PDNS_DNS_PORT}:53/tcp"
-      - "${PDNS_API_PORT}:8081/tcp"
-
 networks:
   cdnlite-internal:
     driver: bridge

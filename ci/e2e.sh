@@ -9,7 +9,7 @@ EDGE_URL="${EDGE_URL:-http://localhost:${EDGE_HOST_PORT:-8081}}"
 DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8082}}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
 POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
-POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
+PDNS_API_KEY="${PDNS_API_KEY:-test-key}"
 EDGE_ID="${EDGE_ID:-edge-local-1}"
 EDGE_TOKEN="${EDGE_TOKEN:-edge-dev-token}"
 EDGE_TLS_URL="${EDGE_TLS_URL:-https://localhost:${EDGE_TLS_HOST_PORT:-8443}}"
@@ -18,7 +18,7 @@ CI_ENV_NAME="${CI_ENV_NAME:-e2e}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin-e2e}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin-e2e-password-12345}"
 ADMIN_SESSION_TOKEN=""
-export CORE_URL EDGE_URL DASHBOARD_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME ADMIN_SESSION_TOKEN
+export CORE_URL EDGE_URL DASHBOARD_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL PDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME ADMIN_SESSION_TOKEN
 
 RUN_KEY="${GITHUB_RUN_ID:-local}-$RANDOM"
 TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
@@ -45,7 +45,7 @@ on_error() {
   fi
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-recursor pdns-auth poweradmin; do
     if compose_has_service "$svc"; then
       echo "----- ${svc} (tail 200) -----"
       docker compose logs --no-color --tail=200 "$svc" || true
@@ -259,13 +259,13 @@ record_step PASS "admin-login" "admin session established"
 
 powerdns_enabled=false
 powerdns_strict=false
-[[ "${POWERDNS_ENABLED:-0}" == "1" ]] && powerdns_enabled=true
-[[ "${POWERDNS_STRICT:-0}" == "1" ]] && powerdns_strict=true
+[[ "${POWERDNS_ENABLED:-1}" == "1" ]] && powerdns_enabled=true
+[[ "${POWERDNS_STRICT:-1}" == "1" ]] && powerdns_strict=true
 settings_code="$(curl -sS -o /tmp/e2e-powerdns-settings.json -w '%{http_code}' \
   -X PATCH "${CORE_URL}/api/v1/settings/platform.powerdns" \
   -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
   -H 'Content-Type: application/json' \
-  -d "{\"values\":{\"enabled\":${powerdns_enabled},\"strict\":${powerdns_strict},\"api_url\":\"http://powerdns:8081\",\"api_key\":\"${POWERDNS_API_KEY}\",\"server_id\":\"localhost\"}}")"
+    -d "{\"values\":{\"enabled\":${powerdns_enabled},\"strict\":${powerdns_strict},\"api_url\":\"http://pdns-auth:8081\",\"api_key\":\"${PDNS_API_KEY}\",\"server_id\":\"localhost\"}}")"
 assert_eq "$settings_code" "200" "PowerDNS settings update should return 200"
 assert_contains "$(cat /tmp/e2e-powerdns-settings.json)" '"api_key":{"configured":true' "PowerDNS secret should be masked"
 record_step PASS "platform-settings" "PowerDNS configured through settings API"
@@ -547,13 +547,14 @@ assert_http_status "$HTTP_CODE" "200" "dns delete failed"
 DNS_IDS[3]=""
 record_step PASS "dns-delete-one" "deleted id=${del_id}"
 
-# PowerDNS sync checks (mock service from the Compose powerdns profile)
-if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
-  retry 20 1 curl -fsS "${POWERDNS_PUBLIC_API_URL}/health" >/dev/null
+# PowerDNS sync checks against the real DNSGeo/PowerDNS service.
+if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
+  retry 20 1 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
+    "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost" >/dev/null
   zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
   assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
   assert_contains "$zone_json" "\"type\":\"A\"" "pdns missing flattened proxied apex A record"
-  record_step PASS "powerdns-sync-positive" "records present in pdns mock"
+  record_step PASS "powerdns-sync-positive" "records present in real PowerDNS"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
     -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \

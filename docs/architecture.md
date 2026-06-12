@@ -10,7 +10,7 @@ Operator Browser
       v
 Vue Dashboard -----> Core PHP API -----> PostgreSQL
       |                    |
-      |                    +----> PowerDNS API or local mock
+      |                    +----> DNSGeo PowerDNS API
       |                    |
       |                    +----> Config snapshots
       |
@@ -30,7 +30,7 @@ Customer Origins
 | Dashboard | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, ECharts | Browser admin console. |
 | Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |
 | Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
-| CI and mocks | Bash, Python, Docker Compose | Smoke/e2e validation, origin mocks, PowerDNS mock. |
+| CI and controlled services | Bash, Docker Compose | Smoke/e2e validation, origin services, real DNSGeo/PowerDNS. |
 
 Core treats a PowerDNS PATCH as successful only after an optional zone
 read-back confirms the requested replacement or deletion. Retryable transport,
@@ -87,10 +87,13 @@ edge-agent
 dashboard
 origin-http
 origin-tls
-powerdns profile
+pdns-postgres -> pdns-db-init -> pdns-auth
+pdns-mmdb-updater ------------^
+pdns-recursor ----------------^
+poweradmin -------------------^
 ```
 
-CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables and profiles for job-specific behavior.
+CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables for job-specific behavior.
 
 ## Storage
 

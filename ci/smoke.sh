@@ -144,7 +144,8 @@ docker compose exec -T edge-agent sh -lc 'test -e "${EDGE_CONFIG_PATH:-/var/lib/
 record_step PASS "edge-config-path" "edge config path exists"
 
 if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
-  retry 30 2 curl -fsS "${POWERDNS_API_URL}/health" >/dev/null
+  retry 30 2 curl -fsS -H "X-API-Key: ${PDNS_API_KEY:-cdnlite-local-powerdns-key}" \
+    "${POWERDNS_PUBLIC_API_URL:-http://localhost:8089}/api/v1/servers/localhost" >/dev/null
   record_step PASS "powerdns-health" "powerdns endpoint reachable"
 fi
 

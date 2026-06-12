@@ -11,8 +11,8 @@ permissions:
   packages: write
 
 env:
-  POWERDNS_HOST_PORT: 8089
-  PDNS_PORT: 8081
+  PDNS_API_HOST_PORT: 8089
+  PDNS_DNS_HOST_PORT: 5353
   PDNS_API_KEY: test-key
   COMPOSE_ANSI: never
   DOCKER_BUILDKIT: 1
@@ -70,6 +70,21 @@ jobs:
           bash -n ci/seed_frontend_e2e.sh
           sh -n ci/origin-mock/start.sh
           bash -n ci/lib.sh
+          bash -n infra/dnsgeo/docker/mmdb-updater/entrypoint.sh
+          sh -n infra/dnsgeo/docker/mmdb-updater/healthcheck.sh
+          bash -n infra/dnsgeo/docker/pdns-auth/entrypoint.sh
+          sh -n infra/dnsgeo/docker/pdns-auth/healthcheck.sh
+          sh -n infra/dnsgeo/docker/pdns-recursor/entrypoint.sh
+          sh -n infra/dnsgeo/docker/pdns-recursor/healthcheck.sh
+          bash -n infra/dnsgeo/docker/postgres-init/db-init.sh
+          bash -n infra/dnsgeo/docker/postgres-primary/configure-primary.sh
+          bash -n infra/dnsgeo/docker/postgres-primary/ensure-tls.sh
+          bash -n infra/dnsgeo/docker/postgres-primary/entrypoint-wrapper.sh
+          bash -n infra/dnsgeo/docker/postgres-primary/initdb/00-init-pdns.sh
+          bash -n infra/dnsgeo/docker/postgres-primary/initdb/10-configure-primary.sh
+          bash -n infra/dnsgeo/docker/postgres-replica/entrypoint-replica.sh
+          bash -n infra/dnsgeo/docker/poweradmin/healthcheck.sh
+          bash -n infra/dnsgeo/docker/poweradmin/poweradmin-entrypoint-wrapper.sh
       - name: No WIP markers
         run: '! rg -n "WIP_MARKER" -S core edge ci'
       - name: Install test deps
@@ -114,7 +129,7 @@ jobs:
         run: |
           mkdir -p ci/reports
           docker compose logs --no-color > ci/reports/compose-logs.txt || true
-          for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
+          for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-db-init pdns-mmdb-updater pdns-recursor pdns-auth poweradmin; do
             docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
           done
           cat ci/reports/compose-logs.txt || true
@@ -145,19 +160,18 @@ jobs:
       CDNLITE_CACHE_DEFAULT_TTL: 1s
       POWERDNS_ENABLED: 1
       POWERDNS_STRICT: 1
-      POWERDNS_API_KEY: test-key
-      POWERDNS_API_URL: http://powerdns:8081
+      PDNS_API_KEY: test-key
       POWERDNS_PUBLIC_API_URL: http://localhost:8089
       POWERDNS_SERVER_ID: localhost
     steps:
       - uses: actions/checkout@v6
       - name: Install helpers
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get update && sudo apt-get install -y dnsutils jq
       - name: Build and start stack
         run: |
-          docker compose --profile powerdns config --quiet
-          docker compose --profile powerdns up -d --build
-          timeout 180 bash -c 'until curl -fsS http://localhost:8080/health && curl -fsS http://localhost:8081/health && curl -fsS http://localhost:8089/health; do sleep 2; done'
+          docker compose config --quiet
+          docker compose up -d --build --wait --wait-timeout 300
+          timeout 180 bash -c 'until curl -fsS http://localhost:8080/health && curl -fsS http://localhost:8081/health && curl -fsS -H "X-API-Key: test-key" http://localhost:8089/api/v1/servers/localhost; do sleep 2; done'
       - name: E2E test
         run: |
           chmod +x ci/*.sh
@@ -171,7 +185,7 @@ jobs:
         run: |
           mkdir -p ci/reports
           docker compose logs --no-color > ci/reports/compose-logs.txt || true
-          for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
+          for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-db-init pdns-mmdb-updater pdns-recursor pdns-auth poweradmin; do
             docker compose logs --no-color --tail=200 "$svc" > "ci/reports/${svc}-tail.log" || true
           done
       - name: Upload e2e artifacts
@@ -189,7 +203,7 @@ jobs:
           fi
       - name: Teardown
         if: always()
-        run: docker compose --profile powerdns down -v
+        run: docker compose down -v
 
   release_gate:
     runs-on: ubuntu-latest

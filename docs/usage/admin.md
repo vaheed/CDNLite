@@ -54,7 +54,7 @@ Use the dashboard `Settings` page or CLI:
 
 ```bash
 docker compose exec core php artisan cdn:settings:get
-docker compose exec core php artisan cdn:settings:set --group=powerdns --key=api_url --value=http://powerdns:8081
+docker compose exec core php artisan cdn:settings:set --group=powerdns --key=api_url --value=http://pdns-auth:8081
 docker compose exec core php artisan cdn:settings:test-powerdns
 ```
 

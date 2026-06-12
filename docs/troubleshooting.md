@@ -32,14 +32,14 @@ Use this order during incidents:
 | `/ready` reports schema failure | Migrations/schema missing. | Run `docker compose exec core php artisan cdn:migrate` or rebuild a fresh local stack. |
 | Edge returns unknown host page | Host is not in `config.json` or edge has stale config. | Activate the domain, rebuild snapshot, and confirm edge agent pulled config. |
 | Edge agent auth fails | Edge token mismatch, bad timestamp, reused nonce, or signature mismatch. | Re-register/rotate token, check system clock, and run `edge/agent/doctor.sh`. |
-| DNS publishing fails | PowerDNS URL/key/server ID wrong or mock profile not running. | Start `docker compose --profile powerdns up -d` and run `cdn:settings:test-powerdns`. |
+| DNS publishing fails | PowerDNS URL/key/server ID wrong or DNSGeo is unhealthy. | Run `docker compose ps`, inspect `pdns-auth`, and run `cdn:settings:test-powerdns`. |
 | SSL issuance stuck | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
 | Cache assertions are flaky in tests | Default TTL too long for e2e timing. | Use `CDNLITE_CACHE_DEFAULT_TTL=1s` in e2e. |
 | Usage analytics are empty | Edge metrics queue not pushed or domain filter mismatch. | Check `METRIC_PATH`, agent logs, collector endpoint, and domain names. |
 | Config snapshot rollback appears ignored | Edge has not pulled the active version yet. | Run the edge agent config pull or wait for the polling loop, then inspect `edge-sync-status.json`. |
 | ACME renewal fails after restart | `CDNLITE_SSL_SECRET_KEY` changed or DNS settings changed. | Restore the original secret if possible, test PowerDNS, and retry staging issuance first. |
 | API clients get 404 after docs change | Client generated from an old spec or wrong base URL. | Regenerate from `docs/public/api/openapi.yaml` and confirm server URL. |
-| PowerDNS works locally but not in CI | Missing `powerdns` profile or wrong strict env. | Use `docker compose --profile powerdns config --quiet` and verify `POWERDNS_API_URL`. |
+| PowerDNS works locally but not in CI | DNSGeo health dependency or canonical env differs. | Use `docker compose config --quiet` and verify `CDNLITE_POWERDNS_API_BASE`. |
 
 ## Log Locations
 
@@ -124,7 +124,7 @@ Replay errors are usually caused by scripts reusing the same nonce while retryin
 ## Debugging DNS And PowerDNS
 
 ```bash
-docker compose --profile powerdns ps
+docker compose ps pdns-auth pdns-recursor pdns-postgres
 curl -fsS http://localhost:8089/health
 docker compose exec core php artisan cdn:settings:test-powerdns
 docker compose logs --tail=120 powerdns

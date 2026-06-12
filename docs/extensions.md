@@ -47,7 +47,7 @@ This page lists the external libraries, runtime extensions, and integrations use
 | Docker Compose | Product stack and CI smoke/e2e substrate. |
 | Bash CI scripts | Smoke, e2e, release, DNS, and edge flow checks. |
 | Python `pytest` | Core contract tests. |
-| Python PowerDNS mock | Local PowerDNS-compatible endpoint for DNS publishing tests. |
+| DNSGeo/PowerDNS | PostgreSQL-backed authoritative DNS, Lua GeoDNS, MMDB updates, ALIAS expansion, and Poweradmin. |
 | Nginx origin mocks | HTTP and TLS origin behavior for proxy tests. |
 
 ## Configuration

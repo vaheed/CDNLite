@@ -30,7 +30,9 @@ Default URLs:
 | Edge TLS proxy | `https://localhost:8443` |
 | Dashboard | `http://localhost:8082` |
 | PostgreSQL | `localhost:5432` |
-| PowerDNS mock, profile only | `http://localhost:8089` |
+| PowerDNS API, loopback only | `http://localhost:8089` |
+| PowerDNS authoritative DNS | `127.0.0.1:5353` |
+| Poweradmin, loopback only | `http://localhost:8084` |
 
 Health checks:
 
@@ -113,6 +115,13 @@ Core settings:
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
+| `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
+
+The DNS initializer creates only the PowerDNS/Poweradmin schemas and service
+roles. It does not create sample zones. GeoIP bootstrap uses only the reserved
+`geoip-bootstrap.invalid` backend-initialization zone, so Core remains the
+owner of all routable authoritative DNS data. See
+[DNSGeo and PowerDNS](dns.md).
 
 Edge and agent settings:
 
@@ -150,14 +159,16 @@ with `CDNLITE_POWERDNS_VERIFY_AFTER_WRITE`,
 `CDNLITE_POWERDNS_RETRIES`, `CDNLITE_POWERDNS_RETRY_SLEEP_MS`, and
 `CDNLITE_POWERDNS_TIMEOUT_SECONDS`.
 
-Run the optional profile when DNS publishing behavior needs to be validated:
+Validate DNS publishing against the bundled stack:
 
 ```bash
-docker compose --profile powerdns up -d --build
-curl -fsS http://localhost:8089/health
+docker compose up -d --build
+curl -fsS -H "X-API-Key: $PDNS_API_KEY" \
+  http://localhost:8089/api/v1/servers/localhost
+dig @127.0.0.1 -p "${PDNS_DNS_HOST_PORT:-5353}" example.net SOA
 ```
 
-The mock uses `ci/pdns_mock_server.py`; avoid live PowerDNS mutation in tests when the mock can cover the behavior.
+Tests mutate only the local PostgreSQL-backed PowerDNS instance.
 
 ## Testing
 
@@ -188,7 +199,7 @@ Smoke and e2e:
 docker compose up -d --build --wait
 ./ci/smoke.sh
 
-docker compose --profile powerdns up -d --build
+docker compose up -d --build
 EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
 ./ci/powerdns_dns_checks.sh
 ```
