@@ -36,6 +36,9 @@ Core treats a PowerDNS PATCH as successful only after an optional zone
 read-back confirms the requested replacement or deletion. Retryable transport,
 rate-limit, and server failures use bounded exponential backoff; invalid 4xx
 requests are returned immediately.
+Each write updates `dns_sync_state` and appends `dns_sync_events`.
+`/cdn-health` and the PowerDNS doctor expose API and persisted sync health
+without revealing credentials.
 
 ## Request Flow
 

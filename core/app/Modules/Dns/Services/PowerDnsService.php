@@ -6,9 +6,12 @@ use App\Modules\Settings\Repositories\SettingsRepository;
 
 class PowerDnsService
 {
+    private DnsSyncStateService $syncState;
+
     public function __construct(private ?SettingsRepository $settings = null)
     {
         $this->settings ??= new SettingsRepository();
+        $this->syncState = new DnsSyncStateService();
     }
 
     public function isEnabled(): bool
@@ -111,6 +114,14 @@ class PowerDnsService
         return $this->patchZone($zoneId, $payload);
     }
 
+    public function patchRrsets(string $zoneDomain, array $rrsets): array
+    {
+        if ($rrsets === []) {
+            return ['ok' => true, 'verified' => true, 'status' => 200];
+        }
+        return $this->patchZone($this->zoneId($zoneDomain), ['rrsets' => $rrsets]);
+    }
+
     public function ensureZone(string $zoneDomain): array
     {
         $zoneId = $this->zoneId($zoneDomain);
@@ -133,23 +144,29 @@ class PowerDnsService
         ];
 
         $result = $this->request('POST', $this->zonesBaseUrl(), $payload);
-        if ($this->isSuccessStatus((int) ($result['status'] ?? 0))) {
-            return ['ok' => true, 'created' => true];
-        }
-        return $result;
+        $normalized = $this->isSuccessStatus((int) ($result['status'] ?? 0))
+            ? ['ok' => true, 'created' => true, 'status' => (int) $result['status']]
+            : $result;
+        $hash = $this->syncState->begin($zoneId, [], 'ensure_zone');
+        $this->syncState->finish($zoneId, [], 'ensure_zone', $hash, $normalized);
+        return $normalized;
     }
 
     private function patchZone(string $zoneId, array $payload): array
     {
+        $rrsets = (array) ($payload['rrsets'] ?? []);
+        $hash = $this->syncState->begin($zoneId, $rrsets, 'patch_rrsets');
         $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
         $result = $this->request('PATCH', $url, $payload);
         $status = (int) ($result['status'] ?? 0);
         if ($this->isSuccessStatus($status)) {
             if (!(bool) $this->settings->value('platform.powerdns', 'verify_after_write')) {
-                return ['ok' => true, 'verified' => false, 'status' => $status];
+                $result = ['ok' => true, 'verified' => false, 'status' => $status];
+            } else {
+                $result = $this->verifyRrsets($zoneId, $rrsets);
             }
-            return $this->verifyRrsets($zoneId, (array) ($payload['rrsets'] ?? []));
         }
+        $this->syncState->finish($zoneId, $rrsets, 'patch_rrsets', $hash, $result);
         return $result;
     }
 

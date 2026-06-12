@@ -172,6 +172,38 @@ CREATE TABLE IF NOT EXISTS edge_dns_state (
   CONSTRAINT edge_dns_state_singleton CHECK (id = 1)
 );
 
+CREATE TABLE IF NOT EXISTS dns_sync_state (
+  zone_name TEXT PRIMARY KEY,
+  desired_hash TEXT NULL,
+  applied_hash TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  last_attempt_at BIGINT NULL,
+  last_success_at BIGINT NULL,
+  last_error TEXT NULL,
+  last_status_code INTEGER NULL,
+  pending_changes INTEGER NOT NULL DEFAULT 0,
+  in_progress BOOLEAN NOT NULL DEFAULT false,
+  updated_at BIGINT NOT NULL,
+  CHECK (status IN ('unknown', 'syncing', 'ok', 'failed'))
+);
+
+CREATE TABLE IF NOT EXISTS dns_sync_events (
+  id BIGSERIAL PRIMARY KEY,
+  zone_name TEXT NOT NULL,
+  rrset_name TEXT NULL,
+  rrset_type TEXT NULL,
+  action TEXT NOT NULL,
+  status TEXT NOT NULL,
+  status_code INTEGER NULL,
+  error TEXT NULL,
+  desired_hash TEXT NULL,
+  applied_hash TEXT NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_dns_sync_events_zone_created
+  ON dns_sync_events(zone_name, created_at DESC);
+
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS geo_policy_id TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS edge_target TEXT NULL;
 ALTER TABLE dns_records ADD COLUMN IF NOT EXISTS origin_type TEXT NULL;

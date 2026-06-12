@@ -150,7 +150,7 @@ Dashboard variables:
 | `VITE_ENABLE_SECURITY_EVENT_VIEWER` | Shows security event screens. |
 | `VITE_ENABLE_LOG_VIEWER` | Shows event/log viewer. |
 
-## PowerDNS Mock
+## PowerDNS Operations
 
 PowerDNS writes are verified by reading the affected zone back after each
 successful PATCH. Temporary connection failures, HTTP 429 responses, and HTTP
@@ -169,6 +169,19 @@ dig @127.0.0.1 -p "${PDNS_DNS_HOST_PORT:-5353}" example.net SOA
 ```
 
 Tests mutate only the local PostgreSQL-backed PowerDNS instance.
+
+Core stores every zone write attempt in `dns_sync_events` and keeps the latest
+per-zone result in `dns_sync_state`.
+
+```bash
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
+curl -fsS http://localhost:8080/cdn-health
+```
+
+`dry-run` builds the current DNS projection without writing PowerDNS.
+`force-sync` republishes customer and edge records and verifies the result.
 
 ## Testing
 

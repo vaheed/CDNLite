@@ -137,7 +137,7 @@ curl -s http://localhost:8080/api/v1/readiness \
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/health` | No | Core liveness. |
-| `GET` | `/cdn-health` | No | Core CDN health endpoint. |
+| `GET` | `/cdn-health` | No | Structured Core, edge, PowerDNS API, and persisted DNS sync health. |
 | `GET` | `/ready` | No | PostgreSQL, schema, config generation, and API token readiness. |
 | `GET` | `/api/v1/readiness` | Protected | Detailed readiness model for dashboard. |
 

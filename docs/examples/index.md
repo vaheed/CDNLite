@@ -93,11 +93,13 @@ docker compose exec core php artisan cdn:edge:register-token \
   --token=edge-dev-token
 ```
 
-## PowerDNS Mock Workflow
+## PowerDNS Workflow
 
 ```bash
 docker compose up -d --build
-docker compose exec core php artisan cdn:settings:test-powerdns
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
 ./ci/powerdns_dns_checks.sh
 ```
 

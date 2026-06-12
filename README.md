@@ -53,6 +53,9 @@ Use the dashboard to add domains, configure DNS and origins, define traffic/secu
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:readiness:check
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
 ```
 
 See the [User Guide](docs/usage/user.md), [Admin Guide](docs/usage/admin.md), and [API Reference](docs/api/api.md).

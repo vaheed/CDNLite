@@ -20,7 +20,7 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase | Status | Current progress |
 | --- | --- | --- |
 | Phase 0 - DNSGeo import and no-profile Compose | DONE | DNSGeo runtime, PostgreSQL, MMDB updater, Recursor, authoritative PowerDNS, and Poweradmin run healthy in the default root Compose topology; real API writes and ALIAS expansion were verified. |
-| Phase 1 - real and verified PowerDNS writes | PARTIAL | Existing real HTTP writes now have bounded retries, exponential backoff, request IDs, hostname normalization, and optional zone read-back verification. Sync state/events, health details, doctor/dry-run/force-sync commands, and real PowerDNS integration validation remain. |
+| Phase 1 - real and verified PowerDNS writes | DONE | Real writes use retries and read-back verification; every write persists per-zone state and events, `/cdn-health` exposes API/sync status, and doctor/dry-run/force-sync commands are available. Core e2e and the bundled PowerDNS checks validate real records. |
 | Phase 2 - desired-state reconciler | PENDING | Core still performs immediate writes from multiple services. |
 | Phase 3 - edge state and shared proxy record | PENDING | Existing edge DNS behavior has not been converted to the roadmap shared proxy model. |
 | Phase 4 - apex ALIAS and subdomain CNAME | PARTIAL | Existing planner supports ALIAS/CNAME concepts, but the full stable site target and shared proxy model is not implemented or proven against real PowerDNS. |
@@ -29,6 +29,36 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 1 PowerDNS observability and operations
+
+Completed:
+
+```text
+- added fresh-install dns_sync_state and dns_sync_events tables
+- persisted PowerDNS PATCH attempt, verified success, and failure outcomes
+- exposed PowerDNS API and per-zone sync details from /cdn-health
+- added cdn:powerdns:doctor, cdn:powerdns:dry-run, and cdn:powerdns:force-sync
+- added a public batch rrset PATCH entry point for the next reconciler phase
+- removed remaining mock terminology from setup and examples
+- documented persisted sync state and operational commands
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed for Core
+- focused PowerDNS, readiness, CLI, and schema contracts passed
+- full Core and live Compose validation is recorded after the current checks complete
+```
+
+Remaining gaps:
+
+```text
+- Phase 2 must replace the existing customer and edge immediate-write paths
+  with one desired-state reconciler and lock
+- Phase 6 still owns broader failure-mode, dig, and frontend smoke coverage
+```
 
 #### 2026-06-13 - CDNLite DNS runtime cleanup and CI contract
 

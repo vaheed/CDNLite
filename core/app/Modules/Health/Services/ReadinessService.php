@@ -3,6 +3,7 @@
 namespace App\Modules\Health\Services;
 
 use App\Modules\Dns\Services\PowerDnsService;
+use App\Modules\Dns\Services\DnsSyncStateService;
 use App\Modules\Edge\Services\EdgeHealthService;
 use App\Support\Database;
 
@@ -21,9 +22,16 @@ class ReadinessService
         $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->snapshotCheck(), $this->certificateExpiryCheck(), $this->originHealthCheck()];
         $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck()];
 
+        $powerDns = [
+            'enabled' => $this->powerDns->isEnabled(),
+            'configured' => $this->powerDns->isConfigured(),
+            'api' => $this->powerDns->isEnabled() ? $this->powerDns->healthCheck() : ['ok' => true, 'disabled' => true],
+            'sync' => (new DnsSyncStateService())->summary(),
+        ];
         return [
             'core' => ['status' => $this->groupStatus($coreChecks), 'checks' => $coreChecks],
             'edge' => ['status' => $this->groupStatus($edgeChecks), 'checks' => $edgeChecks],
+            'powerdns' => $powerDns,
             'checked_at' => time(),
         ];
     }

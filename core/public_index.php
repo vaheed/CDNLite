@@ -237,7 +237,7 @@ $router->add('POST', '/api/v1/admin/login', static fn (Request $req): array => $
 $router->add('GET', '/api/v1/admin/me', static fn (): array => $adminAuthController->me(bearerToken()), auth: true);
 $router->add('POST', '/api/v1/admin/logout', static fn (): array => $adminAuthController->logout(bearerToken()), auth: true);
 $router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
-$router->add('GET', '/cdn-health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
+$router->add('GET', '/cdn-health', static fn (): array => Response::json($readinessController->index()));
 $router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];
     try {

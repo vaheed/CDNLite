@@ -51,6 +51,18 @@ Lua records and `edns-subnet-processing=yes` are enabled. The MMDB updater uses 
 the GeoIP backend. CDNLite does not seed customer/example zones or Lua records.
 Core owns every real zone and record through the PowerDNS API.
 
+Core records each write attempt and verified outcome in `dns_sync_events`, and
+stores the current per-zone result in `dns_sync_state`. A failed PATCH or
+read-back verification leaves the zone in `failed` state with its status code
+and error. Inspect or operate the integration with:
+
+```bash
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
+curl -fsS http://localhost:8080/cdn-health
+```
+
 ## PostgreSQL Replication
 
 The primary image configures WAL streaming, TLS, SCRAM authentication, a
