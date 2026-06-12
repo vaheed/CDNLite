@@ -377,7 +377,7 @@ SSL tips:
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/edge/nodes` | Protected | List edges. |
 | `GET` | `/api/v1/edges/pools` | Protected | Edge pools. |
-| `GET` | `/api/v1/edges/dns` | Protected | Edge DNS model. |
+| `GET` | `/api/v1/edges/dns` | Protected | Shared proxy rrsets, eligible edge state, CDN zone, proxy host, and sync status. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
@@ -456,8 +456,6 @@ Snapshot safety tips:
 | `PATCH` | `/api/v1/settings/{group}` | Update settings group. |
 | `POST` | `/api/v1/settings/validate` | Validate settings payload. |
 | `POST` | `/api/v1/settings/test/powerdns` | Test PowerDNS connection. |
-| `GET` | `/api/v1/admin/edge-network/anycast` | Show anycast settings. |
-| `PUT` | `/api/v1/admin/edge-network/anycast` | Update anycast settings. |
 | `GET` | `/api/v1/edge-countries` | List edge country data. |
 
 Settings tips:

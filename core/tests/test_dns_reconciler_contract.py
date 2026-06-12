@@ -28,7 +28,6 @@ def test_all_durable_dns_triggers_use_the_reconciler():
         read("core/app/Modules/Dns/Services/DnsService.php"),
         read("core/app/Modules/Domains/Services/DomainService.php"),
         read("core/app/Modules/Edge/Http/Controllers/EdgeController.php"),
-        read("core/app/Modules/Dns/Http/Controllers/EdgeNetworkController.php"),
         read("core/app/Console/Commands/CdnPowerDnsForceSyncCommand.php"),
     ]
     assert all("DnsReconciler" in source for source in sources)
@@ -43,3 +42,18 @@ def test_scheduled_and_operator_sync_share_the_same_command_path():
     assert "php artisan cdn:dns:reconcile" in compose
     assert "CDNLITE_SYNC_INTERVAL_SECONDS" in compose
     assert "cdn:dns:reconcile" in artisan
+
+
+def test_edge_state_and_shared_proxy_contract():
+    schema = read("core/database/schema.sql")
+    service = read("core/app/Modules/Dns/Services/EdgeDnsService.php")
+    settings = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
+    assert "CREATE OR REPLACE VIEW edge_state AS" in schema
+    assert "CREATE TABLE IF NOT EXISTS edge_state_generations" in schema
+    assert "e.health_status = 'healthy'" in schema
+    assert "e.anycast_enabled AS anycast" in schema
+    assert "ORDER BY anycast DESC" in service
+    assert "array_merge($pool['anycast'][$family], $pool['unicast'][$family])" in service
+    assert "CDNLITE_CDN_ZONE" in settings
+    assert "CDNLITE_CDN_PROXY_HOST" in settings
+    assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings

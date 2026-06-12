@@ -50,7 +50,27 @@ The bundled service is provisioned with:
 PDNS_API_KEY=change-me
 CDNLITE_DNS_BASE_DOMAIN=example.net
 CDNLITE_CDN_ZONE=cdn.example.net
+CDNLITE_CDN_PROXY_HOST=proxy.cdn.example.net
 ```
+
+## Shared Edge Pool
+
+Core reads the fresh-install `edge_state` view as the single DNS routing source.
+An address is eligible only when its edge is enabled for DNS, online, healthy,
+and has a heartbeat newer than 90 seconds. Anycast addresses are ordered before
+regional unicast addresses, and both groups use stable IP ordering.
+
+The CDN zone contains one shared pair of Lua rrsets:
+
+```text
+proxy.cdn.example.net. LUA A    <healthy IPv4 pool>
+proxy.cdn.example.net. LUA AAAA <healthy IPv6 pool>
+```
+
+Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host.
+Changing an edge IP or health state therefore changes only the shared proxy
+rrsets; customer zones and site CNAMEs are not rewritten. Core records distinct
+edge-state hashes in `edge_state_generations` for inspection and test assertions.
 
 Core operational credentials remain database-backed platform settings. Configure its API URL as `http://pdns-auth:8081`, server ID as `localhost`, and use the same API key through the admin settings API or UI.
 

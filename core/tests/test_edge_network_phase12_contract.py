@@ -26,13 +26,13 @@ def test_platform_dns_plan_contract():
     routes = read("core/public_index.php")
     settings = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
 
-    assert "'edge-' . $this->normalizeLabel" in dns
-    assert "'geo.' . $prefix" in dns
-    assert "'global.' . $prefix" in dns
-    assert "geo_enabled" in dns
+    assert "SELECT * FROM edge_state" in dns
+    assert "'shared_proxy:' . $type" in dns
+    assert "ORDER BY anycast DESC" in dns
+    assert "edge_state_generations" in dns
     assert "/api/v1/edges/dns" in routes
-    assert "'anycast_ipv4_1'" in settings
-    assert "'anycast_ipv6_2'" in settings
+    assert "'cdn_zone'" in settings
+    assert "'proxy_host'" in settings
 
 
 def test_edge_network_dashboard_contract():

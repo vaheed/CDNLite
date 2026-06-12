@@ -393,15 +393,6 @@ class DnsService
         if (in_array($policy, ['anycast', 'geo_anycast'], true) && empty($record['proxied'])) {
             throw new \RuntimeException('anycast_requires_proxied_record');
         }
-        if (!in_array($policy, ['anycast', 'geo_anycast'], true)) {
-            return;
-        }
-        $settings = new SettingsRepository();
-        foreach (['anycast_ipv4_1', 'anycast_ipv4_2', 'anycast_ipv6_1', 'anycast_ipv6_2'] as $field) {
-            if (trim((string) $settings->value('platform.edge_dns', $field)) === '') {
-                throw new \RuntimeException('global_anycast_not_configured');
-            }
-        }
     }
 
     private function decodeGeoOrigins(?string $json): array

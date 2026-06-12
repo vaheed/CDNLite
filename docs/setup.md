@@ -126,6 +126,8 @@ Core settings:
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
 | `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
+| `CDNLITE_CDN_ZONE` | Authoritative zone containing stable site targets and the shared proxy record. |
+| `CDNLITE_CDN_PROXY_HOST` | Shared Lua A/AAAA hostname, and must be inside `CDNLITE_CDN_ZONE`. |
 
 The DNS initializer creates only the PowerDNS/Poweradmin schemas and service
 roles. It does not create sample zones. GeoIP bootstrap uses only the reserved

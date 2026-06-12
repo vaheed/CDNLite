@@ -75,8 +75,9 @@ export interface ManualCertificateInput { hostname: string; certificate_pem: str
 export interface EdgeNode { edge_id: string; identity_status?: 'ok' | 'warning' | string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; geo_enabled?: boolean; anycast_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }
 export interface EdgePoolMember { id: Id; edge_id: string; hostname: string; status: string; public_ipv4: string; public_ipv6: string; enabled: boolean; weight: number; }
 export interface EdgePool { id: Id; name: string; mode: 'geo' | 'anycast'; description?: string | null; members: EdgePoolMember[]; created_at: number; updated_at: number; }
-export interface EdgeDnsRecord { name: string; fqdn: string; type: string; ttl: number; content: string; mode?: string; }
-export interface EdgeDnsStatus { base_domain: string; zone_prefix: string; powerdns_enabled: boolean; records: EdgeDnsRecord[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
+export interface EdgeDnsRecord { zone_name: string; rrset_name: string; rrset_type: string; ttl: number; records: string[]; source: string; }
+export interface EdgeDnsState { edge_id: string; ip: string; ip_family: 'A' | 'AAAA'; region: string; anycast: boolean; healthy: boolean; last_check_at: number; }
+export interface EdgeDnsStatus { cdn_zone: string; proxy_host: string; powerdns_enabled: boolean; records: EdgeDnsRecord[]; edge_state: EdgeDnsState[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: UsagePoint[]; }
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }

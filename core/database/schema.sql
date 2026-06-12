@@ -96,6 +96,41 @@ CREATE TABLE IF NOT EXISTS edge_nodes (
   updated_at BIGINT NOT NULL
 );
 
+CREATE OR REPLACE VIEW edge_state AS
+SELECT
+  e.id AS edge_node_id,
+  e.edge_id,
+  address.ip,
+  address.ip_family,
+  e.region,
+  e.country,
+  e.continent,
+  e.anycast_enabled AS anycast,
+  (
+    e.is_enabled = true
+    AND e.dns_enabled = true
+    AND e.status = 'online'
+    AND e.health_status = 'healthy'
+    AND COALESCE(e.last_heartbeat_at, e.last_heartbeat) > EXTRACT(EPOCH FROM NOW())::BIGINT - 90
+  ) AS healthy,
+  COALESCE(e.last_heartbeat_at, e.last_heartbeat) AS last_check_at,
+  e.updated_at AS state_updated_at
+FROM edge_nodes e
+CROSS JOIN LATERAL (
+  VALUES
+    (NULLIF(e.public_ipv4, ''), 'A'),
+    (NULLIF(e.public_ipv6, ''), 'AAAA'),
+    (CASE WHEN NULLIF(e.public_ipv4, '') IS NULL AND e.public_ip NOT LIKE '%:%' THEN NULLIF(e.public_ip, '') END, 'A'),
+    (CASE WHEN NULLIF(e.public_ipv6, '') IS NULL AND e.public_ip LIKE '%:%' THEN NULLIF(e.public_ip, '') END, 'AAAA')
+) AS address(ip, ip_family)
+WHERE address.ip IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS edge_state_generations (
+  id BIGSERIAL PRIMARY KEY,
+  state_hash TEXT NOT NULL UNIQUE,
+  created_at BIGINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS edge_pools (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,

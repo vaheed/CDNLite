@@ -324,12 +324,6 @@ $router->add('POST', '/api/v1/settings/validate', static function (Request $req)
     }
 }, auth: true);
 $router->add('POST', '/api/v1/settings/test/powerdns', static fn (): array => Response::json($settingsController->testPowerDns()), auth: true);
-$router->add('GET', '/api/v1/admin/edge-network/anycast', static fn (): array => Response::json($edgeNetworkController->anycast()), auth: true);
-$router->add('PUT', '/api/v1/admin/edge-network/anycast', static function (Request $req) use ($edgeNetworkController, $adminAuth): array {
-    $user = $adminAuth->userForToken(bearerToken());
-    $result = $edgeNetworkController->updateAnycast($req->body, (string) ($user['username'] ?? 'api-token'));
-    return Response::json($result, (int) ($result['status'] ?? 200));
-}, auth: true);
 $router->add('GET', '/api/v1/edge-countries', static fn (): array => Response::json($edgeNetworkController->countries()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);

@@ -27,14 +27,9 @@ class SettingsRepository
             'default_base_domain' => ['type' => 'string', 'default' => 'local.', 'description' => 'Fallback nameserver base domain.'],
         ],
         'platform.edge_dns' => [
-            'health_port' => ['env' => 'EDGE_DNS_HEALTH_PORT', 'type' => 'int', 'default' => 443, 'description' => 'Default edge DNS health-check port.'],
-            'heartbeat_window_seconds' => ['env' => 'EDGE_DNS_HEARTBEAT_WINDOW_SECONDS', 'type' => 'int', 'default' => 300, 'description' => 'Healthy edge heartbeat window.'],
-            'base_domain' => ['env' => 'CDNLITE_EDGE_BASE_DOMAIN', 'type' => 'string', 'default' => 'vaheed.net', 'description' => 'Authoritative base domain for platform edge records.'],
-            'zone_prefix' => ['env' => 'CDNLITE_EDGE_ZONE_PREFIX', 'type' => 'string', 'default' => 'edge', 'description' => 'DNS label used for aggregate platform edge records.'],
-            'anycast_ipv4_1' => ['env' => 'CDNLITE_ANYCAST_IPV4', 'type' => 'string', 'default' => '', 'description' => 'First global Anycast IPv4 ingress VIP.'],
-            'anycast_ipv4_2' => ['type' => 'string', 'default' => '', 'description' => 'Second global Anycast IPv4 ingress VIP.'],
-            'anycast_ipv6_1' => ['env' => 'CDNLITE_ANYCAST_IPV6', 'type' => 'string', 'default' => '', 'description' => 'First global Anycast IPv6 ingress VIP.'],
-            'anycast_ipv6_2' => ['type' => 'string', 'default' => '', 'description' => 'Second global Anycast IPv6 ingress VIP.'],
+            'health_port' => ['env' => 'CDNLITE_EDGE_HEALTH_PORT', 'type' => 'int', 'default' => 443, 'description' => 'Shared proxy health-check port.'],
+            'cdn_zone' => ['env' => 'CDNLITE_CDN_ZONE', 'type' => 'string', 'default' => 'cdn.example.net', 'description' => 'Authoritative CDN routing zone.'],
+            'proxy_host' => ['env' => 'CDNLITE_CDN_PROXY_HOST', 'type' => 'string', 'default' => 'proxy.cdn.example.net', 'description' => 'Shared CDN proxy hostname.'],
         ],
         'platform.cache' => [
             'default_ttl' => ['env' => 'CDNLITE_CACHE_DEFAULT_TTL', 'type' => 'string', 'default' => '60s', 'description' => 'Default proxy cache TTL.'],

@@ -935,21 +935,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/admin/edge-network/anycast:
-    get:
-      tags: [Settings, Edge]
-      summary: Show anycast settings
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    put:
-      tags: [Settings, Edge]
-      summary: Update anycast settings
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
   /api/v1/edge-countries:
     get:
       tags: [Settings, Edge]

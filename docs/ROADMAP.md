@@ -22,13 +22,43 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 0 - DNSGeo import and no-profile Compose | DONE | DNSGeo runtime, PostgreSQL, MMDB updater, Recursor, authoritative PowerDNS, and Poweradmin run healthy in the default root Compose topology; real API writes and ALIAS expansion were verified. |
 | Phase 1 - real and verified PowerDNS writes | DONE | Real writes use retries and read-back verification; every write persists per-zone state and events, `/cdn-health` exposes API/sync status, and doctor/dry-run/force-sync commands are available. Core e2e and the bundled PowerDNS checks validate real records. |
 | Phase 2 - desired-state reconciler | DONE | Customer, domain, edge, scheduled, bootstrap, and operator triggers use one advisory-locked desired-state reconciler with batched writes and stale owned-rrset deletion. |
-| Phase 3 - edge state and shared proxy record | PENDING | Existing edge DNS behavior has not been converted to the roadmap shared proxy model. |
+| Phase 3 - edge state and shared proxy record | DONE | `edge_state` filters eligible addresses, anycast is prioritized, and one stable shared proxy hostname owns the Lua A/AAAA edge pool. |
 | Phase 4 - apex ALIAS and subdomain CNAME | PARTIAL | Existing planner supports ALIAS/CNAME concepts, but the full stable site target and shared proxy model is not implemented or proven against real PowerDNS. |
 | Phase 5 - admin and user UI | PENDING | Roadmap-specific DNS status and effective-record UI is not implemented. |
 | Phase 6 - tests/e2e/smoke | PARTIAL | Core contract coverage exists for the hardened client; real DNSGeo/PowerDNS, dig, failure-mode, and frontend smoke coverage remain. |
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 3 edge state and shared proxy CDN record
+
+Completed:
+
+```text
+- added the fresh-install edge_state view and edge_state_generations table
+- filtered DNS addresses to enabled, online, healthy edges with fresh heartbeats
+- replaced regional, global, per-edge, and per-record aggregate records with one shared proxy Lua A/AAAA hostname
+- prioritized anycast addresses ahead of unicast addresses with deterministic ordering
+- moved stable site targets into CDNLITE_CDN_ZONE and pointed them at CDNLITE_CDN_PROXY_HOST
+- removed the obsolete CDNLITE_EDGE_BASE_DOMAIN, zone-prefix, and configured anycast VIP settings paths
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed for Core
+- complete Core test suite: 132 passed
+- canonical schema executed successfully on a clean PostgreSQL database
+- docker compose config --quiet passed
+- git diff --check passed
+```
+
+Remaining gaps:
+
+```text
+- Phase 4 must remove the remaining standard-apex A/AAAA flattening path and make ALIAS universal for proxied apex records
+- Phase 6 must prove live Lua answers and edge health transitions through the bundled PowerDNS stack
+```
 
 #### 2026-06-13 - branch-local Compose images
 

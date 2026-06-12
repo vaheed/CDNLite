@@ -92,7 +92,7 @@
         <div class="section-heading">
           <div>
             <h2>Platform DNS</h2>
-            <p>{{ dns?.base_domain || 'Platform domain not configured' }}</p>
+            <p>{{ dns?.proxy_host || 'Shared proxy host not configured' }}</p>
           </div>
           <StatusBadge :status="dns?.synced_at ? 'ok' : 'warning'" :label="dns?.synced_at ? 'Synced' : 'Not synced'" />
         </div>
@@ -104,11 +104,11 @@
           <p class="mt-1 max-w-xs text-xs leading-5 text-slate-500">Generated platform records will be listed after DNS synchronization.</p>
         </div>
         <div v-else class="space-y-2">
-          <div v-for="record in visibleDnsRecords" :key="`${record.fqdn}-${record.type}-${record.content}`" class="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 sm:grid-cols-[3rem_minmax(0,1fr)] dark:border-white/10 dark:bg-white/[0.025]">
-            <span class="record-type self-start">{{ record.type }}</span>
+          <div v-for="record in visibleDnsRecords" :key="`${record.rrset_name}-${record.rrset_type}`" class="grid gap-2 rounded-lg border border-slate-200 bg-slate-50/60 p-3 sm:grid-cols-[3rem_minmax(0,1fr)] dark:border-white/10 dark:bg-white/[0.025]">
+            <span class="record-type self-start">{{ record.rrset_type }}</span>
             <div class="min-w-0 space-y-1">
-              <code class="block break-all text-xs font-semibold text-slate-700 dark:text-slate-200">{{ record.fqdn }}</code>
-              <code class="block break-all text-xs leading-5 text-slate-500 dark:text-slate-400">{{ record.content }}</code>
+              <code class="block break-all text-xs font-semibold text-slate-700 dark:text-slate-200">{{ record.rrset_name }}</code>
+              <code class="block break-all text-xs leading-5 text-slate-500 dark:text-slate-400">{{ record.records.join(', ') }}</code>
             </div>
           </div>
           <button

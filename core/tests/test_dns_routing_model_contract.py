@@ -18,7 +18,7 @@ def test_record_routing_and_geo_schema():
 
 def test_anycast_and_geo_api_contract():
     routes = read("core/public_index.php")
-    assert "/api/v1/admin/edge-network/anycast" in routes
+    assert "/api/v1/admin/edge-network/anycast" not in routes
     assert "/api/v1/edge-countries" in routes
     assert "/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes" in routes
     assert "/api/v1/sites/" not in routes
@@ -29,8 +29,10 @@ def test_canonical_hostname_and_no_cname_to_ip_contract():
     edge_dns = read("core/app/Modules/Dns/Services/EdgeDnsService.php")
     assert "canonicalHostname" in planner
     assert "return $this->result('CNAME', $canonical" in planner
-    assert "'global.' . $prefix" in edge_dns
-    assert "'CNAME', $anycast ? $global : $geo" in edge_dns
+    assert "'site-' . $this->label($domainId)" in planner
+    assert "'shared_proxy:' . $type" in edge_dns
+    assert "'site_proxy'" in edge_dns
+    assert "[$this->proxyHost() . '.']" in edge_dns
 
 
 def test_proxied_default_does_not_require_anycast():

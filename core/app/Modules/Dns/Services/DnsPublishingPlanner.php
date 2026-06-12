@@ -85,17 +85,14 @@ class DnsPublishingPlanner
     public function canonicalHostname(string $recordId, string $domainId): string
     {
         $settings = new SettingsRepository();
-        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
-        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
-        return $this->label($recordId) . '.' . $this->label($domainId) . '.' . $prefix . '.' . $base . '.';
+        $zone = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'cdn_zone')), '.');
+        return 'site-' . $this->label($domainId) . '.' . $zone . '.';
     }
 
     public function globalAnycastHostname(): string
     {
         $settings = new SettingsRepository();
-        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
-        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
-        return 'global.' . $prefix . '.' . $base . '.';
+        return rtrim(strtolower((string) $settings->value('platform.edge_dns', 'proxy_host')), '.') . '.';
     }
 
     private function result(
