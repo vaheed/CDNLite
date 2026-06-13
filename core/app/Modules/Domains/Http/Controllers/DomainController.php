@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Http\Controllers;
 
 use App\Modules\Domains\Services\DomainService;
+use App\Modules\Domains\Services\DomainVerificationService;
 use App\Support\Validator;
 
 class DomainController
