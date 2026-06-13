@@ -30,6 +30,105 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - Phase 6 provider failure assertion
+
+Completed:
+
+```text
+- distinguished PowerDNS provider connectivity failure from failed zone writes
+- made live DNS acceptance assert powerdns.api.ok=false and powerdns_api_error
+- retained persisted zone status for writes that actually reached reconciliation
+```
+
+Validation:
+
+```text
+- live cdn-health exposed the simulated provider outage in the API status
+- existing zone state correctly remained converged because no PATCH began
+- shell syntax and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- rerun the live DNS acceptance suite
+```
+
+#### 2026-06-13 - Phase 6 reconciler configuration parity
+
+Completed:
+
+```text
+- gave the scheduled DNS reconciler the same CDN zone, proxy host, TTL,
+  health-check, and Lua selector environment as Core
+- prevented scheduled reconciliation from overwriting API-triggered desired
+  state with different runtime defaults
+- added a Compose deployment contract for configuration parity
+```
+
+Validation:
+
+```text
+- runtime inspection showed Core in static mode and the reconciler unset
+- the reconciler-generated Lua record reproduced the failing ifportup answer
+- Compose validation and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- recreate Core and DNS reconciler, then rerun the live DNS acceptance suite
+```
+
+#### 2026-06-13 - Phase 6 customer-zone rewrite assertion
+
+Completed:
+
+```text
+- narrowed the edge-transition no-rewrite assertion to customer-owned RRsets
+- excluded PowerDNS-managed SOA serial and NS metadata from byte comparisons
+- retained exact ALIAS, CNAME, and DNS-only record comparison
+```
+
+Validation:
+
+```text
+- live DNS showed only the automatic SOA serial changing
+- customer ALIAS, CNAME, and A records remained identical
+- shell syntax and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- rerun the live DNS acceptance suite
+```
+
+#### 2026-06-13 - Phase 6 DNS answer normalization
+
+Completed:
+
+```text
+- changed live DNS answer-set comparisons to include only addresses of the
+  requested family
+- excluded intermediate CNAME hostnames emitted by dig +short
+- added a deployment contract for A and AAAA answer filtering
+```
+
+Validation:
+
+```text
+- live DNS returned the expected edge IP set before normalization
+- the only mismatch was the intermediate proxy CNAME in one answer set
+- shell syntax and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- rerun the live DNS acceptance suite
+```
+
 #### 2026-06-13 - Phase 6 frontend automation removal
 
 Completed:

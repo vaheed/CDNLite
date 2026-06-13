@@ -235,6 +235,10 @@ records, ALIAS expansion with `dig`, edge health reconciliation, stale record
 deletion, persisted failure state, and recovery. Static Lua answers are used
 only for deterministic documentation-range CI fixtures.
 
+Core and the DNS reconciler receive the same CDN zone, proxy hostname, TTL,
+health-check mode, port, URL, timeout, interval, failure threshold, and Lua
+selector settings. Recreate both services after changing any of those values.
+
 Dashboard validation uses typechecking, unit tests, a production build, and
 manual operator QA. Browser automation is intentionally outside the release
 gate.

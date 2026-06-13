@@ -22,6 +22,22 @@ def test_compose_keeps_geoip_and_replication_without_seed_zones():
     ):
         assert obsolete not in compose
 
+    dns_reconciler = compose.split("  dns-reconciler:", 1)[1].split("\n  edge:", 1)[0]
+    for setting in (
+        "CDNLITE_CDN_ZONE",
+        "CDNLITE_CDN_PROXY_HOST",
+        "CDNLITE_EDGE_TTL",
+        "CDNLITE_EDGE_HEALTH_MODE",
+        "CDNLITE_EDGE_HEALTH_PORT",
+        "CDNLITE_EDGE_HEALTH_URL",
+        "CDNLITE_EDGE_HEALTH_TIMEOUT",
+        "CDNLITE_EDGE_HEALTH_INTERVAL",
+        "CDNLITE_EDGE_HEALTH_MIN_FAILURES",
+        "CDNLITE_EDGE_SELECTOR",
+        "CDNLITE_EDGE_BACKUP_SELECTOR",
+    ):
+        assert setting in dns_reconciler
+
 
 def test_geoip_bootstrap_is_reserved_and_core_owned():
     bootstrap = (DNSGEO / "geo" / "lua-bootstrap.yml").read_text()
@@ -67,3 +83,9 @@ def test_github_actions_exercises_real_dns_tools_and_all_scripts():
     assert 'assert_eq "$bad_code" "401"' in e2e
     assert "api_post_with_powerdns_retry" in e2e
     assert "'\"error\":\"powerdns_api_error\"'" in e2e
+    dns_e2e = (ROOT / "ci" / "dns_e2e.sh").read_text()
+    assert 'type == "A"' in dns_e2e
+    assert 'type == "AAAA"' in dns_e2e
+    assert 'select(.type != "SOA" and .type != "NS")' in dns_e2e
+    assert "'.powerdns.api.ok'" in dns_e2e
+    assert "'.powerdns.api.error'" in dns_e2e

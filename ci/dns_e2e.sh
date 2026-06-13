@@ -86,7 +86,10 @@ answer_set() {
   local name="$1"
   local type="${2:-A}"
   dig @127.0.0.1 -p "$PDNS_DNS_HOST_PORT" "$name" "$type" +short |
-    sed '/^$/d' | sort -u
+    awk -v type="$type" '
+      type == "A" && $0 ~ /^([0-9]{1,3}\.){3}[0-9]{1,3}$/ { print; next }
+      type == "AAAA" && $0 ~ /:/ { print }
+    ' | sort -u
 }
 
 retry 60 2 curl -fsS "$CORE_URL/health" >/dev/null
@@ -178,7 +181,7 @@ assert_eq "$site_answers" "$proxy_answers" "site target and shared proxy answer 
 assert_eq "$www_answers" "$site_answers" "www CNAME and site target answer sets differ"
 record_step PASS "alias-dig-equivalence" "apex, www, site target, and proxy resolve to the same A set"
 
-customer_before="$(jq -S '[.rrsets[] | {name,type,ttl,records}]' <<<"$customer_zone")"
+customer_before="$(jq -S '[.rrsets[] | select(.type != "SOA" and .type != "NS") | {name,type,ttl,records}]' <<<"$customer_zone")"
 db_query "UPDATE edge_nodes SET health_status='unhealthy', updated_at=$(date +%s) WHERE edge_id='dns-e2e-us';" >/dev/null
 force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after edge health transition failed"
@@ -189,7 +192,7 @@ assert_contains "$lua_after" "$EDGE_EU" "healthy edge disappeared from shared Lu
 if [[ "$lua_after" == *"$EDGE_US"* ]]; then
   fail "unhealthy edge remains in shared Lua record"
 fi
-customer_after="$(jq -S '[.rrsets[] | {name,type,ttl,records}]' <<<"$(zone_json "$TEST_ZONE")")"
+customer_after="$(jq -S '[.rrsets[] | select(.type != "SOA" and .type != "NS") | {name,type,ttl,records}]' <<<"$(zone_json "$TEST_ZONE")")"
 assert_eq "$customer_after" "$customer_before" "edge health transition rewrote customer rrsets"
 record_step PASS "edge-health-reconcile" "unhealthy edge removed only from the shared CDN Lua record"
 
@@ -210,8 +213,9 @@ assert_http_status "$HTTP_CODE" "200" "force-sync endpoint should return its str
 assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "false" "broken PowerDNS endpoint should fail synchronization"
 api_get "${CORE_URL}/cdn-health"
 assert_http_status "$HTTP_CODE" "200" "cdn-health should remain readable during DNS failure"
-assert_contains "$HTTP_BODY" '"status":"failed"' "cdn-health should expose failed DNS sync state"
-record_step PASS "sync-failure-visible" "PowerDNS failure is persisted and visible through cdn-health"
+assert_eq "$(json_get "$HTTP_BODY" '.powerdns.api.ok')" "false" "cdn-health should expose failed PowerDNS connectivity"
+assert_eq "$(json_get "$HTTP_BODY" '.powerdns.api.error')" "powerdns_api_error" "cdn-health should expose the PowerDNS API error"
+record_step PASS "sync-failure-visible" "PowerDNS connectivity failure is visible through cdn-health"
 
 api_patch "${CORE_URL}/api/v1/settings/platform.powerdns" \
   "{\"values\":{\"enabled\":true,\"strict\":true,\"api_url\":\"http://pdns-auth:8081\",\"api_key\":\"${PDNS_API_KEY}\",\"server_id\":\"localhost\"}}"
