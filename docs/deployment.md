@@ -17,6 +17,37 @@ versions, and test restores before relying on those backups.
 The root `docker-compose.yml` remains the canonical integrated DNSGeo topology
 used by development, CI, smoke, e2e, and DNS stress qualification.
 
+## Generate A Split Deployment
+
+The repository includes an interactive generator that copies the maintained
+deployment bundles and creates private `.env` files with random secrets:
+
+```bash
+deploy/generate-split-deployment.sh
+```
+
+For unattended generation, provide the required values through the environment:
+
+```bash
+REGISTRY_OWNER=example \
+IMAGE_TAG=sha-0123456789abcdef \
+DNS_BASE_DOMAIN=cdn.example.com \
+CORE_PUBLIC_IP=192.0.2.10 \
+DNSGEO_PUBLIC_IP=192.0.2.11 \
+EDGE_PUBLIC_IP=198.51.100.20 \
+deploy/generate-split-deployment.sh --auto --output ./generated
+```
+
+Add `--with-replica` to include `deploy/powerdns-replica`. The generator refuses
+to replace an existing output directory unless `--force` is supplied. It
+validates each generated Compose project when Docker Compose is available; use
+`--no-compose-check` only when validation will be performed on another host.
+
+The output contains `core/`, `dnsgeo/`, `edge/`, an optional
+`powerdns-replica/`, a deployment-specific `README.md`, and a
+`register-edge.sh` helper. Generated `.env` files are mode `0600` and must not
+be committed or transferred through an insecure channel.
+
 For split hosts, deploy `deploy/dnsgeo` and allow only the Core host to reach
 its API bind address/port. In Dashboard Settings, configure the PowerDNS API
 base as `http://DNSGEO_HOST:8089/api/v1`, server ID `localhost`, and the same

@@ -86,6 +86,7 @@ The documentation site is built with VitePress from `docs/`.
 - [CDN In A Minute](docs/cdn-in-a-minute.md)
 - [Setup](docs/setup.md)
 - [Production Deployment](docs/deployment.md)
+- [Split Deployment Generator](docs/deployment.md#generate-a-split-deployment)
 - [Published OpenAPI YAML](https://vaheed.github.io/CDNLite/api/openapi.yaml)
 - [OpenAPI source](docs/public/api/openapi.yaml)
 - [Architecture](docs/architecture.md)
