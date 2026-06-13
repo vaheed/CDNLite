@@ -102,6 +102,7 @@ The HMAC key is the SHA-256 hex string of the raw token. The signature is `hash_
 - `POST /api/v1/collector/security-events`
 
 For register and heartbeat, header edge ID must match body `edge_id` before signature validation succeeds.
+Successful signed heartbeats also report `health_status=healthy`; unsigned callers cannot change edge health.
 
 ## Common Auth Failures
 

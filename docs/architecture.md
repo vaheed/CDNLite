@@ -41,6 +41,10 @@ Customer Origins
 | Dashboard | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, ECharts | Browser admin console. |
 | Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |
 | Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
+
+The agent reports `health_status=healthy` with each successful signed heartbeat.
+Core combines that status with heartbeat freshness and the enabled flag when
+building the shared PowerDNS/DNSGeo edge pool.
 | CI and controlled services | Bash, Docker Compose | Smoke/e2e validation, origin services, real DNSGeo/PowerDNS. |
 
 Core treats a PowerDNS PATCH as successful only after an optional zone

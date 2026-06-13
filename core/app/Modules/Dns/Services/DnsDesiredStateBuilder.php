@@ -26,7 +26,14 @@ class DnsDesiredStateBuilder
             $domain = ['id' => (string) $row['site_id'], 'domain' => (string) $row['domain']];
             $record = $this->castRecord((array) $row);
             $plan = $this->planner->plan($domain, $record);
-            $contents = array_values(array_map('strval', (array) ($plan['contents'] ?? [$plan['content']])));
+            $contents = array_values(array_map(
+                fn (mixed $content): string => $this->normalizeContent(
+                    (string) $plan['type'],
+                    (string) $content,
+                    $record['priority']
+                ),
+                (array) ($plan['contents'] ?? [$plan['content']])
+            ));
             $rrsets[] = $this->rrset(
                 (string) $domain['domain'],
                 (string) $record['name'],
@@ -133,6 +140,24 @@ class DnsDesiredStateBuilder
     {
         $row['proxied'] = (bool) $row['proxied'];
         $row['ttl'] = (int) $row['ttl'];
+        $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];
         return $row;
+    }
+
+    private function normalizeContent(string $type, string $content, ?int $priority): string
+    {
+        $value = trim($content);
+        $recordType = strtoupper($type);
+        if ($recordType === 'TXT' && !str_starts_with($value, '"')) {
+            return '"' . str_replace('"', '\"', $value) . '"';
+        }
+        if ($recordType === 'MX') {
+            $target = str_ends_with($value, '.') ? strtolower($value) : strtolower($value) . '.';
+            return sprintf('%d %s', $priority ?? 0, $target);
+        }
+        if (in_array($recordType, ['ALIAS', 'CNAME', 'NS', 'PTR'], true) && !str_ends_with($value, '.')) {
+            return strtolower($value) . '.';
+        }
+        return $value;
     }
 }

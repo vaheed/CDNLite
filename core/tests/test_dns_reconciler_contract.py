@@ -21,6 +21,9 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
     assert "ON CONFLICT (zone_name, rrset_name, rrset_type, owner) DO UPDATE" in builder
     assert "generation_id <> :generation" in builder
+    assert "$recordType === 'TXT'" in builder
+    assert "$recordType === 'MX'" in builder
+    assert "sprintf('%d %s', $priority ?? 0, $target)" in builder
 
 
 def test_all_durable_dns_triggers_use_the_reconciler():
@@ -70,3 +73,8 @@ def test_edge_state_and_shared_proxy_contract():
     assert "CDNLITE_CDN_PROXY_HOST" in settings
     assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings
     assert "platform_soa" not in service
+
+
+def test_agent_heartbeat_marks_a_successful_runtime_healthy():
+    heartbeat = read("edge/agent/heartbeat.sh")
+    assert '\\"health_status\\":\\"healthy\\"' in heartbeat

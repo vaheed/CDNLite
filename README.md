@@ -43,6 +43,7 @@ CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL datab
 - Redirects, page rules, WAF rules, rate limits, response headers, and IP access rules.
 - SSL settings, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
 - Edge node registration, heartbeat, config polling, metrics ingest, and security-event ingest with HMAC replay protection.
+- Successful edge-agent heartbeats mark the node healthy for the shared DNS edge pool.
 - Vue dashboard for operations, domains, edge network, analytics, snapshots, events, audit log, and settings.
 - Docker Compose stack plus CI smoke/e2e checks.
 

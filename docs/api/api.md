@@ -390,6 +390,9 @@ SSL tips:
 | `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |
+
+The bundled edge agent includes `health_status: "healthy"` in successful
+heartbeats so fresh local nodes become eligible for the shared DNS edge pool.
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
 | `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. |
 | `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |
