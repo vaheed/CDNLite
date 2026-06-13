@@ -12,10 +12,13 @@ def test_fresh_install_has_one_canonical_schema_and_no_numbered_migrations():
 def test_schema_application_is_explicit_and_serialized_at_container_start():
     database = (ROOT / "core/app/Support/Database.php").read_text()
     entrypoint = (ROOT / "core/docker-entrypoint.sh").read_text()
+    dockerfile = (ROOT / "core/Dockerfile").read_text()
     assert "pg_advisory_lock" in database
     assert "pg_advisory_unlock" in database
     assert "finally" in database
     assert "installFreshSchema" in entrypoint
+    assert "WORKDIR /app" in dockerfile
+    assert "require '/app/app/Support/bootstrap.php'" in entrypoint
     assert "self::installFreshSchema" not in database
 
 
