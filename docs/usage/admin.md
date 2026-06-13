@@ -72,7 +72,11 @@ Use `Dry run` to calculate desired records without writing PowerDNS. Use
 opens from the configured `CDNLITE_POWERADMIN_URL`.
 
 Raw config snapshots are no longer exposed in dashboard navigation. They remain
-an internal edge runtime mechanism.
+an internal edge runtime mechanism. The readiness timestamp advances after a
+successful edge config pull or manual rebuild. A stale warning links to `Edge
+Network`, where operators can inspect heartbeat and identity state, then run
+`docker compose exec core php artisan cdn:edge:sync-config` when a manual
+rebuild is needed.
 2. Review current and historical versions.
 3. Diff two versions before rollback.
 4. Roll back only when the older version is known good.

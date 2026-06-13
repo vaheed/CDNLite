@@ -30,6 +30,34 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - config freshness remediation route correction
+
+Completed:
+
+```text
+- changed config freshness readiness warnings to describe edge configuration
+  generation
+- linked remediation to the existing Edge Network page instead of the retired
+  /config-snapshot dashboard route
+- documented the successful-pull/manual-rebuild timestamp semantics
+- added a contract assertion that the readiness link is a registered route
+```
+
+Validation:
+
+```text
+- focused readiness contract tests
+- PHP syntax lint
+- dashboard typecheck and production build
+```
+
+Remaining:
+
+```text
+- the Edge Runtime Release admin view described in section 7 is not implemented
+- raw config snapshots remain internal APIs
+```
+
 #### 2026-06-13 - Phase 6 acceptance complete
 
 Completed:

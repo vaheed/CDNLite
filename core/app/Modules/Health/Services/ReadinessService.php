@@ -106,14 +106,14 @@ class ReadinessService
     {
         $generatedAt = Database::pdo()->query('SELECT MAX(generated_at) FROM config_snapshots')->fetchColumn();
         if ($generatedAt === false || $generatedAt === null) {
-            return $this->result('config_snapshot', 'warning', 'No config snapshot has been generated', 'Generate or pull the edge configuration', '/config-snapshot');
+            return $this->result('config_snapshot', 'warning', 'No edge configuration has been generated', 'Check edge config pulls or run a manual config rebuild', '/edge-nodes');
         }
         $maxAge = max(60, (int) (getenv('CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS') ?: 900));
         $age = max(0, time() - (int) $generatedAt);
         if ($age <= $maxAge) {
             return $this->result('config_snapshot', 'ok', 'Config snapshot is fresh');
         }
-        return $this->result('config_snapshot', 'warning', sprintf('Config snapshot is %d minutes old', (int) floor($age / 60)), 'Review config generation and edge pulls', '/config-snapshot');
+        return $this->result('config_snapshot', 'warning', sprintf('Edge configuration was last generated %d minutes ago', (int) floor($age / 60)), 'Check edge config pulls or run a manual config rebuild', '/edge-nodes');
     }
 
     private function certificateExpiryCheck(): array
