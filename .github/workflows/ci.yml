@@ -188,7 +188,13 @@ jobs:
           chmod +x ci/*.sh
           # Verifies domain-scoped and global operations APIs with ingested events.
           timeout 1800 ./ci/e2e.sh
+      - name: Verify edge server identity hardening
+        run: grep -F '| PASS | edge-server-identity-hidden |' ci/reports/e2e-report.md
       - name: Live DNS reconciliation checks
+        env:
+          REPORT_MD: ci/reports/dns-e2e-report.md
+          REPORT_JSON: ci/reports/dns-e2e-report.json
+          REPORT_JUNIT: ci/reports/dns-e2e-junit.xml
         run: |
           CI_ENV_NAME=e2e-dns timeout 900 ./ci/dns_e2e.sh
       - name: Service logs
@@ -211,6 +217,10 @@ jobs:
         run: |
           if [ -f ci/reports/e2e-report.md ]; then
             cat ci/reports/e2e-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f ci/reports/dns-e2e-report.md ]; then
+            printf '\n' >> "$GITHUB_STEP_SUMMARY"
+            cat ci/reports/dns-e2e-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Teardown
         if: always()
