@@ -42,7 +42,8 @@ Customer Origins
 | Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |
 | Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
 
-The agent reports `health_status=healthy` with each successful signed heartbeat.
+The agent reports `health_status=healthy` with each successful signed heartbeat
+and treats non-success HTTP responses as heartbeat failures.
 Core combines that status with heartbeat freshness and the enabled flag when
 building the shared PowerDNS/DNSGeo edge pool.
 | CI and controlled services | Bash, Docker Compose | Smoke/e2e validation, origin services, real DNSGeo/PowerDNS. |
@@ -87,7 +88,7 @@ Admin/API change
 | Domain and rule state | Dashboard, API, CLI | Core services and config snapshot builder. |
 | Config snapshot JSON | Core `ConfigService` | Edge agent and OpenResty runtime. |
 | Metrics NDJSON | OpenResty edge | Edge agent, collector API, usage aggregates. |
-| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. |
+| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. Concurrent push attempts are serialized with a queue-scoped lock. |
 | Origin health | Scheduler/CLI | Readiness service and edge backup routing config. |
 | Audit records | Core services | Audit log dashboard and API. |
 

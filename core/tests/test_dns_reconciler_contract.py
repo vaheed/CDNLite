@@ -60,6 +60,15 @@ def test_main_e2e_waits_for_the_reconciled_powerdns_zone():
     assert "pdns_zone_is_ready()" in e2e
     assert "retry 40 1 pdns_zone_is_ready" in e2e
     assert "'.name == $zone'" in e2e
+    assert 'select(.name == $name and .type == "ALIAS")' in e2e
+
+
+def test_main_e2e_waits_for_a_healthy_edge_heartbeat():
+    e2e = read("ci/e2e.sh")
+
+    assert "edge_is_healthy()" in e2e
+    assert "retry 20 1 edge_is_healthy" in e2e
+    assert "health_status='healthy'" in e2e
 
 
 def test_sync_result_binds_postgresql_boolean_explicitly():

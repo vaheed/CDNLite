@@ -30,6 +30,30 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - edge health and e2e queue race corrections
+
+Completed:
+
+```text
+- serialized concurrent security-event pushes around the shared payload files
+- made heartbeat HTTP failures visible to the edge-agent retry loop
+- made main e2e wait for a persisted healthy heartbeat
+- constrained the apex PowerDNS assertion to the ALIAS rrset
+```
+
+Validation:
+
+```text
+- focused DNS reconciler and security-event contract tests passed
+- shell syntax validation passed
+```
+
+Remaining gaps:
+
+```text
+- the complete Compose e2e and browser suite still need to pass for Phase 6
+```
+
 #### 2026-06-13 - main e2e PowerDNS convergence wait
 
 Completed:

@@ -182,6 +182,12 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+edge_is_healthy() {
+  [[ "$(db_query "SELECT COUNT(*) FROM edge_nodes
+    WHERE edge_id='${EDGE_ID}' AND status='online' AND health_status='healthy'
+      AND COALESCE(last_heartbeat_at, last_heartbeat) > EXTRACT(EPOCH FROM NOW())::BIGINT - 90;")" == "1" ]]
+}
+
 pdns_zone_is_ready() {
   local zone="$1"
   local output="$2"
@@ -290,9 +296,10 @@ fi
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null
 agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
+retry 20 1 edge_is_healthy
 agent_exec '/agent/pull_config.sh' >/dev/null || true
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
-record_step PASS "edge-token-register" "edge token provisioned"
+record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
 
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
   no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/domains" \
@@ -564,7 +571,7 @@ if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
   retry 40 1 pdns_zone_is_ready "${TEST_DOMAIN}." "$zone_file"
   zone_json="$(cat "$zone_file")"
   rm -f "$zone_file"
-  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name) | .type' <<<"$zone_json")"
+  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and .type == "ALIAS") | .type' <<<"$zone_json")"
   assert_eq "$apex_type" "ALIAS" "proxied apex must be stored as PowerDNS ALIAS"
   if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$zone_json" >/dev/null; then
     fail "proxied apex must not contain Core-written A/AAAA rrsets"

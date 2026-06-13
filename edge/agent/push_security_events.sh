@@ -4,6 +4,12 @@ set -eu
 SECURITY_EVENT_PATH="${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"
 payload_file="${SECURITY_EVENT_PATH}.payload"
 count_file="${payload_file}.count"
+lock_dir="${SECURITY_EVENT_PATH}.push.lock"
+
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  exit 0
+fi
+trap 'rmdir "$lock_dir" 2>/dev/null || true' 0 HUP INT TERM
 
 ensure_queue_writable() {
   [ -f "$SECURITY_EVENT_PATH" ] || : > "$SECURITY_EVENT_PATH"

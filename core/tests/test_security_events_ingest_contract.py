@@ -15,6 +15,9 @@ def test_security_events_ingest_route_contract():
     assert "ingestSecurityEvents" in collector_service
     assert "push_security_events.sh" in agent_run
     assert "chmod 666" in agent_push
+    assert 'mkdir "$lock_dir"' in agent_push
+    assert "trap 'rmdir" in agent_push
+    assert "' 0 HUP INT TERM" in agent_push
     assert "security-events.ndjson" in router
 
 
