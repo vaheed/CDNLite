@@ -70,7 +70,7 @@ class DnsSyncStateService
                 updated_at = :now
              WHERE zone_name = :zone"
         )->execute([
-            ':ok' => $ok,
+            ':ok' => $ok ? 'true' : 'false',
             ':applied_hash' => $appliedHash,
             ':status' => $ok ? 'ok' : 'failed',
             ':now' => $now,

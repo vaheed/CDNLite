@@ -31,6 +31,21 @@ docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
         ('$domain_b', '$user_id', 'Analytics Beta', 'analytics-beta.local', 'active', $now, $now)
       ON CONFLICT (id) DO NOTHING;"
 
+docker compose exec -T postgres psql -U cdnlite -d cdnlite -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO dns_records (
+        id, domain_id, type, name, content, ttl, proxied, status,
+        routing_policy, origin_host, origin_tls_verify, origin_scheme,
+        origin_status, geo_origins_json, created_at, updated_at
+      ) VALUES
+        ('31111111-1111-4111-8111-111111111117', '$domain_a', 'A', '@', 'origin-tls', 60, true, 'active',
+         'standard', 'origin-tls', 'verify', 'auto', 'unknown', '{}'::jsonb, $now, $now),
+        ('32222222-2222-4222-8222-222222222227', '$domain_a', 'A', 'www', 'origin-tls', 60, true, 'active',
+         'standard', 'origin-tls', 'verify', 'auto', 'unknown', '{}'::jsonb, $now, $now),
+        ('33333333-3333-4333-8333-333333333337', '$domain_a', 'A', 'direct', '192.0.2.88', 300, false, 'active',
+         'standard', '', 'verify', 'auto', 'unknown', '{}'::jsonb, $now, $now)
+      ON CONFLICT (id) DO UPDATE SET
+        content=EXCLUDED.content, proxied=EXCLUDED.proxied, status='active', updated_at=$now;"
+
 ingest() {
   local domain_id="$1"
   local suffix="$2"

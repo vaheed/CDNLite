@@ -44,6 +44,11 @@ def test_scheduled_and_operator_sync_share_the_same_command_path():
     assert "cdn:dns:reconcile" in artisan
 
 
+def test_sync_result_binds_postgresql_boolean_explicitly():
+    service = read("core/app/Modules/Dns/Services/DnsSyncStateService.php")
+    assert "':ok' => $ok ? 'true' : 'false'" in service
+
+
 def test_edge_state_and_shared_proxy_contract():
     schema = read("core/database/schema.sql")
     service = read("core/app/Modules/Dns/Services/EdgeDnsService.php")
@@ -57,3 +62,4 @@ def test_edge_state_and_shared_proxy_contract():
     assert "CDNLITE_CDN_ZONE" in settings
     assert "CDNLITE_CDN_PROXY_HOST" in settings
     assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings
+    assert "platform_soa" not in service

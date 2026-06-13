@@ -37,7 +37,6 @@ class EdgeDnsService
         $pool = $this->activeEdgePool();
         $this->persistGeneration($pool);
         $rrsets = [
-            $this->desired('@', 'SOA', $ttl, [$this->records->soa($zone)], 'platform_soa'),
             $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
         ];
 

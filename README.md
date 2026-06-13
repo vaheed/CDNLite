@@ -107,7 +107,12 @@ Smoke/e2e scripts use the root Compose stack:
 docker compose up -d --build --wait
 ./ci/smoke.sh
 ./ci/e2e.sh
+CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 ```
+
+The DNS acceptance script uses the live bundled DNSGeo/PowerDNS stack.
+Playwright browser smoke tests cover DNS Operations and effective ALIAS/CNAME
+behavior against that same stack.
 
 ## Contribution Guidelines
 

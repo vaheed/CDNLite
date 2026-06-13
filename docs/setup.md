@@ -216,6 +216,7 @@ sh -n edge/agent/push_metrics.sh
 sh -n edge/agent/run.sh
 bash -n ci/smoke.sh
 bash -n ci/e2e.sh
+bash -n ci/dns_e2e.sh
 ```
 
 Smoke and e2e:
@@ -226,7 +227,22 @@ docker compose up -d --build --wait
 
 docker compose up -d --build
 EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
-./ci/powerdns_dns_checks.sh
+CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
+```
+
+The DNS acceptance flow verifies Core-created zones, raw ALIAS/CNAME/LUA
+records, ALIAS expansion with `dig`, edge health reconciliation, stale record
+deletion, persisted failure state, and recovery. Static Lua answers are used
+only for deterministic documentation-range CI fixtures.
+
+Dashboard browser smoke tests run against the same stack:
+
+```bash
+./ci/seed_frontend_e2e.sh
+cd dash
+npm ci
+npx playwright install chromium
+npm run test:e2e
 ```
 
 ## Deployment

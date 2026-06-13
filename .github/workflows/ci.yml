@@ -66,6 +66,7 @@ jobs:
           bash -n ci/agent_flow_checks.sh
           bash -n ci/smoke.sh
           bash -n ci/e2e.sh
+          bash -n ci/dns_e2e.sh
           bash -n ci/powerdns_dns_checks.sh
           bash -n ci/seed_frontend_e2e.sh
           sh -n ci/origin-mock/start.sh
@@ -158,6 +159,7 @@ jobs:
       EDGE_AGENT_IDLE: 1
       CDNLITE_SCHEDULER_IDLE: 1
       CDNLITE_CACHE_DEFAULT_TTL: 1s
+      CDNLITE_EDGE_HEALTH_MODE: static
       POWERDNS_ENABLED: 1
       POWERDNS_STRICT: 1
       PDNS_API_KEY: test-key
@@ -177,9 +179,21 @@ jobs:
           chmod +x ci/*.sh
           # Verifies domain-scoped and global operations APIs with ingested events.
           timeout 1800 ./ci/e2e.sh
-      - name: PowerDNS DNS checks
+      - name: Live DNS reconciliation checks
         run: |
-          CI_ENV_NAME=e2e-powerdns-dns-checks timeout 300 ./ci/powerdns_dns_checks.sh
+          CI_ENV_NAME=e2e-dns timeout 900 ./ci/dns_e2e.sh
+      - name: Seed frontend E2E
+        run: ./ci/seed_frontend_e2e.sh
+      - name: Install Playwright browser
+        working-directory: dash
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Dashboard browser smoke
+        working-directory: dash
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8082
+        run: npm run test:e2e
       - name: Service logs
         if: always()
         run: |

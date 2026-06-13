@@ -86,6 +86,18 @@ Lua records and `edns-subnet-processing=yes` are enabled. The MMDB updater uses 
 the GeoIP backend. CDNLite does not seed customer/example zones or Lua records.
 Core owns every real zone and record through the PowerDNS API.
 
+## DNS Acceptance Tests
+
+`ci/dns_e2e.sh` uses the normal root Compose topology and fails unless Core
+writes the expected raw ALIAS, CNAME, DNS-only, site-target, and shared Lua
+records. It also compares `dig` answer sets for the apex, site target, and
+proxy host; verifies edge health changes only update the shared CDN record;
+checks stale deletion; and proves failed writes are visible and recoverable.
+
+The script inspects the running authoritative configuration for
+`expand-alias=yes` and a separate resolver. Disabling either requirement fails
+CI before the DNS assertions run.
+
 Core records each write attempt and verified outcome in `dns_sync_events`, and
 stores the current per-zone result in `dns_sync_state`. A failed PATCH or
 read-back verification leaves the zone in `failed` state with its status code

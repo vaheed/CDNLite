@@ -69,3 +69,11 @@ def test_local_development_edges_are_selectable():
     service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
     assert "'LOCAL'" in service
     assert "Local development" in service
+
+
+def test_powerdns_lua_records_are_expressions_not_chunks():
+    builder = read("core/app/Modules/Dns/Services/EdgeHealthRecordBuilder.php")
+    assert "'ifportup(%d, %s, %s)'" in builder
+    assert "'ifurlup(%s, %s)'" in builder
+    assert "return ifportup" not in builder
+    assert "return ifurlup" not in builder

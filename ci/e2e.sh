@@ -553,8 +553,12 @@ if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
     "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost" >/dev/null
   zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
   assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
-  assert_contains "$zone_json" "\"type\":\"A\"" "pdns missing flattened proxied apex A record"
-  record_step PASS "powerdns-sync-positive" "records present in real PowerDNS"
+  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name) | .type' <<<"$zone_json")"
+  assert_eq "$apex_type" "ALIAS" "proxied apex must be stored as PowerDNS ALIAS"
+  if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$zone_json" >/dev/null; then
+    fail "proxied apex must not contain Core-written A/AAAA rrsets"
+  fi
+  record_step PASS "powerdns-sync-positive" "proxied apex is an ALIAS in real PowerDNS"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
     -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
