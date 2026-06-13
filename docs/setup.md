@@ -66,6 +66,8 @@ docker compose exec core php artisan cdn:admin:create \
 The core image runs PHP from `core/public_index.php` and CLI commands from
 `core/artisan`. Fresh installations apply the single canonical schema in
 `core/database/schema.sql`. Existing database upgrades are not supported.
+Core containers install this schema at startup. CI installs it explicitly before
+running the Core test suite against its empty PostgreSQL service.
 
 Useful commands:
 

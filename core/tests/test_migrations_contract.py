@@ -26,3 +26,11 @@ def test_no_schema_upgrade_command_is_shipped():
     artisan = (ROOT / "core/artisan").read_text()
     assert "cdn:migrate" not in artisan
     assert not (ROOT / "core/app/Console/Commands/CdnMigrateCommand.php").exists()
+
+
+def test_ci_installs_the_fresh_schema_before_core_tests():
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    schema_step = "App\\\\Support\\\\Database::installFreshSchema()"
+
+    assert schema_step in workflow
+    assert workflow.index(schema_step) < workflow.index("pytest -q core/tests")

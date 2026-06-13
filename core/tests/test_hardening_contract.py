@@ -47,6 +47,8 @@ $password = getenv('DB_PASSWORD') ?: 'cdnlite';
 $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $tables = [
+  'platform_settings_audit',
+  'platform_settings',
   'usage_aggregates',
   'usage_ingest_keys',
   'usage_rollups',
