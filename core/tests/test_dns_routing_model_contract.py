@@ -11,7 +11,8 @@ def read(path: str) -> str:
 def test_record_routing_and_geo_schema():
     schema = read("core/database/schema.sql")
     assert "routing_policy TEXT NOT NULL DEFAULT 'standard'" in schema
-    assert "canonical_edge_hostname TEXT NULL" in schema
+    assert "canonical_edge_hostname" not in schema
+    assert "edge_target" not in schema
     assert "CREATE TABLE IF NOT EXISTS dns_record_geo_routes" in schema
     assert "('standard', 'geo', 'anycast', 'geo_anycast')" in schema
 
@@ -31,8 +32,9 @@ def test_canonical_hostname_and_no_cname_to_ip_contract():
     assert "return $this->result('CNAME', $canonical" in planner
     assert "'site-' . $this->label($domainId)" in planner
     assert "'shared_proxy:' . $type" in edge_dns
-    assert "'site_proxy'" in edge_dns
+    assert "'site_proxy:'" in edge_dns
     assert "[$this->proxyHost() . '.']" in edge_dns
+    assert "JOIN dns_records r ON r.domain_id = d.id" in edge_dns
 
 
 def test_proxied_default_does_not_require_anycast():

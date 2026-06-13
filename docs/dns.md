@@ -68,6 +68,9 @@ proxy.cdn.example.net. LUA AAAA <healthy IPv6 pool>
 ```
 
 Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host.
+Proxied customer apex records are always published as `ALIAS` to that stable
+site target. Proxied subdomains are always published as `CNAME`. CDNLite has no
+apex address-flattening mode and never copies edge IPs into customer zones.
 Changing an edge IP or health state therefore changes only the shared proxy
 rrsets; customer zones and site CNAMEs are not rewritten. Core records distinct
 edge-state hashes in `edge_state_generations` for inspection and test assertions.

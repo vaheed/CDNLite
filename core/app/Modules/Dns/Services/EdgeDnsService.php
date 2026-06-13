@@ -56,22 +56,20 @@ class EdgeDnsService
             );
         }
         $targets = Database::pdo()->query(
-            "SELECT DISTINCT canonical_edge_hostname FROM dns_records
-             WHERE proxied = true AND status = 'active' AND canonical_edge_hostname IS NOT NULL
-             ORDER BY canonical_edge_hostname"
+            "SELECT DISTINCT d.id
+             FROM domains d
+             JOIN dns_records r ON r.domain_id = d.id
+             WHERE r.proxied = true AND r.status = 'active'
+             ORDER BY d.id"
         )->fetchAll();
         foreach ($targets as $target) {
-            $hostname = rtrim(strtolower((string) $target['canonical_edge_hostname']), '.');
-            $suffix = '.' . $zone;
-            if (str_ends_with($hostname, $suffix)) {
-                $rrsets[] = $this->desired(
-                    substr($hostname, 0, -strlen($suffix)),
-                    'CNAME',
-                    $ttl,
-                    [$this->proxyHost() . '.'],
-                    'site_proxy'
-                );
-            }
+            $rrsets[] = $this->desired(
+                'site-' . $this->label((string) $target['id']),
+                'CNAME',
+                $ttl,
+                [$this->proxyHost() . '.'],
+                'site_proxy:' . (string) $target['id']
+            );
         }
         return $rrsets;
     }
@@ -212,5 +210,11 @@ class EdgeDnsService
     {
         $interval = (int) (getenv('CDNLITE_SYNC_INTERVAL_SECONDS') ?: 30);
         return max(30, $interval * 2);
+    }
+
+    private function label(string $value): string
+    {
+        $value = strtolower(preg_replace('/[^a-zA-Z0-9-]/', '', $value) ?? '');
+        return trim($value, '-') ?: 'site';
     }
 }

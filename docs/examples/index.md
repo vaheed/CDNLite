@@ -149,6 +149,10 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -d '{"type":"TXT","name":"@","content":"v=spf1 include:_spf.example.net ~all","ttl":300,"proxied":false}'
 ```
 
+The apex input keeps its origin type, but public DNS publishes it as `ALIAS`
+to `site-<domain-id>.cdn.<zone>`. The proxied `www` record publishes `CNAME`
+to that same stable site target.
+
 Cutover checklist:
 
 - Lower TTL before migration.

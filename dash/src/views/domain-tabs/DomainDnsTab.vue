@@ -53,7 +53,7 @@
 
       <div v-if="form.proxied" class="notice-info">
         <Cloud class="mt-0.5 h-5 w-5 shrink-0" />
-        <p>Visitors connect to CDNLite edge nodes. The default and country origins remain private backend targets.</p>
+        <p>{{ isApex(form.name) ? 'The apex is published as a PowerDNS ALIAS' : 'This subdomain is published as a CNAME' }} to the stable site target. Origins remain private backend targets.</p>
       </div>
       <p v-if="error" class="state-error">{{ error }}</p>
       <div class="flex justify-end gap-2"><button type="button" class="button-secondary" @click="editing = false">Cancel</button><button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save record' }}</button></div>
@@ -62,7 +62,7 @@
     <DataTable v-else-if="records.length" title="DNS records" subtitle="Authoritative records for this domain." :rows="records" :columns="columns">
       <template #type="{ value }"><span class="record-type">{{ value }}</span></template>
       <template #name="{ value }"><span class="font-mono font-medium">{{ value }}</span></template>
-      <template #content="{ row }"><span class="font-mono text-xs">{{ row.content }}</span><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
+      <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : row.content }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
       <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
       <template #status="{ row }"><StatusBadge :status="row.status === 'active' ? 'healthy' : 'warning'" :label="String(row.status || 'unknown')" /></template>
       <template #actions="{ row }"><div class="flex gap-2"><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
@@ -157,6 +157,7 @@ async function save() {
   } finally { saving.value = false; }
 }
 async function remove(value: Record<string, unknown>) { await dnsApi.remove(props.domainId, String(value.id)); await load(); }
+function isApex(name: string) { return ['', '@'].includes(name.trim().replace(/\.$/, '').toLowerCase()); }
 
 watch(() => props.domainId, load);
 onMounted(load);

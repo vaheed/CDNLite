@@ -32,12 +32,11 @@ export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'upda
 
 export interface DnsRecord {
   id: Id; type: string; name: string; content: string; ttl?: number; priority?: number | null;
-  proxied?: boolean; geo_policy_id?: Id | null; edge_target?: string | null; status?: string;
+  proxied?: boolean; geo_policy_id?: Id | null; status?: string;
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
   origin_status?: string; geo_origins?: Record<string, { host: string; tls_verify?: 'verify' | 'ignore' }>;
   routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
-  canonical_edge_hostname?: string | null;
   geo_routes_count?: number;
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;

@@ -77,7 +77,6 @@ class DnsService
             'name' => (string) $input['name'],
             'proxied' => (bool) ($input['proxied'] ?? false),
             'geo_policy_id' => $input['geo_policy_id'] ?? null,
-            'edge_target' => $input['edge_target'] ?? null,
             'origin_host' => trim((string) ($input['origin_host'] ?? $originContent)),
             'origin_tls_verify' => (string) ($input['origin_tls_verify'] ?? 'verify'),
             'geo_origins' => $input['geo_origins'] ?? [],
@@ -89,15 +88,15 @@ class DnsService
         $now = time();
         $stmt = Database::pdo()->prepare(
             'INSERT INTO dns_records (
-                id, domain_id, type, name, content, ttl, priority, proxied, geo_policy_id, edge_target,
+                id, domain_id, type, name, content, ttl, priority, proxied, geo_policy_id,
                 origin_type, origin_content, public_type, public_content, origin_host, origin_tls_verify,
-                origin_scheme, origin_status, geo_origins_json, routing_policy, canonical_edge_hostname,
+                origin_scheme, origin_status, geo_origins_json, routing_policy,
                 status, created_at, updated_at
              )
              VALUES (
-                :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id, :edge_target,
+                :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id,
                 :origin_type, :origin_content, :public_type, :public_content, :origin_host, :origin_tls_verify,
-                NULL, :origin_status, :geo_origins_json, :routing_policy, :canonical_edge_hostname,
+                NULL, :origin_status, :geo_origins_json, :routing_policy,
                 :status, :created_at, :updated_at
              )'
         );
@@ -111,7 +110,6 @@ class DnsService
             ':priority' => isset($input['priority']) ? (int) $input['priority'] : null,
             ':proxied' => (int) $record['proxied'],
             ':geo_policy_id' => $record['geo_policy_id'],
-            ':edge_target' => $record['edge_target'],
             ':origin_type' => $originType,
             ':origin_content' => $originContent,
             ':public_type' => $public['type'],
@@ -121,7 +119,6 @@ class DnsService
             ':origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
             ':geo_origins_json' => $this->encodeGeoOrigins($record['geo_origins']),
             ':routing_policy' => $record['routing_policy'],
-            ':canonical_edge_hostname' => $record['proxied'] ? $this->planner->canonicalHostname($id, $domainId) : null,
             ':status' => 'active',
             ':created_at' => $now,
             ':updated_at' => $now,
@@ -155,7 +152,6 @@ class DnsService
             'priority' => $oldRecord['priority'],
             'proxied' => (bool) $oldRecord['proxied'],
             'geo_policy_id' => $oldRecord['geo_policy_id'],
-            'edge_target' => $oldRecord['edge_target'],
             'status' => (string) $oldRecord['status'],
             'origin_host' => $oldRecord['origin_host'],
             'origin_tls_verify' => $oldRecord['origin_tls_verify'],
@@ -163,7 +159,7 @@ class DnsService
             'routing_policy' => $oldRecord['routing_policy'],
         ];
 
-        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'edge_target', 'origin_host', 'origin_tls_verify', 'routing_policy'] as $field) {
+        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'origin_host', 'origin_tls_verify', 'routing_policy'] as $field) {
             if (array_key_exists($field, $input)) {
                 $patch[$field] = $input[$field] === null ? null : (string) $input[$field];
             }
@@ -187,7 +183,6 @@ class DnsService
             'name' => (string) $patch['name'],
             'proxied' => (bool) $patch['proxied'],
             'geo_policy_id' => $patch['geo_policy_id'],
-            'edge_target' => $patch['edge_target'],
             'id' => $recordId,
             'routing_policy' => $patch['routing_policy'],
         ];
@@ -203,7 +198,6 @@ class DnsService
                 priority = :priority,
                 proxied = :proxied,
                 geo_policy_id = :geo_policy_id,
-                edge_target = :edge_target,
                 origin_type = :origin_type,
                 origin_content = :origin_content,
                 public_type = :public_type,
@@ -214,7 +208,6 @@ class DnsService
                 origin_status = :origin_status,
                 geo_origins_json = :geo_origins_json,
                 routing_policy = :routing_policy,
-                canonical_edge_hostname = :canonical_edge_hostname,
                 status = :status,
                 updated_at = :updated_at
              WHERE domain_id = :domain_id AND id = :id'
@@ -229,7 +222,6 @@ class DnsService
             ':priority' => $patch['priority'],
             ':proxied' => (int) ((bool) $patch['proxied']),
             ':geo_policy_id' => $patch['geo_policy_id'],
-            ':edge_target' => $patch['edge_target'],
             ':origin_type' => strtoupper((string) $patch['type']),
             ':origin_content' => (string) $patch['content'],
             ':public_type' => $public['type'],
@@ -239,7 +231,6 @@ class DnsService
             ':origin_status' => $patch['proxied'] ? 'pending' : 'dns_only',
             ':geo_origins_json' => $this->encodeGeoOrigins($patch['geo_origins']),
             ':routing_policy' => (string) $patch['routing_policy'],
-            ':canonical_edge_hostname' => $patch['proxied'] ? $this->planner->canonicalHostname($recordId, $domainId) : null,
             ':status' => (string) $patch['status'],
             ':updated_at' => time(),
         ]);
@@ -369,14 +360,12 @@ class DnsService
         $row['public_type'] = (string) ($row['public_type'] ?: $row['type']);
         $row['public_content'] = (string) ($row['public_content'] ?: $row['content']);
         $row['geo_policy_id'] = $row['geo_policy_id'] === null ? null : (string) $row['geo_policy_id'];
-        $row['edge_target'] = $row['edge_target'] === null ? null : (string) $row['edge_target'];
         $row['origin_host'] = $row['origin_host'] === null ? null : (string) $row['origin_host'];
         $row['origin_tls_verify'] = (string) ($row['origin_tls_verify'] ?? 'verify');
         $row['origin_scheme'] = $row['origin_scheme'] === null ? null : (string) $row['origin_scheme'];
         $row['origin_status'] = (string) ($row['origin_status'] ?? 'pending');
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
         $row['routing_policy'] = (string) ($row['routing_policy'] ?? 'standard');
-        $row['canonical_edge_hostname'] = $row['canonical_edge_hostname'] === null ? null : (string) $row['canonical_edge_hostname'];
         unset($row['geo_origins_json']);
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];

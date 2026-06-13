@@ -263,9 +263,9 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
     assert updated["data"]["proxied"] is True
     assert updated["data"]["origin_type"] == "A"
     assert updated["data"]["origin_content"] == "127.0.0.2"
-    assert updated["data"]["public_type"] == "A"
-    assert updated["data"]["public_content"] == "198.51.100.10"
-    assert updated["data"]["canonical_edge_hostname"] == f"site-{domain_id}.cdn.example.net."
+    assert updated["data"]["public_type"] == "ALIAS"
+    assert updated["data"]["public_content"] == f"site-{domain_id}.cdn.example.net."
+    assert "canonical_edge_hostname" not in updated["data"]
 
     non_apex = run_artisan(
         "cdn:dns:add-record",
@@ -277,7 +277,7 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
     )
     assert non_apex["data"]["public_type"] == "CNAME"
     assert non_apex["data"]["public_content"] == f"site-{domain_id}.cdn.example.net."
-    assert non_apex["data"]["canonical_edge_hostname"] == non_apex["data"]["public_content"]
+    assert "canonical_edge_hostname" not in non_apex["data"]
 
 
 def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():

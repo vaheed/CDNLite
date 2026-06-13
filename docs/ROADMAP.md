@@ -23,12 +23,46 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 1 - real and verified PowerDNS writes | DONE | Real writes use retries and read-back verification; every write persists per-zone state and events, `/cdn-health` exposes API/sync status, and doctor/dry-run/force-sync commands are available. Core e2e and the bundled PowerDNS checks validate real records. |
 | Phase 2 - desired-state reconciler | DONE | Customer, domain, edge, scheduled, bootstrap, and operator triggers use one advisory-locked desired-state reconciler with batched writes and stale owned-rrset deletion. |
 | Phase 3 - edge state and shared proxy record | DONE | `edge_state` filters eligible addresses, anycast is prioritized, and one stable shared proxy hostname owns the Lua A/AAAA edge pool. |
-| Phase 4 - apex ALIAS and subdomain CNAME | PARTIAL | Existing planner supports ALIAS/CNAME concepts, but the full stable site target and shared proxy model is not implemented or proven against real PowerDNS. |
+| Phase 4 - apex ALIAS and subdomain CNAME | DONE | Proxied apex records always publish ALIAS, proxied subdomains publish CNAME, and domain-scoped site targets point to the shared proxy host without persisted edge-target projections. |
 | Phase 5 - admin and user UI | PENDING | Roadmap-specific DNS status and effective-record UI is not implemented. |
 | Phase 6 - tests/e2e/smoke | PARTIAL | Core contract coverage exists for the hardened client; real DNSGeo/PowerDNS, dig, failure-mode, and frontend smoke coverage remain. |
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 4 stable customer proxy records
+
+Completed:
+
+```text
+- made PowerDNS ALIAS universal for every proxied customer apex record
+- made CNAME to the stable domain-scoped site target universal for proxied subdomains
+- generated site target CNAMEs directly from active proxied domains
+- removed apex A/AAAA flattening and all customer-zone edge IP publication
+- removed obsolete edge_target and canonical_edge_hostname persisted projections
+- rejected DNS-only apex CNAME records
+- removed the obsolete CDNLITE_EDGE_APEX_MODE configuration path
+- updated dashboard effective-record display, API docs, examples, and contracts
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed for all Core PHP files
+- focused Phase 4 routing contracts: 10 passed
+- dashboard typecheck passed; dashboard unit tests: 18 passed
+- canonical schema executed successfully on a clean PostgreSQL database
+- docker compose config --quiet and git diff --check passed
+- full Core suite: 130 passed, 2 failed because host-run tests use the
+  container-only pdns-auth API hostname while strict PowerDNS sync is enabled
+```
+
+Remaining gaps:
+
+```text
+- Phase 6 must automate real PowerDNS raw-zone and dig equivalence assertions
+- Phase 5 must add the complete DNS sync and ALIAS-readiness operator/user experience
+```
 
 #### 2026-06-13 - Phase 3 edge state and shared proxy CDN record
 
@@ -535,7 +569,6 @@ Keep these as compatibility aliases with warnings:
 ```env
 CDNLITE_EDGE_TTL                    # derive from CDNLITE_SYNC_INTERVAL_SECONDS * 2
 CDNLITE_EDGE_HEALTH_INTERVAL        # derive from CDNLITE_SYNC_INTERVAL_SECONDS
-CDNLITE_EDGE_APEX_MODE              # alias for CDNLITE_APEX_PROXY_MODE
 CDNLITE_EDGE_SELECTOR               # map to Lua selector config
 CDNLITE_EDGE_BACKUP_SELECTOR        # map to Lua fallback config
 CDNLITE_GEO_*                       # map to DNSGeo/CDN zone config where possible
@@ -1352,7 +1385,7 @@ Tasks:
 - implement subdomain CNAME generation
 - implement site-id.cdn CNAME generation
 - remove/default-disable apex A/AAAA flattener
-- keep old env alias CDNLITE_EDGE_APEX_MODE with warning
+- remove obsolete apex mode configuration; ALIAS is mandatory
 - validate that @ cannot be normal CNAME
 ```
 

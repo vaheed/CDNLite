@@ -266,6 +266,9 @@ DNS tips:
 
 - Keep MX, TXT verification, SPF, DKIM, and DMARC records DNS-only.
 - Use proxied records only for HTTP/HTTPS traffic intended for the CDN edge.
+- A proxied apex (`@`) publishes `ALIAS` to the domain's stable CDN site
+  target. A proxied subdomain publishes `CNAME` to the same target.
+- A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.
 - Keep TTL low during migration, then increase it after a stable cutover.
 - Use `preview-routing` before changing Geo DNS routes on a production record.
 - For apex anycast records, make sure global anycast settings exist before switching policy.

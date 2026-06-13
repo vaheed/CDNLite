@@ -103,6 +103,10 @@ class DnsController
         }
         $input['content'] = $contentByType['value'];
         $input['ttl'] = $ttl['value'];
+        $apex = $this->validateApexType($input['name'], $input['type'], (bool) ($input['proxied'] ?? false));
+        if ($apex !== null) {
+            return $apex;
+        }
 
         try {
             return ['data' => $this->service->create($domainId, $input)];
@@ -111,7 +115,7 @@ class DnsController
             if ($message === 'domain_not_found') {
                 return ['error' => 'domain_not_found', 'status' => 404];
             }
-            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true)) {
+            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
                 return ['error' => $message, 'status' => 422];
             }
             $payload = ['error' => $message, 'status' => 502];
@@ -172,12 +176,23 @@ class DnsController
                 return $ttl;
             }
         }
+        $current = $this->service->find($domainId, $recordId);
+        if ($current !== null) {
+            $apex = $this->validateApexType(
+                (string) ($input['name'] ?? $current['name']),
+                (string) ($input['type'] ?? $current['type']),
+                (bool) ($input['proxied'] ?? $current['proxied'])
+            );
+            if ($apex !== null) {
+                return $apex;
+            }
+        }
 
         try {
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true) ? 422 : 502;
+            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502;
             $payload = ['error' => $message, 'status' => $status];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
@@ -258,6 +273,15 @@ class DnsController
         if (in_array($policy['value'], ['anycast', 'geo_anycast'], true)
             && array_key_exists('proxied', $input) && !(bool) $input['proxied']) {
             return ['error' => 'anycast_requires_proxied_record', 'field' => 'routing_policy', 'status' => 422];
+        }
+        return null;
+    }
+
+    private function validateApexType(string $name, string $type, bool $proxied): ?array
+    {
+        $name = strtolower(rtrim(trim($name), '.'));
+        if (($name === '' || $name === '@') && !$proxied && strtoupper($type) === 'CNAME') {
+            return ['error' => 'apex_cname_not_allowed', 'field' => 'type', 'status' => 422];
         }
         return null;
     }
