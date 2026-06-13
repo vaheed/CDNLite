@@ -16,7 +16,7 @@ def test_schema_application_is_serialized_across_services():
     assert "finally" in database
 
 
-def test_migrate_command_documents_fresh_install_only_contract():
-    command = (ROOT / "core/app/Console/Commands/CdnMigrateCommand.php").read_text()
-    assert "fresh_install_only" in command
-    assert "historical migrations are unsupported" in command
+def test_no_migration_compatibility_command_is_shipped():
+    artisan = (ROOT / "core/artisan").read_text()
+    assert "cdn:migrate" not in artisan
+    assert not (ROOT / "core/app/Console/Commands/CdnMigrateCommand.php").exists()

@@ -363,6 +363,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 60
+    restart: unless-stopped
     networks:
       default:
         ipv4_address: 172.30.0.54

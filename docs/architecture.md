@@ -13,6 +13,11 @@ The Compose `dns-reconciler` service runs the same command used by mutation-trig
 and operator-triggered syncs. ACME DNS-01 TXT records are deliberately excluded because
 they are short-lived challenge state rather than durable product DNS state.
 
+Scale-critical DNS lookups use partial indexes for active records and ownership
+indexes for desired generations and zones. `ci/stress-dns.sh` validates those
+plans and records full-sync, edge-only sync, API latency, changed rrsets, and
+changed customer-zone counts against the real root-Compose PowerDNS stack.
+
 ## System Overview
 
 ```text

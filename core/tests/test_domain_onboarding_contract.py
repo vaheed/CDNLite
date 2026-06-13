@@ -37,12 +37,10 @@ def test_domain_updates_audit_defined_before_and_after_states():
     assert "$existing" not in ensure_zone_ready
 
 
-def test_core_container_applies_pending_migrations_before_start():
+def test_core_container_uses_fresh_schema_bootstrap_without_migration_compatibility():
     dockerfile = (ROOT / "core/Dockerfile").read_text()
     entrypoint = (ROOT / "core/docker-entrypoint.sh").read_text()
 
     assert 'ENTRYPOINT ["/app/docker-entrypoint.sh"]' in dockerfile
-    assert "php artisan cdn:migrate" in entrypoint
-    assert "retrying in" in entrypoint
-    assert "attempt" in entrypoint
+    assert "cdn:migrate" not in entrypoint
     assert 'exec "$@"' in entrypoint

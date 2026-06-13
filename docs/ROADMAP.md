@@ -26,9 +26,45 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 4 - apex ALIAS and subdomain CNAME | DONE | Proxied apex records always publish ALIAS, proxied subdomains publish CNAME, and domain-scoped site targets point to the shared proxy host without persisted edge-target projections. |
 | Phase 5 - admin and user UI | DONE | DNS Operations exposes PowerDNS setup, DNSGeo readiness, zone convergence, desired RRsets, dry-run/force-sync actions, and Poweradmin access; domain DNS shows exact effective records and sync failures. |
 | Phase 6 - tests/e2e/smoke | DONE | Smoke, main e2e, and the live DNS acceptance suite pass. Dashboard typecheck, unit tests, and production build remain automated; frontend browser workflow QA is manual. |
-| Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
+| Phase 7 - production stress and scale proof | PARTIAL | The destructive root-Compose qualification runner, scale indexes, reports, concurrency/flapping assertions, and manual CI job are implemented. The default 10,000-domain/10,000,000-record run has not yet passed. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 7 production stress harness
+
+Completed:
+
+```text
+- added a destructive root-Compose stress runner defaulting to 10,000 domains
+  with 1,000 records each and ten multi-region edge nodes
+- added full-sync, edge-IP-change, health-flapping, concurrent user mutation,
+  lock-state, stale/duplicate rrset, API responsiveness, and PowerDNS health checks
+- added machine-readable JSON and Markdown reports plus a manual GitHub Actions
+  production qualification job
+- added active-record and desired-state indexes used by the scale path
+- removed the obsolete no-op cdn:migrate compatibility command and startup call
+```
+
+Validation:
+
+```text
+- shell syntax and focused contract tests
+- reduced-scale live runner reached dataset/index validation
+- corrected the index assertion so small datasets may legitimately use
+  sequential scans while still proving the production index is present and usable
+- changed host readiness probes to the explicit IPv4 loopback address used by
+  the PowerDNS port binding and added visible bounded readiness diagnostics
+- fixed the MMDB refresh lifecycle by giving authoritative PowerDNS the restart
+  policy required by its intentional remap exit
+```
+
+Remaining:
+
+```text
+- run and pass the default 10,000 x 1,000 destructive qualification
+- record production host CPU/memory, PowerDNS load, and full-sync percentile data
+- Phase 7 remains PARTIAL until the default qualification passes
+```
 
 #### 2026-06-13 - proxied country-origin hostname validation
 

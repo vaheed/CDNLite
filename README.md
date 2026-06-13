@@ -1,7 +1,8 @@
 # CDNLite
 
 CDNLite uses a fresh-install-only database model. `core/database/schema.sql` is the
-authoritative schema and no historical upgrade migrations are shipped.
+authoritative schema; historical upgrade migrations and migration compatibility
+commands are not shipped.
 
 Durable customer and edge DNS records converge through one desired-state path:
 
@@ -114,6 +115,15 @@ CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 The DNS acceptance script uses the live bundled DNSGeo/PowerDNS stack.
 Dashboard behavior is covered by typechecking, unit tests, a production build,
 and operator-run manual QA.
+
+The destructive production DNS qualification defaults to 10,000 domains with
+1,000 records each and writes reports under `ci/reports/`:
+
+```bash
+./ci/stress-dns.sh
+```
+
+Use it only against a disposable fresh-install stack.
 
 ## Contribution Guidelines
 

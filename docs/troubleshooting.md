@@ -29,7 +29,7 @@ Use this order during incidents:
 | Dashboard cannot reach core | `VITE_CDNLITE_CORE_URL` points at an internal Compose hostname or CORS blocks origin. | Set a browser-reachable URL, rebuild dashboard, and include dashboard origin in `CDNLITE_CORS_ALLOWED_ORIGINS`. |
 | Login fails with known credentials | Bootstrap disabled or admin password changed. | Create a user with `cdn:admin:create` or verify bootstrap variables before first boot. |
 | `/ready` reports `api_token` warn | `CDNLITE_API_TOKEN` is empty in local mode. | Accept for local dev, set a strong token for production. |
-| `/ready` reports schema failure | Migrations/schema missing. | Run `docker compose exec core php artisan cdn:migrate` or rebuild a fresh local stack. |
+| `/ready` reports schema failure | Canonical schema bootstrap failed or the database is not disposable. | Inspect Core/PostgreSQL logs, then rebuild a fresh stack with `docker compose down -v && docker compose up -d --build`. |
 | Edge returns unknown host page | Host is not in `config.json` or edge has stale config. | Activate the domain, rebuild snapshot, and confirm edge agent pulled config. |
 | Edge agent auth fails | Edge token mismatch, bad timestamp, reused nonce, or signature mismatch. | Re-register/rotate token, check system clock, and run `edge/agent/doctor.sh`. |
 | Dashboard reports `edge_not_healthy` after startup | The edge has not completed a successful signed heartbeat in the last 90 seconds. | Check `edge-agent` logs and run the heartbeat script; HTTP failures now make the script fail instead of being treated as success. |

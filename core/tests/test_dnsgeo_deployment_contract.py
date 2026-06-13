@@ -38,6 +38,9 @@ def test_compose_keeps_geoip_and_replication_without_seed_zones():
     ):
         assert setting in dns_reconciler
 
+    pdns_auth = compose.split("  pdns-auth:", 1)[1].split("\n  poweradmin:", 1)[0]
+    assert "restart: unless-stopped" in pdns_auth
+
 
 def test_geoip_bootstrap_is_reserved_and_core_owned():
     bootstrap = (DNSGEO / "geo" / "lua-bootstrap.yml").read_text()

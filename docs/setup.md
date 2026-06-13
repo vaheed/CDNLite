@@ -63,21 +63,23 @@ docker compose exec core php artisan cdn:admin:create \
 
 ## Backend Setup
 
-The core image runs PHP from `core/public_index.php` and CLI commands from `core/artisan`. Fresh installations apply the single canonical schema in `core/database/schema.sql`; upgrade migrations are intentionally unsupported.
+The core image runs PHP from `core/public_index.php` and CLI commands from
+`core/artisan`. Fresh installations apply the single canonical schema in
+`core/database/schema.sql`. Upgrade migrations and the former no-op
+`cdn:migrate` compatibility command are not shipped.
 
 Useful commands:
 
 ```bash
-docker compose exec core php artisan cdn:migrate
 docker compose exec core php artisan cdn:dns:reconcile
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 ```
 
-`cdn:migrate` is retained as an informational fresh-install command; it does not apply
-historical upgrades. The canonical schema is applied automatically. Durable DNS state
-is reconciled after mutations and by the `dns-reconciler` service every
+The canonical schema is applied automatically when Core first connects to the
+database. Durable DNS state is reconciled after mutations and by the
+`dns-reconciler` service every
 `CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
 Fresh local reset:
@@ -229,6 +231,30 @@ docker compose up -d --build
 EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
 CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 ```
+
+Production DNS scale qualification is destructive and must run on a disposable
+fresh-install stack:
+
+```bash
+./ci/stress-dns.sh
+```
+
+Its defaults are the roadmap target: 10,000 domains, 1,000 records per domain,
+10 edge nodes across three regions, ten health flaps, and a 10-second maximum
+for the edge-only reconciliation. It resets both Core and PowerDNS data, runs a
+full verified reconciliation, changes one edge IP, exercises concurrent user
+record changes during edge health flaps, and writes JSON/Markdown reports to
+`ci/reports/`.
+
+For a mechanics-only local check, reduce the dataset explicitly:
+
+```bash
+STRESS_DOMAINS=10 STRESS_RECORDS_PER_DOMAIN=20 \
+STRESS_EDGE_NODES=6 STRESS_FLAP_ITERATIONS=2 ./ci/stress-dns.sh
+```
+
+Only the default 10,000 x 1,000 run qualifies Phase 7. GitHub Actions exposes
+the same default run through the manual `run_dns_stress` workflow input.
 
 The DNS acceptance flow verifies Core-created zones, raw ALIAS/CNAME/LUA
 records, ALIAS expansion with `dig`, edge health reconciliation, stale record

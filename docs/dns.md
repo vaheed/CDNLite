@@ -29,6 +29,10 @@ docker compose up -d --build
 
 The API and Poweradmin ports bind to `127.0.0.1` by default. Do not publish the PowerDNS API directly to the internet. Put Poweradmin behind authenticated HTTPS or a VPN before remote use.
 
+The authoritative service uses `restart: unless-stopped`. The MMDB watcher
+intentionally terminates PowerDNS after an atomic database replacement so
+Docker restarts it and remaps the new file.
+
 ## ALIAS Resolution
 
 PowerDNS Authoritative is rendered with:
@@ -142,3 +146,17 @@ dig @127.0.0.1 -p 5353 example.net SOA
 The CI check creates an isolated zone through the real API, writes an rrset,
 resolves it through the authoritative listener with `dig`, verifies bad-key
 rejection, and removes the zone.
+
+## Production Stress Qualification
+
+`ci/stress-dns.sh` is the destructive production-scale proof. It uses the root
+Compose topology and defaults to 10,000 customer zones with 1,000 records each.
+The runner verifies dataset counts and query indexes, performs a full sync,
+changes one edge IP, and proves no customer zone serial changed from that edge
+event. It also exercises repeated health transitions, concurrent customer DNS
+updates, advisory-lock behavior, stale/duplicate desired-state checks,
+`/cdn-health` responsiveness, and final PowerDNS health.
+
+Results are written to `ci/reports/dns-stress-report.json` and
+`ci/reports/dns-stress-report.md`. The run destroys Core and PowerDNS data and
+must never target a shared or production database.

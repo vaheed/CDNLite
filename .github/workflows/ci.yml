@@ -5,6 +5,13 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_dns_stress:
+        description: Run the destructive 10k x 1k DNS production qualification
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -67,6 +74,7 @@ jobs:
           bash -n ci/smoke.sh
           bash -n ci/e2e.sh
           bash -n ci/dns_e2e.sh
+          bash -n ci/stress-dns.sh
           bash -n ci/powerdns_dns_checks.sh
           sh -n ci/origin-mock/start.sh
           bash -n ci/lib.sh
@@ -162,7 +170,7 @@ jobs:
       POWERDNS_ENABLED: 1
       POWERDNS_STRICT: 1
       PDNS_API_KEY: test-key
-      POWERDNS_PUBLIC_API_URL: http://localhost:8089
+      POWERDNS_PUBLIC_API_URL: http://127.0.0.1:8089
       POWERDNS_SERVER_ID: localhost
     steps:
       - uses: actions/checkout@v6
@@ -211,6 +219,37 @@ jobs:
     needs: [smoke, e2e]
     steps:
       - run: echo "All release verification jobs passed."
+
+  dns_stress:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_dns_stress
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    env:
+      EDGE_AGENT_IDLE: 1
+      CDNLITE_SCHEDULER_IDLE: 1
+      CDNLITE_EDGE_HEALTH_MODE: static
+      POWERDNS_ENABLED: 1
+      POWERDNS_STRICT: 1
+      PDNS_API_KEY: test-key
+      POWERDNS_PUBLIC_API_URL: http://localhost:8089
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install helpers
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Start root Compose stack
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Run DNS production stress qualification
+        run: timeout 39600 bash ci/stress-dns.sh
+      - name: Upload stress report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dns-stress-report
+          path: ci/reports/*
+          if-no-files-found: warn
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
 
   build_and_push:
     runs-on: ubuntu-latest

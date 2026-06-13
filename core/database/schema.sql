@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS dns_records (
   CHECK (routing_policy IN ('standard', 'geo', 'anycast', 'geo_anycast'))
 );
 
+CREATE INDEX IF NOT EXISTS dns_records_active_domain_order_idx
+  ON dns_records(domain_id, name, id)
+  WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS dns_records_domain_status_idx
+  ON dns_records(domain_id, status);
+
 CREATE TABLE IF NOT EXISTS edge_nodes (
   id TEXT PRIMARY KEY,
   edge_id TEXT NOT NULL UNIQUE,
@@ -219,6 +226,12 @@ CREATE TABLE IF NOT EXISTS desired_dns_rrsets (
   updated_at BIGINT NOT NULL,
   UNIQUE(zone_name, rrset_name, rrset_type, owner)
 );
+
+CREATE INDEX IF NOT EXISTS desired_dns_rrsets_owner_generation_idx
+  ON desired_dns_rrsets(owner, generation_id);
+
+CREATE INDEX IF NOT EXISTS desired_dns_rrsets_zone_owner_idx
+  ON desired_dns_rrsets(zone_name, owner);
 
 CREATE TABLE IF NOT EXISTS dns_sync_state (
   zone_name TEXT PRIMARY KEY,
