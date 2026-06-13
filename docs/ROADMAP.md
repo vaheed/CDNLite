@@ -25,10 +25,36 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 3 - edge state and shared proxy record | DONE | `edge_state` filters eligible addresses, anycast is prioritized, and one stable shared proxy hostname owns the Lua A/AAAA edge pool. |
 | Phase 4 - apex ALIAS and subdomain CNAME | DONE | Proxied apex records always publish ALIAS, proxied subdomains publish CNAME, and domain-scoped site targets point to the shared proxy host without persisted edge-target projections. |
 | Phase 5 - admin and user UI | DONE | DNS Operations exposes PowerDNS setup, DNSGeo readiness, zone convergence, desired RRsets, dry-run/force-sync actions, and Poweradmin access; domain DNS shows exact effective records and sync failures. |
-| Phase 6 - tests/e2e/smoke | PARTIAL | Smoke and main e2e pass; the live DNS acceptance suite remains to be validated. Frontend browser automation is out of scope and operator QA is manual. |
+| Phase 6 - tests/e2e/smoke | DONE | Smoke, main e2e, and the live DNS acceptance suite pass. Dashboard typecheck, unit tests, and production build remain automated; frontend browser workflow QA is manual. |
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 6 acceptance complete
+
+Completed:
+
+```text
+- completed the root-Compose smoke and main e2e workflows
+- completed the live DNS acceptance suite against real PowerDNS/DNSGeo
+- verified the Phase 6 ALIAS, CNAME, shared Lua record, failure visibility,
+  recovery, stale deletion, and no-customer-rewrite acceptance paths
+```
+
+Validation:
+
+```text
+- smoke passed
+- main e2e passed
+- live DNS e2e passed
+```
+
+Remaining gaps:
+
+```text
+- Phase 7 production stress and scale proof remains
+- frontend browser workflow QA remains a manual operator responsibility
+```
 
 #### 2026-06-13 - Phase 6 provider failure assertion
 
