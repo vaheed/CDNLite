@@ -28,7 +28,7 @@ This page lists the external libraries, runtime extensions, and integrations use
 | ECharts and Vue ECharts | Analytics charts. |
 | Vee Validate and Zod | Form validation. |
 | Lucide Vue Next | Dashboard icons. |
-| Vitest, Testing Library, Playwright | Unit and e2e test tooling. |
+| Vitest, Testing Library | Dashboard unit and component test tooling. |
 
 ## Edge Runtime
 

@@ -235,15 +235,9 @@ records, ALIAS expansion with `dig`, edge health reconciliation, stale record
 deletion, persisted failure state, and recovery. Static Lua answers are used
 only for deterministic documentation-range CI fixtures.
 
-Dashboard browser smoke tests run against the same stack:
-
-```bash
-./ci/seed_frontend_e2e.sh
-cd dash
-npm ci
-npx playwright install chromium
-npm run test:e2e
-```
+Dashboard validation uses typechecking, unit tests, a production build, and
+manual operator QA. Browser automation is intentionally outside the release
+gate.
 
 ## Deployment
 

@@ -61,13 +61,14 @@ Use staging ACME directory values, the bundled PowerDNS stack or a controlled DN
 
 ## Dashboard QA
 
-Use dashboard unit tests for API client and form behavior, then use Playwright e2e tests for browser workflows.
+Use dashboard typechecking, unit tests, and a production build before manually
+testing browser workflows.
 
 ```bash
 cd dash
 npm run typecheck
 npm test
-npm run test:e2e
+npm run build
 ```
 
 ## Learn CDN Internals: Exercise Plan

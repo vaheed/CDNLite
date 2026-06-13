@@ -112,8 +112,8 @@ CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 ```
 
 The DNS acceptance script uses the live bundled DNSGeo/PowerDNS stack.
-Playwright browser smoke tests cover DNS Operations and effective ALIAS/CNAME
-behavior against that same stack.
+Dashboard behavior is covered by typechecking, unit tests, a production build,
+and operator-run manual QA.
 
 ## Contribution Guidelines
 

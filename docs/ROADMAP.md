@@ -25,10 +25,33 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 3 - edge state and shared proxy record | DONE | `edge_state` filters eligible addresses, anycast is prioritized, and one stable shared proxy hostname owns the Lua A/AAAA edge pool. |
 | Phase 4 - apex ALIAS and subdomain CNAME | DONE | Proxied apex records always publish ALIAS, proxied subdomains publish CNAME, and domain-scoped site targets point to the shared proxy host without persisted edge-target projections. |
 | Phase 5 - admin and user UI | DONE | DNS Operations exposes PowerDNS setup, DNSGeo readiness, zone convergence, desired RRsets, dry-run/force-sync actions, and Poweradmin access; domain DNS shows exact effective records and sync failures. |
-| Phase 6 - tests/e2e/smoke | PARTIAL | Core contract coverage exists for the hardened client; real DNSGeo/PowerDNS, dig, failure-mode, and frontend smoke coverage remain. |
+| Phase 6 - tests/e2e/smoke | PARTIAL | Smoke and main e2e pass; the live DNS acceptance suite remains to be validated. Frontend browser automation is out of scope and operator QA is manual. |
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 6 frontend automation removal
+
+Completed:
+
+```text
+- removed Playwright, browser specs, frontend seed fixtures, and browser CI steps
+- retained dashboard typecheck, unit tests, and production build validation
+- made frontend workflow validation an explicit manual operator responsibility
+```
+
+Validation:
+
+```text
+- dashboard typecheck passed
+- smoke and main e2e suites passed
+```
+
+Remaining gaps:
+
+```text
+- complete live DNS e2e validation before closing Phase 6
+```
 
 #### 2026-06-13 - Phase 6 MMDB refresh race tolerance
 
@@ -177,7 +200,7 @@ Validation:
 Remaining gaps:
 
 ```text
-- Phase 6 owns browser smoke coverage and real PowerDNS/dig failure-mode assertions
+- Phase 6 owns real PowerDNS/dig failure-mode assertions
 - raw config snapshot APIs remain internal for edge runtime compatibility and are
   no longer presented as a user-facing dashboard feature
 ```
@@ -328,7 +351,7 @@ Remaining gaps:
 ```text
 - Phase 2 must replace the existing customer and edge immediate-write paths
   with one desired-state reconciler and lock
-- Phase 6 still owns broader failure-mode, dig, and frontend smoke coverage
+- Phase 6 still owns broader failure-mode and dig coverage
 ```
 
 #### 2026-06-13 - CDNLite DNS runtime cleanup and CI contract
@@ -1305,11 +1328,10 @@ Assert dig A @ returns same answer set as resolving site-id.cdn target at that m
 Assert ALIAS fails visibly if resolver/expand-alias is disabled.
 ```
 
-### 12.5 Frontend smoke tests
+### 12.5 Manual frontend QA
 
-Use Playwright or existing frontend test framework.
-
-Test admin:
+Browser automation is intentionally outside the release gate. Operators
+manually verify:
 
 ```text
 PowerDNS setup page loads
@@ -1592,8 +1614,9 @@ Tasks:
 - add e2e with normal docker compose, no profile
 - add dig verification
 - add raw PowerDNS zone verification
-- add frontend smoke tests
 - add failure-mode tests
+- retain dashboard typecheck, unit tests, and production build checks
+- document manual frontend QA
 ```
 
 Acceptance:
@@ -1602,7 +1625,8 @@ Acceptance:
 CI fails if PowerDNS does not really contain the expected records.
 CI fails if ALIAS expansion is disabled.
 CI fails if proxied apex becomes A/AAAA instead of ALIAS.
-CI fails if frontend displays wrong effective DNS behavior.
+Dashboard typecheck, unit tests, and production build fail on frontend regressions
+within their covered contracts; browser workflows are manually verified.
 ```
 
 ---

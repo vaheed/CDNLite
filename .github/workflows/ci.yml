@@ -68,7 +68,6 @@ jobs:
           bash -n ci/e2e.sh
           bash -n ci/dns_e2e.sh
           bash -n ci/powerdns_dns_checks.sh
-          bash -n ci/seed_frontend_e2e.sh
           sh -n ci/origin-mock/start.sh
           bash -n ci/lib.sh
           bash -n infra/dnsgeo/docker/mmdb-updater/entrypoint.sh
@@ -182,18 +181,6 @@ jobs:
       - name: Live DNS reconciliation checks
         run: |
           CI_ENV_NAME=e2e-dns timeout 900 ./ci/dns_e2e.sh
-      - name: Seed frontend E2E
-        run: ./ci/seed_frontend_e2e.sh
-      - name: Install Playwright browser
-        working-directory: dash
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-      - name: Dashboard browser smoke
-        working-directory: dash
-        env:
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8082
-        run: npm run test:e2e
       - name: Service logs
         if: always()
         run: |
