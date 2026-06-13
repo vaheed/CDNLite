@@ -30,7 +30,8 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Setup', link: '/setup' },
-          { text: 'Architecture', link: '/architecture' },
+      { text: 'Architecture', link: '/architecture' },
+      { text: 'DNS Stress Testing', link: '/stress-testing' },
           { text: 'Extensions', link: '/extensions' }
         ]
       },

@@ -20,6 +20,8 @@ PDNS_API_URL="${POWERDNS_PUBLIC_API_URL:-http://127.0.0.1:8089}"
 TOTAL_RECORDS=$((DOMAINS * RECORDS_PER_DOMAIN))
 
 mkdir -p "$REPORT_DIR"
+CORE_WRITERS_STOPPED=0
+CORE_WRITER_SERVICES=(core dns-reconciler ssl-scheduler origin-health-scheduler)
 
 log() {
   printf '[%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"
@@ -29,6 +31,22 @@ fail() {
   log "FAIL: $*"
   exit 1
 }
+
+on_error() {
+  local status=$?
+  log "FAIL: command exited with status $status at line ${BASH_LINENO[0]}: ${BASH_COMMAND}"
+  exit "$status"
+}
+
+cleanup() {
+  if [[ "$CORE_WRITERS_STOPPED" == "1" ]]; then
+    log "Restoring Core writer services"
+    docker compose up -d "${CORE_WRITER_SERVICES[@]}" >/dev/null 2>&1 || true
+  fi
+}
+
+trap on_error ERR
+trap cleanup EXIT
 
 db() {
   docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME" "$@"
@@ -64,9 +82,20 @@ wait_for_stack() {
 
 fresh_database() {
   log "Resetting Core and PowerDNS data for a destructive fresh-install stress run"
-  docker compose exec -T core php artisan cdn:db:fresh --force >/dev/null
+  log "Stopping Core writer services during canonical schema reset"
+  docker compose stop "${CORE_WRITER_SERVICES[@]}" >/dev/null
+  CORE_WRITERS_STOPPED=1
+
+  log "Resetting the Core canonical schema"
+  docker compose run --rm --no-deps core php artisan cdn:db:fresh --force
+
+  log "Clearing PowerDNS zones and records"
   docker compose exec -T pdns-postgres psql -v ON_ERROR_STOP=1 -U pdns -d pdns -c \
-    "TRUNCATE comments, cryptokeys, domainmetadata, records, domains RESTART IDENTITY CASCADE" >/dev/null
+    "TRUNCATE comments, cryptokeys, domainmetadata, records, domains RESTART IDENTITY CASCADE"
+
+  log "Starting Core API for controlled stress reconciliation"
+  docker compose up -d core >/dev/null
+  wait_for_stack
 }
 
 configure_powerdns() {
@@ -158,16 +187,26 @@ reconcile() {
   docker compose exec -T core php -d memory_limit=-1 artisan cdn:dns:reconcile "$@"
 }
 
-zone_serials() {
-  docker compose exec -T pdns-postgres psql -U pdns -d pdns -qAt -F '|' -c \
-    "SELECT d.name, COALESCE(MAX(r.change_date), 0)
-     FROM domains d LEFT JOIN records r ON r.domain_id = d.id
-     WHERE d.name LIKE 'stress-%'
-     GROUP BY d.name ORDER BY d.name"
+customer_zone_hashes() {
+  curl -fsS -H "X-API-Key: $PDNS_API_KEY" \
+    "$PDNS_API_URL/api/v1/servers/localhost/zones" |
+    jq -r '.[] | select(.name | startswith("stress-")) | .name' |
+    sort |
+    while IFS= read -r zone; do
+      local encoded hash
+      encoded="$(jq -rn --arg value "$zone" '$value|@uri')"
+      hash="$(curl -fsS -H "X-API-Key: $PDNS_API_KEY" \
+        "$PDNS_API_URL/api/v1/servers/localhost/zones/$encoded" |
+        jq -cS '[.rrsets[]
+          | select(.type != "SOA" and .type != "NS")
+          | {name, type, ttl, records: ([.records[].content] | sort)}] | sort_by(.name, .type)' |
+        sha256sum | awk '{print $1}')"
+      printf '%s|%s\n' "$zone" "$hash"
+    done
 }
 
 assert_indexes() {
-  local missing plan
+  local missing active_index_definition
   missing="$(db_value "SELECT count(*) FROM (
     VALUES
       ('dns_records_active_domain_order_idx'),
@@ -180,12 +219,18 @@ assert_indexes() {
   WHERE i.indexname IS NULL")"
   [[ "$missing" == "0" ]] || fail "$missing required DNS scale indexes are missing"
 
-  plan="$(db -qAt -c "SET LOCAL enable_seqscan=off;
-    EXPLAIN SELECT r.* FROM dns_records r
-    WHERE r.status='active' AND r.domain_id='stress-domain-00001'
-    ORDER BY r.name,r.id")"
-  grep -q 'dns_records_active_domain_order_idx' <<<"$plan" ||
-    fail "Active DNS record index is not usable by the desired-state access pattern"
+  active_index_definition="$(db_value "SELECT pg_get_indexdef(i.indexrelid) || ' predicate=' ||
+      COALESCE(pg_get_expr(i.indpred, i.indrelid), '') || ' valid=' || i.indisvalid ||
+      ' ready=' || i.indisready
+    FROM pg_index i
+    JOIN pg_class c ON c.oid=i.indexrelid
+    WHERE c.relname='dns_records_active_domain_order_idx'")"
+  [[ "$active_index_definition" == *"(domain_id, name, id)"* ]] ||
+    fail "Active DNS record index has the wrong key order"
+  [[ "$active_index_definition" == *"status = 'active'"* ]] ||
+    fail "Active DNS record index is missing its partial predicate"
+  [[ "$active_index_definition" == *"valid=true ready=true"* ]] ||
+    fail "Active DNS record index is not valid and ready"
 }
 
 assert_dataset() {
@@ -231,7 +276,7 @@ main() {
   jq -e '.data.ok == true' <<<"$full_result" >/dev/null || fail "Full reconciliation failed: $full_result"
   baseline_file="$(mktemp)"
   after_file="$(mktemp)"
-  zone_serials >"$baseline_file"
+  customer_zone_hashes >"$baseline_file"
 
   local small_started small_seconds small_result changed_customer_zones changed_rrsets
   db -c "UPDATE edge_nodes SET public_ip='198.51.100.250', public_ipv4='198.51.100.250', updated_at=EXTRACT(EPOCH FROM NOW())::bigint WHERE id='stress-edge-2'" >/dev/null
@@ -240,7 +285,7 @@ main() {
   small_seconds="$(seconds_since "$small_started")"
   jq -e '.data.ok == true' <<<"$small_result" >/dev/null || fail "Edge IP reconciliation failed: $small_result"
   changed_rrsets="$(jq -r '.data.changes' <<<"$small_result")"
-  zone_serials >"$after_file"
+  customer_zone_hashes >"$after_file"
   changed_customer_zones="$(join -t '|' "$baseline_file" "$after_file" | awk -F '|' '$2 != $3 {n++} END {print n+0}')"
   [[ "$changed_customer_zones" == "0" ]] || fail "Edge IP change rewrote $changed_customer_zones customer zones"
   awk -v actual="$small_seconds" -v limit="$SMALL_SYNC_LIMIT_SECONDS" 'BEGIN { exit !(actual < limit) }' ||
@@ -307,6 +352,8 @@ main() {
   } >"$REPORT_MD"
 
   rm -f "$baseline_file" "$after_file"
+  docker compose up -d "${CORE_WRITER_SERVICES[@]}" >/dev/null
+  CORE_WRITERS_STOPPED=0
   log "PASS: DNS stress qualification completed; report: $REPORT_JSON"
 }
 

@@ -13,6 +13,7 @@ CDNLite is a compact CDN platform for learning, local experimentation, and small
 - [API Reference](api/api.md)
 - [OpenAPI YAML](/api/openapi.yaml)
 - [Architecture](architecture.md)
+- [DNS Stress Testing](stress-testing.md)
 - [Extensions And Integrations](extensions.md)
 - [Troubleshooting](troubleshooting.md)
 - [Security](security.md)

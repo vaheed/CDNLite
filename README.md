@@ -85,6 +85,7 @@ The documentation site is built with VitePress from `docs/`.
 - [Setup](docs/setup.md)
 - [OpenAPI YAML](docs/public/api/openapi.yaml)
 - [Architecture](docs/architecture.md)
+- [DNS Stress Testing](docs/stress-testing.md)
 - [Extensions](docs/extensions.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Security](docs/security.md)
@@ -124,6 +125,8 @@ The destructive production DNS qualification defaults to 10,000 domains with
 ```
 
 Use it only against a disposable fresh-install stack.
+See [DNS Stress Testing](docs/stress-testing.md) for prerequisites, reduced and
+full commands, environment controls, pass criteria, reports, and recovery.
 
 ## Contribution Guidelines
 

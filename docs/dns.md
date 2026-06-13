@@ -160,3 +160,6 @@ updates, advisory-lock behavior, stale/duplicate desired-state checks,
 Results are written to `ci/reports/dns-stress-report.json` and
 `ci/reports/dns-stress-report.md`. The run destroys Core and PowerDNS data and
 must never target a shared or production database.
+
+Follow [DNS Stress Testing](stress-testing.md) for prerequisites, reduced and
+full qualification commands, configuration, pass criteria, and troubleshooting.

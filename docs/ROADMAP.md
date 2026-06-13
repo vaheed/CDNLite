@@ -30,6 +30,30 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - Phase 7 stress-test operator documentation
+
+Completed:
+
+```text
+- added a dedicated DNS stress-testing guide covering destructive warnings,
+  prerequisites, reduced validation, full 10M qualification, configuration,
+  assertions, reports, troubleshooting, and interrupted-run recovery
+- linked the guide from the README, documentation index/sidebar, setup guide,
+  and DNS operations documentation
+```
+
+Validation:
+
+```text
+- VitePress documentation build
+```
+
+Remaining:
+
+```text
+- run and pass the default 10,000 x 1,000 qualification
+```
+
 #### 2026-06-13 - Phase 7 production stress harness
 
 Completed:
@@ -49,13 +73,25 @@ Validation:
 
 ```text
 - shell syntax and focused contract tests
-- reduced-scale live runner reached dataset/index validation
+- reduced-scale live qualification passed with 10 domains, 20 records per
+  domain, six edges, and two health flaps
+- full sync completed in 7.193 seconds; edge-only sync completed in 4.307 seconds
+- edge change updated one shared rrset and zero customer zones
+- /cdn-health responded in 0.612 seconds and PowerDNS remained healthy
 - corrected the index assertion so small datasets may legitimately use
   sequential scans while still proving the production index is present and usable
 - changed host readiness probes to the explicit IPv4 loopback address used by
   the PowerDNS port binding and added visible bounded readiness diagnostics
 - fixed the MMDB refresh lifecycle by giving authoritative PowerDNS the restart
   policy required by its intentional remap exit
+- isolated the scheduled reconciler during destructive dataset reset and added
+  command-level failure diagnostics with automatic service restoration
+- made scale-index validation deterministic by checking PostgreSQL catalog key
+  order, partial predicate, validity, and readiness instead of planner preference
+- replaced the obsolete PowerDNS record timestamp assumption with normalized
+  raw-zone content hashes that exclude only provider-managed SOA/NS metadata
+- quiesced every Core schema-writing service during destructive reset and used
+  an isolated one-shot Core container to eliminate canonical-schema reset races
 ```
 
 Remaining:

@@ -255,6 +255,8 @@ STRESS_EDGE_NODES=6 STRESS_FLAP_ITERATIONS=2 ./ci/stress-dns.sh
 
 Only the default 10,000 x 1,000 run qualifies Phase 7. GitHub Actions exposes
 the same default run through the manual `run_dns_stress` workflow input.
+See [DNS Stress Testing](stress-testing.md) for the complete destructive-run
+procedure, configuration variables, assertions, reports, and recovery steps.
 
 The DNS acceptance flow verifies Core-created zones, raw ALIAS/CNAME/LUA
 records, ALIAS expansion with `dig`, edge health reconciliation, stale record

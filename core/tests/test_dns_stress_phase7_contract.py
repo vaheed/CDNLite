@@ -20,6 +20,11 @@ def test_stress_runner_defaults_to_the_roadmap_scale_and_root_compose():
     assert "generate_series(1, $RECORDS_PER_DOMAIN)" in script
     assert "http://127.0.0.1:8089" in script
     assert "Waiting for Core and PowerDNS readiness" in script
+    assert "trap on_error ERR" in script
+    assert "CORE_WRITER_SERVICES=(core dns-reconciler ssl-scheduler origin-health-scheduler)" in script
+    assert 'docker compose stop "${CORE_WRITER_SERVICES[@]}"' in script
+    assert "docker compose run --rm --no-deps core php artisan cdn:db:fresh --force" in script
+    assert "Restoring Core writer services" in script
 
 
 def test_stress_runner_proves_shared_edge_updates_and_concurrency():
@@ -33,8 +38,12 @@ def test_stress_runner_proves_shared_edge_updates_and_concurrency():
     assert "Duplicate desired rrsets detected" in script
     assert "cdn-health was unavailable during stress" in script
     assert "dns-stress-report.json" in script
-    assert "enable_seqscan=off" in script
     assert "required DNS scale indexes are missing" in script
+    assert "pg_get_indexdef" in script
+    assert "valid=true ready=true" in script
+    assert "customer_zone_hashes()" in script
+    assert 'select(.type != "SOA" and .type != "NS")' in script
+    assert "r.change_date" not in script
 
 
 def test_scale_query_indexes_exist():
