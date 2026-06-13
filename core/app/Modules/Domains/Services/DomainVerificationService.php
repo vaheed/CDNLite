@@ -13,7 +13,7 @@ class DomainVerificationService
     public function __construct(?callable $resolver = null)
     {
         $this->resolver = $resolver ?? static function (string $domain): array {
-            $records = dns_get_record($domain, DNS_NS);
+            $records = @dns_get_record($domain, DNS_NS);
             return array_values(array_filter(array_map(
                 static fn (array $record): string => (string) ($record['target'] ?? ''),
                 is_array($records) ? $records : []

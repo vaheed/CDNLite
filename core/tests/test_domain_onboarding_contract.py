@@ -37,6 +37,7 @@ def test_nameserver_lifecycle_is_automatic_and_scheduled():
 
     assert "$status === 'verified' ? 'active' : 'pending_nameserver'" in verification
     assert "public function verifyAll()" in verification
+    assert "@dns_get_record($domain, DNS_NS)" in verification
     assert "d.nameserver_status = 'verified'" in builder
     assert "cdn:domains:verify-all" in artisan
     assert "nameserver-scheduler:" in compose
