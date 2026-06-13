@@ -97,7 +97,11 @@ class DnsController
 
         $input['type'] = strtoupper((string) $type['value']);
         $input['name'] = $name['value'];
-        $contentByType = Validator::dnsRecordContent($input['type'], (string) $content['value']);
+        $contentByType = $this->validateRecordContent(
+            $input['type'],
+            (string) $content['value'],
+            (bool) ($input['proxied'] ?? false)
+        );
         if (($contentByType['ok'] ?? false) !== true) {
             return $contentByType;
         }
@@ -164,7 +168,11 @@ class DnsController
         if (array_key_exists('type', $input) && array_key_exists('content', $input)) {
             $typeValue = (string) $input['type'];
             $contentValue = (string) $input['content'];
-            $contentByType = Validator::dnsRecordContent($typeValue, $contentValue);
+            $contentByType = $this->validateRecordContent(
+                $typeValue,
+                $contentValue,
+                (bool) ($input['proxied'] ?? false)
+            );
             if (($contentByType['ok'] ?? false) !== true) {
                 return $contentByType;
             }
@@ -284,5 +292,13 @@ class DnsController
             return ['error' => 'apex_cname_not_allowed', 'field' => 'type', 'status' => 422];
         }
         return null;
+    }
+
+    private function validateRecordContent(string $type, string $content, bool $proxied): array
+    {
+        if ($proxied && in_array(strtoupper(trim($type)), ['A', 'AAAA'], true)) {
+            return Validator::originHost($content, 'content');
+        }
+        return Validator::dnsRecordContent($type, $content);
     }
 }

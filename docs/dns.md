@@ -75,6 +75,12 @@ Changing an edge IP or health state therefore changes only the shared proxy
 rrsets; customer zones and site CNAMEs are not rewritten. Core records distinct
 edge-state hashes in `edge_state_generations` for inspection and test assertions.
 
+For DNS-only `A` and `AAAA` records, content must remain an IPv4 or IPv6
+address respectively. For proxied `A` and `AAAA` records, the dashboard content
+field is the private default origin and accepts either an IP address or a
+hostname. Country origin overrides use the same IP-or-hostname rule and do not
+change the public ALIAS/CNAME records.
+
 Core operational credentials remain database-backed platform settings. Configure its API URL as `http://pdns-auth:8081`, server ID as `localhost`, and use the same API key through the admin settings API or UI.
 
 The local defaults publish authoritative DNS on port `5353`, the API on loopback port `8089`, and Poweradmin on loopback port `8084`. Production deployments should normally publish authoritative DNS on TCP/UDP 53.

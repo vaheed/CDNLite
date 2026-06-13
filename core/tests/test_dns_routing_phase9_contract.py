@@ -34,6 +34,8 @@ def test_routing_api_and_republish_contract():
     assert "SELECT DISTINCT domain_id FROM dns_records" in service
     assert "['geo', 'anycast', 'dns_only']" in controller
     assert "apex_cname_not_allowed" in controller
+    assert "Validator::originHost($content, 'content')" in controller
+    assert "['A', 'AAAA']" in controller
 
     edge = read("core/app/Modules/Edge/Services/EdgeService.php")
     assert "(new DnsService())->rebuildGeoDomains();" in edge

@@ -30,6 +30,32 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - proxied country-origin hostname validation
+
+Completed:
+
+```text
+- aligned Core with the dashboard contract so proxied A/AAAA private origins
+  accept either an IP address or hostname
+- preserved strict IPv4/IPv6 validation for DNS-only A/AAAA records
+- changed dashboard API errors to include backend field and validation detail
+- documented default and country-origin validation behavior
+```
+
+Validation:
+
+```text
+- focused Core validator and DNS routing contract tests
+- dashboard API client tests
+- PHP syntax lint, dashboard typecheck, and production build
+```
+
+Remaining:
+
+```text
+- browser workflow coverage for country-origin editing remains manual
+```
+
 #### 2026-06-13 - config freshness remediation route correction
 
 Completed:

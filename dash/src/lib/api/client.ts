@@ -66,7 +66,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const payload = text ? safeJson(text) : null;
     if (!response.ok) {
       const raw = extractErrorCode(payload) ?? `HTTP ${response.status}`;
-      throw new CdnLiteApiError(response.status, humanizeApiError(raw), payload, raw);
+      throw new CdnLiteApiError(response.status, formatApiError(payload, raw), payload, raw);
     }
     return unwrap<T>(payload);
   } catch (error) {
@@ -109,6 +109,19 @@ export function humanizeApiError(code: string): string {
     return normalized.replaceAll('_', ' ').replace(/^\w/, (char) => char.toUpperCase()) + '.';
   }
   return code;
+}
+
+function formatApiError(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.detail === 'string') {
+      const detail = humanizeApiError(record.detail);
+      return typeof record.field === 'string'
+        ? `${humanizeApiError(record.field).replace(/\.$/, '')}: ${detail}`
+        : detail;
+    }
+  }
+  return humanizeApiError(fallback);
 }
 
 function unwrap<T>(payload: unknown): T {
