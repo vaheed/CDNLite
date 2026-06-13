@@ -63,10 +63,17 @@ Common statuses:
 | `400` | JSON body could not be parsed. |
 | `401` | Missing/invalid API auth or edge auth. |
 | `404` | Resource or route was not found. |
-| `409` | Replay nonce or conflicting state. |
+| `409` | Replay nonce, conflicting state, or an exact duplicate DNS record. |
 | `422` | Validation failed. |
 | `502` | Upstream integration failure, often DNS/PowerDNS/ACME/origin. |
 | `503` | Readiness failure. |
+
+DNS record creates and updates return `dns_record_duplicate` with status `409`
+when the same domain already has an identical type, name, and content. Records
+with the same name and type but different content remain valid and are
+published as one multi-value RRset where the DNS type permits it. A CNAME or
+proxied subdomain cannot share its name with another record type; those
+conflicts return `dns_record_name_conflict` with status `409`.
 
 ## Authentication
 

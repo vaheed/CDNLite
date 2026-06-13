@@ -62,8 +62,16 @@ CREATE TABLE IF NOT EXISTS dns_records (
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE,
   CHECK (origin_tls_verify IN ('verify', 'ignore')),
-  CHECK (routing_policy IN ('standard', 'geo', 'anycast', 'geo_anycast'))
+  CHECK (routing_policy IN ('standard', 'geo', 'anycast', 'geo_anycast')),
+  CHECK (type IN ('A', 'AAAA', 'CNAME', 'TXT', 'MX', 'CAA', 'NS', 'SRV')),
+  CHECK (ttl BETWEEN 60 AND 86400),
+  CHECK (priority IS NULL OR priority BETWEEN 0 AND 65535),
+  CHECK (status IN ('active', 'disabled'))
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS dns_records_exact_value_idx
+  ON dns_records(domain_id, UPPER(type), LOWER(name), content)
+  WHERE status = 'active';
 
 CREATE INDEX IF NOT EXISTS dns_records_active_domain_order_idx
   ON dns_records(domain_id, name, id)

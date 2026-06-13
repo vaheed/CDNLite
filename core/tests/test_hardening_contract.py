@@ -282,6 +282,96 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
     assert "canonical_edge_hostname" not in non_apex["data"]
 
 
+def test_dns_record_crud_supports_every_public_type_and_conflict_rule():
+    reset_db()
+    domain = run_artisan(
+        "cdn:domain:create",
+        "--name=dns-types-demo",
+        "--domain=dns-types-demo.local",
+        "--origin_host=origin.local",
+        "--origin_port=8080",
+    )
+    domain_id = domain["data"]["id"]
+    cases = [
+        ("A", "a", "192.0.2.10", None),
+        ("AAAA", "aaaa", "2001:db8::10", None),
+        ("CNAME", "alias", "target.example.net", None),
+        ("TXT", "txt", "verification=value", None),
+        ("MX", "mail", "mail.example.net", "10"),
+        ("CAA", "caa", '0 issue "letsencrypt.org"', None),
+        ("NS", "delegated", "ns1.example.net", None),
+        ("SRV", "_sip._tcp", "10 5 5060 sip.example.net", None),
+    ]
+    created = []
+    for record_type, name, content, priority in cases:
+        args = [
+            "cdn:dns:add-record",
+            f"--domain_id={domain_id}",
+            f"--type={record_type}",
+            f"--name={name}",
+            f"--content={content}",
+        ]
+        if priority is not None:
+            args.append(f"--priority={priority}")
+        record = run_artisan(*args)["data"]
+        assert record["type"] == record_type
+        created.append(record)
+
+    updated = run_artisan(
+        "cdn:dns:update-record",
+        f"--domain_id={domain_id}",
+        f"--record_id={created[0]['id']}",
+        "--content=192.0.2.11",
+        "--name=dns-types-demo.local",
+    )
+    assert updated["data"]["name"] == "@"
+    assert updated["data"]["content"] == "192.0.2.11"
+
+    duplicate = subprocess.run(
+        [
+            "php",
+            "core/artisan",
+            "cdn:dns:add-record",
+            f"--domain_id={domain_id}",
+            "--type=A",
+            "--name=@",
+            "--content=192.0.2.11",
+        ],
+        cwd=REPO_ROOT,
+        env={**os.environ, **TEST_ENV},
+        text=True,
+        capture_output=True,
+    )
+    assert duplicate.returncode == 1
+    assert "dns_record_duplicate" in duplicate.stderr
+
+    conflict = subprocess.run(
+        [
+            "php",
+            "core/artisan",
+            "cdn:dns:add-record",
+            f"--domain_id={domain_id}",
+            "--type=TXT",
+            "--name=alias",
+            "--content=conflict",
+        ],
+        cwd=REPO_ROOT,
+        env={**os.environ, **TEST_ENV},
+        text=True,
+        capture_output=True,
+    )
+    assert conflict.returncode == 1
+    assert "dns_record_name_conflict" in conflict.stderr
+
+    for record in created:
+        deleted = run_artisan(
+            "cdn:dns:delete-record",
+            f"--domain_id={domain_id}",
+            f"--record_id={record['id']}",
+        )
+        assert deleted["ok"] is True
+
+
 def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():
     reset_db()
 

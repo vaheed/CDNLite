@@ -16,7 +16,8 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     assert "pg_try_advisory_lock" in reconciler
     assert "pg_advisory_unlock" in reconciler
     assert "changetype' => 'DELETE'" in reconciler
-    assert "patchRrsets($zone, $patch)" in reconciler
+    assert "patchRrsets($zone, [$rrset])" in reconciler
+    assert "'powerdns_reconcile_partial_failure'" in reconciler
     assert "$this->builder->prune($generation)" in reconciler
     builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
     assert "ON CONFLICT (zone_name, rrset_name, rrset_type, owner) DO UPDATE" in builder
@@ -24,6 +25,23 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     assert "$recordType === 'TXT'" in builder
     assert "$recordType === 'MX'" in builder
     assert "sprintf('%d %s', $priority ?? 0, $target)" in builder
+
+
+def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
+    controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+    service = read("core/app/Modules/Dns/Services/DnsService.php")
+    validator = read("core/app/Support/Validator.php")
+    schema = read("core/database/schema.sql")
+    assert "$input['type'] ?? $current['type']" in controller
+    assert "$input['content'] ?? $current['content']" in controller
+    assert "'dns_record_duplicate'" in controller
+    assert "'dns_record_name_conflict'" in controller
+    assert "assertNotDuplicate(" in service
+    assert "assertCompatiblePublicRecord(" in service
+    assert "normalizeAndValidate(" in service
+    assert "DNS_RECORD_TYPES" in validator
+    assert "dnsRecordName" in validator
+    assert "dns_records_exact_value_idx" in schema
 
 
 def test_all_durable_dns_triggers_use_the_reconciler():

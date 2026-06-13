@@ -147,6 +147,17 @@ The CI check creates an isolated zone through the real API, writes an rrset,
 resolves it through the authoritative listener with `dig`, verifies bad-key
 rejection, and removes the zone.
 
+The reconciler writes each changed RRset independently. A rejected RRset is
+reported in DNS sync health and events, while unrelated RRsets and zones
+continue reconciling. Exact duplicate customer records are rejected by the API
+with `dns_record_duplicate`; different values for a shared name and type are
+combined into a multi-value RRset.
+
+Customer record types are limited to `A`, `AAAA`, `CNAME`, `TXT`, `MX`, `CAA`,
+`NS`, and `SRV`. Names may be entered as `@`, relative labels, or an FQDN
+inside the customer zone; stored names are canonicalized to `@` or a relative
+name. TTLs must be 60-86400 seconds and MX priorities must be 0-65535.
+
 ## Production Stress Qualification
 
 `ci/stress-dns.sh` is the destructive production-scale proof. It uses the root

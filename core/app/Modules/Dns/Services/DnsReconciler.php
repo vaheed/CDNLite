@@ -43,10 +43,12 @@ class DnsReconciler
             }
 
             $changes = 0;
+            $failures = [];
             foreach ($zones as $zone => $rrsets) {
                 $zoneResult = $this->powerDns->ensureZone($zone);
                 if (($zoneResult['ok'] ?? false) !== true) {
-                    return $zoneResult + ['zone' => $zone, 'generation_id' => $generation];
+                    $failures[] = $zoneResult + ['zone' => $zone];
+                    continue;
                 }
                 $patch = $force ? $rrsets : $this->changes($zone, $rrsets);
                 if ($patch === []) {
@@ -54,15 +56,31 @@ class DnsReconciler
                     continue;
                 }
                 foreach ($this->orderedPatches($patch) as $orderedPatch) {
-                    $result = $this->powerDns->patchRrsets($zone, $orderedPatch);
-                    if (($result['ok'] ?? false) !== true) {
-                        return $result + ['zone' => $zone, 'generation_id' => $generation];
+                    foreach ($orderedPatch as $rrset) {
+                        $result = $this->powerDns->patchRrsets($zone, [$rrset]);
+                        if (($result['ok'] ?? false) !== true) {
+                            $failures[] = $result + [
+                                'zone' => $zone,
+                                'rrset_name' => $rrset['name'] ?? null,
+                                'rrset_type' => $rrset['type'] ?? null,
+                            ];
+                            continue;
+                        }
+                        $changes++;
                     }
                 }
-                $changes += count($patch);
             }
-            $this->builder->prune($generation);
-            return ['ok' => true, 'generation_id' => $generation, 'zones' => count($zones), 'changes' => $changes];
+            if ($failures === []) {
+                $this->builder->prune($generation);
+            }
+            return [
+                'ok' => $failures === [],
+                'generation_id' => $generation,
+                'zones' => count($zones),
+                'changes' => $changes,
+                'failures' => $failures,
+                'error' => $failures === [] ? null : 'powerdns_reconcile_partial_failure',
+            ];
         } finally {
             $unlock = $pdo->prepare('SELECT pg_advisory_unlock(hashtext(:name))');
             $unlock->execute(['name' => self::LOCK_NAME]);

@@ -6,6 +6,7 @@ use App\Modules\Domains\Services\DomainService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\Uuid;
+use App\Support\Validator;
 
 class DnsService
 {
@@ -69,6 +70,9 @@ class DnsService
         }
         $originType = strtoupper((string) $input['type']);
         $originContent = (string) $input['content'];
+        $input = $this->normalizeAndValidate($domain, $input);
+        $originType = (string) $input['type'];
+        $originContent = (string) $input['content'];
         $id = Uuid::v4();
         $record = [
             'id' => $id,
@@ -84,6 +88,21 @@ class DnsService
         ];
         $this->assertRoutingAvailable($record);
         $public = $this->customerDns->publicRecordFor($domain, $record);
+        $this->assertNotDuplicate(
+            $domainId,
+            null,
+            $originType,
+            (string) $input['name'],
+            $originContent,
+            (string) $input['status']
+        );
+        $this->assertCompatiblePublicRecord(
+            $domainId,
+            null,
+            (string) $input['name'],
+            (string) $public['type'],
+            (string) $input['status']
+        );
 
         $now = time();
         $stmt = Database::pdo()->prepare(
@@ -143,6 +162,7 @@ class DnsService
         if ($oldRecord === null) {
             return null;
         }
+        $input = $this->normalizeAndValidate($domain, $input, $oldRecord);
 
         $patch = [
             'type' => (string) $oldRecord['type'],
@@ -188,6 +208,21 @@ class DnsService
         ];
         $this->assertRoutingAvailable($recordForProjection);
         $public = $this->customerDns->publicRecordFor($domain, $recordForProjection);
+        $this->assertNotDuplicate(
+            $domainId,
+            $recordId,
+            (string) $recordForProjection['type'],
+            (string) $recordForProjection['name'],
+            (string) $recordForProjection['content'],
+            (string) $patch['status']
+        );
+        $this->assertCompatiblePublicRecord(
+            $domainId,
+            $recordId,
+            (string) $recordForProjection['name'],
+            (string) $public['type'],
+            (string) $patch['status']
+        );
 
         $stmt = Database::pdo()->prepare(
             'UPDATE dns_records SET
@@ -382,6 +417,102 @@ class DnsService
         if (in_array($policy, ['anycast', 'geo_anycast'], true) && empty($record['proxied'])) {
             throw new \RuntimeException('anycast_requires_proxied_record');
         }
+    }
+
+    private function assertNotDuplicate(
+        string $domainId,
+        ?string $recordId,
+        string $type,
+        string $name,
+        string $content,
+        string $status
+    ): void {
+        if ($status !== 'active') {
+            return;
+        }
+        $sql = 'SELECT 1 FROM dns_records
+                WHERE domain_id = :domain_id
+                  AND status = \'active\'
+                  AND UPPER(type) = :type
+                  AND LOWER(name) = :name
+                  AND content = :content';
+        $params = [
+            ':domain_id' => $domainId,
+            ':type' => strtoupper(trim($type)),
+            ':name' => strtolower(trim($name)),
+            ':content' => trim($content),
+        ];
+        if ($recordId !== null) {
+            $sql .= ' AND id <> :id';
+            $params[':id'] = $recordId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        if ($stmt->fetchColumn() !== false) {
+            throw new \RuntimeException('dns_record_duplicate');
+        }
+    }
+
+    private function assertCompatiblePublicRecord(
+        string $domainId,
+        ?string $recordId,
+        string $name,
+        string $publicType,
+        string $status
+    ): void {
+        if ($status !== 'active') {
+            return;
+        }
+        $sql = 'SELECT public_type FROM dns_records
+                WHERE domain_id = :domain_id AND status = \'active\' AND LOWER(name) = :name';
+        $params = [':domain_id' => $domainId, ':name' => strtolower(trim($name))];
+        if ($recordId !== null) {
+            $sql .= ' AND id <> :id';
+            $params[':id'] = $recordId;
+        }
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        $exclusive = ['CNAME', 'ALIAS'];
+        foreach ($stmt->fetchAll() as $row) {
+            $existingType = strtoupper((string) $row['public_type']);
+            if (in_array(strtoupper($publicType), $exclusive, true)
+                || in_array($existingType, $exclusive, true)) {
+                throw new \RuntimeException('dns_record_name_conflict');
+            }
+        }
+    }
+
+    private function normalizeAndValidate(array $domain, array $input, ?array $current = null): array
+    {
+        $next = array_merge($current ?? [], $input);
+        $type = Validator::dnsRecordType((string) ($next['type'] ?? ''));
+        $name = Validator::dnsRecordName((string) ($next['name'] ?? ''), (string) $domain['domain']);
+        $proxied = (bool) ($next['proxied'] ?? false);
+        $content = $proxied && in_array((string) ($type['value'] ?? ''), ['A', 'AAAA'], true)
+            ? Validator::originHost((string) ($next['content'] ?? ''), 'content')
+            : Validator::dnsRecordContent((string) ($type['value'] ?? ''), (string) ($next['content'] ?? ''));
+        foreach ([$type, $name, $content] as $result) {
+            if (($result['ok'] ?? false) !== true) {
+                throw new \RuntimeException('invalid_dns_record_' . (string) ($result['field'] ?? 'input'));
+            }
+        }
+        $next['type'] = $type['value'];
+        $next['name'] = $name['value'];
+        $next['content'] = $content['value'];
+        $next['ttl'] = (int) ($next['ttl'] ?? 300);
+        if ($next['ttl'] < 60 || $next['ttl'] > 86400) {
+            throw new \RuntimeException('invalid_dns_record_ttl');
+        }
+        $next['priority'] = $next['type'] === 'MX' ? (int) ($next['priority'] ?? 0) : null;
+        if ($next['priority'] !== null && ($next['priority'] < 0 || $next['priority'] > 65535)) {
+            throw new \RuntimeException('invalid_dns_record_priority');
+        }
+        $next['status'] = (string) ($next['status'] ?? 'active');
+        if (!in_array($next['status'], ['active', 'disabled'], true)) {
+            throw new \RuntimeException('invalid_dns_record_status');
+        }
+        return $next;
     }
 
     private function decodeGeoOrigins(?string $json): array

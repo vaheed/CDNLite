@@ -96,7 +96,25 @@ class DnsController
         }
 
         $input['type'] = strtoupper((string) $type['value']);
-        $input['name'] = $name['value'];
+        $typeResult = Validator::dnsRecordType($input['type']);
+        if (($typeResult['ok'] ?? false) !== true) {
+            return $typeResult;
+        }
+        $nameResult = Validator::dnsRecordName((string) $name['value']);
+        if (($nameResult['ok'] ?? false) !== true) {
+            return $nameResult;
+        }
+        $input['type'] = $typeResult['value'];
+        $input['name'] = $nameResult['value'];
+        $proxied = Validator::bool($input, 'proxied', false);
+        if (($proxied['ok'] ?? false) !== true) {
+            return $proxied;
+        }
+        $input['proxied'] = $proxied['value'];
+        $priority = $this->validatePriority($input, $input['type']);
+        if ($priority !== null) {
+            return $priority;
+        }
         $contentByType = $this->validateRecordContent(
             $input['type'],
             (string) $content['value'],
@@ -118,6 +136,9 @@ class DnsController
             $message = $e->getMessage();
             if ($message === 'domain_not_found') {
                 return ['error' => 'domain_not_found', 'status' => 404];
+            }
+            if (in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)) {
+                return ['error' => $message, 'status' => 409];
             }
             if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
                 return ['error' => $message, 'status' => 422];
@@ -150,13 +171,22 @@ class DnsController
                 return $type;
             }
             $input['type'] = strtoupper((string) $type['value']);
+            $typeResult = Validator::dnsRecordType($input['type']);
+            if (($typeResult['ok'] ?? false) !== true) {
+                return $typeResult;
+            }
+            $input['type'] = $typeResult['value'];
         }
         if (array_key_exists('name', $input)) {
             $name = Validator::requiredString($input, 'name', 255);
             if (($name['ok'] ?? false) !== true) {
                 return $name;
             }
-            $input['name'] = $name['value'];
+            $nameResult = Validator::dnsRecordName((string) $name['value']);
+            if (($nameResult['ok'] ?? false) !== true) {
+                return $nameResult;
+            }
+            $input['name'] = $nameResult['value'];
         }
         if (array_key_exists('content', $input)) {
             $content = Validator::requiredString($input, 'content', 2048);
@@ -165,13 +195,32 @@ class DnsController
             }
             $input['content'] = $content['value'];
         }
-        if (array_key_exists('type', $input) && array_key_exists('content', $input)) {
-            $typeValue = (string) $input['type'];
-            $contentValue = (string) $input['content'];
+        $current = $this->service->find($domainId, $recordId);
+        if (array_key_exists('proxied', $input)) {
+            $proxied = Validator::bool($input, 'proxied');
+            if (($proxied['ok'] ?? false) !== true) {
+                return $proxied;
+            }
+            $input['proxied'] = $proxied['value'];
+        }
+        if (array_key_exists('status', $input)) {
+            $status = Validator::enum($input, 'status', ['active', 'disabled']);
+            if (($status['ok'] ?? false) !== true) {
+                return $status;
+            }
+            $input['status'] = $status['value'];
+        }
+        if ($current !== null && (
+            array_key_exists('type', $input)
+            || array_key_exists('content', $input)
+            || array_key_exists('proxied', $input)
+        )) {
+            $typeValue = (string) ($input['type'] ?? $current['type']);
+            $contentValue = (string) ($input['content'] ?? $current['content']);
             $contentByType = $this->validateRecordContent(
                 $typeValue,
                 $contentValue,
-                (bool) ($input['proxied'] ?? false)
+                (bool) ($input['proxied'] ?? $current['proxied'])
             );
             if (($contentByType['ok'] ?? false) !== true) {
                 return $contentByType;
@@ -183,8 +232,12 @@ class DnsController
             if (($ttl['ok'] ?? false) !== true) {
                 return $ttl;
             }
+            $input['ttl'] = $ttl['value'];
         }
-        $current = $this->service->find($domainId, $recordId);
+        $priority = $this->validatePriority($input, (string) ($input['type'] ?? $current['type'] ?? ''));
+        if ($priority !== null) {
+            return $priority;
+        }
         if ($current !== null) {
             $apex = $this->validateApexType(
                 (string) ($input['name'] ?? $current['name']),
@@ -200,7 +253,9 @@ class DnsController
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502;
+            $status = in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)
+                ? 409
+                : (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502);
             $payload = ['error' => $message, 'status' => $status];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
@@ -215,9 +270,13 @@ class DnsController
 
     public function delete(string $domainId, string $recordId): array
     {
-        return $this->service->delete($domainId, $recordId)
-            ? ['ok' => true]
-            : ['error' => 'record_not_found', 'status' => 404];
+        try {
+            return $this->service->delete($domainId, $recordId)
+                ? ['ok' => true]
+                : ['error' => 'record_not_found', 'status' => 404];
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 502];
+        }
     }
 
     public function geoRoutes(string $domainId, string $recordId): array
@@ -297,5 +356,19 @@ class DnsController
             return Validator::originHost($content, 'content');
         }
         return Validator::dnsRecordContent($type, $content);
+    }
+
+    private function validatePriority(array &$input, string $type): ?array
+    {
+        if (strtoupper($type) !== 'MX') {
+            $input['priority'] = null;
+            return null;
+        }
+        $priority = Validator::intRange($input, 'priority', 0, 65535, 0);
+        if (($priority['ok'] ?? false) !== true) {
+            return $priority;
+        }
+        $input['priority'] = $priority['value'];
+        return null;
     }
 }

@@ -17,7 +17,12 @@ class CdnDnsDeleteRecordCommand
             return 1;
         }
 
-        $ok = (new DnsService())->delete($domainId, $recordId);
+        try {
+            $ok = (new DnsService())->delete($domainId, $recordId);
+        } catch (\RuntimeException $e) {
+            fwrite(STDERR, $e->getMessage() . PHP_EOL);
+            return 1;
+        }
         if (!$ok) {
             fwrite(STDERR, "Record not found\n");
             return 1;

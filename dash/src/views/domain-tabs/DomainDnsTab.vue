@@ -170,7 +170,15 @@ async function save() {
     error.value = caught instanceof Error ? caught.message : 'Unable to save DNS record.';
   } finally { saving.value = false; }
 }
-async function remove(value: Record<string, unknown>) { await dnsApi.remove(props.domainId, String(value.id)); await load(); }
+async function remove(value: Record<string, unknown>) {
+  error.value = '';
+  try {
+    await dnsApi.remove(props.domainId, String(value.id));
+    await load();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to delete DNS record.';
+  }
+}
 function isApex(name: string) { return ['', '@'].includes(name.trim().replace(/\.$/, '').toLowerCase()); }
 
 watch(() => props.domainId, load);

@@ -4,6 +4,45 @@ namespace App\Support;
 
 final class Validator
 {
+    public const DNS_RECORD_TYPES = ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'CAA', 'NS', 'SRV'];
+
+    public static function dnsRecordType(string $type): array
+    {
+        $value = strtoupper(trim($type));
+        if (!in_array($value, self::DNS_RECORD_TYPES, true)) {
+            return [
+                'ok' => false,
+                'error' => 'invalid_field',
+                'field' => 'type',
+                'detail' => 'must_be_supported_dns_record_type',
+                'status' => 422,
+            ];
+        }
+        return ['ok' => true, 'value' => $value];
+    }
+
+    public static function dnsRecordName(string $name, string $zone = ''): array
+    {
+        $value = strtolower(rtrim(trim($name), '.'));
+        $zone = strtolower(rtrim(trim($zone), '.'));
+        if ($value === '' || $value === '@' || ($zone !== '' && $value === $zone)) {
+            return ['ok' => true, 'value' => '@'];
+        }
+        if ($zone !== '' && str_ends_with($value, '.' . $zone)) {
+            $value = substr($value, 0, -(strlen($zone) + 1));
+        }
+        if (!preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9_-]+(\.[a-z0-9_-]+)*$/i', $value)) {
+            return [
+                'ok' => false,
+                'error' => 'invalid_field',
+                'field' => 'name',
+                'detail' => 'must_be_valid_relative_dns_name',
+                'status' => 422,
+            ];
+        }
+        return ['ok' => true, 'value' => $value];
+    }
+
     public static function originHost(string $value, string $field = 'origin_host'): array
     {
         $value = trim($value);
@@ -21,6 +60,10 @@ final class Validator
     {
         $normalizedType = strtoupper(trim($type));
         $value = trim($content);
+        $typeResult = self::dnsRecordType($normalizedType);
+        if (($typeResult['ok'] ?? false) !== true) {
+            return $typeResult;
+        }
         if ($value === '') {
             return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_non_empty', 'status' => 422];
         }
@@ -31,11 +74,17 @@ final class Validator
         if ($normalizedType === 'AAAA' && filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
             return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_ipv6', 'status' => 422];
         }
-        if ($normalizedType === 'CNAME' && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
+        if (in_array($normalizedType, ['CNAME', 'MX', 'NS'], true)
+            && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
             return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_hostname', 'status' => 422];
         }
-        if ($normalizedType === 'MX' && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
-            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_hostname_for_mx', 'status' => 422];
+        if ($normalizedType === 'CAA'
+            && !preg_match('/^[0-9]+\s+(issue|issuewild|iodef)\s+"[^"]+"$/i', $value)) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_caa', 'status' => 422];
+        }
+        if ($normalizedType === 'SRV'
+            && !preg_match('/^[0-9]+\s+[0-9]+\s+[0-9]+\s+(?=.{1,253}\.?$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
+            return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'must_be_valid_srv', 'status' => 422];
         }
         if ($normalizedType === 'CAA' && strlen($value) > 1024) {
             return ['ok' => false, 'error' => 'invalid_field', 'field' => 'content', 'detail' => 'max_length_1024', 'status' => 422];
