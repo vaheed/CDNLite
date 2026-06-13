@@ -53,9 +53,11 @@ class DnsReconciler
                     $this->syncState->markConverged($zone, $rrsets, $generation);
                     continue;
                 }
-                $result = $this->powerDns->patchRrsets($zone, $patch);
-                if (($result['ok'] ?? false) !== true) {
-                    return $result + ['zone' => $zone, 'generation_id' => $generation];
+                foreach ($this->orderedPatches($patch) as $orderedPatch) {
+                    $result = $this->powerDns->patchRrsets($zone, $orderedPatch);
+                    if (($result['ok'] ?? false) !== true) {
+                        return $result + ['zone' => $zone, 'generation_id' => $generation];
+                    }
                 }
                 $changes += count($patch);
             }
@@ -115,6 +117,21 @@ class DnsReconciler
             sort($found);
             return $wanted !== $found || (int) $actual[$key]['ttl'] !== (int) $rrset['ttl'];
         }));
+    }
+
+    private function orderedPatches(array $rrsets): array
+    {
+        $deletes = [];
+        $replacements = [];
+        foreach ($rrsets as $rrset) {
+            if (($rrset['changetype'] ?? 'REPLACE') === 'DELETE') {
+                $deletes[] = $rrset;
+                continue;
+            }
+            $replacements[] = $rrset;
+        }
+
+        return array_values(array_filter([$deletes, $replacements]));
     }
 
     private function storedIdentities(): array
