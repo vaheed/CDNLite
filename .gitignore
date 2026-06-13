@@ -25,6 +25,4 @@ docs/.vitepress/.temp/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 .gitignore
-.gitignore
-dash/test-results/analytics-domain-filter-do-a7595-scoped-while-buckets-change/error-context.md
-dash/test-results/analytics-domain-filter-gl-3b3fb-ero-totals-and-cache-states/error-context.md
+dash/test-results/*

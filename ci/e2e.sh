@@ -161,6 +161,26 @@ login_admin() {
   export ADMIN_SESSION_TOKEN
 }
 
+api_post_with_powerdns_retry() {
+  local url="$1"
+  local body="$2"
+  local attempts="${3:-20}"
+  local sleep_seconds="${4:-2}"
+  local attempt=1
+
+  while true; do
+    api_post "$url" "$body"
+    if [[ "$HTTP_CODE" != "502" || "$HTTP_BODY" != *'"error":"powerdns_api_error"'* ]]; then
+      return 0
+    fi
+    if [[ "$attempt" -ge "$attempts" ]]; then
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    sleep "$sleep_seconds"
+  done
+}
+
 edge_wait_status() {
   local host="$1"
   local expected="$2"
@@ -320,7 +340,7 @@ api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
 assert_http_status "$HTTP_CODE" "200" "domain activation failed"
 record_step PASS "domain-activate" "domain activated with development override"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
 assert_http_status "$HTTP_CODE" "201" "primary proxied DNS create failed"
 PRIMARY_DNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
@@ -581,7 +601,7 @@ if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
     -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
     -H "Content-Type: application/json" -H "X-API-Key: bad-key" -d '{"rrsets":[]}')"
-  assert_eq "$bad_code" "403" "pdns strict negative key test failed"
+  assert_eq "$bad_code" "401" "pdns strict negative key test failed"
   record_step PASS "powerdns-negative-auth" "bad key rejected"
 fi
 

@@ -30,6 +30,55 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - Phase 6 MMDB refresh race tolerance
+
+Completed:
+
+```text
+- diagnosed the live e2e failure as an intentional PowerDNS restart after a
+  slow initial MMDB refresh replaced the persisted database
+- made the strict PowerDNS-backed e2e mutation retry only transient
+  502 powerdns_api_error responses while retaining all other failures
+- added a deployment contract for the transient retry path
+```
+
+Validation:
+
+```text
+- smoke suite passed
+- failure reproduced from Core, PowerDNS, and MMDB updater timestamps
+- shell syntax and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- rerun the complete main e2e, live DNS, and browser suites to finish Phase 6
+```
+
+#### 2026-06-13 - Phase 6 PowerDNS authentication assertion
+
+Completed:
+
+```text
+- aligned both live PowerDNS negative-auth checks with the authoritative
+  server's 401 Unauthorized response for an invalid API key
+- added deployment contracts that pin the live-suite expectation
+```
+
+Validation:
+
+```text
+- smoke suite passed before this correction
+- shell syntax and focused deployment contracts passed
+```
+
+Remaining gaps:
+
+```text
+- rerun the complete main e2e, live DNS, and browser suites to finish Phase 6
+```
+
 #### 2026-06-13 - edge health and e2e queue race corrections
 
 Completed:

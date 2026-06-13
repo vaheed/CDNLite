@@ -82,7 +82,7 @@ record_step PASS "powerdns-api-auth-positive" "PowerDNS zone endpoint accepted c
 bad_status="$(curl -sS -o /tmp/powerdns-dns-bad-key.json -w '%{http_code}' \
   -X GET "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_ZONE}" \
   -H "X-API-Key: bad-key")"
-assert_eq "$bad_status" "403" "PowerDNS zone endpoint should reject a bad API key"
+assert_eq "$bad_status" "401" "PowerDNS zone endpoint should reject a bad API key"
 record_step PASS "powerdns-api-auth-negative" "PowerDNS zone endpoint rejected bad API key"
 
 soa_answer="$(dig @127.0.0.1 -p "$PDNS_DNS_HOST_PORT" "$TEST_ZONE" SOA +short)"

@@ -55,6 +55,7 @@ def test_dnsgeo_images_are_cdnlite_specific():
 def test_github_actions_exercises_real_dns_tools_and_all_scripts():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     checks = (ROOT / "ci" / "powerdns_dns_checks.sh").read_text()
+    e2e = (ROOT / "ci" / "e2e.sh").read_text()
 
     assert "dnsutils jq" in workflow
     assert "infra/dnsgeo/docker/postgres-replica/entrypoint-replica.sh" in workflow
@@ -62,3 +63,7 @@ def test_github_actions_exercises_real_dns_tools_and_all_scripts():
     assert "docker compose --profile" not in workflow
     assert '\\"kind\\":\\"Native\\"' in checks
     assert "powerdns-rrset-write" in checks
+    assert 'assert_eq "$bad_status" "401"' in checks
+    assert 'assert_eq "$bad_code" "401"' in e2e
+    assert "api_post_with_powerdns_retry" in e2e
+    assert "'\"error\":\"powerdns_api_error\"'" in e2e
