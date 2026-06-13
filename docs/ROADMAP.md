@@ -24,11 +24,44 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 | Phase 2 - desired-state reconciler | DONE | Customer, domain, edge, scheduled, bootstrap, and operator triggers use one advisory-locked desired-state reconciler with batched writes and stale owned-rrset deletion. |
 | Phase 3 - edge state and shared proxy record | DONE | `edge_state` filters eligible addresses, anycast is prioritized, and one stable shared proxy hostname owns the Lua A/AAAA edge pool. |
 | Phase 4 - apex ALIAS and subdomain CNAME | DONE | Proxied apex records always publish ALIAS, proxied subdomains publish CNAME, and domain-scoped site targets point to the shared proxy host without persisted edge-target projections. |
-| Phase 5 - admin and user UI | PENDING | Roadmap-specific DNS status and effective-record UI is not implemented. |
+| Phase 5 - admin and user UI | DONE | DNS Operations exposes PowerDNS setup, DNSGeo readiness, zone convergence, desired RRsets, dry-run/force-sync actions, and Poweradmin access; domain DNS shows exact effective records and sync failures. |
 | Phase 6 - tests/e2e/smoke | PARTIAL | Core contract coverage exists for the hardened client; real DNSGeo/PowerDNS, dig, failure-mode, and frontend smoke coverage remain. |
 | Phase 7 - production stress and scale proof | PENDING | The 10,000-domain and 10,000,000-record load model has not been run. |
 
 ### Completed increments
+
+#### 2026-06-13 - Phase 5 DNS operations and effective-record UI
+
+Completed:
+
+```text
+- added one authenticated DNS operations API for setup, DNSGeo capabilities,
+  zone convergence, desired/actual records, dry runs, forced sync, and domain status
+- added the dashboard DNS Operations page with PowerDNS setup, DNSGeo readiness,
+  zone errors, desired RRsets, Poweradmin access, dry-run, and force-sync actions
+- added per-domain PowerDNS status and exact ALIAS/CNAME publication guidance
+- removed Config Snapshots from dashboard routing and navigation
+- added CDNLITE_POWERADMIN_URL for the operator link
+```
+
+Validation:
+
+```text
+- PHP syntax lint passed for all Core PHP files
+- focused Phase 5 and DNS routing contracts: 13 passed
+- dashboard typecheck passed; dashboard unit tests: 18 passed
+- docker compose config --quiet and git diff --check passed
+- full Core suite: 132 passed, 2 failed because host-run tests cannot reach the
+  container-only pdns-auth API hostname while strict PowerDNS sync is enabled
+```
+
+Remaining gaps:
+
+```text
+- Phase 6 owns browser smoke coverage and real PowerDNS/dig failure-mode assertions
+- raw config snapshot APIs remain internal for edge runtime compatibility and are
+  no longer presented as a user-facing dashboard feature
+```
 
 #### 2026-06-13 - Phase 4 stable customer proxy records
 

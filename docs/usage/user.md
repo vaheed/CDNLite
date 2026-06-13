@@ -12,7 +12,7 @@ Dashboard
 |-- Domains: domain list and domain detail tabs
 |-- Edge Network: edge nodes, pools, DNS, anycast settings
 |-- Usage Analytics: traffic, cache, and bandwidth views
-|-- Config Snapshots: versions, diffs, rebuild, rollback
+|-- DNS records: effective published values and PowerDNS sync status
 |-- Event Viewer: diagnostics and runtime event search
 |-- Security Events: WAF/rate-limit/IP/security decisions
 |-- Audit Log: admin and system changes
@@ -112,3 +112,9 @@ The dashboard can export Markdown reports for operational snapshots. Use these f
 - Use table horizontal controls when narrow screens hide columns.
 - Keep browser dev tools for secondary diagnostics; the dashboard surfaces primary API errors in alerts and field messages.
 - Treat edge developer tools as local/private helpers only.
+For proxied records, the DNS table shows the exact public record CDNLite owns:
+
+- apex `@` publishes `ALIAS site-<domain-id>.<cdn-zone>.`
+- subdomains publish `CNAME site-<domain-id>.<cdn-zone>.`
+- the private origin remains visible separately and is never presented as the public DNS answer
+- the zone banner reports pending, synced, or failed state, the last successful sync, and the last error

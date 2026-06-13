@@ -7,6 +7,7 @@ use App\Modules\Collector\Services\CollectorService;
 use App\Modules\Admin\Http\Controllers\AdminAuthController;
 use App\Modules\Admin\Services\AdminAuthService;
 use App\Modules\Dns\Http\Controllers\DnsController;
+use App\Modules\Dns\Http\Controllers\DnsOperationsController;
 use App\Modules\Dns\Http\Controllers\EdgeNetworkController;
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
@@ -193,6 +194,7 @@ $dnsService = new DnsService();
 $edgeService = new EdgeService();
 $domainController = new DomainController($domainService);
 $dnsController = new DnsController($dnsService);
+$dnsOperationsController = new DnsOperationsController();
 $edgeNetworkController = new EdgeNetworkController();
 $edgeController = new EdgeController($edgeService);
 $collectorController = new CollectorController(new CollectorService());
@@ -324,6 +326,12 @@ $router->add('POST', '/api/v1/settings/validate', static function (Request $req)
     }
 }, auth: true);
 $router->add('POST', '/api/v1/settings/test/powerdns', static fn (): array => Response::json($settingsController->testPowerDns()), auth: true);
+$router->add('GET', '/api/v1/dns/operations', static fn (): array => Response::json($dnsOperationsController->status()), auth: true);
+$router->add('GET', '/api/v1/dns/zones', static fn (): array => Response::json($dnsOperationsController->zones()), auth: true);
+$router->add('GET', '/api/v1/dns/desired', static fn (Request $req): array => Response::json($dnsOperationsController->desired($req->query['zone'] ?? null)), auth: true);
+$router->add('GET', '/api/v1/dns/zones/{zone}/actual', static fn (Request $req, array $p): array => Response::json($dnsOperationsController->actual((string) $p['zone'])), auth: true);
+$router->add('POST', '/api/v1/dns/dry-run', static fn (): array => Response::json($dnsOperationsController->dryRun()), auth: true);
+$router->add('POST', '/api/v1/dns/force-sync', static fn (): array => Response::json($dnsOperationsController->forceSync()), auth: true);
 $router->add('GET', '/api/v1/edge-countries', static fn (): array => Response::json($edgeNetworkController->countries()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
@@ -353,6 +361,7 @@ $router->add('POST', '/api/v1/domains/{domainId}/dns/records', static function (
     return Response::json($result, (int) ($result['status'] ?? 201));
 }, auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/dns/status', static fn (Request $req, array $p) => Response::json($dnsOperationsController->domainStatus((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static function (Request $req, array $p) use ($dnsController): array {
     $result = $dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));

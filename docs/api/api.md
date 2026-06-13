@@ -381,6 +381,13 @@ SSL tips:
 | `GET` | `/api/v1/edge/nodes` | Protected | List edges. |
 | `GET` | `/api/v1/edges/pools` | Protected | Edge pools. |
 | `GET` | `/api/v1/edges/dns` | Protected | Shared proxy rrsets, eligible edge state, CDN zone, proxy host, and sync status. |
+| `GET` | `/api/v1/dns/operations` | Protected | PowerDNS setup, DNSGeo capability, and sync summary. |
+| `GET` | `/api/v1/dns/zones` | Protected | Per-zone convergence, hashes, pending changes, timestamps, and errors. |
+| `GET` | `/api/v1/dns/desired` | Protected | Desired CDNLite-owned RRsets; accepts optional `zone`. |
+| `GET` | `/api/v1/dns/zones/{zone}/actual` | Protected | Current raw PowerDNS zone response. |
+| `POST` | `/api/v1/dns/dry-run` | Protected | Build desired DNS state without writes. |
+| `POST` | `/api/v1/dns/force-sync` | Protected | Run an immediate forced reconciliation. |
+| `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |

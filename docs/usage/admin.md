@@ -60,9 +60,19 @@ docker compose exec core php artisan cdn:settings:test-powerdns
 
 Settings changes should be followed by readiness checks and, where relevant, config snapshot rebuilds.
 
-## Operate Config Snapshots
+## Operate DNS
 
-1. Open `Config Snapshots`.
+Open `DNS Operations` to inspect the PowerDNS API connection, API-key presence,
+CDN zone, shared proxy hostname, mandatory apex `ALIAS` mode, and bundled
+DNSGeo capabilities. The page lists convergence and errors per zone and shows
+the complete desired RRset preview.
+
+Use `Dry run` to calculate desired records without writing PowerDNS. Use
+`Force sync now` to run the advisory-locked reconciler immediately. Poweradmin
+opens from the configured `CDNLITE_POWERADMIN_URL`.
+
+Raw config snapshots are no longer exposed in dashboard navigation. They remain
+an internal edge runtime mechanism.
 2. Review current and historical versions.
 3. Diff two versions before rollback.
 4. Roll back only when the older version is known good.

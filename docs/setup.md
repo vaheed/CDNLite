@@ -285,3 +285,6 @@ If dependencies are not installed, validate links and Markdown file presence wit
 find docs -name '*.md' -print
 rg -n '\\[[^]]+\\]\\(([^)#][^)]+\\.md)\\)' docs README.md
 ```
+`CDNLITE_POWERADMIN_URL` controls the operator link shown by the DNS Operations
+page and defaults to `http://localhost:9191`. It does not change the Poweradmin
+listener or expose it publicly.

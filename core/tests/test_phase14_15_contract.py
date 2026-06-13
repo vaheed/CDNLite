@@ -42,7 +42,7 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     assert "$this->activateSnapshotVersion($version)" in service
 
 
-def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
+def test_snapshot_dashboard_is_internal_and_not_in_user_navigation():
     view = (ROOT / "dash/src/views/ConfigSnapshotsView.vue").read_text()
     api = (ROOT / "dash/src/lib/api/configSnapshots.ts").read_text()
     router = (ROOT / "dash/src/router/index.ts").read_text()
@@ -57,5 +57,5 @@ def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
     assert "HorizontalScrollFrame" in view
     for operation in ("list:", "get:", "diff:", "rollback:", "rebuild:"):
         assert operation in api
-    assert "/config-snapshots" in router
-    assert "/config-snapshots" in nav
+    assert "/config-snapshots" not in router
+    assert "/config-snapshots" not in nav

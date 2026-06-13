@@ -1,5 +1,17 @@
 <template>
   <section class="space-y-5">
+    <div class="card flex flex-wrap items-center justify-between gap-4 p-4">
+      <div>
+        <p class="text-sm font-semibold">PowerDNS synchronization</p>
+        <p class="text-xs text-slate-500">
+          <span v-if="dnsStatus?.last_success_at">Last synced {{ new Date(dnsStatus.last_success_at * 1000).toLocaleString() }}.</span>
+          <span v-else>Waiting for the first successful zone sync.</span>
+          Proxied apex records publish as ALIAS; proxied subdomains publish as CNAME.
+        </p>
+        <p v-if="dnsStatus?.last_error" class="mt-1 text-xs text-rose-600">{{ dnsStatus.last_error }}</p>
+      </div>
+      <StatusBadge :status="dnsStatus?.converged ? 'ok' : dnsStatus?.status === 'failed' ? 'critical' : 'warning'" :label="dnsStatus?.converged ? 'Synced' : String(dnsStatus?.status || 'Pending')" />
+    </div>
     <div class="section-heading">
       <div><h2>DNS records</h2><p>Control public DNS, CDN proxying, and country-specific origins.</p></div>
       <button class="button-primary" @click="startCreate"><Plus class="h-4 w-4" /> Add record</button>
@@ -62,7 +74,7 @@
     <DataTable v-else-if="records.length" title="DNS records" subtitle="Authoritative records for this domain." :rows="records" :columns="columns">
       <template #type="{ value }"><span class="record-type">{{ value }}</span></template>
       <template #name="{ value }"><span class="font-mono font-medium">{{ value }}</span></template>
-      <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : row.content }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
+      <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : `${row.type} ${row.content}` }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Published by CDNLite; private origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
       <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
       <template #status="{ row }"><StatusBadge :status="row.status === 'active' ? 'healthy' : 'warning'" :label="String(row.status || 'unknown')" /></template>
       <template #actions="{ row }"><div class="flex gap-2"><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
@@ -79,11 +91,12 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
 import { dnsApi } from '@/lib/api/dns';
-import type { DnsRecord } from '@/types';
+import type { DnsRecord, DomainDnsStatus } from '@/types';
 
 type GeoOriginForm = { country_code: string; host: string; verify_tls: boolean };
 const props = defineProps<{ domainId: string }>();
 const records = ref<Array<DnsRecord & { geo_origins_count: number }>>([]);
+const dnsStatus = ref<DomainDnsStatus | null>(null);
 const geoOrigins = ref<GeoOriginForm[]>([]);
 const editing = ref(false);
 const editingId = ref('');
@@ -104,7 +117,8 @@ const columns = [
 ];
 
 async function load() {
-  const result = await dnsApi.list(props.domainId);
+  const [result, status] = await Promise.all([dnsApi.list(props.domainId), dnsApi.status(props.domainId)]);
+  dnsStatus.value = status;
   records.value = result.map((record) => ({ ...record, geo_origins_count: Object.keys(record.geo_origins ?? {}).filter((key) => key !== 'DEFAULT').length }));
 }
 function reset() {
