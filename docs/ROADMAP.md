@@ -30,6 +30,28 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - main e2e PowerDNS convergence wait
+
+Completed:
+
+```text
+- made the main e2e poll the exact customer zone until PowerDNS returns it
+- replaced the raw JSON substring assertion with a parsed zone-name check
+```
+
+Validation:
+
+```text
+- focused DNS reconciler contract test passed
+- shell syntax validation passed
+```
+
+Remaining gaps:
+
+```text
+- Phase 6 still requires the complete real DNSGeo/PowerDNS e2e and browser suite
+```
+
 #### 2026-06-13 - main e2e DNS publication corrections
 
 Completed:

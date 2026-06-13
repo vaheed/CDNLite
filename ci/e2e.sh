@@ -182,6 +182,15 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+pdns_zone_is_ready() {
+  local zone="$1"
+  local output="$2"
+  curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
+    "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${zone}" \
+    -o "$output" &&
+    jq -e --arg zone "$zone" '.name == $zone' "$output" >/dev/null
+}
+
 agent_exec() {
   docker compose exec -T edge-agent sh -lc "CORE_URL=http://core:8080 $1"
 }
@@ -551,8 +560,10 @@ record_step PASS "dns-delete-one" "deleted id=${del_id}"
 if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
   retry 20 1 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
     "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost" >/dev/null
-  zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
-  assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
+  zone_file="$(mktemp)"
+  retry 40 1 pdns_zone_is_ready "${TEST_DOMAIN}." "$zone_file"
+  zone_json="$(cat "$zone_file")"
+  rm -f "$zone_file"
   apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name) | .type' <<<"$zone_json")"
   assert_eq "$apex_type" "ALIAS" "proxied apex must be stored as PowerDNS ALIAS"
   if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$zone_json" >/dev/null; then

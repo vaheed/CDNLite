@@ -54,6 +54,14 @@ def test_main_e2e_does_not_publish_address_rrsets_beside_apex_alias():
     assert 'create_dns \'{"type":"AAAA","name":"@"' not in e2e
 
 
+def test_main_e2e_waits_for_the_reconciled_powerdns_zone():
+    e2e = read("ci/e2e.sh")
+
+    assert "pdns_zone_is_ready()" in e2e
+    assert "retry 40 1 pdns_zone_is_ready" in e2e
+    assert "'.name == $zone'" in e2e
+
+
 def test_sync_result_binds_postgresql_boolean_explicitly():
     service = read("core/app/Modules/Dns/Services/DnsSyncStateService.php")
     assert "':ok' => $ok ? 'true' : 'false'" in service
