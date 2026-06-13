@@ -531,10 +531,6 @@ class TrafficRulesService
         return $rows;
     }
 
-    public function getRateLimit(string $domainId): ?array {
-        $rules = $this->listRateLimits($domainId);
-        return $rules[0] ?? null;
-    }
     public function listRateLimits(string $domainId): array {
         $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE domain_id=:domain_id ORDER BY priority ASC, created_at ASC');
         $s->execute([':domain_id' => $domainId]);
@@ -549,20 +545,6 @@ class TrafficRulesService
     public function deleteRateLimit(string $domainId, string $id): bool {
         return $this->delete('rate_limit_rules', $domainId, $id);
     }
-    public function setRateLimit(string $domainId, array $in): array {
-        $existing=$this->getRateLimit($domainId);
-        if ($existing) {
-            return (array) $this->updateRateLimit($domainId, (string) $existing['id'], $in);
-        }
-        return $this->createRateLimit($domainId, $in);
-    }
-    public function disableRateLimit(string $domainId): bool {
-        $table = $this->rateLimitV2Supported() ? 'rate_limit_rules' : 'rate_limit_rules';
-        $s=Database::pdo()->prepare("DELETE FROM {$table} WHERE domain_id=:domain"); $s->execute([':domain'=>$domainId]);
-        if ($s->rowCount() > 0) { $this->invalidateConfigSnapshot(); return true; }
-        return false;
-    }
-
     private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
     private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);

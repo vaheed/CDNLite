@@ -65,8 +65,7 @@ docker compose exec core php artisan cdn:admin:create \
 
 The core image runs PHP from `core/public_index.php` and CLI commands from
 `core/artisan`. Fresh installations apply the single canonical schema in
-`core/database/schema.sql`. Upgrade migrations and the former no-op
-`cdn:migrate` compatibility command are not shipped.
+`core/database/schema.sql`. Existing database upgrades are not supported.
 
 Useful commands:
 
@@ -239,7 +238,7 @@ fresh-install stack:
 ./ci/stress-dns.sh
 ```
 
-Its defaults are the roadmap target: 10,000 domains, 1,000 records per domain,
+Its defaults are the full target: 10,000 domains, 1,000 records per domain,
 10 edge nodes across three regions, ten health flaps, and a 10-second maximum
 for the edge-only reconciliation. It resets both Core and PowerDNS data, runs a
 full verified reconciliation, changes one edge IP, exercises concurrent user
@@ -253,7 +252,7 @@ STRESS_DOMAINS=10 STRESS_RECORDS_PER_DOMAIN=20 \
 STRESS_EDGE_NODES=6 STRESS_FLAP_ITERATIONS=2 ./ci/stress-dns.sh
 ```
 
-Only the default 10,000 x 1,000 run qualifies Phase 7. GitHub Actions exposes
+Only the default 10,000 x 1,000 run qualifies the full load model. GitHub Actions exposes
 the same default run through the manual `run_dns_stress` workflow input.
 See [DNS Stress Testing](stress-testing.md) for the complete destructive-run
 procedure, configuration variables, assertions, reports, and recovery steps.

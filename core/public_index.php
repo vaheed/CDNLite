@@ -398,9 +398,6 @@ $router->add('DELETE', '/api/v1/domains/{domainId}/redirects/{ruleId}', static f
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['domainId'], $req->body)), auth: true);
-$router->add('PUT', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['domainId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['domainId'])), auth: true);
-$router->add('DELETE', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->listRateLimits((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRateLimit((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);

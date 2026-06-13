@@ -7,16 +7,16 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTISAN = ROOT / "core" / "artisan"
 
 
-PHASE20_COMMANDS = [
+CURRENT_COMMANDS = [
     "cdn:domain:list",
     "cdn:domain:create",
     "cdn:domain:show",
     "cdn:domain:activate",
     "cdn:domain:verify-ns",
     "cdn:domain:delete",
-    "cdn:dns:list",
-    "cdn:dns:create",
-    "cdn:dns:delete",
+    "cdn:dns:list-records",
+    "cdn:dns:add-record",
+    "cdn:dns:delete-record",
     "cdn:settings:get",
     "cdn:settings:set",
     "cdn:settings:test-powerdns",
@@ -29,7 +29,7 @@ PHASE20_COMMANDS = [
     "cdn:ssl:list",
     "cdn:ssl:request",
     "cdn:ssl:renew-due",
-    "cdn:analytics:summary",
+    "cdn:usage:summary",
     "cdn:origins:health-check",
     "cdn:origins:list",
     "cdn:readiness:check",
@@ -38,7 +38,7 @@ PHASE20_COMMANDS = [
 ]
 
 
-def test_phase20_cli_inventory_is_registered():
+def test_current_cli_inventory_is_registered():
     output = subprocess.run(
         ["php", str(ARTISAN), "list"],
         cwd=str(ROOT),
@@ -48,7 +48,7 @@ def test_phase20_cli_inventory_is_registered():
     ).stdout
 
     registered = set(output.splitlines())
-    missing = sorted(set(PHASE20_COMMANDS) - registered)
+    missing = sorted(set(CURRENT_COMMANDS) - registered)
     assert missing == []
 
 
@@ -59,9 +59,9 @@ def test_cli_json_default_and_table_format_contract():
     assert "json_encode($payload" in command_io
     assert "format'] ?? 'json'" in command_io
     assert "printTable" in command_io
-    assert "cdn:analytics:summary" in artisan
-    assert "cdn:dns:create" in artisan
-    assert "cdn:dns:delete" in artisan
+    assert "cdn:usage:summary" in artisan
+    assert "cdn:dns:add-record" in artisan
+    assert "cdn:dns:delete-record" in artisan
 
 
 def test_db_fresh_requires_force():

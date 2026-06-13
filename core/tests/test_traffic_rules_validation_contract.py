@@ -19,9 +19,9 @@ $c = new App\Modules\Proxy\Http\Controllers\TrafficRulesController(new App\Modul
 $badRedirect = $c->createRedirect('domain-1', ['source_path' => 'no-slash', 'target_url' => 'https://example.com']);
 $badWaf = $c->createWaf('domain-1', ['type' => 'not_valid', 'pattern' => '1.2.3.4/32']);
 $badCache = $c->createCacheRule('domain-1', ['path_prefix' => 'assets', 'ttl_seconds' => 3600]);
-$badRate = $c->setRateLimit('domain-1', ['requests_per_minute' => 0]);
-$badRatePath = $c->setRateLimit('domain-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
-$badRateKeyType = $c->setRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
+$badRate = $c->createRateLimit('domain-1', ['requests_per_minute' => 0]);
+$badRatePath = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
+$badRateKeyType = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
 $badWafPatch = $c->updateWaf('domain-1', 'rule-1', ['type' => 'not_valid']);
 $badCachePatch = $c->updateCacheRule('domain-1', 'rule-2', ['ttl_seconds' => 0]);
 $badRedirectMatchType = $c->createRedirect('domain-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);

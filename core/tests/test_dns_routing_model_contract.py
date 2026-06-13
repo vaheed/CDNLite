@@ -22,7 +22,6 @@ def test_anycast_and_geo_api_contract():
     assert "/api/v1/admin/edge-network/anycast" not in routes
     assert "/api/v1/edge-countries" in routes
     assert "/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes" in routes
-    assert "/api/v1/sites/" not in routes
 
 
 def test_canonical_hostname_and_no_cname_to_ip_contract():

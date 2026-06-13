@@ -4,7 +4,7 @@
       <div class="section-heading"><div><h2>SSL/TLS settings</h2><p>Control HTTPS enforcement, protocol support, and certificate renewal.</p></div><StatusBadge :status="certificates.length ? 'healthy' : 'warning'" :label="certificates.length ? 'Protected' : 'Certificate needed'" /></div>
       <div class="help-panel">
         <div class="help-item"><b>Force HTTPS</b><span>Enable after the certificate is issued so visitors are redirected from HTTP to HTTPS.</span></div>
-        <div class="help-item"><b>TLS version</b><span>TLS 1.2 is the safest compatibility default. TLS 1.3 only is stricter and may reject older clients.</span></div>
+        <div class="help-item"><b>TLS version</b><span>TLS 1.2 accepts a wider range of modern clients. TLS 1.3 only is stricter and may reject older clients.</span></div>
         <div class="help-item"><b>Auto-renew</b><span>Keep enabled for managed certificates so renewal runs before expiry.</span></div>
       </div>
       <div class="grid gap-4 lg:grid-cols-3">
@@ -14,7 +14,7 @@
           <select v-model="settings.min_tls_version" class="input">
           <option value="1.2">TLS 1.2</option>
           <option value="1.3">TLS 1.3</option>
-          </select><span class="mt-1.5 block text-xs text-slate-500">TLS 1.2 provides the broadest modern compatibility.</span></label>
+          </select><span class="mt-1.5 block text-xs text-slate-500">TLS 1.2 supports the widest range of modern clients.</span></label>
       </div>
       <div class="mt-5 flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
         <p v-if="saveMessage" class="mr-auto text-sm" :class="saveError ? 'text-red-600' : 'text-emerald-600'">{{ saveMessage }}</p>

@@ -56,7 +56,7 @@ The `edge_id` and token go into the edge POP `.env` as `EDGE_ID` and `EDGE_TOKEN
 On the DNS primary server:
 
 ```bash
-cd deploy/powerdns
+cd deploy/dnsgeo
 cp .env.example .env
 ```
 

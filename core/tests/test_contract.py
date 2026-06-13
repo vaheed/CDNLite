@@ -24,9 +24,8 @@ def test_artisan_help_lists_registered_commands():
     assert "Usage: php artisan <command> [--key=value]" in proc.stdout
     assert "cdn:domain:create" in proc.stdout
     assert "cdn:redirect:create" in proc.stdout
-    assert "cdn:rate-limit:set" in proc.stdout
+    assert "cdn:dns:add-record" in proc.stdout
     assert "cdn:waf:create" in proc.stdout
     assert "cdn:cache-rule:create" in proc.stdout
     assert "cdn:admin:create" in proc.stdout
     assert "cdn:db:fresh" in proc.stdout
-    assert "cdn:migrate" not in proc.stdout

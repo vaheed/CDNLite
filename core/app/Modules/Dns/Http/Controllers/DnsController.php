@@ -245,9 +245,6 @@ class DnsController
 
     private function validateOriginOptions(array &$input): ?array
     {
-        if (array_key_exists('origin_port', $input)) {
-            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
-        }
         if (array_key_exists('origin_host', $input)) {
             $host = Validator::optionalString($input, 'origin_host', 255);
             if (($host['ok'] ?? false) !== true) {

@@ -347,11 +347,6 @@ PRIMARY_DNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
 DNS_IDS+=("$PRIMARY_DNS_ID")
 record_step PASS "dns-origin-create" "record-level origin, proxy, TLS mode, and geo origins stored"
 
-api_post "${CORE_URL}/api/v1/domains" "{\"name\":\"legacy-port\",\"domain\":\"legacy-port-${RUN_KEY}.test.local\",\"origin_port\":8080}"
-assert_http_status "$HTTP_CODE" "422" "legacy origin_port should be rejected"
-assert_contains "$HTTP_BODY" "origin_port_not_supported" "legacy origin_port error code missing"
-record_step PASS "origin-port-rejected" "legacy domain payload rejected clearly"
-
 domain_count="$(db_query "SELECT COUNT(*) FROM domains WHERE id='${DOMAIN_ID}' AND domain='${TEST_DOMAIN}';")"
 assert_eq "$domain_count" "1" "domain missing in db"
 record_step PASS "domain-db-row" "domain persisted"
@@ -383,10 +378,6 @@ asset_headers="$(docker compose exec -T dashboard wget -S -qO- "http://127.0.0.1
 assert_contains "$asset_headers" "Cache-Control: public, immutable" "dashboard asset should use immutable cache headers"
 record_step PASS "dashboard-static-asset-cache" "Vue dashboard static asset cache headers verified"
 
-backend_dashboard_code="$(curl -sS -o /tmp/e2e-backend-dashboard.json -w '%{http_code}' "${CORE_URL}/dashboard/domains" $(api_auth_header_args))"
-assert_eq "$backend_dashboard_code" "404" "backend dashboard routes should be removed"
-record_step PASS "backend-dashboard-removed" "legacy /dashboard routes return 404"
-
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated"}'
 assert_http_status "$HTTP_CODE" "200" "domain update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"
@@ -409,11 +400,11 @@ api_patch "${CORE_URL}/api/v1/domains/99999999" '{"name":"nope"}'
 assert_http_status "$HTTP_CODE" "404" "unknown domain should 404"
 record_step PASS "domain-validation-unknown" "unknown domain 404"
 
-http_request PUT "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limit" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}' "$(api_auth_header_args)"
-assert_http_status "$HTTP_CODE" "200" "rate-limit v2 update failed"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}'
+assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
 rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
 assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
-record_step PASS "rate-limit-v2" "path_prefix=/login key_type=ip_path"
+record_step PASS "rate-limit-current" "path_prefix=/login key_type=ip_path"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":15,"path_prefix":"/api/","key_type":"ip_path","priority":20,"action":"block"}'
 assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"

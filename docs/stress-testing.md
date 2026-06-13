@@ -40,12 +40,12 @@ STRESS_FLAP_ITERATIONS=2 \
 ./ci/stress-dns.sh
 ```
 
-This run does not qualify Phase 7. It is intended to catch configuration,
+This reduced run does not qualify the full production load model. It is intended to catch configuration,
 resource, and connectivity failures quickly.
 
 ## Full Qualification
 
-Run the default roadmap model without overrides:
+Run the default full model without overrides:
 
 ```bash
 ./ci/stress-dns.sh

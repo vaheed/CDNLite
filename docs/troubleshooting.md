@@ -93,7 +93,6 @@ Common validation errors:
 | `domain_already_exists` | Another domain entry already uses the hostname. |
 | `domain_not_found` | Domain ID is wrong or deleted. |
 | `record_not_found` | DNS record ID is wrong or deleted. |
-| `origin_port_not_supported` | Domain create/update no longer accepts legacy origin port fields. |
 | `bucket_must_be_one_of_minute_hour_day` | Analytics bucket must be `minute`, `hour`, or `day`. |
 
 ## Debugging Edge Auth

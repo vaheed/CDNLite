@@ -1,8 +1,8 @@
 # CDNLite
 
 CDNLite uses a fresh-install-only database model. `core/database/schema.sql` is the
-authoritative schema; historical upgrade migrations and migration compatibility
-commands are not shipped.
+authoritative schema. Existing database upgrades are outside the supported
+installation model.
 
 Durable customer and edge DNS records converge through one desired-state path:
 

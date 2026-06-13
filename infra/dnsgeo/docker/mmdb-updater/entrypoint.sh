@@ -10,10 +10,6 @@ MMDB_DOWNLOAD_HEADER="${MMDB_DOWNLOAD_HEADER:-}"
 MMDB_DOWNLOAD_URL="${MMDB_DOWNLOAD_URL:-}"
 MMDB_PROVIDER="${MMDB_PROVIDER:-dbip-jsdelivr}"
 
-# Legacy IP2Location support remains available, but it is not the default because it needs a token.
-IP2LOCATION_DOWNLOAD_TOKEN="${IP2LOCATION_DOWNLOAD_TOKEN:-}"
-IP2LOCATION_DATABASE_CODE="${IP2LOCATION_DATABASE_CODE:-DB9LITEMMDB}"
-
 mkdir -p "$MMDB_DIR"
 
 
@@ -23,7 +19,6 @@ Supported providers:
   dbip-jsdelivr    Direct CDN download of DB-IP City Lite MMDB, no token.
   dbip-official    Direct official DB-IP monthly download, no token. Tries current month, then previous month.
   ip66             Direct IP66 country/continent/ASN MMDB, no token, daily upstream updates.
-  ip2location      IP2Location token mode, kept for compatibility.
   generic          Use MMDB_DOWNLOAD_URL directly.
 HELP
 }
@@ -104,15 +99,6 @@ resolve_download_urls() {
       ;;
     ip66)
       printf '%s\n' 'https://downloads.ip66.dev/db/ip66.mmdb'
-      ;;
-    ip2location)
-      if [ -z "$IP2LOCATION_DOWNLOAD_TOKEN" ] || [ "$IP2LOCATION_DOWNLOAD_TOKEN" = "change-me-ip2location-download-token" ]; then
-        log "IP2LOCATION_DOWNLOAD_TOKEN is not set"
-        return 1
-      fi
-      printf 'https://www.ip2location.com/download?token=%s&file=%s\n' \
-        "$IP2LOCATION_DOWNLOAD_TOKEN" \
-        "$IP2LOCATION_DATABASE_CODE"
       ;;
     generic)
       log "generic provider selected, but MMDB_DOWNLOAD_URL is empty"

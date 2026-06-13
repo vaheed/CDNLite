@@ -8,7 +8,7 @@ def read(path: str) -> str:
     return (ROOT / path).read_text()
 
 
-def test_stress_runner_defaults_to_the_roadmap_scale_and_root_compose():
+def test_stress_runner_defaults_to_full_scale_and_root_compose():
     script = read("ci/stress-dns.sh")
 
     assert 'DOMAINS="${STRESS_DOMAINS:-10000}"' in script
@@ -55,7 +55,7 @@ def test_scale_query_indexes_exist():
     assert "desired_dns_rrsets_zone_owner_idx" in schema
 
 
-def test_legacy_migrate_command_is_removed():
+def test_fresh_install_commands_do_not_include_schema_upgrade():
     artisan = read("core/artisan")
     entrypoint = read("core/docker-entrypoint.sh")
 

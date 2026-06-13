@@ -24,9 +24,6 @@ class DomainController
 
     public function store(array $input): array
     {
-        if (array_key_exists('origin_port', $input)) {
-            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
-        }
         if (isset($input['zone_name']) && !isset($input['domain'])) {
             $input['domain'] = $input['zone_name'];
         }
@@ -55,7 +52,6 @@ class DomainController
 
         $input['name'] = trim((string) ($input['display_name'] ?? $input['name'] ?? $domain['value']));
         $input['domain'] = $domain['value'];
-        unset($input['origin_host'], $input['origin_scheme'], $input['geo_origins'], $input['proxy_enabled']);
 
         try {
             return ['data' => $this->service->create($input)];
@@ -82,10 +78,6 @@ class DomainController
 
     public function update(string $domainId, array $input): ?array
     {
-        if (array_key_exists('origin_port', $input)) {
-            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
-        }
-        unset($input['origin_host'], $input['origin_scheme'], $input['geo_origins'], $input['proxy_enabled']);
         if (array_key_exists('domain', $input)) {
             $domain = Validator::domain($input, 'domain');
             if (($domain['ok'] ?? false) !== true) {

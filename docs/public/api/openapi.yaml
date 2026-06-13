@@ -491,33 +491,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/domains/{domainId}/rate-limit:
-    put:
-      tags: [Traffic Rules]
-      summary: Set legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    get:
-      tags: [Traffic Rules]
-      summary: Get legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    delete:
-      tags: [Traffic Rules]
-      summary: Disable legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      responses:
-        "200":
-          $ref: "#/components/responses/Ok"
   /api/v1/domains/{domainId}/rate-limits:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:

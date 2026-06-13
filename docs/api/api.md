@@ -307,7 +307,6 @@ Origin tips:
 | Feature | Routes |
 | --- | --- |
 | Redirects | `/api/v1/domains/{domainId}/redirects`, import/export/test variants. |
-| Legacy rate limit | `PUT`, `GET`, `DELETE /api/v1/domains/{domainId}/rate-limit`. |
 | Rate-limit rules | CRUD `/api/v1/domains/{domainId}/rate-limits`. |
 | WAF rules | CRUD `/api/v1/domains/{domainId}/waf-rules`. |
 | Header rules | CRUD `/api/v1/domains/{domainId}/headers`. |

@@ -37,7 +37,7 @@ def test_domain_updates_audit_defined_before_and_after_states():
     assert "$existing" not in ensure_zone_ready
 
 
-def test_core_container_uses_fresh_schema_bootstrap_without_migration_compatibility():
+def test_core_container_uses_fresh_schema_bootstrap():
     dockerfile = (ROOT / "core/Dockerfile").read_text()
     entrypoint = (ROOT / "core/docker-entrypoint.sh").read_text()
 

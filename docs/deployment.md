@@ -12,7 +12,6 @@ versions, and test restores before relying on those backups.
 | `deploy/core` | Control plane, database, schedulers, and dashboard. |
 | `deploy/edge` | One independently deployed edge POP and its agent. |
 | `deploy/dnsgeo` | Supported DNSGeo stack: PostgreSQL, MMDB, Recursor, authoritative PowerDNS, and Poweradmin. |
-| `deploy/powerdns` | Legacy standalone SQLite PowerDNS; not the supported DNSGeo production topology. |
 | `deploy/powerdns-replica` | PowerDNS secondary for zone transfers. |
 
 The root `docker-compose.yml` remains the canonical integrated DNSGeo topology
