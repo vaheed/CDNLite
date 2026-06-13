@@ -30,6 +30,28 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - main e2e apex ALIAS fixture correction
+
+Completed:
+
+```text
+- moved the main e2e DNS-only AAAA fixture from the apex to an ipv6 subdomain
+- prevented the test from asking PowerDNS to publish AAAA beside an apex ALIAS
+```
+
+Validation:
+
+```text
+- focused DNS reconciler contract test passed
+- main Compose e2e passed through the multi-record DNS creation stage
+```
+
+Remaining gaps:
+
+```text
+- Phase 6 still requires the complete real DNSGeo/PowerDNS e2e and browser suite
+```
+
 #### 2026-06-13 - Phase 5 DNS operations and effective-record UI
 
 Completed:

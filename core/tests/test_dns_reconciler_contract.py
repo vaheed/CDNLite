@@ -44,6 +44,13 @@ def test_scheduled_and_operator_sync_share_the_same_command_path():
     assert "cdn:dns:reconcile" in artisan
 
 
+def test_main_e2e_does_not_publish_address_rrsets_beside_apex_alias():
+    e2e = read("ci/e2e.sh")
+
+    assert 'create_dns \'{"type":"AAAA","name":"ipv6"' in e2e
+    assert 'create_dns \'{"type":"AAAA","name":"@"' not in e2e
+
+
 def test_sync_result_binds_postgresql_boolean_explicitly():
     service = read("core/app/Modules/Dns/Services/DnsSyncStateService.php")
     assert "':ok' => $ok ? 'true' : 'false'" in service

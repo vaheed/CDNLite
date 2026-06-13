@@ -463,7 +463,7 @@ create_dns() {
   rid="$(json_get "$HTTP_BODY" '.data.id')"
   DNS_IDS+=("$rid")
 }
-create_dns '{"type":"AAAA","name":"@","content":"2606:4700:4700::1111","ttl":300,"proxied":false}'
+create_dns '{"type":"AAAA","name":"ipv6","content":"2606:4700:4700::1111","ttl":300,"proxied":false}'
 create_dns "{\"type\":\"CNAME\",\"name\":\"www\",\"content\":\"${TEST_DOMAIN}.\",\"ttl\":300,\"proxied\":false}"
 create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"proxied":false}'
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
