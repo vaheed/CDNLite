@@ -44,6 +44,14 @@ def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
     assert "dns_records_exact_value_idx" in schema
 
 
+def test_apex_alias_can_coexist_with_mail_and_verification_records():
+    service = read("core/app/Modules/Dns/Services/DnsService.php")
+
+    assert "$newType === 'CNAME' || $existingType === 'CNAME'" in service
+    assert "$newType === 'ALIAS' && $existingType === 'ALIAS'" in service
+    assert "['CNAME', 'ALIAS']" not in service
+
+
 def test_all_durable_dns_triggers_use_the_reconciler():
     sources = [
         read("core/app/Modules/Dns/Services/DnsService.php"),

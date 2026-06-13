@@ -20,6 +20,8 @@ class DnsDesiredStateBuilder
              FROM dns_records r
              JOIN domains d ON d.id = r.domain_id
              WHERE r.status = 'active'
+               AND d.status = 'active'
+               AND d.nameserver_status = 'verified'
              ORDER BY d.domain, r.name, r.id"
         );
         foreach ($stmt->fetchAll() as $row) {

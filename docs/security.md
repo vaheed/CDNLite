@@ -42,6 +42,13 @@ Edge signed endpoints require:
 
 The signature is computed over method, path, timestamp, nonce, and SHA-256 of the raw body. Nonce and timestamp checks reduce replay risk.
 
+## Edge Server Identity
+
+The edge runtime sets `server_tokens off` and removes the `Server` response
+header. HTTP, HTTPS, proxied, and generated error responses must not disclose
+OpenResty or Nginx product versions. Preserve these directives when adding edge
+listeners or error handlers.
+
 ## Authorization Limits
 
 The dashboard admin model is simple. It does not implement fine-grained RBAC, per-domain tenancy, SSO, or role-scoped permissions. Use external controls for production segmentation.

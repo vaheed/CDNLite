@@ -201,6 +201,31 @@ class OriginHealthService
         return ['primary' => $primary, 'backup' => $backup];
     }
 
+    public function addBackupFromDnsRecord(string $domainId, array $record): array
+    {
+        $this->ensurePrimaryFromDnsRecords($domainId);
+        $host = strtolower(trim((string) ($record['origin_host'] ?? $record['content'] ?? '')));
+        $scheme = (string) ($record['origin_scheme'] ?? 'http') ?: 'http';
+        $existing = Database::pdo()->prepare(
+            'SELECT id FROM domain_origins WHERE domain_id=:domain_id AND lower(host)=:host AND scheme=:scheme LIMIT 1'
+        );
+        $existing->execute(['domain_id' => $domainId, 'host' => $host, 'scheme' => $scheme]);
+        $id = $existing->fetchColumn();
+        if ($id !== false) {
+            $found = $this->find($domainId, (string) $id);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+        return $this->create($domainId, [
+            'scheme' => $scheme,
+            'host' => $host,
+            'port' => $scheme === 'https' ? 443 : 80,
+            'is_primary' => false,
+            'enabled' => true,
+        ]);
+    }
+
     private function find(string $domainId, string $originId): ?array
     {
         $stmt = Database::pdo()->prepare('SELECT * FROM domain_origins WHERE domain_id=:domain_id AND id=:id LIMIT 1');

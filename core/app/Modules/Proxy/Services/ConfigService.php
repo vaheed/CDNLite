@@ -33,7 +33,8 @@ class ConfigService
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
-            if ((string) ($domain['status'] ?? '') !== 'active') {
+            if ((string) ($domain['status'] ?? '') !== 'active'
+                || (string) ($domain['nameserver_status'] ?? '') !== 'verified') {
                 continue;
             }
             $records = $this->dns->listByDomain((string) $domain['id']);

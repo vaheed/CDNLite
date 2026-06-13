@@ -13,13 +13,20 @@ docker compose exec core php artisan cdn:powerdns:force-sync
 ```
 
 The default `dns-reconciler` service runs the same path every
-`CDNLITE_SYNC_INTERVAL_SECONDS` seconds.
+`CDNLITE_SYNC_INTERVAL_SECONDS` seconds. The `nameserver-scheduler` also checks
+every domain once per `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` (default
+`86400`, one day). Domains and their desired-active records are enabled after
+successful delegation verification and withdrawn automatically when delegation
+moves to another provider.
 
 [![CI](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL database, Vue admin dashboard, OpenResty/Lua edge proxy, and signed shell-based edge agent. It is useful for CDN learning, local labs, small private edge deployments, and testing CDN operations workflows.
+
+Edge HTTP and HTTPS responses remove the OpenResty/Nginx `Server` header and
+suppress version tokens, including on generated 5xx error pages.
 
 ![CDNLite screenshot](docs/ScreenShot.png)
 

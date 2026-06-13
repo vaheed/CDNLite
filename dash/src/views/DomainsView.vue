@@ -10,7 +10,7 @@
       <div v-if="formError" role="alert" class="xl:col-span-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700">{{ formError }}</div>
       <TextInput v-model="form.name" :help="{ ...help.name, error: fieldErrors.name }" />
       <TextInput v-model="form.domain" :help="{ ...help.domain, error: fieldErrors.domain }" />
-      <label class="space-y-2"><span class="text-sm font-semibold">Status</span><select v-model="form.status" class="input"><option value="active">Active</option><option value="disabled">Disabled</option></select></label>
+      <p class="text-sm text-slate-500">Lifecycle is managed automatically from authoritative nameserver verification.</p>
       <div class="xl:col-span-2 flex justify-end gap-2"><button type="button" class="button-secondary" @click="resetForm">Cancel edit</button><button class="button-primary" :disabled="saving">Save changes</button></div>
     </form>
     <DataTable title="Domain inventory" subtitle="Domain identity, activation state, and authoritative delegation." search-placeholder="Search by name, domain, or ID..." :rows="domainRows" :columns="columns">
@@ -52,7 +52,7 @@ import { domainsApi } from '@/lib/api/domains';
 import { CdnLiteApiError } from '@/lib/api/client';
 import type { Domain, UpdateDomainInput } from '@/types';
 const domains=ref<Domain[]>([]);const saving=ref(false);const editingId=ref('');const showForm=ref(false);const formError=ref('');const fieldErrors=reactive<Record<string,string>>({});
-const form=reactive({name:'',domain:'',status:'active'});
+const form=reactive({name:'',domain:''});
 const schema=z.object({name:z.string().min(1,'Domain name is required.'),domain:z.string().min(1,'Domain is required.')});
 const help={name:{label:'Name',what:'Human-readable domain name.',works:'Used only for administration.',example:'Main website',required:true},domain:{label:'Domain',what:'Hostname served by the CDN.',works:'Matches the incoming Host header.',example:'example.com',required:true}};
 const columns=[
@@ -65,12 +65,11 @@ const columns=[
 const domainRows=computed(()=>domains.value.map(domain=>({...domain,actions:''})));
 async function load(){try{domains.value=await domainsApi.list();}catch(error){formError.value=messageFor(error,'Unable to load domains.');}}
 async function saveDomain(){clearErrors();const parsed=schema.safeParse(form);if(!parsed.success){parsed.error.issues.forEach(issue=>fieldErrors[String(issue.path[0])]=issue.message);formError.value='Fix the highlighted fields.';return;}saving.value=true;try{await domainsApi.update(editingId.value,{...form} as UpdateDomainInput);resetForm();await load();}catch(error){formError.value=messageFor(error,'Unable to update domain.');}finally{saving.value=false;}}
-async function toggleStatus(row:Record<string,unknown>){await domainsApi.update(String(row.id),{status:row.status==='disabled'?'active':'disabled'});await load();}
 async function deleteDomain(id:string){await domainsApi.remove(id);await load();}
-function editDomain(row:Record<string,unknown>){editingId.value=String(row.id);showForm.value=true;Object.assign(form,{name:String(row.name??''),domain:String(row.domain??''),status:String(row.status??'active')});clearErrors();}
+function editDomain(row:Record<string,unknown>){editingId.value=String(row.id);showForm.value=true;Object.assign(form,{name:String(row.name??''),domain:String(row.domain??'')});clearErrors();}
 function startCreate(){resetForm();showForm.value=true;}
 async function onOnboardingCompleted(){resetForm();await load();}
-function resetForm(){editingId.value='';showForm.value=false;Object.assign(form,{name:'',domain:'',status:'active'});clearErrors();}
+function resetForm(){editingId.value='';showForm.value=false;Object.assign(form,{name:'',domain:''});clearErrors();}
 function clearErrors(){formError.value='';Object.keys(fieldErrors).forEach(key=>delete fieldErrors[key]);}
 function messageFor(error:unknown,fallback:string){return error instanceof CdnLiteApiError||error instanceof Error?error.message:fallback;}
 function lifecycleLabel(value:unknown){const status=String(value??'active');return status==='pending_nameserver'?'Pending':status.charAt(0).toUpperCase()+status.slice(1).replaceAll('_',' ');}

@@ -22,8 +22,8 @@
       <div class="flex justify-end gap-2"><button class="button-secondary" :disabled="busy" @click="verify">Check nameservers</button><button v-if="domain?.nameserver_status === 'verified'" class="button-primary" @click="step = 4">Continue</button></div>
     </div>
     <div v-else class="space-y-4">
-      <p class="text-sm text-slate-600 dark:text-slate-300">Delegation is ready. Activate the domain now, or use the development override for local DNS.</p>
-      <div class="flex justify-end gap-2"><button class="button-secondary" :disabled="busy" @click="activate(true)">Skip for dev</button><button class="button-primary" :disabled="busy || domain?.nameserver_status !== 'verified'" @click="activate(false)">Activate</button></div>
+      <p class="text-sm text-slate-600 dark:text-slate-300">Delegation is verified. The domain and its desired-active DNS records are now enabled automatically.</p>
+      <div class="flex justify-end"><button class="button-primary" @click="complete">Done</button></div>
     </div>
   </div>
 </template>
@@ -40,6 +40,6 @@ const step = ref(1); const zoneName = ref(''); const displayName = ref(''); cons
 const titles = ['Enter your domain', 'Update nameservers', 'Verify delegation', 'Activate domain'];
 async function create() { await run(async () => { domain.value = await domainsApi.create({ zone_name: zoneName.value, display_name: displayName.value || undefined }); step.value = 2; }); }
 async function verify() { await run(async () => { domain.value = await domainsApi.verifyNameservers(domain.value!.id); if (domain.value.nameserver_status === 'verified') step.value = 4; }); }
-async function activate(override: boolean) { await run(async () => { domain.value = await domainsApi.activate(domain.value!.id, override); emit('completed', domain.value); }); }
+function complete() { emit('completed', domain.value!); }
 async function run(action: () => Promise<void>) { busy.value = true; error.value = ''; try { await action(); } catch (cause) { error.value = cause instanceof Error ? cause.message : 'Unable to continue onboarding.'; } finally { busy.value = false; } }
 </script>

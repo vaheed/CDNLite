@@ -37,6 +37,10 @@ OpenResty Edge <---- Edge Agent <---- signed config/heartbeat endpoints
 Customer Origins
 ```
 
+Both OpenResty listeners suppress version tokens and remove the `Server`
+response header. Lua-generated CDN error pages replace native branded 5xx
+responses.
+
 ## Components
 
 | Component | Technology | Responsibility |
@@ -135,3 +139,7 @@ PostgreSQL is the supported backend. The edge uses mounted local files under `/v
 - Edge endpoints require edge ID, bearer token, timestamp, nonce, and HMAC signature.
 - SSL material depends on `CDNLITE_SSL_SECRET_KEY`; keep it stable and private.
 - Dashboard Vite variables are compiled into browser assets and must not contain production secrets unless the deployment is private and separately protected.
+The separate `nameserver-scheduler` periodically resolves every customer
+domain's NS set. Verification controls domain lifecycle: matching delegation
+enables desired-active records, while missing or changed delegation disables
+their effective publication without overwriting each record's desired status.

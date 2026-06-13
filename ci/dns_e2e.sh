@@ -24,7 +24,9 @@ DOMAIN_ID=""
 APEX_ID=""
 WWW_ID=""
 PLAIN_ID=""
+MX_ID=""
 ADMIN_SESSION_TOKEN=""
+NAMESERVER_SCHEDULER_PAUSED=0
 export CORE_URL POWERDNS_PUBLIC_API_URL PDNS_API_KEY CI_ENV_NAME ADMIN_SESSION_TOKEN
 
 init_report
@@ -36,6 +38,9 @@ cleanup() {
   fi
   db_query "DELETE FROM edge_nodes WHERE edge_id IN ('dns-e2e-eu','dns-e2e-us');" >/dev/null || true
   docker compose exec -T core php artisan cdn:dns:reconcile --force >/dev/null 2>&1 || true
+  if [[ "$NAMESERVER_SCHEDULER_PAUSED" == "1" ]]; then
+    docker compose start nameserver-scheduler >/dev/null 2>&1 || true
+  fi
 }
 
 finish() {
@@ -98,6 +103,11 @@ retry 60 2 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
 wait_for_postgres
 login
 
+if compose_has_service nameserver-scheduler; then
+  docker compose stop nameserver-scheduler >/dev/null
+  NAMESERVER_SCHEDULER_PAUSED=1
+fi
+
 api_patch "${CORE_URL}/api/v1/settings/platform.powerdns" \
   "{\"values\":{\"enabled\":true,\"strict\":true,\"api_url\":\"http://pdns-auth:8081\",\"api_key\":\"${PDNS_API_KEY}\",\"server_id\":\"localhost\"}}"
 assert_http_status "$HTTP_CODE" "200" "PowerDNS settings bootstrap failed"
@@ -133,9 +143,6 @@ api_post "${CORE_URL}/api/v1/domains" \
 assert_http_status "$HTTP_CODE" "201" "DNS e2e domain create failed"
 DOMAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
-assert_http_status "$HTTP_CODE" "200" "DNS e2e domain activation failed"
-
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"192.0.2.10","ttl":60,"proxied":true,"origin_host":"origin-tls"}'
 assert_http_status "$HTTP_CODE" "201" "proxied apex create failed"
@@ -154,6 +161,26 @@ PLAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 force_sync
 assert_http_status "$HTTP_CODE" "200" "forced DNS sync failed"
 assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "true" "forced DNS sync should report success"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
+assert_http_status "$HTTP_CODE" "200" "pre-verification DNS list failed"
+assert_eq "$(jq -r '[.data[].effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
+  "records must remain effectively disabled before nameserver verification"
+assert_eq "$(jq -r '[.data[].disabled_reason] | unique | join(",")' <<<"$HTTP_BODY")" "nameservers_not_verified" \
+  "pre-verification records must explain the nameserver dependency"
+preverify_zone_code="$(curl -sS -o /tmp/dns-e2e-preverify-zone.json -w '%{http_code}' \
+  -H "X-API-Key: ${PDNS_API_KEY}" \
+  "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_ZONE}")"
+assert_eq "$preverify_zone_code" "404" "pending domain must not publish a customer PowerDNS zone"
+record_step PASS "preverification-records-disabled" "records are stored but unpublished before delegation verification"
+
+# dns_get_record cannot resolve the private test.local delegation through Docker's
+# system resolver, so seed the state that a successful resolver check persists.
+now="$(date +%s)"
+db_query "UPDATE domains SET status='active', nameserver_status='verified', last_ns_check_at=$now, updated_at=$now WHERE id='${DOMAIN_ID}';" >/dev/null
+db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
+force_sync
+assert_http_status "$HTTP_CODE" "200" "sync after verified delegation failed"
+assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "true" "verified delegation sync should pass"
 purge_dns_caches
 
 customer_zone="$(zone_json "$TEST_ZONE")"
@@ -171,6 +198,28 @@ assert_contains "$lua_a" "$EDGE_EU" "shared Lua record missing EU edge"
 assert_contains "$lua_a" "$EDGE_US" "shared Lua record missing US edge"
 record_step PASS "raw-zone-model" "raw zones contain ALIAS, CNAME, unproxied A, site CNAME, and shared Lua"
 
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+  '{"type":"A","name":"@","content":"192.0.2.11","ttl":60,"proxied":true,"origin_host":"origin-backup"}'
+assert_http_status "$HTTP_CODE" "201" "duplicate proxied target should become a backup origin"
+assert_eq "$(json_get "$HTTP_BODY" '.data.id')" "$APEX_ID" "backup create must return the existing public record"
+assert_eq "$(json_get "$HTTP_BODY" '.data.backup_origin_added')" "true" "backup conversion marker missing"
+assert_eq "$(db_query "SELECT COUNT(*) FROM dns_records WHERE domain_id='${DOMAIN_ID}' AND name='@';")" "1" \
+  "backup origin must not create a duplicate public DNS record"
+assert_eq "$(db_query "SELECT COUNT(*) FROM domain_origins WHERE domain_id='${DOMAIN_ID}' AND is_primary=false AND host='origin-backup' AND enabled=true;")" "1" \
+  "duplicate proxied target was not stored as an enabled backup origin"
+record_step PASS "duplicate-proxy-becomes-backup" "second proxied apex target folded into domain_origins"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+  "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":60,\"priority\":10,\"proxied\":false}"
+assert_http_status "$HTTP_CODE" "201" "apex MX must coexist with proxied ALIAS"
+MX_ID="$(json_get "$HTTP_BODY" '.data.id')"
+force_sync
+assert_http_status "$HTTP_CODE" "200" "sync after apex MX create failed"
+customer_zone="$(zone_json "$TEST_ZONE")"
+assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS disappeared after MX create"
+assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX missing beside ALIAS"
+record_step PASS "apex-alias-mx-coexist" "PowerDNS apex contains both ALIAS and MX rrsets"
+
 apex_answers="$(answer_set "$TEST_DOMAIN")"
 site_answers="$(answer_set "${site_target%.}")"
 proxy_answers="$(answer_set "${PROXY_FQDN%.}")"
@@ -180,6 +229,35 @@ assert_eq "$apex_answers" "$site_answers" "apex ALIAS and site target answer set
 assert_eq "$site_answers" "$proxy_answers" "site target and shared proxy answer sets differ"
 assert_eq "$www_answers" "$site_answers" "www CNAME and site target answer sets differ"
 record_step PASS "alias-dig-equivalence" "apex, www, site target, and proxy resolve to the same A set"
+
+docker compose exec -T core php artisan cdn:domains:verify-all >/tmp/dns-e2e-verify-all.json
+assert_eq "$(jq -r --arg id "$DOMAIN_ID" '[.data.domains[] | select(.id == $id)] | length' /tmp/dns-e2e-verify-all.json)" \
+  "1" "daily verifier did not check the test domain"
+assert_eq "$(db_query "SELECT status || ':' || nameserver_status FROM domains WHERE id='${DOMAIN_ID}';")" \
+  "pending_nameserver:not_configured" "lost delegation must disable the domain automatically"
+force_sync
+assert_http_status "$HTTP_CODE" "200" "sync after delegation loss failed"
+customer_zone="$(zone_json "$TEST_ZONE")"
+if jq -e '.rrsets[] | select(.type != "SOA" and .type != "NS")' <<<"$customer_zone" >/dev/null; then
+  fail "customer rrsets remain published after nameserver delegation loss"
+fi
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
+assert_eq "$(jq -r '[.data[].effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
+  "records must become effectively disabled after delegation loss"
+record_step PASS "delegation-loss-withdrawal" "daily verifier disabled domain and reconciler withdrew all customer rrsets"
+
+now="$(date +%s)"
+db_query "UPDATE domains SET status='active', nameserver_status='verified', last_ns_check_at=$now, updated_at=$now WHERE id='${DOMAIN_ID}';" >/dev/null
+db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
+force_sync
+assert_http_status "$HTTP_CODE" "200" "sync after delegation restoration failed"
+customer_zone="$(zone_json "$TEST_ZONE")"
+assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS did not republish"
+assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX did not republish"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
+assert_eq "$(jq -r '[.data[] | select(.status == "active") | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "active" \
+  "desired-active records did not reactivate after delegation restoration"
+record_step PASS "delegation-restoration" "all desired-active records republished after verification was restored"
 
 customer_before="$(jq -S '[.rrsets[] | select(.type != "SOA" and .type != "NS") | {name,type,ttl,records}]' <<<"$customer_zone")"
 db_query "UPDATE edge_nodes SET health_status='unhealthy', updated_at=$(date +%s) WHERE edge_id='dns-e2e-us';" >/dev/null

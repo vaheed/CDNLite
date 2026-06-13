@@ -121,6 +121,24 @@ services:
     networks:
       - cdnlite-internal
 
+  nameserver-scheduler:
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS: ${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'nameserver scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:domains:verify-all || true; sleep \"$${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}\"; done"]
+    networks:
+      - cdnlite-internal
+
   edge:
     image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:${IMAGE_TAG}
     restart: unless-stopped

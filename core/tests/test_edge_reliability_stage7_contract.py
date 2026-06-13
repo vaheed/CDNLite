@@ -27,5 +27,7 @@ def test_stage7_schema_and_request_id_contract():
     assert "rate_limited" in router
     assert "identity.apply()" in router
     assert "lua_shared_dict cdnlite_limits" in nginx
+    assert "server_tokens off;" in nginx
+    assert "more_clear_headers Server;" in nginx
     assert "X-CDNLITE-Request-Id" in error_page
     assert "identity.apply()" in error_page

@@ -12,6 +12,12 @@ docker compose logs --tail=120 edge
 docker compose logs --tail=120 edge-agent
 ```
 
+If an edge 5xx page shows `openresty/<version>` or `nginx/<version>`, or includes
+a `Server` response header, rebuild and restart the edge image. The maintained
+configuration removes server identity from HTTP, HTTPS, proxied, and generated
+error responses; a visible signature usually means a stale edge container is
+still running.
+
 Use this order during incidents:
 
 1. Confirm containers are running.

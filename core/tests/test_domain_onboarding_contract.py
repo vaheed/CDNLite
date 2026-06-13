@@ -25,8 +25,22 @@ def test_dashboard_has_four_step_onboarding_wizard():
     assert "Step {{ step }} of 4" in wizard
     assert "Copy nameserver" in wizard
     assert "Check nameservers" in wizard
-    assert "Skip for dev" in wizard
+    assert "enabled automatically" in wizard
     assert "<AddDomainWizard" in domains
+
+
+def test_nameserver_lifecycle_is_automatic_and_scheduled():
+    verification = (ROOT / "core/app/Modules/Domains/Services/DomainVerificationService.php").read_text()
+    builder = (ROOT / "core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php").read_text()
+    artisan = (ROOT / "core/artisan").read_text()
+    compose = (ROOT / "docker-compose.yml").read_text()
+
+    assert "$status === 'verified' ? 'active' : 'pending_nameserver'" in verification
+    assert "public function verifyAll()" in verification
+    assert "d.nameserver_status = 'verified'" in builder
+    assert "cdn:domains:verify-all" in artisan
+    assert "nameserver-scheduler:" in compose
+    assert "CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS" in compose
 
 
 def test_domain_updates_audit_defined_before_and_after_states():

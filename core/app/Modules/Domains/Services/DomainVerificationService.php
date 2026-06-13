@@ -2,6 +2,7 @@
 
 namespace App\Modules\Domains\Services;
 
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Support\Database;
 
 class DomainVerificationService
@@ -20,7 +21,7 @@ class DomainVerificationService
         };
     }
 
-    public function verify(string $domainId): ?array
+    public function verify(string $domainId, bool $reconcile = true): ?array
     {
         $domain = (new DomainService())->find($domainId);
         if ($domain === null) {
@@ -43,14 +44,45 @@ class DomainVerificationService
                     $mark->execute(['domain_id' => $domainId, 'hostname' => $hostname]);
                 }
             }
-            $update = $pdo->prepare('UPDATE domains SET nameserver_status = :status, last_ns_check_at = :checked, updated_at = :checked WHERE id = :id');
-            $update->execute(['status' => $status, 'checked' => $now, 'id' => $domainId]);
+            $lifecycle = $status === 'verified' ? 'active' : 'pending_nameserver';
+            $update = $pdo->prepare(
+                'UPDATE domains SET nameserver_status = :nameserver_status, status = :status,
+                 last_ns_check_at = :checked, updated_at = :checked WHERE id = :id'
+            );
+            $update->execute([
+                'nameserver_status' => $status,
+                'status' => $lifecycle,
+                'checked' => $now,
+                'id' => $domainId,
+            ]);
+            $pdo->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
             throw $e;
         }
+        if ($reconcile) {
+            (new DnsReconciler())->reconcile();
+        }
         return (new DomainService())->find($domainId);
+    }
+
+    public function verifyAll(): array
+    {
+        $ids = Database::pdo()->query('SELECT id FROM domains ORDER BY id')->fetchAll();
+        $results = [];
+        foreach ($ids as $row) {
+            $domain = $this->verify((string) $row['id'], false);
+            if ($domain !== null) {
+                $results[] = [
+                    'id' => $domain['id'],
+                    'domain' => $domain['domain'],
+                    'status' => $domain['status'],
+                    'nameserver_status' => $domain['nameserver_status'],
+                ];
+            }
+        }
+        return ['checked' => count($results), 'domains' => $results];
     }
 
     private function normalize(array $hostnames): array

@@ -1361,6 +1361,18 @@ components:
           type: integer
         proxied:
           type: boolean
+        status:
+          type: string
+          enum: [active, disabled]
+        effective_status:
+          type: string
+          enum: [active, disabled]
+        disabled_reason:
+          type: string
+          enum: [record_disabled, nameservers_not_verified]
+          nullable: true
+        backup_origin_added:
+          type: boolean
       additionalProperties: true
     DnsRecordRequest:
       type: object

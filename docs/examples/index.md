@@ -327,3 +327,5 @@ openapi-generator-cli generate \
 ```
 
 Generated clients are useful for control-plane endpoints. Keep edge HMAC signing as a custom helper so you can hash the exact raw body that will be sent.
+Verification activates the domain automatically. Records created before this
+step remain saved and begin publishing once delegation is verified.

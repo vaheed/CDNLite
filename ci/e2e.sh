@@ -25,6 +25,7 @@ TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
 TEST_DOMAIN_2="e2e-${RUN_KEY}-b.test.local"
 DOMAIN_ID=""
 DNS_IDS=()
+NAMESERVER_SCHEDULER_PAUSED=0
 
 init_report
 
@@ -61,6 +62,9 @@ cleanup() {
       curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${rid}" >/dev/null || true
     done
     curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" >/dev/null || true
+  fi
+  if [[ "$NAMESERVER_SCHEDULER_PAUSED" == "1" ]]; then
+    docker compose start nameserver-scheduler >/dev/null 2>&1 || true
   fi
 }
 
@@ -133,6 +137,27 @@ edge_status_for_host() {
   curl -s -o /tmp/e2e-edge-status.txt -w '%{http_code}' "${EDGE_URL}/api/v1/domains" \
     -H "Host: ${host}" \
     -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}"
+}
+
+assert_edge_server_hidden() {
+  local url="$1"
+  local host="$2"
+  local insecure="${3:-0}"
+  local headers body
+  headers="$(mktemp)"
+  body="$(mktemp)"
+  local curl_args=(-sS -D "$headers" -o "$body" -H "Host: ${host}")
+  if [[ "$insecure" == "1" ]]; then
+    curl_args+=(-k)
+  fi
+  curl "${curl_args[@]}" "$url" >/dev/null
+  if grep -Eiq '^Server:|openresty|nginx' "$headers"; then
+    fail "edge disclosed its HTTP server identity in response headers: $(tr '\n' ' ' <"$headers")"
+  fi
+  if grep -Eiq 'openresty|nginx/[0-9]' "$body"; then
+    fail "edge disclosed its HTTP server identity in response body"
+  fi
+  rm -f "$headers" "$body"
 }
 
 edge_status_is() {
@@ -321,6 +346,11 @@ agent_exec '/agent/pull_config.sh' >/dev/null || true
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
 
+if compose_has_service nameserver-scheduler; then
+  docker compose stop nameserver-scheduler >/dev/null
+  NAMESERVER_SCHEDULER_PAUSED=1
+fi
+
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
   no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/domains" \
     -H 'Content-Type: application/json' \
@@ -338,6 +368,9 @@ record_step PASS "domain-create" "domain_id=${DOMAIN_ID} domain=${TEST_DOMAIN}"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
 assert_http_status "$HTTP_CODE" "200" "domain activation failed"
+now="$(date +%s)"
+db_query "UPDATE domains SET status='active', nameserver_status='verified', last_ns_check_at=$now, updated_at=$now WHERE id='${DOMAIN_ID}';" >/dev/null
+db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
 record_step PASS "domain-activate" "domain activated with development override"
 
 api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
@@ -795,6 +828,9 @@ disabled_code="$(curl -s -o /tmp/e2e-edge-disabled.txt -w '%{http_code}' "${EDGE
 edge_wait_status "${TEST_DOMAIN}" "502"
 disabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 assert_eq "$disabled_code" "502" "disabled proxy should return 502"
+assert_edge_server_hidden "${EDGE_URL}/api/v1/domains?via=edge-server-hide" "${TEST_DOMAIN}"
+assert_edge_server_hidden "${EDGE_TLS_URL}/api/v1/domains?via=edge-server-hide-tls" "${TEST_DOMAIN}" 1
+record_step PASS "edge-server-identity-hidden" "HTTP and HTTPS 502 responses omit Server, OpenResty, and Nginx disclosure"
 record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":true}'

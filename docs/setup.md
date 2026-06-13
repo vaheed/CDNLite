@@ -83,6 +83,11 @@ database. Durable DNS state is reconciled after mutations and by the
 `dns-reconciler` service every
 `CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
+The `nameserver-scheduler` runs `php artisan cdn:domains:verify-all` every
+`CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` seconds (default `86400`). A verified
+domain activates automatically. If its authoritative nameservers later move
+away, CDNLite marks it pending and withdraws its DNS records and edge config.
+
 Fresh local reset:
 
 ```bash

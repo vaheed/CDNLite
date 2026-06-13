@@ -516,3 +516,10 @@ Security events additionally support `edge_id`, `type`, `ip`, and `search`.
 Audit entries support `actor`, `action`, `resource_type`, and `search`.
 The `search` filter matches serialized details plus action, resource type, and
 event type. Use `domain_id` for the per-domain Activity viewer.
+Nameserver verification updates lifecycle automatically. A verified domain
+becomes active; a domain with missing, partial, or changed delegation becomes
+`pending_nameserver`. DNS records may be created at any time. Record responses
+include `effective_status` and `disabled_reason` so clients can distinguish a
+desired-active record waiting for delegation from an explicitly disabled record.
+Creating a second proxied target at the same name adds it as a backup origin and
+returns the existing public DNS record with `backup_origin_added: true`.

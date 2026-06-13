@@ -28,6 +28,16 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "buildGeoOrigins($record['geo_origins']" in config
 
 
+def test_duplicate_proxy_target_becomes_backup_origin():
+    dns = read("core/app/Modules/Dns/Services/DnsService.php")
+    origins = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
+
+    assert "proxiedRecordAtName" in dns
+    assert "addBackupFromDnsRecord" in dns
+    assert "['backup_origin_added'] = true" in dns
+    assert "public function addBackupFromDnsRecord" in origins
+
+
 def test_https_first_fallback_and_tls_verification_modes():
     selector = read("edge/openresty/lua/origin_selector.lua")
 

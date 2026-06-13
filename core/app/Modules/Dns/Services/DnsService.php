@@ -3,6 +3,7 @@
 namespace App\Modules\Dns\Services;
 
 use App\Modules\Domains\Services\DomainService;
+use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -23,12 +24,24 @@ class DnsService
 
     public function listByDomain(string $domainId): array
     {
+        $domain = $this->domains->find($domainId);
         $stmt = Database::pdo()->prepare(
             'SELECT r.*, (SELECT COUNT(*) FROM dns_record_geo_routes g WHERE g.dns_record_id = r.id) AS geo_routes_count
              FROM dns_records r WHERE r.domain_id = :domain_id ORDER BY r.id ASC'
         );
         $stmt->execute([':domain_id' => $domainId]);
-        return array_map([$this, 'castRow'], $stmt->fetchAll());
+        return array_map(function (array $row) use ($domain): array {
+            $record = $this->castRow($row);
+            $record['effective_status'] = $record['status'] === 'active'
+                && ($domain['status'] ?? null) === 'active'
+                && ($domain['nameserver_status'] ?? null) === 'verified'
+                ? 'active'
+                : 'disabled';
+            $record['disabled_reason'] = $record['status'] !== 'active'
+                ? 'record_disabled'
+                : (($domain['nameserver_status'] ?? null) !== 'verified' ? 'nameservers_not_verified' : null);
+            return $record;
+        }, $stmt->fetchAll());
     }
 
     public function routing(string $domainId): ?array
@@ -88,6 +101,14 @@ class DnsService
         ];
         $this->assertRoutingAvailable($record);
         $public = $this->customerDns->publicRecordFor($domain, $record);
+        $existingProxy = $record['proxied']
+            ? $this->proxiedRecordAtName($domainId, (string) $record['name'])
+            : null;
+        if ($existingProxy !== null) {
+            (new OriginHealthService())->addBackupFromDnsRecord($domainId, $record);
+            $existingProxy['backup_origin_added'] = true;
+            return $existingProxy;
+        }
         $this->assertNotDuplicate(
             $domainId,
             null,
@@ -419,6 +440,18 @@ class DnsService
         }
     }
 
+    private function proxiedRecordAtName(string $domainId, string $name): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT id FROM dns_records
+             WHERE domain_id = :domain_id AND proxied = true AND status = 'active' AND LOWER(name) = :name
+             ORDER BY created_at ASC LIMIT 1"
+        );
+        $stmt->execute(['domain_id' => $domainId, 'name' => strtolower(trim($name))]);
+        $id = $stmt->fetchColumn();
+        return $id === false ? null : $this->find($domainId, (string) $id);
+    }
+
     private function assertNotDuplicate(
         string $domainId,
         ?string $recordId,
@@ -473,11 +506,11 @@ class DnsService
         }
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
-        $exclusive = ['CNAME', 'ALIAS'];
+        $newType = strtoupper($publicType);
         foreach ($stmt->fetchAll() as $row) {
             $existingType = strtoupper((string) $row['public_type']);
-            if (in_array(strtoupper($publicType), $exclusive, true)
-                || in_array($existingType, $exclusive, true)) {
+            if ($newType === 'CNAME' || $existingType === 'CNAME'
+                || ($newType === 'ALIAS' && $existingType === 'ALIAS')) {
                 throw new \RuntimeException('dns_record_name_conflict');
             }
         }

@@ -101,7 +101,7 @@ class DomainService
             'status' => $existing['status'],
         ];
 
-        foreach (['name', 'domain', 'status', 'origin_shield_header_name', 'origin_shield_header_value_hash'] as $field) {
+        foreach (['name', 'domain', 'origin_shield_header_name', 'origin_shield_header_value_hash'] as $field) {
             if (isset($input[$field])) {
                 $patch[$field] = (string) $input[$field];
             }

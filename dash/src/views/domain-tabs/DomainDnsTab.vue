@@ -9,6 +9,7 @@
           Proxied apex records publish as ALIAS; proxied subdomains publish as CNAME.
         </p>
         <p v-if="dnsStatus?.last_error" class="mt-1 text-xs text-rose-600">{{ dnsStatus.last_error }}</p>
+        <p class="mt-1 text-xs text-slate-500">Records can be prepared before delegation. They publish automatically after nameserver verification and are withdrawn if delegation moves away.</p>
       </div>
       <StatusBadge :status="dnsStatus?.converged ? 'ok' : dnsStatus?.status === 'failed' ? 'critical' : 'warning'" :label="dnsStatus?.converged ? 'Synced' : String(dnsStatus?.status || 'Pending')" />
     </div>
@@ -76,7 +77,7 @@
       <template #name="{ value }"><span class="font-mono font-medium">{{ value }}</span></template>
       <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : `${row.type} ${row.content}` }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Published by CDNLite; private origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
       <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
-      <template #status="{ row }"><StatusBadge :status="row.status === 'active' ? 'healthy' : 'warning'" :label="String(row.status || 'unknown')" /></template>
+      <template #status="{ row }"><StatusBadge :status="row.effective_status === 'active' ? 'healthy' : 'warning'" :label="row.effective_status === 'active' ? 'Active' : row.disabled_reason === 'nameservers_not_verified' ? 'Waiting for NS' : 'Disabled'" /></template>
       <template #actions="{ row }"><div class="flex gap-2"><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
     </DataTable>
     <EmptyState v-else title="No DNS records" message="Add your first DNS record to begin routing traffic." />
