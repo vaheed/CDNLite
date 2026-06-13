@@ -19,7 +19,7 @@ services:
           - postgres
 
   core:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -83,7 +83,7 @@ services:
       - default
 
   ssl-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -105,7 +105,7 @@ services:
       - cdnlite-internal
 
   origin-health-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -122,7 +122,7 @@ services:
       - cdnlite-internal
 
   edge:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       core:
@@ -147,7 +147,7 @@ services:
       SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH}
 
   edge-agent:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       edge:
@@ -172,28 +172,20 @@ services:
       - cdnlite-edge-data:/var/lib/cdnlite
 
   dashboard:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-dashboard:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       core:
         condition: service_started
       edge:
         condition: service_started
-    environment:
-      VITE_CDNLITE_CORE_URL: ${VITE_CDNLITE_CORE_URL}
-      VITE_CDNLITE_EDGE_URL: ${VITE_CDNLITE_EDGE_URL}
-      VITE_CDNLITE_APP_NAME: ${VITE_CDNLITE_APP_NAME}
-      VITE_CDNLITE_API_TOKEN: ${VITE_CDNLITE_API_TOKEN}
-      VITE_ENABLE_EDGE_DEV_TOOLS: ${VITE_ENABLE_EDGE_DEV_TOOLS}
-      VITE_ENABLE_USAGE_SIMULATOR: ${VITE_ENABLE_USAGE_SIMULATOR}
-      VITE_ENABLE_SSL_TOOLS: ${VITE_ENABLE_SSL_TOOLS}
-      VITE_ENABLE_SECURITY_EVENT_VIEWER: ${VITE_ENABLE_SECURITY_EVENT_VIEWER}
-      VITE_ENABLE_LOG_VIEWER: ${VITE_ENABLE_LOG_VIEWER}
-      VITE_DEFAULT_USAGE_BUCKET: ${VITE_DEFAULT_USAGE_BUCKET}
-      VITE_DASHBOARD_REFRESH_SECONDS: ${VITE_DASHBOARD_REFRESH_SECONDS}
-      VITE_REQUEST_TIMEOUT_MS: ${VITE_REQUEST_TIMEOUT_MS}
     ports:
       - "${DASHBOARD_PORT}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
 networks:
   cdnlite-internal:

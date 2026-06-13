@@ -1,6 +1,6 @@
 services:
   edge:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:${IMAGE_TAG}
     restart: unless-stopped
     ports:
       - "${EDGE_HOST_PORT}:8081"
@@ -22,7 +22,7 @@ services:
       retries: 60
 
   edge-agent:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:latest
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       edge:

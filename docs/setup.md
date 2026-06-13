@@ -273,6 +273,10 @@ gate.
 
 ## Deployment
 
+For production topology selection, immutable image tags, security, backup,
+upgrade, rollback, and release qualification, use the
+[Production Deployment](deployment.md) guide.
+
 1. Copy `.env.example` to `.env` and replace every local secret.
 2. Set `CDNLITE_BOOTSTRAP_ADMIN_USER=0` after creating durable admin credentials.
 3. Set `CDNLITE_BOOTSTRAP_EDGE_TOKEN=0` after registering production edge tokens.

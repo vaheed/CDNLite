@@ -30,6 +30,63 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - production DNSGeo deployment bundle
+
+Completed:
+
+```text
+- added deploy/dnsgeo with the same PostgreSQL, MMDB updater, Recursor,
+  authoritative PowerDNS, Lua/GeoDNS, ALIAS expansion, and Poweradmin topology
+  used by the root Compose stack
+- added a production environment template with private API and Poweradmin binds
+- documented split-host Core-to-DNSGeo connectivity
+- identified deploy/powerdns as a legacy SQLite topology rather than DNSGeo
+```
+
+Validation:
+
+```text
+- deploy/dnsgeo Compose rendering with its checked-in example environment
+- focused production deployment contract tests
+```
+
+Remaining:
+
+```text
+- the default 10,000 x 1,000 destructive DNS qualification still must pass
+- production operators must provide routable nameserver addresses and firewall
+  rules for their selected topology
+```
+
+#### 2026-06-13 - production deployment bundle hardening
+
+Completed:
+
+```text
+- corrected Core and starter bundles to run the published dashboard image
+- made application deployment images use one explicit immutable IMAGE_TAG
+- removed ineffective dashboard runtime VITE environment declarations
+- added dashboard health checks and deployment contract coverage
+- documented topology selection, image builds, security, backup, upgrade,
+  rollback, and production qualification
+```
+
+Validation:
+
+```text
+- deployment contract tests
+- every deployment Compose bundle rendered with its checked-in example env
+- VitePress documentation build
+```
+
+Remaining:
+
+```text
+- the default 10,000 x 1,000 destructive DNS qualification still must pass
+- production dashboard images must be built with the intended browser URLs
+- Phase 7 remains PARTIAL and this roadmap cannot yet be removed
+```
+
 #### 2026-06-13 - frontend collection pagination and domain activity
 
 Completed:

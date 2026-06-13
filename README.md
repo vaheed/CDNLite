@@ -85,6 +85,7 @@ The documentation site is built with VitePress from `docs/`.
 - [Documentation Home](docs/index.md)
 - [CDN In A Minute](docs/cdn-in-a-minute.md)
 - [Setup](docs/setup.md)
+- [Production Deployment](docs/deployment.md)
 - [OpenAPI YAML](docs/public/api/openapi.yaml)
 - [Architecture](docs/architecture.md)
 - [DNS Stress Testing](docs/stress-testing.md)
