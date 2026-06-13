@@ -2,6 +2,22 @@
 
 CDNLite is split into a control plane, dashboard, data-plane edge, and agent loop.
 
+## DNS Reconciler
+
+Durable DNS publishing has one path. `DnsDesiredStateBuilder` projects Core state,
+`DnsReconciler` serializes runs with a PostgreSQL advisory lock, and `PowerDnsService`
+applies and verifies batched rrset changes. The persisted desired table is also the
+ownership ledger used to remove stale rrsets after records or domains are deleted.
+
+The Compose `dns-reconciler` service runs the same command used by mutation-triggered
+and operator-triggered syncs. ACME DNS-01 TXT records are deliberately excluded because
+they are short-lived challenge state rather than durable product DNS state.
+
+Scale-critical DNS lookups use partial indexes for active records and ownership
+indexes for desired generations and zones. `ci/stress-dns.sh` validates those
+plans and records full-sync, edge-only sync, API latency, changed rrsets, and
+changed customer-zone counts against the real root-Compose PowerDNS stack.
+
 ## System Overview
 
 ```text
@@ -10,7 +26,7 @@ Operator Browser
       v
 Vue Dashboard -----> Core PHP API -----> PostgreSQL
       |                    |
-      |                    +----> PowerDNS API or local mock
+      |                    +----> DNSGeo PowerDNS API
       |                    |
       |                    +----> Config snapshots
       |
@@ -30,7 +46,25 @@ Customer Origins
 | Dashboard | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, ECharts | Browser admin console. |
 | Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |
 | Edge agent | POSIX shell, curl, OpenSSL | Register, heartbeat, pull config, push metrics, push security events. |
-| CI and mocks | Bash, Python, Docker Compose | Smoke/e2e validation, origin mocks, PowerDNS mock. |
+
+The agent reports `health_status=healthy` with each successful signed heartbeat
+and treats non-success HTTP responses as heartbeat failures.
+Core combines that status with heartbeat freshness and the enabled flag when
+building the shared PowerDNS/DNSGeo edge pool.
+| CI and controlled services | Bash, Docker Compose | Smoke/e2e validation, origin services, real DNSGeo/PowerDNS. |
+
+Core treats a PowerDNS PATCH as successful only after an optional zone
+read-back confirms the requested replacement or deletion. Retryable transport,
+rate-limit, and server failures use bounded exponential backoff; invalid 4xx
+requests are returned immediately.
+Each write updates `dns_sync_state` and appends `dns_sync_events`.
+`/cdn-health` and the PowerDNS doctor expose API and persisted sync health
+without revealing credentials.
+
+Dashboard collection views share paginated table controls. Global security and
+audit APIs provide bounded `limit`/`offset` queries, and the domain Activity tab
+applies `domain_id` at the API boundary. Event Viewer consumes global bounded
+operations APIs instead of issuing one request per domain.
 
 ## Request Flow
 
@@ -64,7 +98,7 @@ Admin/API change
 | Domain and rule state | Dashboard, API, CLI | Core services and config snapshot builder. |
 | Config snapshot JSON | Core `ConfigService` | Edge agent and OpenResty runtime. |
 | Metrics NDJSON | OpenResty edge | Edge agent, collector API, usage aggregates. |
-| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. |
+| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. Concurrent push attempts are serialized with a queue-scoped lock. |
 | Origin health | Scheduler/CLI | Readiness service and edge backup routing config. |
 | Audit records | Core services | Audit log dashboard and API. |
 
@@ -82,10 +116,13 @@ edge-agent
 dashboard
 origin-http
 origin-tls
-powerdns profile
+pdns-postgres -> pdns-db-init -> pdns-auth
+pdns-mmdb-updater ------------^
+pdns-recursor ----------------^
+poweradmin -------------------^
 ```
 
-CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables and profiles for job-specific behavior.
+CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables for job-specific behavior.
 
 ## Storage
 

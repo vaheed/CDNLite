@@ -8,17 +8,13 @@ def read(path: str) -> str:
     return (ROOT / path).read_text()
 
 
-def test_origin_schema_and_migration_contract():
+def test_origin_schema_contract():
     schema = read("core/database/schema.sql")
-    migration = read("core/database/migrations/029_domain_origins.sql")
 
     assert "CREATE TABLE IF NOT EXISTS domain_origins" in schema
     assert "health_check_interval_seconds INTEGER NOT NULL DEFAULT 30" in schema
     assert "health_status TEXT NOT NULL DEFAULT 'unknown'" in schema
     assert "domain_origins_one_primary_idx" in schema
-    assert "INSERT INTO domain_origins" in schema
-    assert "CREATE TABLE IF NOT EXISTS domain_origins" in migration
-    assert "INSERT INTO domain_origins" in migration
 
 
 def test_origin_api_and_cli_contract():

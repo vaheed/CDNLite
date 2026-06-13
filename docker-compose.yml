@@ -20,9 +20,10 @@ services:
     build:
       context: ./core
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     depends_on:
       postgres:
+        condition: service_healthy
+      pdns-auth:
         condition: service_healthy
     environment:
       DB_HOST: ${DB_HOST:-postgres}
@@ -41,9 +42,8 @@ services:
       CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE: ${CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE:-}
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
-      CDNLITE_EDGE_BASE_DOMAIN: ${CDNLITE_EDGE_BASE_DOMAIN:-vaheed.net}
-      CDNLITE_EDGE_ZONE_PREFIX: ${CDNLITE_EDGE_ZONE_PREFIX:-edge}
-      CDNLITE_EDGE_DEFAULT_TARGET: ${CDNLITE_EDGE_DEFAULT_TARGET:-geo}
+      CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE:-cdn.example.net}
+      CDNLITE_CDN_PROXY_HOST: ${CDNLITE_CDN_PROXY_HOST:-proxy.cdn.example.net}
       CDNLITE_EDGE_TTL: ${CDNLITE_EDGE_TTL:-60}
       CDNLITE_EDGE_HEALTH_MODE: ${CDNLITE_EDGE_HEALTH_MODE:-ifportup}
       CDNLITE_EDGE_HEALTH_PORT: ${CDNLITE_EDGE_HEALTH_PORT:-80}
@@ -53,7 +53,6 @@ services:
       CDNLITE_EDGE_HEALTH_MIN_FAILURES: ${CDNLITE_EDGE_HEALTH_MIN_FAILURES:-2}
       CDNLITE_EDGE_SELECTOR: ${CDNLITE_EDGE_SELECTOR:-pickclosest}
       CDNLITE_EDGE_BACKUP_SELECTOR: ${CDNLITE_EDGE_BACKUP_SELECTOR:-empty}
-      CDNLITE_EDGE_APEX_MODE: ${CDNLITE_EDGE_APEX_MODE:-ALIAS}
       CDNLITE_GEO_DEFAULT_POLICY: ${CDNLITE_GEO_DEFAULT_POLICY:-auto}
       CDNLITE_GEO_ENABLE_COUNTRY_RULES: ${CDNLITE_GEO_ENABLE_COUNTRY_RULES:-true}
       CDNLITE_GEO_ENABLE_CONTINENT_RULES: ${CDNLITE_GEO_ENABLE_CONTINENT_RULES:-true}
@@ -73,6 +72,11 @@ services:
       CDNLITE_BOOTSTRAP_ADMIN_PASSWORD: ${CDNLITE_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME:-Local Admin}
       CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS: ${CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS:-900}
+      CDNLITE_POWERDNS_VERIFY_AFTER_WRITE: ${CDNLITE_POWERDNS_VERIFY_AFTER_WRITE:-true}
+      CDNLITE_POWERDNS_RETRIES: ${CDNLITE_POWERDNS_RETRIES:-3}
+      CDNLITE_POWERDNS_RETRY_SLEEP_MS: ${CDNLITE_POWERDNS_RETRY_SLEEP_MS:-250}
+      CDNLITE_POWERDNS_TIMEOUT_SECONDS: ${CDNLITE_POWERDNS_TIMEOUT_SECONDS:-10}
+      CDNLITE_POWERADMIN_URL: ${CDNLITE_POWERADMIN_URL:-http://localhost:9191}
     ports:
       - "${CORE_HOST_PORT:-8080}:8080"
     healthcheck:
@@ -82,7 +86,6 @@ services:
       retries: 60
 
   ssl-scheduler:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     build:
       context: ./core
       dockerfile: Dockerfile
@@ -105,7 +108,6 @@ services:
     restart: unless-stopped
 
   origin-health-scheduler:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-core:dev
     build:
       context: ./core
       dockerfile: Dockerfile
@@ -122,11 +124,41 @@ services:
     command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
     restart: unless-stopped
 
+  dns-reconciler:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pdns-auth:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-cdnlite}
+      DB_USERNAME: ${DB_USERNAME:-cdnlite}
+      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+      CDNLITE_SYNC_INTERVAL_SECONDS: ${CDNLITE_SYNC_INTERVAL_SECONDS:-30}
+      CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE:-cdn.example.net}
+      CDNLITE_CDN_PROXY_HOST: ${CDNLITE_CDN_PROXY_HOST:-proxy.cdn.example.net}
+      CDNLITE_EDGE_TTL: ${CDNLITE_EDGE_TTL:-60}
+      CDNLITE_EDGE_HEALTH_MODE: ${CDNLITE_EDGE_HEALTH_MODE:-ifportup}
+      CDNLITE_EDGE_HEALTH_PORT: ${CDNLITE_EDGE_HEALTH_PORT:-80}
+      CDNLITE_EDGE_HEALTH_URL: ${CDNLITE_EDGE_HEALTH_URL:-/cdn-health}
+      CDNLITE_EDGE_HEALTH_TIMEOUT: ${CDNLITE_EDGE_HEALTH_TIMEOUT:-1}
+      CDNLITE_EDGE_HEALTH_INTERVAL: ${CDNLITE_EDGE_HEALTH_INTERVAL:-10}
+      CDNLITE_EDGE_HEALTH_MIN_FAILURES: ${CDNLITE_EDGE_HEALTH_MIN_FAILURES:-2}
+      CDNLITE_EDGE_SELECTOR: ${CDNLITE_EDGE_SELECTOR:-pickclosest}
+      CDNLITE_EDGE_BACKUP_SELECTOR: ${CDNLITE_EDGE_BACKUP_SELECTOR:-empty}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'dns reconciler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:dns:reconcile || true; sleep \"$${CDNLITE_SYNC_INTERVAL_SECONDS:-30}\"; done"]
+    restart: unless-stopped
+
   edge:
     build:
       context: ./edge
       dockerfile: Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge:dev
     depends_on:
       - core
     volumes:
@@ -153,7 +185,6 @@ services:
     build:
       context: ./edge
       dockerfile: agent/Dockerfile
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER:-local}/cdnlite-edge-agent:dev
     depends_on:
       - core
     environment:
@@ -216,18 +247,178 @@ services:
     expose:
       - "80"
 
-  powerdns:
-    image: python:3.12-alpine
-    profiles: ["powerdns"]
-    working_dir: /srv
-    command: sh -lc "python /srv/ci/pdns_mock_server.py"
+  pdns-postgres:
+    build:
+      context: ./infra/dnsgeo/docker/postgres-primary
     environment:
-      PDNS_API_KEY: ${PDNS_API_KEY:-test-key}
-      PDNS_PORT: ${PDNS_PORT}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PDNS_POSTGRES_SUPERUSER_PASSWORD:-cdnlite-pdns-postgres}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      PGDATA: /var/lib/postgresql/data
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD:-cdnlite-pdns-db}
+      POWERADMIN_DB_PASSWORD: ${POWERADMIN_DB_PASSWORD:-cdnlite-poweradmin-db}
+      REPLICATION_PASSWORD: ${PDNS_REPLICATION_PASSWORD:-cdnlite-pdns-replication}
+      PG_MAX_WAL_SENDERS: ${PDNS_PG_MAX_WAL_SENDERS:-10}
+      PG_MAX_REPLICATION_SLOTS: ${PDNS_PG_MAX_REPLICATION_SLOTS:-10}
+      PG_WAL_KEEP_SIZE: ${PDNS_PG_WAL_KEEP_SIZE:-512MB}
+      PG_TLS_DAYS: ${PDNS_PG_TLS_DAYS:-3650}
+      PG_TLS_CA_CN: CDNLitePowerDNSCA
+      PG_TLS_SERVER_CN: pdns-postgres
+      PG_TLS_SAN: DNS:pdns-postgres,IP:127.0.0.1
+      PG_REPLICATION_CLIENT_CERT_AUTH: "true"
     volumes:
-      - ./:/srv
+      - pdns-pgdata:/var/lib/postgresql/data
+      - pdns-postgres-tls:/var/lib/postgresql/tls
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /var/lib/postgresql/tls/ca.crt && PGPASSWORD=\"$${POSTGRES_PASSWORD}\" psql \"host=localhost dbname=postgres user=postgres sslmode=verify-ca sslrootcert=/var/lib/postgresql/tls/ca.crt\" -qAt -c 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  pdns-db-init:
+    build:
+      context: ./infra/dnsgeo/docker/postgres-init
+    depends_on:
+      pdns-postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: pdns-postgres
+      POSTGRES_USER: postgres
+      POSTGRES_SUPERUSER_PASSWORD: ${PDNS_POSTGRES_SUPERUSER_PASSWORD:-cdnlite-pdns-postgres}
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD:-cdnlite-pdns-db}
+      POWERADMIN_DB_PASSWORD: ${POWERADMIN_DB_PASSWORD:-cdnlite-poweradmin-db}
+      REPLICATION_PASSWORD: ${PDNS_REPLICATION_PASSWORD:-cdnlite-pdns-replication}
+    volumes:
+      - pdns-postgres-tls:/certs/postgres:ro
+
+  pdns-mmdb-updater:
+    build:
+      context: ./infra/dnsgeo/docker/mmdb-updater
+    environment:
+      MMDB_PROVIDER: ${CDNLITE_MMDB_PROVIDER:-dbip-jsdelivr}
+      MMDB_DOWNLOAD_URL: ${CDNLITE_MMDB_DOWNLOAD_URL:-}
+      MMDB_DOWNLOAD_INTERVAL_SECONDS: ${CDNLITE_MMDB_DOWNLOAD_INTERVAL_SECONDS:-86400}
+      MMDB_DOWNLOAD_RETRIES: ${CDNLITE_MMDB_DOWNLOAD_RETRIES:-5}
+      MMDB_EXPECTED_SHA256: ${CDNLITE_MMDB_EXPECTED_SHA256:-}
+      MMDB_TARGET_FILE: GeoLite2-City.mmdb
+    volumes:
+      - pdns-mmdb:/mmdb
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/mmdb-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 60s
+
+  pdns-recursor:
+    build:
+      context: ./infra/dnsgeo/docker/pdns-recursor
+    environment:
+      CDNLITE_DNS_BASE_DOMAIN: ${CDNLITE_DNS_BASE_DOMAIN:-example.net}
+      CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE:-cdn.example.net}
+      PDNS_AUTH_ADDRESS: 172.30.0.54
+    networks:
+      default:
+        ipv4_address: 172.30.0.53
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/recursor-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  pdns-auth:
+    build:
+      context: ./infra/dnsgeo/docker/pdns-auth
+    depends_on:
+      pdns-postgres:
+        condition: service_healthy
+      pdns-db-init:
+        condition: service_completed_successfully
+      pdns-mmdb-updater:
+        condition: service_healthy
+    environment:
+      PDNS_DB_HOST: pdns-postgres
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD:-cdnlite-pdns-db}
+      PDNS_GPGSQL_EXTRA_CONNECTION_PARAMETERS: sslmode=verify-ca sslrootcert=/var/lib/postgresql/tls/ca.crt
+      PDNS_API_KEY: ${PDNS_API_KEY:-cdnlite-local-powerdns-key}
+      PDNS_WEBSERVER_PASSWORD: ${PDNS_WEBSERVER_PASSWORD:-cdnlite-local-web-password}
+      PDNS_WEBSERVER_ALLOW_FROM: ${PDNS_WEBSERVER_ALLOW_FROM:-0.0.0.0/0}
+      PDNS_GEO_BOOTSTRAP_ZONE_FILE: /etc/powerdns/geo/lua-bootstrap.yml
+      PDNS_GEO_MMDB_FILE: /var/lib/powerdns/mmdb/GeoLite2-City.mmdb
+      PDNS_EDNS_SUBNET_PROCESSING: "yes"
+      PDNS_ENABLE_LUA_RECORDS: "yes"
+      PDNS_EXPAND_ALIAS: "yes"
+      PDNS_RESOLVER: 172.30.0.53:5300
+    volumes:
+      - ./infra/dnsgeo/geo:/etc/powerdns/geo:ro
+      - pdns-mmdb:/var/lib/powerdns/mmdb:ro
+      - pdns-postgres-tls:/var/lib/postgresql/tls:ro
     ports:
-      - "${POWERDNS_HOST_PORT}:${PDNS_PORT}"
+      - "${PDNS_DNS_HOST_PORT:-5353}:53/udp"
+      - "${PDNS_DNS_HOST_PORT:-5353}:53/tcp"
+      - "127.0.0.1:${PDNS_API_HOST_PORT:-8089}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/pdns-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+    networks:
+      default:
+        ipv4_address: 172.30.0.54
+
+  poweradmin:
+    build:
+      context: ./infra/dnsgeo/docker/poweradmin
+      args:
+        POWERADMIN_TAG: ${POWERADMIN_TAG:-stable}
+    depends_on:
+      pdns-db-init:
+        condition: service_completed_successfully
+      pdns-auth:
+        condition: service_healthy
+    environment:
+      PA_CREATE_ADMIN: "true"
+      PA_ADMIN_USERNAME: ${POWERADMIN_ADMIN_USERNAME:-admin}
+      PA_ADMIN_PASSWORD: ${POWERADMIN_ADMIN_PASSWORD:-admin}
+      PA_ADMIN_EMAIL: ${POWERADMIN_ADMIN_EMAIL:-admin@example.net}
+      PA_ADMIN_FULLNAME: CDNLite DNS Administrator
+      PA_SESSION_KEY: ${POWERADMIN_SESSION_KEY:-cdnlite-local-session-key-change-me}
+      PA_STYLE: dark
+      PA_TIMEZONE: UTC
+      PA_PDNS_API_URL: http://pdns-auth:8081
+      PA_PDNS_API_KEY: ${PDNS_API_KEY:-cdnlite-local-powerdns-key}
+      PA_PDNS_SERVER_NAME: localhost
+      DB_TYPE: pgsql
+      DB_HOST: pdns-postgres
+      DB_USER: poweradmin
+      DB_PASS: ${POWERADMIN_DB_PASSWORD:-cdnlite-poweradmin-db}
+      DB_NAME: pdns
+      DB_SSL: "true"
+      DB_SSL_VERIFY: "true"
+      DB_SSL_CA: /certs/postgres/ca.crt
+      DNS_NS1: ${CDNLITE_DNS_NS1:-ns1.example.net}
+      DNS_NS2: ${CDNLITE_DNS_NS2:-ns2.example.net}
+      DNS_HOSTMASTER: ${CDNLITE_DNS_HOSTMASTER:-hostmaster.example.net}
+    volumes:
+      - pdns-postgres-tls:/certs/postgres:ro
+    ports:
+      - "127.0.0.1:${POWERADMIN_HOST_PORT:-8084}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/poweradmin-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
 
 volumes:
   pgdata:
+  pdns-pgdata:
+  pdns-postgres-tls:
+  pdns-mmdb:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

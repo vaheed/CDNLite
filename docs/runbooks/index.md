@@ -194,7 +194,7 @@ Symptoms:
 Procedure:
 
 ```bash
-docker compose --profile powerdns ps
+docker compose ps pdns-auth pdns-recursor pdns-postgres
 curl -fsS http://localhost:8089/health
 docker compose exec core php artisan cdn:settings:test-powerdns
 docker compose logs --tail=120 core
@@ -264,7 +264,7 @@ Then run stack tests:
 docker compose up -d --build --wait
 ./ci/smoke.sh
 
-docker compose --profile powerdns up -d --build
+docker compose up -d --build
 EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
 ./ci/powerdns_dns_checks.sh
 ```

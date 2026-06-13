@@ -47,12 +47,18 @@ $aBad = App\Support\Validator::dnsRecordContent('A', 'not-ip');
 $aOk = App\Support\Validator::dnsRecordContent('A', '127.0.0.1');
 $aaaaBad = App\Support\Validator::dnsRecordContent('AAAA', 'not-ipv6');
 $cnameBad = App\Support\Validator::dnsRecordContent('CNAME', 'bad host');
+$originHostname = App\Support\Validator::originHost('origin.example.com', 'content');
+$originIp = App\Support\Validator::originHost('192.0.2.10', 'content');
+$originBad = App\Support\Validator::originHost('bad host', 'content');
 
 echo json_encode([
   'aBad' => $aBad,
   'aOk' => $aOk,
   'aaaaBad' => $aaaaBad,
   'cnameBad' => $cnameBad,
+  'originHostname' => $originHostname,
+  'originIp' => $originIp,
+  'originBad' => $originBad,
 ], JSON_UNESCAPED_SLASHES);
 '''
     out = run_php(script)
@@ -62,3 +68,6 @@ echo json_encode([
     assert out["aOk"]["ok"] is True
     assert out["aaaaBad"]["detail"] == "must_be_valid_ipv6"
     assert out["cnameBad"]["detail"] == "must_be_valid_hostname"
+    assert out["originHostname"]["value"] == "origin.example.com"
+    assert out["originIp"]["value"] == "192.0.2.10"
+    assert out["originBad"]["detail"] == "must_be_valid_ip_or_hostname"

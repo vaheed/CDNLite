@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Dns\Services\EdgeDnsService;
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Support\CommandIO;
 
 class CdnDnsSyncEdgeDomainCommand
@@ -10,7 +10,7 @@ class CdnDnsSyncEdgeDomainCommand
     public function __invoke(array $argv): int
     {
         try {
-            CommandIO::printJson((new EdgeDnsService())->sync(true));
+            CommandIO::printJson((new DnsReconciler())->reconcile(true));
             return 0;
         } catch (\RuntimeException $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);

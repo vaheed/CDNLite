@@ -27,7 +27,7 @@ Validation:
 Run the PowerDNS profile and validate customer zones, platform edge DNS, anycast values, and Geo DNS settings through the mock.
 
 ```bash
-docker compose --profile powerdns up -d --build
+docker compose up -d --build
 ./ci/powerdns_dns_checks.sh
 ```
 
@@ -57,17 +57,18 @@ Watch:
 
 ## Certificate Workflow Testing
 
-Use staging ACME directory values, PowerDNS mock or a controlled DNS provider, and a test domain. Validate DNS-01 challenge publishing before using production ACME.
+Use staging ACME directory values, the bundled PowerDNS stack or a controlled DNS provider, and a test domain. Validate DNS-01 challenge publishing before using production ACME.
 
 ## Dashboard QA
 
-Use dashboard unit tests for API client and form behavior, then use Playwright e2e tests for browser workflows.
+Use dashboard typechecking, unit tests, and a production build before manually
+testing browser workflows.
 
 ```bash
 cd dash
 npm run typecheck
 npm test
-npm run test:e2e
+npm run build
 ```
 
 ## Learn CDN Internals: Exercise Plan

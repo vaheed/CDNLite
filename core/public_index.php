@@ -7,6 +7,7 @@ use App\Modules\Collector\Services\CollectorService;
 use App\Modules\Admin\Http\Controllers\AdminAuthController;
 use App\Modules\Admin\Services\AdminAuthService;
 use App\Modules\Dns\Http\Controllers\DnsController;
+use App\Modules\Dns\Http\Controllers\DnsOperationsController;
 use App\Modules\Dns\Http\Controllers\EdgeNetworkController;
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Edge\Http\Controllers\EdgeController;
@@ -193,6 +194,7 @@ $dnsService = new DnsService();
 $edgeService = new EdgeService();
 $domainController = new DomainController($domainService);
 $dnsController = new DnsController($dnsService);
+$dnsOperationsController = new DnsOperationsController();
 $edgeNetworkController = new EdgeNetworkController();
 $edgeController = new EdgeController($edgeService);
 $collectorController = new CollectorController(new CollectorService());
@@ -237,7 +239,7 @@ $router->add('POST', '/api/v1/admin/login', static fn (Request $req): array => $
 $router->add('GET', '/api/v1/admin/me', static fn (): array => $adminAuthController->me(bearerToken()), auth: true);
 $router->add('POST', '/api/v1/admin/logout', static fn (): array => $adminAuthController->logout(bearerToken()), auth: true);
 $router->add('GET', '/health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
-$router->add('GET', '/cdn-health', static fn (): array => Response::json(['ok' => true, 'time' => time()]));
+$router->add('GET', '/cdn-health', static fn (): array => Response::json($readinessController->index()));
 $router->add('GET', '/ready', static function () use ($configService): array {
     $checks = ['postgres' => 'ok', 'schema' => 'ok', 'config_generation' => 'ok'];
     try {
@@ -324,12 +326,12 @@ $router->add('POST', '/api/v1/settings/validate', static function (Request $req)
     }
 }, auth: true);
 $router->add('POST', '/api/v1/settings/test/powerdns', static fn (): array => Response::json($settingsController->testPowerDns()), auth: true);
-$router->add('GET', '/api/v1/admin/edge-network/anycast', static fn (): array => Response::json($edgeNetworkController->anycast()), auth: true);
-$router->add('PUT', '/api/v1/admin/edge-network/anycast', static function (Request $req) use ($edgeNetworkController, $adminAuth): array {
-    $user = $adminAuth->userForToken(bearerToken());
-    $result = $edgeNetworkController->updateAnycast($req->body, (string) ($user['username'] ?? 'api-token'));
-    return Response::json($result, (int) ($result['status'] ?? 200));
-}, auth: true);
+$router->add('GET', '/api/v1/dns/operations', static fn (): array => Response::json($dnsOperationsController->status()), auth: true);
+$router->add('GET', '/api/v1/dns/zones', static fn (): array => Response::json($dnsOperationsController->zones()), auth: true);
+$router->add('GET', '/api/v1/dns/desired', static fn (Request $req): array => Response::json($dnsOperationsController->desired($req->query['zone'] ?? null)), auth: true);
+$router->add('GET', '/api/v1/dns/zones/{zone}/actual', static fn (Request $req, array $p): array => Response::json($dnsOperationsController->actual((string) $p['zone'])), auth: true);
+$router->add('POST', '/api/v1/dns/dry-run', static fn (): array => Response::json($dnsOperationsController->dryRun()), auth: true);
+$router->add('POST', '/api/v1/dns/force-sync', static fn (): array => Response::json($dnsOperationsController->forceSync()), auth: true);
 $router->add('GET', '/api/v1/edge-countries', static fn (): array => Response::json($edgeNetworkController->countries()), auth: true);
 
 $router->add('GET', '/api/v1/domains', static fn () => Response::json($domainController->index()), auth: true);
@@ -359,6 +361,7 @@ $router->add('POST', '/api/v1/domains/{domainId}/dns/records', static function (
     return Response::json($result, (int) ($result['status'] ?? 201));
 }, auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/dns/records', static fn (Request $req, array $p) => Response::json($dnsController->list((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/dns/status', static fn (Request $req, array $p) => Response::json($dnsOperationsController->domainStatus((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', static function (Request $req, array $p) use ($dnsController): array {
     $result = $dnsController->update((string) $p['domainId'], (string) $p['recordId'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));
@@ -395,9 +398,6 @@ $router->add('DELETE', '/api/v1/domains/{domainId}/redirects/{ruleId}', static f
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['domainId'], $req->body)), auth: true);
-$router->add('PUT', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->setRateLimit((string) $p['domainId'], $req->body)), auth: true);
-$router->add('GET', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->getRateLimit((string) $p['domainId'])), auth: true);
-$router->add('DELETE', '/api/v1/domains/{domainId}/rate-limit', static fn (Request $req, array $p) => Response::json($rulesController->disableRateLimit((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->listRateLimits((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRateLimit((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);

@@ -20,7 +20,7 @@ cd CDNLite/deploy/core
 cp .env.example .env
 ```
 
-Edit `.env` and replace every `CHANGE_ME` value. At minimum, set `REGISTRY_OWNER`, `POSTGRES_PASSWORD`, `DB_PASSWORD`, `CDNLITE_API_TOKEN`, `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ORIGIN_SHIELD_SECRET`, `CDNLITE_ACME_CONTACT_EMAIL`, `CDNLITE_CORS_ALLOWED_ORIGINS`, `VITE_CDNLITE_CORE_URL`, `VITE_CDNLITE_EDGE_URL`, `CDNLITE_EDGE_BASE_DOMAIN`, `CDNLITE_NS1_IP`, and `CDNLITE_NS2_IP`.
+Edit `.env` and replace every `CHANGE_ME` value. At minimum, set `REGISTRY_OWNER`, `POSTGRES_PASSWORD`, `DB_PASSWORD`, `CDNLITE_API_TOKEN`, `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ORIGIN_SHIELD_SECRET`, `CDNLITE_ACME_CONTACT_EMAIL`, `CDNLITE_CORS_ALLOWED_ORIGINS`, `VITE_CDNLITE_CORE_URL`, `VITE_CDNLITE_EDGE_URL`, `CDNLITE_CDN_ZONE`, `CDNLITE_CDN_PROXY_HOST`, `CDNLITE_NS1_IP`, and `CDNLITE_NS2_IP`.
 
 Start the core stack:
 
@@ -56,7 +56,7 @@ The `edge_id` and token go into the edge POP `.env` as `EDGE_ID` and `EDGE_TOKEN
 On the DNS primary server:
 
 ```bash
-cd deploy/powerdns
+cd deploy/dnsgeo
 cp .env.example .env
 ```
 

@@ -34,6 +34,18 @@ describe('buildUrl', () => {
     } satisfies Partial<CdnLiteApiError>);
   });
 
+  it('includes backend field and validation detail in errors', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      '{"error":"invalid_field","field":"content","detail":"must_be_valid_ip_or_hostname"}',
+      { status: 422 },
+    ));
+
+    await expect(apiRequest('/api/v1/domains/domain-1/dns/records')).rejects.toMatchObject({
+      message: 'Content: Must be valid ip or hostname.',
+      code: 'invalid_field',
+    } satisfies Partial<CdnLiteApiError>);
+  });
+
   it('humanizes unknown snake-case error codes', () => {
     expect(humanizeApiError('origin_host_required')).toBe('Origin host is required.');
     expect(humanizeApiError('custom_backend_error')).toBe('Custom backend error.');

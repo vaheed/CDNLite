@@ -31,10 +31,10 @@ class EdgeHealthRecordBuilder
     private function ifPortUpLua(array $ips): string
     {
         if ($ips === []) {
-            return 'return {}';
+            return '{}';
         }
         return sprintf(
-            'return ifportup(%d, %s, %s)',
+            'ifportup(%d, %s, %s)',
             $this->envInt('CDNLITE_EDGE_HEALTH_PORT', 80),
             $this->luaList($ips),
             $this->luaOptions()
@@ -47,7 +47,7 @@ class EdgeHealthRecordBuilder
     private function ifUrlUpLua(array $ips): string
     {
         if ($ips === []) {
-            return 'return {}';
+            return '{}';
         }
         $port = $this->envInt('CDNLITE_EDGE_HEALTH_PORT', 80);
         $path = (string) (getenv('CDNLITE_EDGE_HEALTH_URL') ?: '/cdn-health');
@@ -61,7 +61,7 @@ class EdgeHealthRecordBuilder
             $urls[] = 'http://' . $host . ':' . $port . $path;
         }
 
-        return sprintf('return ifurlup(%s, %s)', $this->luaList($urls), $this->luaOptions());
+        return sprintf('ifurlup(%s, %s)', $this->luaList($urls), $this->luaOptions());
     }
 
     /**
@@ -70,12 +70,12 @@ class EdgeHealthRecordBuilder
     private function staticLua(array $ips): string
     {
         if ($ips === []) {
-            return 'return {}';
+            return '{}';
         }
         if (count($ips) === 1) {
-            return "return '" . $ips[0] . "'";
+            return "'" . $ips[0] . "'";
         }
-        return 'return ' . $this->luaList($ips);
+        return $this->luaList($ips);
     }
 
     private function luaOptions(): string

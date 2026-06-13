@@ -32,20 +32,21 @@
       </table>
       </HorizontalScrollFrame>
     </div>
-    <div class="flex items-center justify-between text-sm"><span>{{ result.total }} events</span><div class="flex gap-2"><button class="button-secondary" :disabled="offset === 0" @click="page(-1)">Previous</button><button class="button-secondary" :disabled="offset + limit >= result.total" @click="page(1)">Next</button></div></div>
+    <PaginationControls :total="result.total" :limit="limit" :offset="offset" @update:limit="setLimit" @update:offset="setOffset" />
   </section>
 </template>
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import PageHeader from '@/components/ui/PageHeader.vue'; import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'; import EmptyState from '@/components/ui/EmptyState.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
+import PaginationControls from '@/components/ui/PaginationControls.vue';
 import { domainsApi } from '@/lib/api/domains'; import { securityEventsApi, type SecurityEventFilters } from '@/lib/api/securityEvents'; import { formatDate } from '@/lib/utils/format';
 import type { Domain, PaginatedResult, SecurityEvent, SecuritySummary } from '@/types';
-const domains=ref<Domain[]>([]), summary=ref<SecuritySummary|null>(null), loading=ref(true), error=ref(''), fromInput=ref(''), toInput=ref(''); const limit=50; const offset=ref(0);
-const filters=reactive<SecurityEventFilters>({domain_id:'',edge_id:'',type:'',ip:'',search:''}); const result=ref<PaginatedResult<SecurityEvent>>({items:[],total:0,limit,offset:0});
+const domains=ref<Domain[]>([]), summary=ref<SecuritySummary|null>(null), loading=ref(true), error=ref(''), fromInput=ref(''), toInput=ref(''); const limit=ref(50); const offset=ref(0);
+const filters=reactive<SecurityEventFilters>({domain_id:'',edge_id:'',type:'',ip:'',search:''}); const result=ref<PaginatedResult<SecurityEvent>>({items:[],total:0,limit:limit.value,offset:0});
 onMounted(async()=>{ domains.value=await domainsApi.list(); await load(); });
-async function load(){loading.value=true;error.value='';try{[result.value,summary.value]=await Promise.all([securityEventsApi.list({...filters,limit,offset:offset.value}),securityEventsApi.summary()]);}catch(e){error.value=e instanceof Error?e.message:'Could not load security events.';}finally{loading.value=false;}}
-function applyFilters(){filters.from=toEpoch(fromInput.value);filters.to=toEpoch(toInput.value);offset.value=0;void load();} function clear(){Object.assign(filters,{domain_id:'',edge_id:'',type:'',ip:'',search:'',from:undefined,to:undefined});fromInput.value='';toInput.value='';applyFilters();} function page(direction:number){offset.value=Math.max(0,offset.value+direction*limit);void load();}
+async function load(){loading.value=true;error.value='';try{[result.value,summary.value]=await Promise.all([securityEventsApi.list({...filters,limit:limit.value,offset:offset.value}),securityEventsApi.summary({from:filters.from,to:filters.to})]);}catch(e){error.value=e instanceof Error?e.message:'Could not load security events.';}finally{loading.value=false;}}
+function applyFilters(){filters.from=toEpoch(fromInput.value);filters.to=toEpoch(toInput.value);offset.value=0;void load();} function clear(){Object.assign(filters,{domain_id:'',edge_id:'',type:'',ip:'',search:'',from:undefined,to:undefined});fromInput.value='';toInput.value='';applyFilters();} function setLimit(value:number){limit.value=value;offset.value=0;void load();} function setOffset(value:number){offset.value=value;void load();}
 function detail(event:SecurityEvent,key:string){const value=event.details?.[key];return typeof value==='string'||typeof value==='number'?String(value):'';}
 function toEpoch(value:string){return value?Math.floor(new Date(value).getTime()/1000):undefined;}
 </script>

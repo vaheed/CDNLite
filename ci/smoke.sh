@@ -91,9 +91,9 @@ for t in "${required_tables[@]}"; do
 done
 record_step PASS "schema-tables" "all required tables exist"
 
-legacy_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
-assert_eq "$legacy_origin_columns" "0" "legacy domain origin columns should be removed"
-record_step PASS "schema-domain-origin-columns-removed" "legacy origin columns are absent from domains"
+removed_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
+assert_eq "$removed_origin_columns" "0" "domain origin columns should be absent"
+record_step PASS "schema-domain-origin-columns-absent" "domain origin columns are absent"
 
 record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_records' AND column_name IN ('origin_host','origin_tls_verify','origin_scheme','origin_status','geo_origins_json');")"
 assert_eq "$record_origin_columns" "5" "DNS record origin columns are incomplete"
@@ -144,7 +144,8 @@ docker compose exec -T edge-agent sh -lc 'test -e "${EDGE_CONFIG_PATH:-/var/lib/
 record_step PASS "edge-config-path" "edge config path exists"
 
 if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
-  retry 30 2 curl -fsS "${POWERDNS_API_URL}/health" >/dev/null
+  retry 30 2 curl -fsS -H "X-API-Key: ${PDNS_API_KEY:-cdnlite-local-powerdns-key}" \
+    "${POWERDNS_PUBLIC_API_URL:-http://localhost:8089}/api/v1/servers/localhost" >/dev/null
   record_step PASS "powerdns-health" "powerdns endpoint reachable"
 fi
 

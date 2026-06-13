@@ -2,6 +2,7 @@
 
 namespace App\Modules\Edge\Http\Controllers;
 
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\EdgeDnsService;
 use App\Modules\Edge\Services\EdgeService;
 use App\Support\Logger;
@@ -55,7 +56,7 @@ class EdgeController
     private function syncEdgeDnsRecords(): void
     {
         try {
-            $this->edgeDns->sync();
+            (new DnsReconciler())->reconcile();
         } catch (\RuntimeException $e) {
             Logger::error('edge_dns_sync_failed', ['error' => $e->getMessage()]);
         }

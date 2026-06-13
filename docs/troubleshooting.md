@@ -29,17 +29,19 @@ Use this order during incidents:
 | Dashboard cannot reach core | `VITE_CDNLITE_CORE_URL` points at an internal Compose hostname or CORS blocks origin. | Set a browser-reachable URL, rebuild dashboard, and include dashboard origin in `CDNLITE_CORS_ALLOWED_ORIGINS`. |
 | Login fails with known credentials | Bootstrap disabled or admin password changed. | Create a user with `cdn:admin:create` or verify bootstrap variables before first boot. |
 | `/ready` reports `api_token` warn | `CDNLITE_API_TOKEN` is empty in local mode. | Accept for local dev, set a strong token for production. |
-| `/ready` reports schema failure | Migrations/schema missing. | Run `docker compose exec core php artisan cdn:migrate` or rebuild a fresh local stack. |
+| `/ready` reports schema failure | Canonical schema bootstrap failed or the database is not disposable. | Inspect Core/PostgreSQL logs, then rebuild a fresh stack with `docker compose down -v && docker compose up -d --build`. |
 | Edge returns unknown host page | Host is not in `config.json` or edge has stale config. | Activate the domain, rebuild snapshot, and confirm edge agent pulled config. |
 | Edge agent auth fails | Edge token mismatch, bad timestamp, reused nonce, or signature mismatch. | Re-register/rotate token, check system clock, and run `edge/agent/doctor.sh`. |
-| DNS publishing fails | PowerDNS URL/key/server ID wrong or mock profile not running. | Start `docker compose --profile powerdns up -d` and run `cdn:settings:test-powerdns`. |
+| Dashboard reports `edge_not_healthy` after startup | The edge has not completed a successful signed heartbeat in the last 90 seconds. | Check `edge-agent` logs and run the heartbeat script; HTTP failures now make the script fail instead of being treated as success. |
+| Security-event push reports a missing `.payload` file | Two agent/manual push attempts overlapped while sharing the same queue. | Update to the queue-locking agent script; concurrent attempts now leave the active sender in control. |
+| DNS publishing fails | PowerDNS URL/key/server ID wrong or DNSGeo is unhealthy. | Run `docker compose ps`, inspect `pdns-auth`, and run `cdn:settings:test-powerdns`. |
 | SSL issuance stuck | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
 | Cache assertions are flaky in tests | Default TTL too long for e2e timing. | Use `CDNLITE_CACHE_DEFAULT_TTL=1s` in e2e. |
 | Usage analytics are empty | Edge metrics queue not pushed or domain filter mismatch. | Check `METRIC_PATH`, agent logs, collector endpoint, and domain names. |
 | Config snapshot rollback appears ignored | Edge has not pulled the active version yet. | Run the edge agent config pull or wait for the polling loop, then inspect `edge-sync-status.json`. |
 | ACME renewal fails after restart | `CDNLITE_SSL_SECRET_KEY` changed or DNS settings changed. | Restore the original secret if possible, test PowerDNS, and retry staging issuance first. |
 | API clients get 404 after docs change | Client generated from an old spec or wrong base URL. | Regenerate from `docs/public/api/openapi.yaml` and confirm server URL. |
-| PowerDNS works locally but not in CI | Missing `powerdns` profile or wrong strict env. | Use `docker compose --profile powerdns config --quiet` and verify `POWERDNS_API_URL`. |
+| PowerDNS works locally but not in CI | DNSGeo health dependency or canonical env differs. | Use `docker compose config --quiet` and verify `CDNLITE_POWERDNS_API_BASE`. |
 
 ## Log Locations
 
@@ -91,7 +93,6 @@ Common validation errors:
 | `domain_already_exists` | Another domain entry already uses the hostname. |
 | `domain_not_found` | Domain ID is wrong or deleted. |
 | `record_not_found` | DNS record ID is wrong or deleted. |
-| `origin_port_not_supported` | Domain create/update no longer accepts legacy origin port fields. |
 | `bucket_must_be_one_of_minute_hour_day` | Analytics bucket must be `minute`, `hour`, or `day`. |
 
 ## Debugging Edge Auth
@@ -124,7 +125,7 @@ Replay errors are usually caused by scripts reusing the same nonce while retryin
 ## Debugging DNS And PowerDNS
 
 ```bash
-docker compose --profile powerdns ps
+docker compose ps pdns-auth pdns-recursor pdns-postgres
 curl -fsS http://localhost:8089/health
 docker compose exec core php artisan cdn:settings:test-powerdns
 docker compose logs --tail=120 powerdns

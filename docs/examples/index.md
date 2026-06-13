@@ -93,11 +93,13 @@ docker compose exec core php artisan cdn:edge:register-token \
   --token=edge-dev-token
 ```
 
-## PowerDNS Mock Workflow
+## PowerDNS Workflow
 
 ```bash
-docker compose --profile powerdns up -d --build
-docker compose exec core php artisan cdn:settings:test-powerdns
+docker compose up -d --build
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
 ./ci/powerdns_dns_checks.sh
 ```
 
@@ -146,6 +148,10 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -H "Content-Type: application/json" \
   -d '{"type":"TXT","name":"@","content":"v=spf1 include:_spf.example.net ~all","ttl":300,"proxied":false}'
 ```
+
+The apex input keeps its origin type, but public DNS publishes it as `ALIAS`
+to `site-<domain-id>.cdn.<zone>`. The proxied `www` record publishes `CNAME`
+to that same stable site target.
 
 Cutover checklist:
 
@@ -309,7 +315,7 @@ Rollback is a control-plane action. Edge nodes still need to pull the active sna
 
 ## OpenAPI Client Generation
 
-The OpenAPI document is available at [OpenAPI YAML](/api/openapi.yaml).
+The OpenAPI document is available at [OpenAPI YAML](../api/openapi.yaml).
 
 Example with `openapi-generator-cli`:
 

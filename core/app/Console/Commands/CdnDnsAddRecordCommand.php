@@ -31,7 +31,6 @@ class CdnDnsAddRecordCommand
                 'priority' => isset($opts['priority']) ? (int) $opts['priority'] : null,
                 'proxied' => ($opts['proxied'] ?? '0') !== '0',
                 'geo_policy_id' => $opts['geo_policy_id'] ?? null,
-                'edge_target' => $opts['edge_target'] ?? null,
                 'origin_host' => $opts['origin_host'] ?? $opts['content'],
                 'origin_tls_verify' => $opts['origin_tls_verify'] ?? 'verify',
                 'geo_origins' => $this->parseGeoOrigins($opts['geo_origins_json'] ?? null),

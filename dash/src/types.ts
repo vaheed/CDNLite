@@ -32,12 +32,11 @@ export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'upda
 
 export interface DnsRecord {
   id: Id; type: string; name: string; content: string; ttl?: number; priority?: number | null;
-  proxied?: boolean; geo_policy_id?: Id | null; edge_target?: string | null; status?: string;
+  proxied?: boolean; geo_policy_id?: Id | null; status?: string;
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
   origin_status?: string; geo_origins?: Record<string, { host: string; tls_verify?: 'verify' | 'ignore' }>;
   routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
-  canonical_edge_hostname?: string | null;
   geo_routes_count?: number;
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
@@ -75,8 +74,15 @@ export interface ManualCertificateInput { hostname: string; certificate_pem: str
 export interface EdgeNode { edge_id: string; identity_status?: 'ok' | 'warning' | string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; geo_enabled?: boolean; anycast_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }
 export interface EdgePoolMember { id: Id; edge_id: string; hostname: string; status: string; public_ipv4: string; public_ipv6: string; enabled: boolean; weight: number; }
 export interface EdgePool { id: Id; name: string; mode: 'geo' | 'anycast'; description?: string | null; members: EdgePoolMember[]; created_at: number; updated_at: number; }
-export interface EdgeDnsRecord { name: string; fqdn: string; type: string; ttl: number; content: string; mode?: string; }
-export interface EdgeDnsStatus { base_domain: string; zone_prefix: string; powerdns_enabled: boolean; records: EdgeDnsRecord[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
+export interface EdgeDnsRecord { zone_name: string; rrset_name: string; rrset_type: string; ttl: number; records: string[]; source: string; }
+export interface EdgeDnsState { edge_id: string; ip: string; ip_family: 'A' | 'AAAA'; region: string; anycast: boolean; healthy: boolean; last_check_at: number; }
+export interface EdgeDnsStatus { cdn_zone: string; proxy_host: string; powerdns_enabled: boolean; records: EdgeDnsRecord[]; edge_state: EdgeDnsState[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
+export interface DnsZoneStatus { zone_name: string; status: string; pending_changes: number; desired_rrsets: number; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; desired_hash?: string | null; applied_hash?: string | null; converged: boolean; }
+export interface DomainDnsStatus { zone: string; status: string; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; pending_changes: number; converged: boolean; }
+export interface DnsOperations {
+  setup: { enabled: boolean; configured: boolean; api_url: string; server_id: string; api_key_configured: boolean; cdn_zone: string; cdn_proxy_host: string; apex_proxy_mode: 'ALIAS'; bundled_dnsgeo: boolean; poweradmin_url: string; api: { ok?: boolean; error?: string } };
+  dnsgeo: { powerdns_auth: boolean; postgresql: boolean; mmdb: boolean; edns_subnet_processing: boolean; lua_records: boolean; alias_expansion: boolean; resolver_configured: boolean; resolver: string; api_publicly_exposed: boolean };
+}
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: UsagePoint[]; }
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }

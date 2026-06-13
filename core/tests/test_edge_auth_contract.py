@@ -30,7 +30,7 @@ $tables = [
   'usage_rollups',
   'edge_request_nonces',
   'edge_tokens',
-  'edge_dns_state',
+  'desired_dns_rrsets',
   'edge_nodes',
   'dns_records',
   'domains',

@@ -112,7 +112,7 @@ compose_has_service() {
 
 pdns_get() {
   local path="$1"
-  curl -sS -H "X-API-Key: ${POWERDNS_API_KEY:-test-key}" "${POWERDNS_PUBLIC_API_URL:-${POWERDNS_API_URL}}${path}"
+  curl -sS -H "X-API-Key: ${PDNS_API_KEY:-test-key}" "${POWERDNS_PUBLIC_API_URL:-http://localhost:8089}${path}"
 }
 
 record_step() {
@@ -189,7 +189,7 @@ collect_diagnostics() {
   mkdir -p "$REPORT_DIR"
   docker compose ps >"$REPORT_DIR/compose-ps.txt" || true
   docker compose logs --no-color >"$REPORT_DIR/compose-logs.txt" || true
-  for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-db-init pdns-mmdb-updater pdns-recursor pdns-auth poweradmin; do
     if compose_has_service "$svc"; then
       docker compose logs --no-color --tail=200 "$svc" >"$REPORT_DIR/${svc}-tail.log" || true
     fi

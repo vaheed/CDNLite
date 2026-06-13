@@ -1,0 +1,13 @@
+# PowerDNS requires at least one valid zone when the GeoIP backend is loaded.
+# This reserved .invalid zone only initializes the backend. Core owns every
+# routable zone and Lua record through PostgreSQL reconciliation.
+domains:
+  - domain: geoip-bootstrap.invalid
+    ttl: 60
+    records:
+      geoip-bootstrap.invalid:
+        - soa: ns.geoip-bootstrap.invalid hostmaster.geoip-bootstrap.invalid 1 3600 600 86400 60
+        - ns: ns.geoip-bootstrap.invalid
+      ns.geoip-bootstrap.invalid:
+        - a: 192.0.2.1
+    services: {}

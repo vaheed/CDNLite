@@ -143,9 +143,12 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
-          $ref: "#/components/responses/GenericArray"
+          $ref: "#/components/responses/GenericObject"
   /api/v1/security/summary:
     get:
       tags: [Operations]
@@ -162,9 +165,13 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
-          $ref: "#/components/responses/GenericArray"
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains:
     get:
       tags: [Domains]
@@ -484,33 +491,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/domains/{domainId}/rate-limit:
-    put:
-      tags: [Traffic Rules]
-      summary: Set legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    get:
-      tags: [Traffic Rules]
-      summary: Get legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    delete:
-      tags: [Traffic Rules]
-      summary: Disable legacy active rate limit
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      responses:
-        "200":
-          $ref: "#/components/responses/Ok"
   /api/v1/domains/{domainId}/rate-limits:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:
@@ -935,21 +915,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/admin/edge-network/anycast:
-    get:
-      tags: [Settings, Edge]
-      summary: Show anycast settings
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    put:
-      tags: [Settings, Edge]
-      summary: Update anycast settings
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
   /api/v1/edge-countries:
     get:
       tags: [Settings, Edge]
@@ -1063,6 +1028,28 @@ components:
       schema:
         type: integer
         minimum: 0
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+    From:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+      description: Inclusive Unix timestamp lower bound.
+    To:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+      description: Inclusive Unix timestamp upper bound.
     Bucket:
       name: bucket
       in: query

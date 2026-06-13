@@ -11,8 +11,9 @@ CDNLite is a compact CDN platform for learning, local experimentation, and small
 - [User Guide](usage/user.md)
 - [Admin Guide](usage/admin.md)
 - [API Reference](api/api.md)
-- [OpenAPI YAML](/api/openapi.yaml)
+- [OpenAPI YAML](api/openapi.yaml)
 - [Architecture](architecture.md)
+- [DNS Stress Testing](stress-testing.md)
 - [Extensions And Integrations](extensions.md)
 - [Troubleshooting](troubleshooting.md)
 - [Security](security.md)
@@ -35,17 +36,17 @@ CDNLite lets operators register domains, manage DNS records, define origins, con
 - SSL automation, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
 - Edge registration, heartbeat, config polling, usage ingest, and security-event ingest with HMAC replay protection.
 - Vue dashboard for operations, domain management, edge status, analytics, events, audit logs, settings, and optional edge developer tools.
-- Docker Compose stack with PostgreSQL, core, edge, edge agent, dashboard, origin mocks, and optional PowerDNS mock.
+- Docker Compose stack with PostgreSQL, core, edge, edge agent, dashboard, origin mocks, and bundled DNSGeo/PowerDNS.
 
 ## Repository Map
 
 | Path | Purpose |
 | --- | --- |
-| `core/` | PHP control plane, API router, CLI commands, services, migrations, and contract tests. |
+| `core/` | PHP control plane, API router, CLI commands, services, canonical fresh-install schema, and contract tests. |
 | `dash/` | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, and ECharts dashboard. |
 | `edge/openresty/` | OpenResty Nginx config and Lua runtime modules. |
 | `edge/agent/` | POSIX shell agent that signs edge calls and syncs config/metrics/events. |
-| `ci/` | Bash smoke/e2e scripts, origin mocks, and PowerDNS mock server. |
+| `ci/` | Bash smoke/e2e scripts and controlled origin services. |
 | `docs/` | GitHub Pages-compatible documentation. |
 
 ## Fast Path
@@ -67,7 +68,7 @@ CDNLite does not implement enterprise RBAC, billing, multi-tenant isolation, or 
 
 If you are new to the project, read [Setup](setup.md), then [User Guide](usage/user.md), then [Examples](examples/index.md). That path gets a local stack running before it asks you to understand every moving part.
 
-If you are integrating with the API, read [API Reference](api/api.md), download [OpenAPI YAML](/api/openapi.yaml), then use the domain and DNS examples in [Examples](examples/index.md). The OpenAPI document is intentionally pragmatic: it covers the implemented route families and reusable schemas so client generators and API explorers have a stable contract to consume.
+If you are integrating with the API, read [API Reference](api/api.md), download [OpenAPI YAML](api/openapi.yaml), then use the domain and DNS examples in [Examples](examples/index.md). The OpenAPI document is intentionally pragmatic: it covers the implemented route families and reusable schemas so client generators and API explorers have a stable contract to consume.
 
 If you are operating CDNLite, read [Admin Guide](usage/admin.md), [Security](security.md), [Troubleshooting](troubleshooting.md), [Operations Runbooks](runbooks/index.md), and [Best Practices](best-practices/index.md). Keep the architecture page nearby during incidents because it shows where config, metrics, and edge decisions flow.
 

@@ -47,12 +47,14 @@ $password = getenv('DB_PASSWORD') ?: 'cdnlite';
 $pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $tables = [
+  'platform_settings_audit',
+  'platform_settings',
   'usage_aggregates',
   'usage_ingest_keys',
   'usage_rollups',
   'edge_request_nonces',
   'edge_tokens',
-  'edge_dns_state',
+  'desired_dns_rrsets',
   'edge_nodes',
   'dns_records',
   'domains',
@@ -263,9 +265,9 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
     assert updated["data"]["proxied"] is True
     assert updated["data"]["origin_type"] == "A"
     assert updated["data"]["origin_content"] == "127.0.0.2"
-    assert updated["data"]["public_type"] == "A"
-    assert updated["data"]["public_content"] == "198.51.100.10"
-    assert updated["data"]["canonical_edge_hostname"] == f"{record_id}.{domain_id}.edge.vaheed.net."
+    assert updated["data"]["public_type"] == "ALIAS"
+    assert updated["data"]["public_content"] == f"site-{domain_id}.cdn.example.net."
+    assert "canonical_edge_hostname" not in updated["data"]
 
     non_apex = run_artisan(
         "cdn:dns:add-record",
@@ -276,10 +278,8 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
         "--proxied=1",
     )
     assert non_apex["data"]["public_type"] == "CNAME"
-    assert non_apex["data"]["public_content"] == (
-        f"{non_apex['data']['id']}.{domain_id}.edge.vaheed.net."
-    )
-    assert non_apex["data"]["canonical_edge_hostname"] == non_apex["data"]["public_content"]
+    assert non_apex["data"]["public_content"] == f"site-{domain_id}.cdn.example.net."
+    assert "canonical_edge_hostname" not in non_apex["data"]
 
 
 def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():

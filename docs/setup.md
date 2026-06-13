@@ -30,7 +30,9 @@ Default URLs:
 | Edge TLS proxy | `https://localhost:8443` |
 | Dashboard | `http://localhost:8082` |
 | PostgreSQL | `localhost:5432` |
-| PowerDNS mock, profile only | `http://localhost:8089` |
+| PowerDNS API, loopback only | `http://localhost:8089` |
+| PowerDNS authoritative DNS | `127.0.0.1:5353` |
+| Poweradmin, loopback only | `http://localhost:8084` |
 
 Health checks:
 
@@ -61,16 +63,25 @@ docker compose exec core php artisan cdn:admin:create \
 
 ## Backend Setup
 
-The core image runs PHP from `core/public_index.php` and CLI commands from `core/artisan`. The database schema is in `core/database/schema.sql`, with migrations in `core/database/migrations/`.
+The core image runs PHP from `core/public_index.php` and CLI commands from
+`core/artisan`. Fresh installations apply the single canonical schema in
+`core/database/schema.sql`. Existing database upgrades are not supported.
+Core containers install this schema at startup. CI installs it explicitly before
+running the Core test suite against its empty PostgreSQL service.
 
 Useful commands:
 
 ```bash
-docker compose exec core php artisan cdn:migrate
+docker compose exec core php artisan cdn:dns:reconcile
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 ```
+
+The canonical schema is applied automatically when Core first connects to the
+database. Durable DNS state is reconciled after mutations and by the
+`dns-reconciler` service every
+`CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
 Fresh local reset:
 
@@ -78,6 +89,10 @@ Fresh local reset:
 docker compose down -v
 docker compose up -d --build
 ```
+
+The root Compose topology does not assign registry tags to locally built CDNLite
+services. Core, schedulers, Edge, and the Edge agent are built from the currently
+checked-out branch and use Compose project-scoped image names.
 
 ## Frontend Setup
 
@@ -113,6 +128,15 @@ Core settings:
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
+| `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
+| `CDNLITE_CDN_ZONE` | Authoritative zone containing stable site targets and the shared proxy record. |
+| `CDNLITE_CDN_PROXY_HOST` | Shared Lua A/AAAA hostname, and must be inside `CDNLITE_CDN_ZONE`. |
+
+The DNS initializer creates only the PowerDNS/Poweradmin schemas and service
+roles. It does not create sample zones. GeoIP bootstrap uses only the reserved
+`geoip-bootstrap.invalid` backend-initialization zone, so Core remains the
+owner of all routable authoritative DNS data. See
+[DNSGeo and PowerDNS](dns.md).
 
 Edge and agent settings:
 
@@ -141,16 +165,38 @@ Dashboard variables:
 | `VITE_ENABLE_SECURITY_EVENT_VIEWER` | Shows security event screens. |
 | `VITE_ENABLE_LOG_VIEWER` | Shows event/log viewer. |
 
-## PowerDNS Mock
+## PowerDNS Operations
 
-Run the optional profile when DNS publishing behavior needs to be validated:
+PowerDNS writes are verified by reading the affected zone back after each
+successful PATCH. Temporary connection failures, HTTP 429 responses, and HTTP
+5xx responses are retried with exponential backoff. Configure this behavior
+with `CDNLITE_POWERDNS_VERIFY_AFTER_WRITE`,
+`CDNLITE_POWERDNS_RETRIES`, `CDNLITE_POWERDNS_RETRY_SLEEP_MS`, and
+`CDNLITE_POWERDNS_TIMEOUT_SECONDS`.
+
+Validate DNS publishing against the bundled stack:
 
 ```bash
-docker compose --profile powerdns up -d --build
-curl -fsS http://localhost:8089/health
+docker compose up -d --build
+curl -fsS -H "X-API-Key: $PDNS_API_KEY" \
+  http://localhost:8089/api/v1/servers/localhost
+dig @127.0.0.1 -p "${PDNS_DNS_HOST_PORT:-5353}" example.net SOA
 ```
 
-The mock uses `ci/pdns_mock_server.py`; avoid live PowerDNS mutation in tests when the mock can cover the behavior.
+Tests mutate only the local PostgreSQL-backed PowerDNS instance.
+
+Core stores every zone write attempt in `dns_sync_events` and keeps the latest
+per-zone result in `dns_sync_state`.
+
+```bash
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:powerdns:dry-run
+docker compose exec core php artisan cdn:powerdns:force-sync
+curl -fsS http://localhost:8080/cdn-health
+```
+
+`dry-run` builds the current DNS projection without writing PowerDNS.
+`force-sync` republishes customer and edge records and verifies the result.
 
 ## Testing
 
@@ -173,6 +219,7 @@ sh -n edge/agent/push_metrics.sh
 sh -n edge/agent/run.sh
 bash -n ci/smoke.sh
 bash -n ci/e2e.sh
+bash -n ci/dns_e2e.sh
 ```
 
 Smoke and e2e:
@@ -181,12 +228,55 @@ Smoke and e2e:
 docker compose up -d --build --wait
 ./ci/smoke.sh
 
-docker compose --profile powerdns up -d --build
+docker compose up -d --build
 EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
-./ci/powerdns_dns_checks.sh
+CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 ```
 
+Production DNS scale qualification is destructive and must run on a disposable
+fresh-install stack:
+
+```bash
+./ci/stress-dns.sh
+```
+
+Its defaults are the full target: 10,000 domains, 1,000 records per domain,
+10 edge nodes across three regions, ten health flaps, and a 10-second maximum
+for the edge-only reconciliation. It resets both Core and PowerDNS data, runs a
+full verified reconciliation, changes one edge IP, exercises concurrent user
+record changes during edge health flaps, and writes JSON/Markdown reports to
+`ci/reports/`.
+
+For a mechanics-only local check, reduce the dataset explicitly:
+
+```bash
+STRESS_DOMAINS=10 STRESS_RECORDS_PER_DOMAIN=20 \
+STRESS_EDGE_NODES=6 STRESS_FLAP_ITERATIONS=2 ./ci/stress-dns.sh
+```
+
+Only the default 10,000 x 1,000 run qualifies the full load model. GitHub Actions exposes
+the same default run through the manual `run_dns_stress` workflow input.
+See [DNS Stress Testing](stress-testing.md) for the complete destructive-run
+procedure, configuration variables, assertions, reports, and recovery steps.
+
+The DNS acceptance flow verifies Core-created zones, raw ALIAS/CNAME/LUA
+records, ALIAS expansion with `dig`, edge health reconciliation, stale record
+deletion, persisted failure state, and recovery. Static Lua answers are used
+only for deterministic documentation-range CI fixtures.
+
+Core and the DNS reconciler receive the same CDN zone, proxy hostname, TTL,
+health-check mode, port, URL, timeout, interval, failure threshold, and Lua
+selector settings. Recreate both services after changing any of those values.
+
+Dashboard validation uses typechecking, unit tests, a production build, and
+manual operator QA. Browser automation is intentionally outside the release
+gate.
+
 ## Deployment
+
+For production topology selection, immutable image tags, security, backup,
+upgrade, rollback, and release qualification, use the
+[Production Deployment](deployment.md) guide.
 
 1. Copy `.env.example` to `.env` and replace every local secret.
 2. Set `CDNLITE_BOOTSTRAP_ADMIN_USER=0` after creating durable admin credentials.
@@ -201,7 +291,11 @@ EDGE_AGENT_IDLE=1 CDNLITE_CACHE_DEFAULT_TTL=1s ./ci/e2e.sh
 
 The docs use VitePress. Source files live under `docs/`, the VitePress config lives at `docs/.vitepress/config.mts`, and the static build is emitted to `docs/.vitepress/dist`.
 
-The API contract is published as [OpenAPI YAML](/api/openapi.yaml). The source file is `docs/public/api/openapi.yaml`; keep it updated with route additions and request/response shape changes so developers can generate clients or load the spec into API tools.
+The API contract is published at
+`https://vaheed.github.io/CDNLite/api/openapi.yaml`. The source file is
+`docs/public/api/openapi.yaml`; keep it updated with route additions and
+request/response shape changes so developers can generate clients or load the
+spec into API tools.
 
 Local preview:
 
@@ -242,3 +336,6 @@ If dependencies are not installed, validate links and Markdown file presence wit
 find docs -name '*.md' -print
 rg -n '\\[[^]]+\\]\\(([^)#][^)]+\\.md)\\)' docs README.md
 ```
+`CDNLITE_POWERADMIN_URL` controls the operator link shown by the DNS Operations
+page and defaults to `http://localhost:9191`. It does not change the Poweradmin
+listener or expose it publicly.

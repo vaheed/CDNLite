@@ -36,13 +36,14 @@
         </tbody>
       </table>
     </HorizontalScrollFrame>
-    <div class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/40 px-5 py-3.5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-white/[0.015] dark:text-slate-400">
-      <span>{{ filteredRows.length }} {{ filteredRows.length === 1 ? 'record' : 'records' }}</span>
-      <div class="flex items-center gap-2">
-        <button class="button-secondary h-8 px-3 text-xs" :disabled="page === 1" @click="page--">Previous</button>
-        <span class="min-w-20 text-center">Page {{ page }} of {{ pageCount }}</span>
-        <button class="button-secondary h-8 px-3 text-xs" :disabled="page === pageCount" @click="page++">Next</button>
-      </div>
+    <div class="border-t border-slate-200 bg-slate-50/40 px-5 py-3.5 dark:border-white/10 dark:bg-white/[0.015]">
+      <PaginationControls
+        :total="filteredRows.length"
+        :limit="currentPageSize"
+        :offset="(page - 1) * currentPageSize"
+        @update:offset="page = Math.floor($event / currentPageSize) + 1"
+        @update:limit="currentPageSize = $event"
+      />
     </div>
   </div>
 </template>
@@ -50,6 +51,7 @@
 import { computed, ref, watch } from 'vue';
 import { ArrowUp, ArrowUpDown, Search } from 'lucide-vue-next';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
+import PaginationControls from '@/components/ui/PaginationControls.vue';
 
 type Row = Record<string, unknown>;
 type Column = { key: string; label: string; sortable?: boolean; align?: 'left' | 'right'; class?: string };
@@ -58,7 +60,7 @@ const search = ref('');
 const sortKey = ref(props.columns[0]?.key ?? 'id');
 const sortDir = ref<'asc' | 'desc'>('asc');
 const page = ref(1);
-const pageSize = computed(() => props.pageSize ?? 10);
+const currentPageSize = ref(props.pageSize ?? 10);
 const filteredRows = computed(() => {
   const q = search.value.toLowerCase();
   return props.rows.filter((row) => JSON.stringify(row).toLowerCase().includes(q)).sort((a, b) => {
@@ -66,9 +68,10 @@ const filteredRows = computed(() => {
     return sortDir.value === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
   });
 });
-const pageCount = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value)));
-const pagedRows = computed(() => filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value));
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / currentPageSize.value)));
+const pagedRows = computed(() => filteredRows.value.slice((page.value - 1) * currentPageSize.value, page.value * currentPageSize.value));
 watch([search, filteredRows], () => { page.value = 1; });
+watch(currentPageSize, () => { page.value = 1; });
 function sortBy(key: string) { sortDir.value = sortKey.value === key && sortDir.value === 'asc' ? 'desc' : 'asc'; sortKey.value = key; }
 function rowKey(row: Row) { return String(row[props.idKey ?? 'id'] ?? JSON.stringify(row)); }
 function formatCell(value: unknown) { return typeof value === 'object' ? JSON.stringify(value) : String(value ?? ''); }

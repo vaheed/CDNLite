@@ -24,13 +24,12 @@ class Database
         self::$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         self::$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        self::migrate(self::$pdo);
-
         return self::$pdo;
     }
 
-    private static function migrate(PDO $pdo): void
+    public static function installFreshSchema(): void
     {
+        $pdo = self::pdo();
         $pdo->exec("SELECT pg_advisory_lock(hashtext('cdnlite_schema_migration'))");
 
         try {

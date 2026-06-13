@@ -1,0 +1,181 @@
+services:
+  pdns-postgres:
+    build:
+      context: ../../infra/dnsgeo/docker/postgres-primary
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PDNS_POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      PGDATA: /var/lib/postgresql/data
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD}
+      POWERADMIN_DB_PASSWORD: ${POWERADMIN_DB_PASSWORD}
+      REPLICATION_PASSWORD: ${PDNS_REPLICATION_PASSWORD}
+      PG_MAX_WAL_SENDERS: ${PDNS_PG_MAX_WAL_SENDERS}
+      PG_MAX_REPLICATION_SLOTS: ${PDNS_PG_MAX_REPLICATION_SLOTS}
+      PG_WAL_KEEP_SIZE: ${PDNS_PG_WAL_KEEP_SIZE}
+      PG_TLS_DAYS: ${PDNS_PG_TLS_DAYS}
+      PG_TLS_CA_CN: CDNLitePowerDNSCA
+      PG_TLS_SERVER_CN: pdns-postgres
+      PG_TLS_SAN: DNS:pdns-postgres,IP:127.0.0.1
+      PG_REPLICATION_CLIENT_CERT_AUTH: "true"
+    volumes:
+      - pdns-pgdata:/var/lib/postgresql/data
+      - pdns-postgres-tls:/var/lib/postgresql/tls
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /var/lib/postgresql/tls/ca.crt && PGPASSWORD=\"$${POSTGRES_PASSWORD}\" psql \"host=localhost dbname=postgres user=postgres sslmode=verify-ca sslrootcert=/var/lib/postgresql/tls/ca.crt\" -qAt -c 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  pdns-db-init:
+    build:
+      context: ../../infra/dnsgeo/docker/postgres-init
+    depends_on:
+      pdns-postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: pdns-postgres
+      POSTGRES_USER: postgres
+      POSTGRES_SUPERUSER_PASSWORD: ${PDNS_POSTGRES_SUPERUSER_PASSWORD}
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD}
+      POWERADMIN_DB_PASSWORD: ${POWERADMIN_DB_PASSWORD}
+      REPLICATION_PASSWORD: ${PDNS_REPLICATION_PASSWORD}
+    volumes:
+      - pdns-postgres-tls:/certs/postgres:ro
+
+  pdns-mmdb-updater:
+    build:
+      context: ../../infra/dnsgeo/docker/mmdb-updater
+    restart: unless-stopped
+    environment:
+      MMDB_PROVIDER: ${CDNLITE_MMDB_PROVIDER}
+      MMDB_DOWNLOAD_URL: ${CDNLITE_MMDB_DOWNLOAD_URL}
+      MMDB_DOWNLOAD_INTERVAL_SECONDS: ${CDNLITE_MMDB_DOWNLOAD_INTERVAL_SECONDS}
+      MMDB_DOWNLOAD_RETRIES: ${CDNLITE_MMDB_DOWNLOAD_RETRIES}
+      MMDB_EXPECTED_SHA256: ${CDNLITE_MMDB_EXPECTED_SHA256}
+      MMDB_TARGET_FILE: GeoLite2-City.mmdb
+    volumes:
+      - pdns-mmdb:/mmdb
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/mmdb-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 60s
+
+  pdns-recursor:
+    build:
+      context: ../../infra/dnsgeo/docker/pdns-recursor
+    restart: unless-stopped
+    environment:
+      CDNLITE_DNS_BASE_DOMAIN: ${CDNLITE_DNS_BASE_DOMAIN}
+      CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE}
+      PDNS_AUTH_ADDRESS: 172.31.0.54
+    networks:
+      default:
+        ipv4_address: 172.31.0.53
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/recursor-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  pdns-auth:
+    build:
+      context: ../../infra/dnsgeo/docker/pdns-auth
+    restart: unless-stopped
+    depends_on:
+      pdns-postgres:
+        condition: service_healthy
+      pdns-db-init:
+        condition: service_completed_successfully
+      pdns-mmdb-updater:
+        condition: service_healthy
+      pdns-recursor:
+        condition: service_healthy
+    environment:
+      PDNS_DB_HOST: pdns-postgres
+      PDNS_DB_PASSWORD: ${PDNS_DB_PASSWORD}
+      PDNS_GPGSQL_EXTRA_CONNECTION_PARAMETERS: sslmode=verify-ca sslrootcert=/var/lib/postgresql/tls/ca.crt
+      PDNS_API_KEY: ${PDNS_API_KEY}
+      PDNS_WEBSERVER_PASSWORD: ${PDNS_WEBSERVER_PASSWORD}
+      PDNS_WEBSERVER_ALLOW_FROM: ${PDNS_WEBSERVER_ALLOW_FROM}
+      PDNS_GEO_BOOTSTRAP_ZONE_FILE: /etc/powerdns/geo/lua-bootstrap.yml
+      PDNS_GEO_MMDB_FILE: /var/lib/powerdns/mmdb/GeoLite2-City.mmdb
+      PDNS_EDNS_SUBNET_PROCESSING: "yes"
+      PDNS_ENABLE_LUA_RECORDS: "yes"
+      PDNS_EXPAND_ALIAS: "yes"
+      PDNS_RESOLVER: 172.31.0.53:5300
+    volumes:
+      - ../../infra/dnsgeo/geo:/etc/powerdns/geo:ro
+      - pdns-mmdb:/var/lib/powerdns/mmdb:ro
+      - pdns-postgres-tls:/var/lib/postgresql/tls:ro
+    ports:
+      - "${PDNS_DNS_BIND_ADDRESS}:${PDNS_DNS_PORT}:53/udp"
+      - "${PDNS_DNS_BIND_ADDRESS}:${PDNS_DNS_PORT}:53/tcp"
+      - "${PDNS_API_BIND_ADDRESS}:${PDNS_API_PORT}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/pdns-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    networks:
+      default:
+        ipv4_address: 172.31.0.54
+
+  poweradmin:
+    build:
+      context: ../../infra/dnsgeo/docker/poweradmin
+      args:
+        POWERADMIN_TAG: ${POWERADMIN_TAG}
+    restart: unless-stopped
+    depends_on:
+      pdns-db-init:
+        condition: service_completed_successfully
+      pdns-auth:
+        condition: service_healthy
+    environment:
+      PA_CREATE_ADMIN: "true"
+      PA_ADMIN_USERNAME: ${POWERADMIN_ADMIN_USERNAME}
+      PA_ADMIN_PASSWORD: ${POWERADMIN_ADMIN_PASSWORD}
+      PA_ADMIN_EMAIL: ${POWERADMIN_ADMIN_EMAIL}
+      PA_ADMIN_FULLNAME: CDNLite DNS Administrator
+      PA_SESSION_KEY: ${POWERADMIN_SESSION_KEY}
+      PA_STYLE: dark
+      PA_TIMEZONE: UTC
+      PA_PDNS_API_URL: http://pdns-auth:8081
+      PA_PDNS_API_KEY: ${PDNS_API_KEY}
+      PA_PDNS_SERVER_NAME: localhost
+      DB_TYPE: pgsql
+      DB_HOST: pdns-postgres
+      DB_USER: poweradmin
+      DB_PASS: ${POWERADMIN_DB_PASSWORD}
+      DB_NAME: pdns
+      DB_SSL: "true"
+      DB_SSL_VERIFY: "true"
+      DB_SSL_CA: /certs/postgres/ca.crt
+      DNS_NS1: ${CDNLITE_DNS_NS1}
+      DNS_NS2: ${CDNLITE_DNS_NS2}
+      DNS_HOSTMASTER: ${CDNLITE_DNS_HOSTMASTER}
+    volumes:
+      - pdns-postgres-tls:/certs/postgres:ro
+    ports:
+      - "${POWERADMIN_BIND_ADDRESS}:${POWERADMIN_PORT}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/poweradmin-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  pdns-pgdata:
+  pdns-postgres-tls:
+  pdns-mmdb:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24

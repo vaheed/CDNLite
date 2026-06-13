@@ -37,12 +37,11 @@ def test_core_exposes_origin_cdn_health_route():
     assert "/cdn-health" in public_index
 
 
-def test_domain_routes_replace_legacy_resource_routes():
+def test_domain_routes_are_registered():
     public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
     assert "'/api/v1/domains'" in public_index
     assert "'/api/v1/domains/{domainId}'" in public_index
     assert "/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes" in public_index
-    assert "/api/v1/sites/" not in public_index
 
 
 def test_router_placeholders_accept_dotted_setting_group_names():
@@ -82,34 +81,6 @@ def test_router_returns_not_found_for_unknown_path():
     try:
         wait_for_server(base_url)
         code, body = request_json(base_url, "GET", "/api/v1/does-not-exist")
-        assert code == 404
-        assert body["error"] == "not_found"
-    finally:
-        server.terminate()
-        server.wait(timeout=5)
-
-
-def test_legacy_sites_geo_route_returns_not_found():
-    port = free_port()
-    base_url = f"http://127.0.0.1:{port}"
-    env = {**os.environ, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage4-token"}
-
-    server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
-        cwd=str(REPO_ROOT),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        env=env,
-    )
-
-    try:
-        wait_for_server(base_url)
-        code, body = request_json(
-            base_url,
-            "GET",
-            "/api/v1/sites/domain-1/dns-records/record-1/geo-routes",
-            headers={"Authorization": "Bearer stage4-token"},
-        )
         assert code == 404
         assert body["error"] == "not_found"
     finally:

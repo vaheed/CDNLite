@@ -70,13 +70,6 @@ class DnsPublishingPlanner
         $canonical = $this->canonicalHostname((string) ($record['id'] ?? ''), (string) $domain['id']);
 
         if ($isApex) {
-            if ($policy === 'standard' && in_array($origin['type'], ['A', 'AAAA'], true)) {
-                $contents = $this->activeEdgeIps($origin['type']);
-                if ($contents === []) {
-                    throw new \RuntimeException('no_healthy_edge_ips_for_apex');
-                }
-                return $this->result($origin['type'], $contents[0], $policy, null, $contents);
-            }
             return $this->result('ALIAS', $canonical, $policy);
         }
         return $this->result('CNAME', $canonical, $policy);
@@ -85,17 +78,14 @@ class DnsPublishingPlanner
     public function canonicalHostname(string $recordId, string $domainId): string
     {
         $settings = new SettingsRepository();
-        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
-        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
-        return $this->label($recordId) . '.' . $this->label($domainId) . '.' . $prefix . '.' . $base . '.';
+        $zone = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'cdn_zone')), '.');
+        return 'site-' . $this->label($domainId) . '.' . $zone . '.';
     }
 
     public function globalAnycastHostname(): string
     {
         $settings = new SettingsRepository();
-        $base = rtrim(strtolower((string) $settings->value('platform.edge_dns', 'base_domain')), '.');
-        $prefix = strtolower((string) $settings->value('platform.edge_dns', 'zone_prefix'));
-        return 'global.' . $prefix . '.' . $base . '.';
+        return rtrim(strtolower((string) $settings->value('platform.edge_dns', 'proxy_host')), '.') . '.';
     }
 
     private function result(
@@ -114,19 +104,6 @@ class DnsPublishingPlanner
             'powerdns' => $type . ' ' . $content,
             'warning' => $warning,
         ];
-    }
-
-    private function activeEdgeIps(string $type): array
-    {
-        $column = $type === 'AAAA' ? 'public_ipv6' : 'COALESCE(NULLIF(public_ipv4, \'\'), public_ip)';
-        $stmt = Database::pdo()->query(
-            "SELECT {$column} AS ip FROM edge_nodes WHERE status = 'online' AND is_enabled = true ORDER BY ip"
-        );
-        $flag = $type === 'AAAA' ? FILTER_FLAG_IPV6 : FILTER_FLAG_IPV4;
-        return array_values(array_filter(array_map(
-            static fn(array $row): string => trim((string) ($row['ip'] ?? '')),
-            $stmt->fetchAll()
-        ), static fn(string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, $flag) !== false));
     }
 
     private function domain(string $domainId): ?array

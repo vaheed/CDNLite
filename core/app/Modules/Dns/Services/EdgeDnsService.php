@@ -4,7 +4,6 @@ namespace App\Modules\Dns\Services;
 
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
-use App\Support\Logger;
 
 class EdgeDnsService
 {
@@ -23,85 +22,66 @@ class EdgeDnsService
 
     public function bootstrap(): array
     {
-        $result = $this->ensureBaseZone();
-        if (($result['ok'] ?? false) !== true) {
-            return $result;
-        }
-
-        $this->syncBootstrapRecords();
-        return $this->sync(true);
+        return (new DnsReconciler())->reconcile(true);
     }
 
     public function sync(bool $force = false): array
     {
+        return (new DnsReconciler())->reconcile($force);
+    }
+
+    public function desiredRrsets(): array
+    {
+        $zone = $this->cdnZone();
+        $ttl = $this->ttl();
         $pool = $this->activeEdgePool();
-        $rrsets = $this->buildEdgeRecords($pool);
-        $hash = hash('sha256', json_encode($rrsets, JSON_UNESCAPED_SLASHES) ?: '[]');
-        if (!$force && $this->lastHash() === $hash) {
-            return ['ok' => true, 'skipped' => true, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
-        }
+        $this->persistGeneration($pool);
+        $rrsets = [
+            $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
+        ];
 
-        if (!$this->powerDns->isEnabled()) {
-            return ['ok' => true, 'powerdns_enabled' => false, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
-        }
-
-        $zoneResult = $this->ensureBaseZone();
-        if (($zoneResult['ok'] ?? false) !== true) {
-            return $zoneResult;
-        }
-
-        foreach ($rrsets as $rrset) {
-            $result = $this->powerDns->syncReplace(
-                $this->baseDomain(),
-                (string) $rrset['name'],
-                (string) $rrset['type'],
-                (int) $rrset['ttl'],
-                (string) $rrset['content']
-            );
-            if (($result['ok'] ?? false) !== true) {
-                Logger::error('edge_dns_sync_failed', ['rrset' => $rrset, 'result' => $result]);
-                if ($this->powerDns->isStrict()) {
-                    throw new \RuntimeException((string) ($result['error'] ?? 'edge_dns_sync_failed'));
-                }
-                return $result;
+        foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
+            $ips = array_merge($pool['anycast'][$family], $pool['unicast'][$family]);
+            $content = $this->health->luaRecord($type, $ips);
+            if ($content === null) {
+                continue;
             }
+            $rrsets[] = $this->desired(
+                $this->proxyLabel(),
+                'LUA',
+                $ttl,
+                [$content],
+                'shared_proxy:' . $type
+            );
         }
-
-        $this->saveHash($hash);
-        return ['ok' => true, 'edge_records' => count($rrsets), 'effective_hash' => $hash];
+        $targets = Database::pdo()->query(
+            "SELECT DISTINCT d.id
+             FROM domains d
+             JOIN dns_records r ON r.domain_id = d.id
+             WHERE r.proxied = true AND r.status = 'active'
+             ORDER BY d.id"
+        )->fetchAll();
+        foreach ($targets as $target) {
+            $rrsets[] = $this->desired(
+                'site-' . $this->label((string) $target['id']),
+                'CNAME',
+                $ttl,
+                [$this->proxyHost() . '.'],
+                'site_proxy:' . (string) $target['id']
+            );
+        }
+        return $rrsets;
     }
 
     public function validate(): array
     {
         $pool = $this->activeEdgePool();
-        $records = $this->buildEdgeRecords($pool);
-        $customer = [];
-        $stmt = Database::pdo()->query(
-            'SELECT d.*, s.domain FROM dns_records d JOIN domains s ON s.id = d.domain_id ORDER BY s.domain ASC, d.name ASC'
-        );
-        $projection = new CustomerDnsService();
-        foreach ($stmt->fetchAll() as $row) {
-            $domain = ['domain' => (string) $row['domain']];
-            $record = $this->castDnsRecord((array) $row);
-            $public = $projection->publicRecordFor($domain, $record);
-            $customer[] = [
-                'domain' => (string) $row['domain'],
-                'name' => (string) $record['name'],
-                'proxied' => (bool) $record['proxied'],
-                'public_type' => $public['type'],
-                'public_content' => $public['content'],
-            ];
-        }
-
         return [
-            'edge_base_domain' => $this->baseDomain(),
-            'edge_zone_prefix' => $this->zonePrefix(),
+            'cdn_zone' => $this->cdnZone(),
+            'proxy_host' => $this->proxyHost(),
             'active_edge_nodes' => $pool['nodes'],
-            'generated_edge_hostnames' => array_values(array_unique(array_map(
-                static fn(array $r): string => (string) $r['fqdn'],
-                $records
-            ))),
-            'customer_records' => $customer,
+            'generated_edge_hostnames' => [$this->proxyHost() . '.'],
+            'customer_records' => [],
             'invalid' => $pool['warnings'],
         ];
     }
@@ -109,19 +89,21 @@ class EdgeDnsService
     public function status(): array
     {
         $pool = $this->activeEdgePool();
-        $records = $this->buildEdgeRecords($pool);
-        $state = Database::pdo()->query(
-            'SELECT effective_hash, synced_at FROM edge_dns_state WHERE id = 1 LIMIT 1'
-        )->fetch();
+        $stmt = Database::pdo()->prepare(
+            'SELECT desired_hash, last_success_at FROM dns_sync_state WHERE zone_name = :zone LIMIT 1'
+        );
+        $stmt->execute(['zone' => $this->cdnZone() . '.']);
+        $state = $stmt->fetch();
 
         return [
-            'base_domain' => $this->baseDomain(),
-            'zone_prefix' => $this->zonePrefix(),
+            'cdn_zone' => $this->cdnZone(),
+            'proxy_host' => $this->proxyHost(),
             'powerdns_enabled' => $this->powerDns->isEnabled(),
-            'records' => $records,
+            'records' => $this->desiredRrsets(),
+            'edge_state' => $pool['nodes'],
             'warnings' => $pool['warnings'],
-            'effective_hash' => $state === false ? null : (string) $state['effective_hash'],
-            'synced_at' => $state === false ? null : (int) $state['synced_at'],
+            'effective_hash' => $state === false ? null : (string) $state['desired_hash'],
+            'synced_at' => $state === false ? null : (int) $state['last_success_at'],
         ];
     }
 
@@ -130,235 +112,108 @@ class EdgeDnsService
         if (!$this->powerDns->isEnabled()) {
             return ['ok' => true, 'powerdns_enabled' => false];
         }
-        return $this->powerDns->ensureZone($this->baseDomain());
+        return $this->powerDns->ensureZone($this->cdnZone());
     }
 
-    private function syncBootstrapRecords(): void
+    private function desired(string $name, string $type, int $ttl, array $contents, string $source): array
     {
-        if (!$this->powerDns->isEnabled()) {
-            return;
-        }
-
-        $ttl = $this->ttl();
-        $base = $this->baseDomain();
-        $this->powerDns->syncReplace($base, '@', 'SOA', $ttl, $this->records->soa($base));
-        $this->powerDns->syncReplaceMany($base, '@', 'NS', $ttl, $this->records->nameservers());
-
-        foreach (['CDNLITE_NS1_IP' => 'ns1', 'CDNLITE_NS2_IP' => 'ns2'] as $env => $name) {
-            $ip = trim((string) (getenv($env) ?: ''));
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-                $this->powerDns->syncReplace($base, $name, 'A', $ttl, $ip);
-            }
-        }
-    }
-
-    private function buildEdgeRecords(array $pool): array
-    {
-        $records = [];
-        $prefix = $this->zonePrefix();
-        foreach ($pool['nodes'] as $node) {
-            $name = 'edge-' . $this->normalizeLabel((string) $node['edge_id']);
-            foreach (['A' => 'public_ipv4', 'AAAA' => 'public_ipv6'] as $type => $key) {
-                if (($node[$key] ?? '') !== '') {
-                    $records[] = $this->record($name, $type, (string) $node[$key], 'edge');
-                }
-            }
-        }
-
-        $groups = ['geo.' . $prefix => $pool['geo']];
-        foreach ($pool['regions'] as $region => $ips) {
-            $groups[$region . '.' . $prefix] = $ips;
-        }
-        foreach (['ir', 'eu', 'us'] as $region) {
-            $groups[$region . '.' . $prefix] ??= $pool['regions'][$region] ?? [];
-        }
-
-        foreach ($groups as $name => $ipsByType) {
-            foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $key) {
-                $content = $this->health->luaRecord($type, $ipsByType[$key] ?? []);
-                if ($content === null) {
-                    Logger::warn('edge_dns_empty_pool', ['name' => $name, 'type' => $type]);
-                    continue;
-                }
-                $records[] = [
-                    'name' => $name,
-                    'fqdn' => $this->records->hostname($name, $this->baseDomain()),
-                    'type' => 'LUA',
-                    'ttl' => $this->ttl(),
-                    'content' => $content,
-                ];
-            }
-        }
-
-        foreach (['A' => $this->anycastIps('ipv4'), 'AAAA' => $this->anycastIps('ipv6')] as $type => $ips) {
-            foreach ($ips as $ip) {
-                $records[] = $this->record('global.' . $prefix, $type, $ip, 'anycast');
-            }
-        }
-
-        $stmt = Database::pdo()->query(
-            "SELECT canonical_edge_hostname, routing_policy FROM dns_records
-             WHERE proxied = true AND canonical_edge_hostname IS NOT NULL"
-        );
-        $global = 'global.' . $prefix . '.' . $this->baseDomain() . '.';
-        $geo = 'geo.' . $prefix . '.' . $this->baseDomain() . '.';
-        foreach ($stmt->fetchAll() as $row) {
-            $fqdn = rtrim((string) $row['canonical_edge_hostname'], '.');
-            $suffix = '.' . $this->baseDomain();
-            $name = str_ends_with($fqdn, $suffix) ? substr($fqdn, 0, -strlen($suffix)) : $fqdn;
-            $anycast = in_array((string) $row['routing_policy'], ['anycast', 'geo_anycast'], true);
-            $records[] = $this->record($name, 'CNAME', $anycast ? $global : $geo, $anycast ? 'anycast-record' : 'proxied-record');
-        }
-
-        usort($records, static fn(array $a, array $b): int => strcmp($a['fqdn'] . $a['type'] . $a['content'], $b['fqdn'] . $b['type'] . $b['content']));
-        return $records;
-    }
-
-    private function record(string $name, string $type, string $content, string $mode): array
-    {
-        return [
-            'name' => $name,
-            'fqdn' => $this->records->hostname($name, $this->baseDomain()),
-            'type' => $type,
-            'ttl' => $this->ttl(),
-            'content' => $content,
-            'mode' => $mode,
+        $zone = $this->cdnZone() . '.';
+        $rrset = [
+            'zone_name' => $zone,
+            'rrset_name' => $name === '@' ? $zone : strtolower($name) . '.' . $zone,
+            'rrset_type' => strtoupper($type),
+            'ttl' => $ttl,
+            'records' => array_values($contents),
+            'source' => $source,
         ];
+        $rrset['desired_hash'] = hash('sha256', json_encode($rrset, JSON_UNESCAPED_SLASHES) ?: '[]');
+        return $rrset;
     }
 
     private function activeEdgePool(): array
     {
-        $stmt = Database::pdo()->query(
-            "SELECT * FROM edge_nodes
-             WHERE status = 'online' AND is_enabled = true
-             ORDER BY region ASC, public_ipv4 ASC, public_ipv6 ASC, public_ip ASC"
-        );
-
+        $rows = Database::pdo()->query(
+            'SELECT * FROM edge_state ORDER BY anycast DESC, region ASC, edge_id ASC, ip_family ASC, ip ASC'
+        )->fetchAll();
         $nodes = [];
         $warnings = [];
-        $geo = ['ipv4' => [], 'ipv6' => []];
-        $regions = [];
-        foreach ($stmt->fetchAll() as $row) {
-            $ipv4 = trim((string) ($row['public_ipv4'] ?: $row['public_ip'] ?? ''));
-            $ipv6 = trim((string) ($row['public_ipv6'] ?? ''));
-            $region = $this->normalizeRegion((string) ($row['region'] ?? ''));
-            $country = $this->normalizeCode((string) ($row['country'] ?? ''));
-            $continent = $this->normalizeCode((string) ($row['continent'] ?? ''));
-            $valid4 = $ipv4 !== '' && filter_var($ipv4, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
-            $valid6 = $ipv6 !== '' && filter_var($ipv6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
-            if (!$valid4 && !$valid6) {
-                $warnings[] = ['edge_id' => (string) $row['edge_id'], 'error' => 'no_valid_public_ip'];
+        $anycast = ['ipv4' => [], 'ipv6' => []];
+        $unicast = ['ipv4' => [], 'ipv6' => []];
+
+        foreach ($rows as $row) {
+            if (!(bool) $row['healthy']) {
+                $warnings[] = ['edge_id' => (string) $row['edge_id'], 'error' => 'edge_not_healthy'];
                 continue;
             }
-
-            $regions[$region] ??= ['ipv4' => [], 'ipv6' => []];
-            if ($valid4) {
-                if (((int) ($row['geo_enabled'] ?? 1)) === 1) {
-                    $geo['ipv4'][$ipv4] = $ipv4;
-                    $regions[$region]['ipv4'][$ipv4] = $ipv4;
-                }
-            }
-            if ($valid6) {
-                if (((int) ($row['geo_enabled'] ?? 1)) === 1) {
-                    $geo['ipv6'][$ipv6] = $ipv6;
-                    $regions[$region]['ipv6'][$ipv6] = $ipv6;
-                }
+            $ip = trim((string) $row['ip']);
+            $family = (string) $row['ip_family'] === 'AAAA' ? 'ipv6' : 'ipv4';
+            $bucket = (bool) $row['anycast'] ? 'anycast' : 'unicast';
+            if ($bucket === 'anycast') {
+                $anycast[$family][$ip] = $ip;
+            } else {
+                $unicast[$family][$ip] = $ip;
             }
             $nodes[] = [
                 'edge_id' => (string) $row['edge_id'],
-                'hostname' => (string) $row['hostname'],
-                'public_ipv4' => $valid4 ? $ipv4 : '',
-                'public_ipv6' => $valid6 ? $ipv6 : '',
-                'region' => $region,
-                'country' => $country,
-                'continent' => $continent,
-                'health_status' => (string) ($row['health_status'] ?? 'unknown'),
-                'geo_enabled' => ((int) ($row['geo_enabled'] ?? 1)) === 1,
-                'anycast_enabled' => ((int) ($row['anycast_enabled'] ?? 0)) === 1,
+                'ip' => $ip,
+                'ip_family' => (string) $row['ip_family'],
+                'region' => (string) $row['region'],
+                'anycast' => (bool) $row['anycast'],
+                'healthy' => true,
+                'last_check_at' => (int) $row['last_check_at'],
             ];
         }
 
-        foreach ($regions as $region => $ips) {
-            $regions[$region] = ['ipv4' => array_values($ips['ipv4']), 'ipv6' => array_values($ips['ipv6'])];
+        foreach (['ipv4', 'ipv6'] as $family) {
+            ksort($anycast[$family]);
+            ksort($unicast[$family]);
         }
         return [
             'nodes' => $nodes,
             'warnings' => $warnings,
-            'geo' => ['ipv4' => array_values($geo['ipv4']), 'ipv6' => array_values($geo['ipv6'])],
-            'regions' => $regions,
+            'anycast' => ['ipv4' => array_values($anycast['ipv4']), 'ipv6' => array_values($anycast['ipv6'])],
+            'unicast' => ['ipv4' => array_values($unicast['ipv4']), 'ipv6' => array_values($unicast['ipv6'])],
         ];
     }
 
-    private function castDnsRecord(array $row): array
+    private function persistGeneration(array $pool): void
     {
-        $row['proxied'] = ((int) $row['proxied']) === 1;
-        return $row;
+        $hash = hash('sha256', json_encode($pool['nodes'], JSON_UNESCAPED_SLASHES) ?: '[]');
+        Database::pdo()->prepare(
+            'INSERT INTO edge_state_generations (state_hash, created_at)
+             VALUES (:hash, :created_at) ON CONFLICT (state_hash) DO NOTHING'
+        )->execute(['hash' => $hash, 'created_at' => time()]);
     }
 
-    private function normalizeRegion(string $region): string
+    private function cdnZone(): string
     {
-        $region = strtolower(trim($region));
-        $region = preg_replace('/[^a-z0-9-]/', '-', $region) ?? '';
-        $region = trim($region, '-');
-        return $region === '' ? 'global' : $region;
+        return rtrim(strtolower((string) $this->settings->value('platform.edge_dns', 'cdn_zone')), '.');
     }
 
-    private function normalizeCode(string $code): string
+    private function proxyHost(): string
     {
-        $code = strtoupper(trim($code));
-        return preg_match('/^[A-Z]{2}$/', $code) === 1 ? $code : '';
+        $host = rtrim(strtolower((string) $this->settings->value('platform.edge_dns', 'proxy_host')), '.');
+        $suffix = '.' . $this->cdnZone();
+        if ($host === $this->cdnZone() || !str_ends_with($host, $suffix)) {
+            throw new \RuntimeException('cdn_proxy_host_must_belong_to_cdn_zone');
+        }
+        return $host;
     }
 
-    private function normalizeLabel(string $value): string
+    private function proxyLabel(): string
     {
-        $value = strtolower(trim($value));
-        $value = preg_replace('/[^a-z0-9-]/', '-', $value) ?? '';
-        return trim($value, '-') ?: 'unknown';
-    }
-
-    private function lastHash(): ?string
-    {
-        $stmt = Database::pdo()->query('SELECT effective_hash FROM edge_dns_state WHERE id = 1 LIMIT 1');
-        $value = $stmt->fetchColumn();
-        return is_string($value) ? $value : null;
-    }
-
-    private function saveHash(string $hash): void
-    {
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO edge_dns_state (id, effective_hash, synced_at)
-             VALUES (1, :hash, :synced_at)
-             ON CONFLICT(id) DO UPDATE SET effective_hash = excluded.effective_hash, synced_at = excluded.synced_at'
-        );
-        $stmt->execute([':hash' => $hash, ':synced_at' => time()]);
-    }
-
-    private function baseDomain(): string
-    {
-        return rtrim(strtolower((string) $this->settings->value('platform.edge_dns', 'base_domain')), '.');
-    }
-
-    private function zonePrefix(): string
-    {
-        return strtolower((string) $this->settings->value('platform.edge_dns', 'zone_prefix'));
+        return substr($this->proxyHost(), 0, -strlen('.' . $this->cdnZone()));
     }
 
     private function ttl(): int
     {
-        $ttl = (int) (getenv('CDNLITE_EDGE_TTL') ?: 60);
-        return $ttl > 0 ? $ttl : 60;
+        $interval = (int) (getenv('CDNLITE_SYNC_INTERVAL_SECONDS') ?: 30);
+        return max(30, $interval * 2);
     }
 
-    private function anycastIps(string $family): array
+    private function label(string $value): string
     {
-        $flag = $family === 'ipv4' ? FILTER_FLAG_IPV4 : FILTER_FLAG_IPV6;
-        $ips = [];
-        foreach ([1, 2] as $index) {
-            $ip = trim((string) $this->settings->value('platform.edge_dns', 'anycast_' . $family . '_' . $index));
-            if (filter_var($ip, FILTER_VALIDATE_IP, $flag) !== false) {
-                $ips[] = $ip;
-            }
-        }
-        return array_values(array_unique($ips));
+        $value = strtolower(preg_replace('/[^a-zA-Z0-9-]/', '', $value) ?? '');
+        return trim($value, '-') ?: 'site';
     }
 }

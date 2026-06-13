@@ -14,7 +14,7 @@ def test_global_security_and_audit_routes_are_registered():
 
 def test_operations_log_service_supports_required_filters_and_pagination():
     service = (ROOT / "core/app/Modules/Operations/Services/OperationsLogService.php").read_text()
-    for field in ["domain_id", "edge_id", "type", "ip", "from", "to", "actor", "action", "resource_type"]:
+    for field in ["domain_id", "edge_id", "type", "ip", "search", "from", "to", "actor", "action", "resource_type"]:
         assert f"'{field}'" in service
     assert "LIMIT :limit OFFSET :offset" in service
     assert "top_ips" in service
@@ -36,3 +36,16 @@ def test_dashboard_exposes_security_events_and_audit_log_pages():
     assert "/audit-log" in router and "/audit-log" in nav
     assert (ROOT / "dash/src/views/SecurityEventsView.vue").exists()
     assert (ROOT / "dash/src/views/AuditLogView.vue").exists()
+
+
+def test_domain_activity_view_is_paginated_and_domain_scoped():
+    detail = (ROOT / "dash/src/views/DomainDetailView.vue").read_text()
+    activity = (ROOT / "dash/src/views/domain-tabs/DomainActivityTab.vue").read_text()
+    pagination = (ROOT / "dash/src/components/ui/PaginationControls.vue").read_text()
+
+    assert "DomainActivityTab" in detail
+    assert "key: 'activity'" in detail
+    assert "domain_id: props.domainId" in activity
+    assert activity.count("<PaginationControls") == 2
+    assert "Search details" in activity
+    assert "Rows" in pagination

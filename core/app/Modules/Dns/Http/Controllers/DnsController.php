@@ -97,12 +97,20 @@ class DnsController
 
         $input['type'] = strtoupper((string) $type['value']);
         $input['name'] = $name['value'];
-        $contentByType = Validator::dnsRecordContent($input['type'], (string) $content['value']);
+        $contentByType = $this->validateRecordContent(
+            $input['type'],
+            (string) $content['value'],
+            (bool) ($input['proxied'] ?? false)
+        );
         if (($contentByType['ok'] ?? false) !== true) {
             return $contentByType;
         }
         $input['content'] = $contentByType['value'];
         $input['ttl'] = $ttl['value'];
+        $apex = $this->validateApexType($input['name'], $input['type'], (bool) ($input['proxied'] ?? false));
+        if ($apex !== null) {
+            return $apex;
+        }
 
         try {
             return ['data' => $this->service->create($domainId, $input)];
@@ -111,7 +119,7 @@ class DnsController
             if ($message === 'domain_not_found') {
                 return ['error' => 'domain_not_found', 'status' => 404];
             }
-            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true)) {
+            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
                 return ['error' => $message, 'status' => 422];
             }
             $payload = ['error' => $message, 'status' => 502];
@@ -160,7 +168,11 @@ class DnsController
         if (array_key_exists('type', $input) && array_key_exists('content', $input)) {
             $typeValue = (string) $input['type'];
             $contentValue = (string) $input['content'];
-            $contentByType = Validator::dnsRecordContent($typeValue, $contentValue);
+            $contentByType = $this->validateRecordContent(
+                $typeValue,
+                $contentValue,
+                (bool) ($input['proxied'] ?? false)
+            );
             if (($contentByType['ok'] ?? false) !== true) {
                 return $contentByType;
             }
@@ -172,12 +184,23 @@ class DnsController
                 return $ttl;
             }
         }
+        $current = $this->service->find($domainId, $recordId);
+        if ($current !== null) {
+            $apex = $this->validateApexType(
+                (string) ($input['name'] ?? $current['name']),
+                (string) ($input['type'] ?? $current['type']),
+                (bool) ($input['proxied'] ?? $current['proxied'])
+            );
+            if ($apex !== null) {
+                return $apex;
+            }
+        }
 
         try {
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'no_healthy_edge_ips_for_apex'], true) ? 422 : 502;
+            $status = in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502;
             $payload = ['error' => $message, 'status' => $status];
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
@@ -222,9 +245,6 @@ class DnsController
 
     private function validateOriginOptions(array &$input): ?array
     {
-        if (array_key_exists('origin_port', $input)) {
-            return ['error' => 'origin_port_not_supported', 'field' => 'origin_port', 'status' => 422];
-        }
         if (array_key_exists('origin_host', $input)) {
             $host = Validator::optionalString($input, 'origin_host', 255);
             if (($host['ok'] ?? false) !== true) {
@@ -260,5 +280,22 @@ class DnsController
             return ['error' => 'anycast_requires_proxied_record', 'field' => 'routing_policy', 'status' => 422];
         }
         return null;
+    }
+
+    private function validateApexType(string $name, string $type, bool $proxied): ?array
+    {
+        $name = strtolower(rtrim(trim($name), '.'));
+        if (($name === '' || $name === '@') && !$proxied && strtoupper($type) === 'CNAME') {
+            return ['error' => 'apex_cname_not_allowed', 'field' => 'type', 'status' => 422];
+        }
+        return null;
+    }
+
+    private function validateRecordContent(string $type, string $content, bool $proxied): array
+    {
+        if ($proxied && in_array(strtoupper(trim($type)), ['A', 'AAAA'], true)) {
+            return Validator::originHost($content, 'content');
+        }
+        return Validator::dnsRecordContent($type, $content);
     }
 }

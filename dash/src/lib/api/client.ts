@@ -66,7 +66,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const payload = text ? safeJson(text) : null;
     if (!response.ok) {
       const raw = extractErrorCode(payload) ?? `HTTP ${response.status}`;
-      throw new CdnLiteApiError(response.status, humanizeApiError(raw), payload, raw);
+      throw new CdnLiteApiError(response.status, formatApiError(payload, raw), payload, raw);
     }
     return unwrap<T>(payload);
   } catch (error) {
@@ -99,7 +99,6 @@ export function humanizeApiError(code: string): string {
     name_required: 'Domain name is required.',
     domain_required: 'Domain is required.',
     origin_host_required: 'Origin host is required.',
-    origin_port_not_supported: 'Custom origin ports are not supported. Origins use HTTPS/443 with HTTP/80 fallback.',
     domain_already_exists: 'Unable to create domain. Domain already exists.',
     invalid_json: 'The request body contains invalid JSON.',
     internal_server_error: 'The server hit an internal error. Try again or check the core logs.',
@@ -109,6 +108,19 @@ export function humanizeApiError(code: string): string {
     return normalized.replaceAll('_', ' ').replace(/^\w/, (char) => char.toUpperCase()) + '.';
   }
   return code;
+}
+
+function formatApiError(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    if (typeof record.detail === 'string') {
+      const detail = humanizeApiError(record.detail);
+      return typeof record.field === 'string'
+        ? `${humanizeApiError(record.field).replace(/\.$/, '')}: ${detail}`
+        : detail;
+    }
+  }
+  return humanizeApiError(fallback);
 }
 
 function unwrap<T>(payload: unknown): T {

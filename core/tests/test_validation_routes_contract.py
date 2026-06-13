@@ -37,6 +37,27 @@ def require_db_or_skip() -> None:
         pytest.skip("PostgreSQL is not reachable in this test environment")
 
 
+def reset_powerdns_settings() -> None:
+    script = r'''
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
+$pdo->exec("DELETE FROM platform_settings WHERE group_name = 'platform.powerdns'");
+'''
+    subprocess.run(
+        ["php", "-r", script],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, **TEST_ENV},
+    )
+
+
 def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
@@ -72,6 +93,7 @@ def request_json(base_url: str, method: str, path: str, body: dict | None = None
 
 def test_route_validation_returns_invalid_field_for_new_guards():
     require_db_or_skip()
+    reset_powerdns_settings()
 
     port = free_port()
     base_url = f"http://127.0.0.1:{port}"

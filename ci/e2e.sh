@@ -9,7 +9,7 @@ EDGE_URL="${EDGE_URL:-http://localhost:${EDGE_HOST_PORT:-8081}}"
 DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:${DASHBOARD_PORT:-8082}}"
 POWERDNS_API_URL="${POWERDNS_API_URL:-http://localhost:8089}"
 POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-$POWERDNS_API_URL}"
-POWERDNS_API_KEY="${POWERDNS_API_KEY:-test-key}"
+PDNS_API_KEY="${PDNS_API_KEY:-test-key}"
 EDGE_ID="${EDGE_ID:-edge-local-1}"
 EDGE_TOKEN="${EDGE_TOKEN:-edge-dev-token}"
 EDGE_TLS_URL="${EDGE_TLS_URL:-https://localhost:${EDGE_TLS_HOST_PORT:-8443}}"
@@ -18,7 +18,7 @@ CI_ENV_NAME="${CI_ENV_NAME:-e2e}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin-e2e}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin-e2e-password-12345}"
 ADMIN_SESSION_TOKEN=""
-export CORE_URL EDGE_URL DASHBOARD_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL POWERDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME ADMIN_SESSION_TOKEN
+export CORE_URL EDGE_URL DASHBOARD_URL EDGE_TLS_URL POWERDNS_API_URL POWERDNS_PUBLIC_API_URL PDNS_API_KEY EDGE_ID EDGE_TOKEN CI_ENV_NAME ADMIN_SESSION_TOKEN
 
 RUN_KEY="${GITHUB_RUN_ID:-local}-$RANDOM"
 TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
@@ -45,7 +45,7 @@ on_error() {
   fi
   docker compose ps || true
   docker compose logs --no-color || true
-  for svc in core edge edge-agent dashboard postgres origin-tls origin-http powerdns; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-recursor pdns-auth poweradmin; do
     if compose_has_service "$svc"; then
       echo "----- ${svc} (tail 200) -----"
       docker compose logs --no-color --tail=200 "$svc" || true
@@ -161,6 +161,26 @@ login_admin() {
   export ADMIN_SESSION_TOKEN
 }
 
+api_post_with_powerdns_retry() {
+  local url="$1"
+  local body="$2"
+  local attempts="${3:-20}"
+  local sleep_seconds="${4:-2}"
+  local attempt=1
+
+  while true; do
+    api_post "$url" "$body"
+    if [[ "$HTTP_CODE" != "502" || "$HTTP_BODY" != *'"error":"powerdns_api_error"'* ]]; then
+      return 0
+    fi
+    if [[ "$attempt" -ge "$attempts" ]]; then
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    sleep "$sleep_seconds"
+  done
+}
+
 edge_wait_status() {
   local host="$1"
   local expected="$2"
@@ -180,6 +200,21 @@ edge_config_has_host() {
 edge_wait_config_host() {
   local host="$1"
   retry 40 1 edge_config_has_host "$host"
+}
+
+edge_is_healthy() {
+  [[ "$(db_query "SELECT COUNT(*) FROM edge_nodes
+    WHERE edge_id='${EDGE_ID}' AND status='online' AND health_status='healthy'
+      AND COALESCE(last_heartbeat_at, last_heartbeat) > EXTRACT(EPOCH FROM NOW())::BIGINT - 90;")" == "1" ]]
+}
+
+pdns_zone_is_ready() {
+  local zone="$1"
+  local output="$2"
+  curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
+    "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${zone}" \
+    -o "$output" &&
+    jq -e --arg zone "$zone" '.name == $zone' "$output" >/dev/null
 }
 
 agent_exec() {
@@ -259,13 +294,13 @@ record_step PASS "admin-login" "admin session established"
 
 powerdns_enabled=false
 powerdns_strict=false
-[[ "${POWERDNS_ENABLED:-0}" == "1" ]] && powerdns_enabled=true
-[[ "${POWERDNS_STRICT:-0}" == "1" ]] && powerdns_strict=true
+[[ "${POWERDNS_ENABLED:-1}" == "1" ]] && powerdns_enabled=true
+[[ "${POWERDNS_STRICT:-1}" == "1" ]] && powerdns_strict=true
 settings_code="$(curl -sS -o /tmp/e2e-powerdns-settings.json -w '%{http_code}' \
   -X PATCH "${CORE_URL}/api/v1/settings/platform.powerdns" \
   -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
   -H 'Content-Type: application/json' \
-  -d "{\"values\":{\"enabled\":${powerdns_enabled},\"strict\":${powerdns_strict},\"api_url\":\"http://powerdns:8081\",\"api_key\":\"${POWERDNS_API_KEY}\",\"server_id\":\"localhost\"}}")"
+    -d "{\"values\":{\"enabled\":${powerdns_enabled},\"strict\":${powerdns_strict},\"api_url\":\"http://pdns-auth:8081\",\"api_key\":\"${PDNS_API_KEY}\",\"server_id\":\"localhost\"}}")"
 assert_eq "$settings_code" "200" "PowerDNS settings update should return 200"
 assert_contains "$(cat /tmp/e2e-powerdns-settings.json)" '"api_key":{"configured":true' "PowerDNS secret should be masked"
 record_step PASS "platform-settings" "PowerDNS configured through settings API"
@@ -281,9 +316,10 @@ fi
 docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE_ID" --token="$EDGE_TOKEN" >/dev/null
 agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
+retry 20 1 edge_is_healthy
 agent_exec '/agent/pull_config.sh' >/dev/null || true
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
-record_step PASS "edge-token-register" "edge token provisioned"
+record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
 
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
   no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/domains" \
@@ -304,17 +340,12 @@ api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
 assert_http_status "$HTTP_CODE" "200" "domain activation failed"
 record_step PASS "domain-activate" "domain activated with development override"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
 assert_http_status "$HTTP_CODE" "201" "primary proxied DNS create failed"
 PRIMARY_DNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
 DNS_IDS+=("$PRIMARY_DNS_ID")
 record_step PASS "dns-origin-create" "record-level origin, proxy, TLS mode, and geo origins stored"
-
-api_post "${CORE_URL}/api/v1/domains" "{\"name\":\"legacy-port\",\"domain\":\"legacy-port-${RUN_KEY}.test.local\",\"origin_port\":8080}"
-assert_http_status "$HTTP_CODE" "422" "legacy origin_port should be rejected"
-assert_contains "$HTTP_BODY" "origin_port_not_supported" "legacy origin_port error code missing"
-record_step PASS "origin-port-rejected" "legacy domain payload rejected clearly"
 
 domain_count="$(db_query "SELECT COUNT(*) FROM domains WHERE id='${DOMAIN_ID}' AND domain='${TEST_DOMAIN}';")"
 assert_eq "$domain_count" "1" "domain missing in db"
@@ -347,10 +378,6 @@ asset_headers="$(docker compose exec -T dashboard wget -S -qO- "http://127.0.0.1
 assert_contains "$asset_headers" "Cache-Control: public, immutable" "dashboard asset should use immutable cache headers"
 record_step PASS "dashboard-static-asset-cache" "Vue dashboard static asset cache headers verified"
 
-backend_dashboard_code="$(curl -sS -o /tmp/e2e-backend-dashboard.json -w '%{http_code}' "${CORE_URL}/dashboard/domains" $(api_auth_header_args))"
-assert_eq "$backend_dashboard_code" "404" "backend dashboard routes should be removed"
-record_step PASS "backend-dashboard-removed" "legacy /dashboard routes return 404"
-
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated"}'
 assert_http_status "$HTTP_CODE" "200" "domain update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"
@@ -373,11 +400,11 @@ api_patch "${CORE_URL}/api/v1/domains/99999999" '{"name":"nope"}'
 assert_http_status "$HTTP_CODE" "404" "unknown domain should 404"
 record_step PASS "domain-validation-unknown" "unknown domain 404"
 
-http_request PUT "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limit" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}' "$(api_auth_header_args)"
-assert_http_status "$HTTP_CODE" "200" "rate-limit v2 update failed"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":30,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"block"}'
+assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
 rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
 assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
-record_step PASS "rate-limit-v2" "path_prefix=/login key_type=ip_path"
+record_step PASS "rate-limit-current" "path_prefix=/login key_type=ip_path"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":15,"path_prefix":"/api/","key_type":"ip_path","priority":20,"action":"block"}'
 assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
@@ -463,7 +490,7 @@ create_dns() {
   rid="$(json_get "$HTTP_BODY" '.data.id')"
   DNS_IDS+=("$rid")
 }
-create_dns '{"type":"AAAA","name":"@","content":"2606:4700:4700::1111","ttl":300,"proxied":false}'
+create_dns '{"type":"AAAA","name":"ipv6","content":"2606:4700:4700::1111","ttl":300,"proxied":false}'
 create_dns "{\"type\":\"CNAME\",\"name\":\"www\",\"content\":\"${TEST_DOMAIN}.\",\"ttl\":300,\"proxied\":false}"
 create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"proxied":false}'
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
@@ -547,18 +574,25 @@ assert_http_status "$HTTP_CODE" "200" "dns delete failed"
 DNS_IDS[3]=""
 record_step PASS "dns-delete-one" "deleted id=${del_id}"
 
-# PowerDNS sync checks (mock service from the Compose powerdns profile)
-if [[ "${POWERDNS_ENABLED:-0}" == "1" ]]; then
-  retry 20 1 curl -fsS "${POWERDNS_PUBLIC_API_URL}/health" >/dev/null
-  zone_json="$(pdns_get "/api/v1/servers/localhost/zones/${TEST_DOMAIN}.")"
-  assert_contains "$zone_json" "\"name\":\"${TEST_DOMAIN}.\"" "pdns zone lookup failed"
-  assert_contains "$zone_json" "\"type\":\"A\"" "pdns missing flattened proxied apex A record"
-  record_step PASS "powerdns-sync-positive" "records present in pdns mock"
+# PowerDNS sync checks against the real DNSGeo/PowerDNS service.
+if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
+  retry 20 1 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
+    "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost" >/dev/null
+  zone_file="$(mktemp)"
+  retry 40 1 pdns_zone_is_ready "${TEST_DOMAIN}." "$zone_file"
+  zone_json="$(cat "$zone_file")"
+  rm -f "$zone_file"
+  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and .type == "ALIAS") | .type' <<<"$zone_json")"
+  assert_eq "$apex_type" "ALIAS" "proxied apex must be stored as PowerDNS ALIAS"
+  if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$zone_json" >/dev/null; then
+    fail "proxied apex must not contain Core-written A/AAAA rrsets"
+  fi
+  record_step PASS "powerdns-sync-positive" "proxied apex is an ALIAS in real PowerDNS"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
     -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
     -H "Content-Type: application/json" -H "X-API-Key: bad-key" -d '{"rrsets":[]}')"
-  assert_eq "$bad_code" "403" "pdns strict negative key test failed"
+  assert_eq "$bad_code" "401" "pdns strict negative key test failed"
   record_step PASS "powerdns-negative-auth" "bad key rejected"
 fi
 

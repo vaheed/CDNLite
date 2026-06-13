@@ -10,15 +10,12 @@ def read(path: str) -> str:
 
 def test_header_and_ip_rule_schema_contract():
     schema = read("core/database/schema.sql")
-    migration = read("core/database/migrations/028_header_and_ip_rules.sql")
 
     assert "CREATE TABLE IF NOT EXISTS domain_header_rules" in schema
     assert "operation TEXT NOT NULL" in schema
     assert "CHECK (operation IN ('set', 'remove', 'append'))" in schema
     assert "CREATE TABLE IF NOT EXISTS domain_ip_rules" in schema
     assert "CHECK (rule_type IN ('allow', 'block'))" in schema
-    assert "CREATE TABLE IF NOT EXISTS domain_header_rules" in migration
-    assert "CREATE TABLE IF NOT EXISTS domain_ip_rules" in migration
 
 
 def test_header_and_ip_rule_api_and_cli_contract():

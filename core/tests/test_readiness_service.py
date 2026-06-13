@@ -27,6 +27,18 @@ def test_snapshot_readiness_belongs_to_core_group_not_edge_nodes():
     assert "$this->identityCheck()" in edge_checks
 
 
+def test_snapshot_readiness_links_to_an_existing_operational_page():
+    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    router = (ROOT / "dash/src/router/index.ts").read_text()
+    snapshot_check = service.split("private function snapshotCheck(): array", 1)[1].split(
+        "private function certificateExpiryCheck(): array", 1
+    )[0]
+
+    assert "'/config-snapshot'" not in snapshot_check
+    assert snapshot_check.count("'/edge-nodes'") == 2
+    assert "{ path: '/edge-nodes'" in router
+
+
 def test_powerdns_missing_configuration_is_detectable():
     php = r"""
 require 'core/app/Support/bootstrap.php';

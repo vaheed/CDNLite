@@ -63,7 +63,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
-  Activity, BarChart3, Database, Gauge, Globe2, LockKeyhole,
+  Activity, BarChart3, Database, FileClock, Gauge, Globe2, LockKeyhole,
   ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, SlidersHorizontal,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
@@ -85,6 +85,7 @@ import DomainAnalyticsTab from './domain-tabs/DomainAnalyticsTab.vue';
 import DomainHeadersTab from './domain-tabs/DomainHeadersTab.vue';
 import DomainIpRulesTab from './domain-tabs/DomainIpRulesTab.vue';
 import DomainOriginsTab from './domain-tabs/DomainOriginsTab.vue';
+import DomainActivityTab from './domain-tabs/DomainActivityTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -108,6 +109,7 @@ const wafTabs = [
 ];
 const secondaryTabs = [
   { key: 'analytics', label: 'Analytics', icon: BarChart3, component: DomainAnalyticsTab },
+  { key: 'activity', label: 'Activity', icon: FileClock, component: DomainActivityTab },
 ];
 const tabGroups = [
   { tabs: mainTabs },

@@ -1,2 +1,0 @@
--- Reserved for Stage 7+ cache purge requests.
--- Intentionally no-op in Stage 5.

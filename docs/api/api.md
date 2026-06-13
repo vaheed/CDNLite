@@ -4,7 +4,7 @@ Base URL in local Compose: `http://localhost:8080`.
 
 All responses are JSON. Route handlers commonly return either `{ "data": ... }`, `{ "ok": true }`, or `{ "error": "error_code" }`.
 
-Machine-readable contract: [OpenAPI YAML](/api/openapi.yaml).
+Machine-readable contract: [OpenAPI YAML](openapi.yaml).
 
 ## Client Integration Tips
 
@@ -137,7 +137,7 @@ curl -s http://localhost:8080/api/v1/readiness \
 | Method | Route | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/health` | No | Core liveness. |
-| `GET` | `/cdn-health` | No | Core CDN health endpoint. |
+| `GET` | `/cdn-health` | No | Structured Core, edge, PowerDNS API, and persisted DNS sync health. |
 | `GET` | `/ready` | No | PostgreSQL, schema, config generation, and API token readiness. |
 | `GET` | `/api/v1/readiness` | Protected | Detailed readiness model for dashboard. |
 
@@ -266,6 +266,9 @@ DNS tips:
 
 - Keep MX, TXT verification, SPF, DKIM, and DMARC records DNS-only.
 - Use proxied records only for HTTP/HTTPS traffic intended for the CDN edge.
+- A proxied apex (`@`) publishes `ALIAS` to the domain's stable CDN site
+  target. A proxied subdomain publishes `CNAME` to the same target.
+- A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.
 - Keep TTL low during migration, then increase it after a stable cutover.
 - Use `preview-routing` before changing Geo DNS routes on a production record.
 - For apex anycast records, make sure global anycast settings exist before switching policy.
@@ -304,7 +307,6 @@ Origin tips:
 | Feature | Routes |
 | --- | --- |
 | Redirects | `/api/v1/domains/{domainId}/redirects`, import/export/test variants. |
-| Legacy rate limit | `PUT`, `GET`, `DELETE /api/v1/domains/{domainId}/rate-limit`. |
 | Rate-limit rules | CRUD `/api/v1/domains/{domainId}/rate-limits`. |
 | WAF rules | CRUD `/api/v1/domains/{domainId}/waf-rules`. |
 | Header rules | CRUD `/api/v1/domains/{domainId}/headers`. |
@@ -377,9 +379,19 @@ SSL tips:
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/edge/nodes` | Protected | List edges. |
 | `GET` | `/api/v1/edges/pools` | Protected | Edge pools. |
-| `GET` | `/api/v1/edges/dns` | Protected | Edge DNS model. |
+| `GET` | `/api/v1/edges/dns` | Protected | Shared proxy rrsets, eligible edge state, CDN zone, proxy host, and sync status. |
+| `GET` | `/api/v1/dns/operations` | Protected | PowerDNS setup, DNSGeo capability, and sync summary. |
+| `GET` | `/api/v1/dns/zones` | Protected | Per-zone convergence, hashes, pending changes, timestamps, and errors. |
+| `GET` | `/api/v1/dns/desired` | Protected | Desired CDNLite-owned RRsets; accepts optional `zone`. |
+| `GET` | `/api/v1/dns/zones/{zone}/actual` | Protected | Current raw PowerDNS zone response. |
+| `POST` | `/api/v1/dns/dry-run` | Protected | Build desired DNS state without writes. |
+| `POST` | `/api/v1/dns/force-sync` | Protected | Run an immediate forced reconciliation. |
+| `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |
+
+The bundled edge agent includes `health_status: "healthy"` in successful
+heartbeats so fresh local nodes become eligible for the shared DNS edge pool.
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
 | `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. |
 | `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |
@@ -456,8 +468,6 @@ Snapshot safety tips:
 | `PATCH` | `/api/v1/settings/{group}` | Update settings group. |
 | `POST` | `/api/v1/settings/validate` | Validate settings payload. |
 | `POST` | `/api/v1/settings/test/powerdns` | Test PowerDNS connection. |
-| `GET` | `/api/v1/admin/edge-network/anycast` | Show anycast settings. |
-| `PUT` | `/api/v1/admin/edge-network/anycast` | Update anycast settings. |
 | `GET` | `/api/v1/edge-countries` | List edge country data. |
 
 Settings tips:
@@ -481,3 +491,21 @@ Analytics tips:
 - Use `bucket=minute` for fresh debugging, `hour` for incident windows, and `day` for trends.
 - Recalculate aggregates after bulk ingest, test fixture loading, or suspected aggregation drift.
 - Domain-filtered analytics are safer for customer-facing reports than global analytics.
+## Operations Logs
+
+`GET /api/v1/security/events` and `GET /api/v1/audit` return:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+Both endpoints accept `domain_id`, `from`, `to`, `limit`, and `offset`.
+Security events additionally support `edge_id`, `type`, `ip`, and `search`.
+Audit entries support `actor`, `action`, `resource_type`, and `search`.
+The `search` filter matches serialized details plus action, resource type, and
+event type. Use `domain_id` for the per-domain Activity viewer.

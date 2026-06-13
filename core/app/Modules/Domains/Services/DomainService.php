@@ -2,22 +2,14 @@
 
 namespace App\Modules\Domains\Services;
 
-use App\Modules\Dns\Services\PowerDnsService;
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\AuditLog;
-use App\Support\Logger;
 use App\Support\Uuid;
 
 class DomainService
 {
-    private PowerDnsService $powerDns;
-
-    public function __construct()
-    {
-        $this->powerDns = new PowerDnsService();
-    }
-
     public function all(): array
     {
         $stmt = Database::pdo()->query('SELECT * FROM domains ORDER BY id ASC');
@@ -72,6 +64,7 @@ class DomainService
         }
 
         AuditLog::write('domain.create', 'domain', $id, $id, null, $domain);
+        (new DnsReconciler())->reconcile();
         return $domain;
     }
 
@@ -89,22 +82,8 @@ class DomainService
 
     public function ensureZoneReady(string $domainId): ?array
     {
-        $domain = $this->find($domainId);
-        if ($domain === null || !$this->powerDns->isEnabled() || $domain['powerdns_zone_created']) {
-            return $domain;
-        }
-        $result = $this->powerDns->ensureZone((string) $domain['domain']);
-        if (($result['ok'] ?? false) !== true) {
-            if ($this->powerDns->isStrict()) {
-                throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_sync_failed'));
-            }
-            return $domain;
-        }
-        $stmt = Database::pdo()->prepare('UPDATE domains SET powerdns_zone_created = true, updated_at = :updated_at WHERE id = :id');
-        $stmt->execute(['updated_at' => time(), 'id' => $domainId]);
-        $updated = $this->find($domainId);
-        AuditLog::write('domain.update', 'domain', $domainId, $domainId, $domain, $updated);
-        return $updated;
+        (new DnsReconciler())->reconcile();
+        return $this->find($domainId);
     }
 
     public function update(string $domainId, array $input): ?array
@@ -147,7 +126,10 @@ class DomainService
             ':updated_at' => time(),
         ]);
 
-        return $this->find($domainId);
+        $updated = $this->find($domainId);
+        AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);
+        (new DnsReconciler())->reconcile();
+        return $updated;
     }
 
     public function delete(string $domainId): bool
@@ -159,7 +141,11 @@ class DomainService
         AuditLog::write('domain.delete', 'domain', $domainId, $domainId, $existing, null);
         $stmt = Database::pdo()->prepare('DELETE FROM domains WHERE id = :id');
         $stmt->execute([':id' => $domainId]);
-        return $stmt->rowCount() > 0;
+        $deleted = $stmt->rowCount() > 0;
+        if ($deleted) {
+            (new DnsReconciler())->reconcile();
+        }
+        return $deleted;
     }
 
     public function find(string $domainId): ?array

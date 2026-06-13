@@ -24,7 +24,6 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     routes = (ROOT / "core/public_index.php").read_text()
     service = (ROOT / "core/app/Modules/Proxy/Services/ConfigService.php").read_text()
     schema = (ROOT / "core/database/schema.sql").read_text()
-    migration = (ROOT / "core/database/migrations/027_config_snapshot_activation.sql").read_text()
 
     for route in (
         "/api/v1/config/snapshots",
@@ -34,7 +33,7 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
         "/api/v1/config/snapshots/rebuild",
     ):
         assert route in routes
-    assert "active_snapshot_version" in schema and "active_snapshot_version" in migration
+    assert "active_snapshot_version" in schema
     assert "public function diff" in service
     assert "public function rollback" in service
     assert "public function rebuild" in service
@@ -43,7 +42,7 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     assert "$this->activateSnapshotVersion($version)" in service
 
 
-def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
+def test_snapshot_dashboard_is_internal_and_not_in_user_navigation():
     view = (ROOT / "dash/src/views/ConfigSnapshotsView.vue").read_text()
     api = (ROOT / "dash/src/lib/api/configSnapshots.ts").read_text()
     router = (ROOT / "dash/src/router/index.ts").read_text()
@@ -58,5 +57,5 @@ def test_snapshot_dashboard_exposes_view_diff_rollback_and_rebuild():
     assert "HorizontalScrollFrame" in view
     for operation in ("list:", "get:", "diff:", "rollback:", "rebuild:"):
         assert operation in api
-    assert "/config-snapshots" in router
-    assert "/config-snapshots" in nav
+    assert "/config-snapshots" not in router
+    assert "/config-snapshots" not in nav

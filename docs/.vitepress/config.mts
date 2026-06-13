@@ -30,7 +30,9 @@ export default defineConfig({
         items: [
           { text: 'Overview', link: '/' },
           { text: 'Setup', link: '/setup' },
+          { text: 'Production Deployment', link: '/deployment' },
           { text: 'Architecture', link: '/architecture' },
+          { text: 'DNS Stress Testing', link: '/stress-testing' },
           { text: 'Extensions', link: '/extensions' }
         ]
       },
@@ -40,7 +42,7 @@ export default defineConfig({
           { text: 'User Guide', link: '/usage/user' },
           { text: 'Admin Guide', link: '/usage/admin' },
           { text: 'API Reference', link: '/api/api' },
-          { text: 'OpenAPI YAML', link: '/api/openapi.yaml' }
+          { text: 'OpenAPI YAML', link: `${base}api/openapi.yaml` }
         ]
       },
       {

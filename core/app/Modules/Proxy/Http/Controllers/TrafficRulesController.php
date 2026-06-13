@@ -76,11 +76,6 @@ class TrafficRulesController
         return ['data' => $result ?? ['matched' => false]];
     }
 
-    public function setRateLimit(string $domainId, array $body): array {
-        $error = $this->validateRateLimit($body, false);
-        if ($error !== null) { return $error; }
-        return ['data' => $this->service->setRateLimit($domainId, $body)];
-    }
     public function createRateLimit(string $domainId, array $body): array {
         $error = $this->validateRateLimit($body, false);
         if ($error !== null) { return $error; }
@@ -129,9 +124,6 @@ class TrafficRulesController
         }
         return null;
     }
-    public function getRateLimit(string $domainId): array { $r=$this->service->getRateLimit($domainId); return $r?['data'=>$r]:['error'=>'rate_limit_not_found','status'=>404]; }
-    public function disableRateLimit(string $domainId): array { return $this->service->disableRateLimit($domainId)?['ok'=>true]:['error'=>'rate_limit_not_found','status'=>404]; }
-
     public function createWaf(string $domainId, array $body): array {
         $type = Validator::requiredString($body, 'type', 64);
         if (($type['ok'] ?? false) !== true) { return $type; }
