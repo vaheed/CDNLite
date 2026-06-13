@@ -290,7 +290,11 @@ upgrade, rollback, and release qualification, use the
 
 The docs use VitePress. Source files live under `docs/`, the VitePress config lives at `docs/.vitepress/config.mts`, and the static build is emitted to `docs/.vitepress/dist`.
 
-The API contract is published as [OpenAPI YAML](/api/openapi.yaml). The source file is `docs/public/api/openapi.yaml`; keep it updated with route additions and request/response shape changes so developers can generate clients or load the spec into API tools.
+The API contract is published at
+`https://vaheed.github.io/CDNLite/api/openapi.yaml`. The source file is
+`docs/public/api/openapi.yaml`; keep it updated with route additions and
+request/response shape changes so developers can generate clients or load the
+spec into API tools.
 
 Local preview:
 

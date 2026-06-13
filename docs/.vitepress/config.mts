@@ -42,7 +42,7 @@ export default defineConfig({
           { text: 'User Guide', link: '/usage/user' },
           { text: 'Admin Guide', link: '/usage/admin' },
           { text: 'API Reference', link: '/api/api' },
-          { text: 'OpenAPI YAML', link: '/api/openapi.yaml' }
+          { text: 'OpenAPI YAML', link: `${base}api/openapi.yaml` }
         ]
       },
       {

@@ -11,7 +11,7 @@ CDNLite is a compact CDN platform for learning, local experimentation, and small
 - [User Guide](usage/user.md)
 - [Admin Guide](usage/admin.md)
 - [API Reference](api/api.md)
-- [OpenAPI YAML](/api/openapi.yaml)
+- [OpenAPI YAML](api/openapi.yaml)
 - [Architecture](architecture.md)
 - [DNS Stress Testing](stress-testing.md)
 - [Extensions And Integrations](extensions.md)
@@ -68,7 +68,7 @@ CDNLite does not implement enterprise RBAC, billing, multi-tenant isolation, or 
 
 If you are new to the project, read [Setup](setup.md), then [User Guide](usage/user.md), then [Examples](examples/index.md). That path gets a local stack running before it asks you to understand every moving part.
 
-If you are integrating with the API, read [API Reference](api/api.md), download [OpenAPI YAML](/api/openapi.yaml), then use the domain and DNS examples in [Examples](examples/index.md). The OpenAPI document is intentionally pragmatic: it covers the implemented route families and reusable schemas so client generators and API explorers have a stable contract to consume.
+If you are integrating with the API, read [API Reference](api/api.md), download [OpenAPI YAML](api/openapi.yaml), then use the domain and DNS examples in [Examples](examples/index.md). The OpenAPI document is intentionally pragmatic: it covers the implemented route families and reusable schemas so client generators and API explorers have a stable contract to consume.
 
 If you are operating CDNLite, read [Admin Guide](usage/admin.md), [Security](security.md), [Troubleshooting](troubleshooting.md), [Operations Runbooks](runbooks/index.md), and [Best Practices](best-practices/index.md). Keep the architecture page nearby during incidents because it shows where config, metrics, and edge decisions flow.
 

@@ -315,7 +315,7 @@ Rollback is a control-plane action. Edge nodes still need to pull the active sna
 
 ## OpenAPI Client Generation
 
-The OpenAPI document is available at [OpenAPI YAML](/api/openapi.yaml).
+The OpenAPI document is available at [OpenAPI YAML](../api/openapi.yaml).
 
 Example with `openapi-generator-cli`:
 

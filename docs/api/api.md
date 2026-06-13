@@ -4,7 +4,7 @@ Base URL in local Compose: `http://localhost:8080`.
 
 All responses are JSON. Route handlers commonly return either `{ "data": ... }`, `{ "ok": true }`, or `{ "error": "error_code" }`.
 
-Machine-readable contract: [OpenAPI YAML](/api/openapi.yaml).
+Machine-readable contract: [OpenAPI YAML](openapi.yaml).
 
 ## Client Integration Tips
 

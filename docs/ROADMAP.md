@@ -30,6 +30,30 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - GitHub Pages OpenAPI link correction
+
+Completed:
+
+```text
+- corrected OpenAPI links that escaped the /CDNLite/ GitHub Pages project base
+- published the canonical OpenAPI URL in the README and setup guide
+- made the VitePress navigation download link base-aware
+```
+
+Validation:
+
+```text
+- live documentation and OpenAPI URLs returned HTTP 200
+- focused GitHub Pages documentation contracts
+- VitePress production build
+```
+
+Remaining:
+
+```text
+- Phase 7 remains PARTIAL until the default stress qualification passes
+```
+
 #### 2026-06-13 - production DNSGeo deployment bundle
 
 Completed:
