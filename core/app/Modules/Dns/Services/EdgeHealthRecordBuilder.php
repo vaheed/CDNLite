@@ -37,7 +37,7 @@ class EdgeHealthRecordBuilder
             'ifportup(%d, %s, %s)',
             $this->envInt('CDNLITE_EDGE_HEALTH_PORT', 80),
             $this->luaList($ips),
-            $this->luaOptions()
+            $this->luaOptions(count($ips))
         );
     }
 
@@ -61,7 +61,7 @@ class EdgeHealthRecordBuilder
             $urls[] = 'http://' . $host . ':' . $port . $path;
         }
 
-        return sprintf('ifurlup(%s, %s)', $this->luaList($urls), $this->luaOptions());
+        return sprintf('ifurlup(%s, %s)', $this->luaList($urls), $this->luaOptions(count($ips)));
     }
 
     /**
@@ -78,8 +78,17 @@ class EdgeHealthRecordBuilder
         return $this->luaList($ips);
     }
 
-    private function luaOptions(): string
+    private function luaOptions(int $targetCount): string
     {
+        if ($targetCount === 1) {
+            return sprintf(
+                '{timeout=%d, interval=%d, minimumFailures=%d}',
+                $this->envInt('CDNLITE_EDGE_HEALTH_TIMEOUT', 1),
+                $this->envInt('CDNLITE_EDGE_HEALTH_INTERVAL', 10),
+                $this->envInt('CDNLITE_EDGE_HEALTH_MIN_FAILURES', 2)
+            );
+        }
+
         return sprintf(
             "{selector='%s', backupSelector='%s', timeout=%d, interval=%d, minimumFailures=%d, failOnIncompleteCheck=false}",
             $this->selector('CDNLITE_EDGE_SELECTOR', 'pickclosest'),
