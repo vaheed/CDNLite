@@ -492,3 +492,21 @@ Analytics tips:
 - Use `bucket=minute` for fresh debugging, `hour` for incident windows, and `day` for trends.
 - Recalculate aggregates after bulk ingest, test fixture loading, or suspected aggregation drift.
 - Domain-filtered analytics are safer for customer-facing reports than global analytics.
+## Operations Logs
+
+`GET /api/v1/security/events` and `GET /api/v1/audit` return:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+Both endpoints accept `domain_id`, `from`, `to`, `limit`, and `offset`.
+Security events additionally support `edge_id`, `type`, `ip`, and `search`.
+Audit entries support `actor`, `action`, `resource_type`, and `search`.
+The `search` filter matches serialized details plus action, resource type, and
+event type. Use `domain_id` for the per-domain Activity viewer.

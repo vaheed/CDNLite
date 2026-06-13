@@ -118,3 +118,8 @@ For proxied records, the DNS table shows the exact public record CDNLite owns:
 - subdomains publish `CNAME site-<domain-id>.<cdn-zone>.`
 - the private origin remains visible separately and is never presented as the public DNS answer
 - the zone banner reports pending, synced, or failed state, the last successful sync, and the last error
+# Domain History
+
+The domain **Activity** tab shows security decisions and configuration changes
+for the selected domain. Filters support text and date ranges, and each stream
+has independent pagination so high-volume domains remain usable.

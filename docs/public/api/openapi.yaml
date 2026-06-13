@@ -143,9 +143,12 @@ paths:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
         - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
-          $ref: "#/components/responses/GenericArray"
+          $ref: "#/components/responses/GenericObject"
   /api/v1/security/summary:
     get:
       tags: [Operations]
@@ -162,9 +165,13 @@ paths:
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
-          $ref: "#/components/responses/GenericArray"
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains:
     get:
       tags: [Domains]
@@ -1048,6 +1055,28 @@ components:
       schema:
         type: integer
         minimum: 0
+    Search:
+      name: search
+      in: query
+      required: false
+      schema:
+        type: string
+    From:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+      description: Inclusive Unix timestamp lower bound.
+    To:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int64
+      description: Inclusive Unix timestamp upper bound.
     Bucket:
       name: bucket
       in: query

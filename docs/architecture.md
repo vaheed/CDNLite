@@ -61,6 +61,11 @@ Each write updates `dns_sync_state` and appends `dns_sync_events`.
 `/cdn-health` and the PowerDNS doctor expose API and persisted sync health
 without revealing credentials.
 
+Dashboard collection views share paginated table controls. Global security and
+audit APIs provide bounded `limit`/`offset` queries, and the domain Activity tab
+applies `domain_id` at the API boundary. Event Viewer consumes global bounded
+operations APIs instead of issuing one request per domain.
+
 ## Request Flow
 
 ```text

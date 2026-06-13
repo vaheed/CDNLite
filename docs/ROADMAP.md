@@ -30,6 +30,36 @@ BLOCKED    cannot proceed until the documented dependency is resolved
 
 ### Completed increments
 
+#### 2026-06-13 - frontend collection pagination and domain activity
+
+Completed:
+
+```text
+- added reusable pagination controls with selectable page sizes and result ranges
+- aligned shared data tables, Security Events, Audit Log, and Event Viewer
+  around consistent pagination and filtering behavior
+- removed Event Viewer's per-domain request fan-out in favor of bounded global
+  security and audit API queries
+- added a per-domain Activity tab with independently paginated security and
+  change-log streams, text/date filters, and raw JSON inspection
+- expanded audit search across details, action, resource type, and event type
+```
+
+Validation:
+
+```text
+- dashboard typecheck
+- focused operations-log and domain-tab contracts
+- PHP syntax lint for the changed operations service
+```
+
+Remaining:
+
+```text
+- Phase 7 remains PARTIAL until the default 10,000 x 1,000 stress run passes
+- browser workflow QA remains manual
+```
+
 #### 2026-06-13 - Phase 7 stress-test operator documentation
 
 Completed:

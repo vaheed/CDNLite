@@ -110,7 +110,9 @@ class OperationsLogService
             $params[':ip'] = trim((string) $filters['ip']) . '%';
         }
         if (isset($filters['search']) && trim((string) $filters['search']) !== '') {
-            $clauses[] = $prefix . 'details_json ILIKE :search';
+            $clauses[] = '(' . $prefix . 'details_json ILIKE :search OR ' .
+                $prefix . 'action ILIKE :search OR ' . $prefix . 'resource_type ILIKE :search OR ' .
+                $prefix . 'event ILIKE :search)';
             $params[':search'] = '%' . trim((string) $filters['search']) . '%';
         }
         foreach (['from' => '>=', 'to' => '<='] as $filter => $operator) {

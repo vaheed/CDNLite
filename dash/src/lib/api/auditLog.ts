@@ -3,6 +3,7 @@ import type { AuditEntry, PaginatedResult } from '@/types';
 
 export type AuditFilters = {
   actor?: string; action?: string; resource_type?: string; domain_id?: string;
+  search?: string;
   from?: number; to?: number; limit?: number; offset?: number;
 };
 
