@@ -47,6 +47,7 @@ class ConfigService
                 continue;
             }
             $configuredOrigins = $this->origins->list((string) $domain['id']);
+            $configuredPrimaryBackup = $this->origins->primaryAndBackupForDomain((string) $domain['id']);
             $origins = $this->originsForSnapshot($configuredOrigins);
             if ($origins === []) {
                 $origins = $this->originsFromDnsRecords($records);
@@ -54,8 +55,11 @@ class ConfigService
             if ($origins === []) {
                 continue;
             }
-            $primaryOrigin = $this->firstOriginByRole($origins, 'primary') ?? $origins[0];
-            $backupOrigin = $this->firstOriginByRole($origins, 'backup');
+            $primaryOrigin = $this->snapshotOriginFromConfigured($configuredPrimaryBackup['primary'] ?? null)
+                ?? $this->firstOriginByRole($origins, 'primary')
+                ?? $origins[0];
+            $backupOrigin = $this->snapshotOriginFromConfigured($configuredPrimaryBackup['backup'] ?? null)
+                ?? $this->firstOriginByRole($origins, 'backup');
             $hosts[$domain['domain']] = [
                 'domain_id' => (string) $domain['id'],
                 'origin' => $primaryOrigin,
@@ -339,6 +343,14 @@ class ConfigService
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
+    }
+
+    private function snapshotOriginFromConfigured(?array $origin): ?array
+    {
+        if ($origin === null || empty($origin['enabled'])) {
+            return null;
+        }
+        return $this->originForSnapshot($origin);
     }
 
     private function originsForSnapshot(array $origins): array

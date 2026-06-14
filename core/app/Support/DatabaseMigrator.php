@@ -100,7 +100,7 @@ class DatabaseMigrator
             'domain_origins',
             'edge_nodes',
             'config_snapshots',
-            'audit_logs',
+            'audit_log',
             'schema_migrations',
         ];
         $missing = [];
@@ -210,7 +210,7 @@ class DatabaseMigrator
             ':started_at' => $startedAt ?? $now,
             ':finished_at' => $success ? $now : null,
             ':execution_ms' => $executionMs,
-            ':success' => $success,
+            ':success' => $success ? 1 : 0,
             ':error' => $error,
         ]);
     }
