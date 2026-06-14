@@ -3,7 +3,6 @@
 namespace App\Modules\Dns\Services;
 
 use App\Modules\Domains\Services\DomainService;
-use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -101,14 +100,6 @@ class DnsService
         ];
         $this->assertRoutingAvailable($record);
         $public = $this->customerDns->publicRecordFor($domain, $record);
-        $existingProxy = $record['proxied']
-            ? $this->proxiedRecordAtName($domainId, (string) $record['name'])
-            : null;
-        if ($existingProxy !== null) {
-            (new OriginHealthService())->addBackupFromDnsRecord($domainId, $record);
-            $existingProxy['backup_origin_added'] = true;
-            return $existingProxy;
-        }
         $this->assertNotDuplicate(
             $domainId,
             null,
@@ -438,18 +429,6 @@ class DnsService
         if (in_array($policy, ['anycast', 'geo_anycast'], true) && empty($record['proxied'])) {
             throw new \RuntimeException('anycast_requires_proxied_record');
         }
-    }
-
-    private function proxiedRecordAtName(string $domainId, string $name): ?array
-    {
-        $stmt = Database::pdo()->prepare(
-            "SELECT id FROM dns_records
-             WHERE domain_id = :domain_id AND proxied = true AND status = 'active' AND LOWER(name) = :name
-             ORDER BY created_at ASC LIMIT 1"
-        );
-        $stmt->execute(['domain_id' => $domainId, 'name' => strtolower(trim($name))]);
-        $id = $stmt->fetchColumn();
-        return $id === false ? null : $this->find($domainId, (string) $id);
     }
 
     private function assertNotDuplicate(

@@ -28,14 +28,13 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "buildGeoOrigins($record['geo_origins']" in config
 
 
-def test_duplicate_proxy_target_becomes_backup_origin():
+def test_duplicate_proxy_target_is_stored_as_dns_record():
     dns = read("core/app/Modules/Dns/Services/DnsService.php")
-    origins = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
 
-    assert "proxiedRecordAtName" in dns
-    assert "addBackupFromDnsRecord" in dns
-    assert "['backup_origin_added'] = true" in dns
-    assert "public function addBackupFromDnsRecord" in origins
+    assert "proxiedRecordAtName" not in dns
+    assert "addBackupFromDnsRecord($domainId, $record)" not in dns
+    assert "backup_origin_added" not in dns
+    assert "assertNotDuplicate" in dns
 
 
 def test_https_first_fallback_and_tls_verification_modes():
@@ -50,6 +49,15 @@ def test_https_first_fallback_and_tls_verification_modes():
 
 
 def test_fresh_install_does_not_include_origin_upgrade_sql():
-    assert not (ROOT / "core/database/migrations").exists() or not list(
-        (ROOT / "core/database/migrations").glob("*.sql")
-    )
+    assert (ROOT / "core/database/migrations/000001_baseline_schema.sql").exists()
+
+
+def test_snapshot_contains_origins_array_for_all_proxied_records():
+    config = read("core/app/Modules/Proxy/Services/ConfigService.php")
+
+    assert "'origins' => $origins" in config
+    assert "private function originsFromDnsRecords" in config
+    assert "'source' => 'dns_record'" in config
+    assert "'dns_record_id'" in config
+    assert "'primary_origin' => $primaryOrigin" in config
+    assert "'backup_origin' => $backupOrigin" in config

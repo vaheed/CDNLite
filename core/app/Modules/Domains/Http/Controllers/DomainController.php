@@ -63,8 +63,36 @@ class DomainController
 
     public function verifyNameservers(string $domainId): ?array
     {
-        $domain = (new DomainVerificationService())->verify($domainId);
-        return $domain ? ['data' => $domain] : null;
+        $result = (new DomainVerificationService())->verifyWithTrace($domainId);
+        if ($result === null) {
+            return null;
+        }
+        $data = array_merge((array) $result['domain'], (array) $result['verification']);
+        return [
+            'data' => $data,
+            'verification' => $result['verification'],
+        ];
+    }
+
+    public function forceVerifyNameservers(string $domainId, array $input, string $actor): ?array
+    {
+        $reason = Validator::requiredString($input, 'reason', 1000);
+        if (($reason['ok'] ?? false) !== true) {
+            return $reason;
+        }
+        try {
+            $result = (new DomainVerificationService())->forceVerify($domainId, (string) $reason['value'], $actor);
+        } catch (\InvalidArgumentException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        }
+        if ($result === null) {
+            return null;
+        }
+        $data = array_merge((array) $result['domain'], (array) $result['verification']);
+        return [
+            'data' => $data,
+            'verification' => $result['verification'],
+        ];
     }
 
     public function activate(string $domainId, array $input): ?array

@@ -92,6 +92,11 @@ The `nameserver-scheduler` runs `php artisan cdn:domains:verify-all` every
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` seconds (default `86400`). A verified
 domain activates automatically. If its authoritative nameservers later move
 away, CDNLite marks it pending and withdraws its DNS records and edge config.
+The dashboard domain detail page also has **Refresh nameservers now**, which
+does not wait for the scheduler and shows expected, observed, matched, missing,
+and resolver error details. Operators logged in with an admin session can use
+**Force verify as admin** with a reason; the override is audited, activates the
+domain, invalidates edge config, and reconciles DNS.
 
 Fresh local reset:
 

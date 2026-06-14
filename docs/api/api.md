@@ -199,7 +199,9 @@ Operational APIs are designed for dashboards and reports. Use them for human-fac
 | `GET` | `/api/v1/domains/{domainId}` | Show a domain. |
 | `PATCH` | `/api/v1/domains/{domainId}` | Update editable domain fields. |
 | `DELETE` | `/api/v1/domains/{domainId}` | Delete a domain. |
-| `POST` | `/api/v1/domains/{domainId}/verify-nameservers` | Verify registrar delegation. |
+| `POST` | `/api/v1/domains/{domainId}/nameservers/verify` | Immediately verify registrar delegation and return trace details. |
+| `POST` | `/api/v1/domains/{domainId}/verify-nameservers` | Backward-compatible alias for immediate nameserver verification. |
+| `POST` | `/api/v1/domains/{domainId}/nameservers/force-verify` | Admin-session-only override that marks delegation verified with an audit reason. |
 | `POST` | `/api/v1/domains/{domainId}/activate` | Activate domain after verification or override. |
 
 Create request:
@@ -237,7 +239,8 @@ Domain status values commonly seen in workflows:
 Tips:
 
 - Create the domain first, then add origins and DNS records. This keeps error messages focused.
-- Use `verify-nameservers` before `activate` unless this is a local lab with override.
+- Use `nameservers/verify` to run an immediate DNS resolver check. Responses include `expected_nameservers`, `observed_nameservers`, `matched_nameservers`, `missing_nameservers`, `checked_at`, `status`, and `resolver_errors`.
+- Use `nameservers/force-verify` only as an operator override. It requires a browser admin session token, rejects generic API tokens, requires `{ "reason": "..." }`, writes `domain.nameserver.force_verify` to audit history, invalidates edge config, and reconciles DNS.
 - Avoid changing the domain hostname after traffic is live; create a new domain entry and migrate instead.
 
 ## DNS And Routing
@@ -273,6 +276,9 @@ DNS tips:
 
 - Keep MX, TXT verification, SPF, DKIM, and DMARC records DNS-only.
 - Use proxied records only for HTTP/HTTPS traffic intended for the CDN edge.
+- Additional proxied records at the same DNS name are stored and returned as
+  DNS records. CDNLite no longer silently converts them into hidden backup
+  origins or returns an earlier record ID.
 - A proxied apex (`@`) publishes `ALIAS` to the domain's stable CDN site
   target. A proxied subdomain publishes `CNAME` to the same target.
 - A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.

@@ -47,6 +47,7 @@ class ConfigService
                 continue;
             }
             $configuredOrigins = $this->origins->primaryAndBackupForDomain((string) $domain['id']);
+            $origins = $this->originsFromDnsRecords($records);
             $primaryOrigin = [
                 'host' => $originHost,
                 'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
@@ -59,6 +60,7 @@ class ConfigService
                 'origin' => $primaryOrigin,
                 'primary_origin' => $primaryOrigin,
                 'backup_origin' => $backupOrigin,
+                'origins' => $origins,
                 'geo_origins' => $this->buildGeoOrigins($record['geo_origins'] ?? []),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
@@ -327,6 +329,41 @@ class ConfigService
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
+    }
+
+    private function originsFromDnsRecords(array $records): array
+    {
+        $origins = [];
+        foreach ($records as $record) {
+            if (empty($record['proxied']) || ($record['status'] ?? 'active') !== 'active') {
+                continue;
+            }
+            $host = trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? ''));
+            if ($host === '') {
+                continue;
+            }
+            $scheme = (string) ($record['origin_scheme'] ?? 'http');
+            if ($scheme === '') {
+                $scheme = 'http';
+            }
+            $origins[] = [
+                'id' => (string) ($record['id'] ?? ''),
+                'dns_record_id' => (string) ($record['id'] ?? ''),
+                'source' => 'dns_record',
+                'role' => $origins === [] ? 'primary' : 'backup',
+                'weight' => 1,
+                'enabled' => true,
+                'scheme' => $scheme,
+                'host' => $host,
+                'port' => $scheme === 'https' ? 443 : 80,
+                'host_header' => $host,
+                'sni' => $host,
+                'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
+                'health_status' => (string) ($record['origin_status'] ?? 'pending'),
+                'status' => (string) ($record['origin_status'] ?? 'pending'),
+            ];
+        }
+        return $origins;
     }
 
     private function primaryProxiedRecord(array $records): ?array

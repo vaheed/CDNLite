@@ -27,6 +27,18 @@ export interface Domain {
   powerdns_zone_created?: boolean;
   nameservers?: Array<{ hostname: string; expected: boolean; observed: boolean; last_checked_at?: number | null }>;
 }
+export interface NameserverVerification {
+  expected_nameservers: string[];
+  observed_nameservers: string[];
+  matched_nameservers: string[];
+  missing_nameservers: string[];
+  checked_at: number;
+  status: string;
+  resolver_errors: string[];
+  forced_verified?: boolean;
+  reason?: string;
+}
+export type DomainNameserverVerification = Domain & NameserverVerification;
 export interface CreateDomainInput { zone_name: string; display_name?: string; }
 export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'nameservers'>>;
 

@@ -143,3 +143,9 @@ The separate `nameserver-scheduler` periodically resolves every customer
 domain's NS set. Verification controls domain lifecycle: matching delegation
 enables desired-active records, while missing or changed delegation disables
 their effective publication without overwriting each record's desired status.
+Operators can also run an immediate per-domain verification from the dashboard
+or `POST /api/v1/domains/{domainId}/nameservers/verify`, which returns the
+expected, observed, matched, and missing nameserver sets. Admin sessions can use
+`POST /api/v1/domains/{domainId}/nameservers/force-verify` with a reason when
+delegation cannot be observed but the domain must be activated; the action is
+audited, invalidates the active edge snapshot, and triggers DNS reconciliation.

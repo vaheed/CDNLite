@@ -23,8 +23,20 @@
         </div>
         <div class="flex shrink-0 flex-wrap gap-2">
           <button class="button-secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" /> Refresh</button>
+          <button class="button-secondary" :disabled="nameserverBusy" @click="refreshNameservers"><RefreshCw class="h-4 w-4" /> Refresh nameservers now</button>
+          <button class="button-primary" :disabled="nameserverBusy" @click="forceVerifyNameservers">Force verify as admin</button>
           <ReportExportButton title="Domain detail" :data="{ domain }" />
         </div>
+      </div>
+      <div v-if="nameserverMessage || nameserverTrace" class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <p v-if="nameserverMessage" :class="nameserverError ? 'text-rose-600' : 'text-emerald-700'">{{ nameserverMessage }}</p>
+        <dl v-if="nameserverTrace" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div><dt class="text-xs font-semibold uppercase text-slate-500">Expected</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.expected_nameservers.join(', ') || 'none' }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase text-slate-500">Observed</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.observed_nameservers.join(', ') || 'none' }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase text-slate-500">Missing</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.missing_nameservers.join(', ') || 'none' }}</dd></div>
+          <div><dt class="text-xs font-semibold uppercase text-slate-500">Checked</dt><dd class="mt-1">{{ formatTimestamp(nameserverTrace.checked_at) }}</dd></div>
+        </dl>
+        <p v-if="nameserverTrace?.resolver_errors.length" class="mt-3 text-xs text-rose-600">{{ nameserverTrace.resolver_errors.join('; ') }}</p>
       </div>
       <div class="mt-5 grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2 lg:grid-cols-5 dark:border-white/10">
         <div v-for="health in healthItems" :key="health.label" class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.04]">
@@ -72,7 +84,7 @@ import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { runtimeConfig } from '@/lib/config/env';
 import { domainsApi } from '@/lib/api/domains';
-import type { Domain, Severity } from '@/types';
+import type { Domain, NameserverVerification, Severity } from '@/types';
 import DomainOverviewTab from './domain-tabs/DomainOverviewTab.vue';
 import DomainDnsTab from './domain-tabs/DomainDnsTab.vue';
 import DomainSslTab from './domain-tabs/DomainSslTab.vue';
@@ -91,6 +103,10 @@ const route = useRoute();
 const router = useRouter();
 const domain = ref<Domain | null>(null);
 const loading = ref(true);
+const nameserverBusy = ref(false);
+const nameserverMessage = ref('');
+const nameserverError = ref(false);
+const nameserverTrace = ref<NameserverVerification | null>(null);
 const domainId = computed(() => String(route.params.domainId));
 const mainTabs = [
   { key: 'overview', label: 'Overview', icon: Activity, component: DomainOverviewTab },
@@ -178,6 +194,63 @@ async function load() {
   try { domain.value = await domainsApi.get(domainId.value); }
   catch { domain.value = null; }
   finally { loading.value = false; }
+}
+
+async function refreshNameservers() {
+  await runNameserverAction(async () => {
+    const result = await domainsApi.verifyNameservers(domainId.value);
+    applyNameserverResult(result);
+    nameserverMessage.value = `Nameserver check completed: ${result.status}.`;
+  });
+}
+
+async function forceVerifyNameservers() {
+  const reason = window.prompt('Reason for force verifying this domain?');
+  if (reason === null) return;
+  if (!reason.trim()) {
+    nameserverError.value = true;
+    nameserverMessage.value = 'A reason is required to force verify nameservers.';
+    return;
+  }
+  await runNameserverAction(async () => {
+    const result = await domainsApi.forceVerifyNameservers(domainId.value, reason.trim());
+    applyNameserverResult(result);
+    nameserverMessage.value = 'Domain nameservers force verified and activated.';
+  });
+}
+
+async function runNameserverAction(action: () => Promise<void>) {
+  nameserverBusy.value = true;
+  nameserverError.value = false;
+  nameserverMessage.value = '';
+  try {
+    await action();
+    await load();
+  } catch (error) {
+    nameserverError.value = true;
+    nameserverMessage.value = error instanceof Error ? error.message : 'Nameserver action failed.';
+  } finally {
+    nameserverBusy.value = false;
+  }
+}
+
+function applyNameserverResult(result: Domain & NameserverVerification) {
+  domain.value = result;
+  nameserverTrace.value = {
+    expected_nameservers: result.expected_nameservers ?? [],
+    observed_nameservers: result.observed_nameservers ?? [],
+    matched_nameservers: result.matched_nameservers ?? [],
+    missing_nameservers: result.missing_nameservers ?? [],
+    checked_at: result.checked_at,
+    status: result.status,
+    resolver_errors: result.resolver_errors ?? [],
+    forced_verified: result.forced_verified,
+    reason: result.reason,
+  };
+}
+
+function formatTimestamp(value?: number | null): string {
+  return value ? new Date(value * 1000).toLocaleString() : 'Not checked';
 }
 
 watch(domainId, load);

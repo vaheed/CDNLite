@@ -248,12 +248,51 @@ paths:
     post:
       tags: [Domains]
       summary: Verify nameserver delegation
+      description: Backward-compatible alias for `/api/v1/domains/{domainId}/nameservers/verify`.
       parameters:
         - $ref: "#/components/parameters/DomainId"
       responses:
         "200":
-          $ref: "#/components/responses/DomainObject"
+          $ref: "#/components/responses/NameserverVerificationObject"
         "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/nameservers/verify:
+    post:
+      tags: [Domains]
+      summary: Immediately verify nameserver delegation
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/NameserverVerificationObject"
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/nameservers/force-verify:
+    post:
+      tags: [Domains]
+      summary: Force verify nameserver delegation as an admin
+      description: Requires a browser admin session bearer token, not only a generic API token. Writes an audit event with the supplied reason.
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+      responses:
+        "200":
+          $ref: "#/components/responses/NameserverVerificationObject"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
           $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/activate:
     post:
@@ -1137,6 +1176,19 @@ components:
             properties:
               data:
                 $ref: "#/components/schemas/Domain"
+    NameserverVerificationObject:
+      description: Domain response with nameserver verification trace fields.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                allOf:
+                  - $ref: "#/components/schemas/Domain"
+                  - $ref: "#/components/schemas/NameserverVerification"
+              verification:
+                $ref: "#/components/schemas/NameserverVerification"
     DnsRecordObject:
       description: DNS record response.
       content:
@@ -1306,6 +1358,39 @@ components:
           type: integer
         updated_at:
           type: integer
+      additionalProperties: true
+    NameserverVerification:
+      type: object
+      properties:
+        expected_nameservers:
+          type: array
+          items:
+            type: string
+        observed_nameservers:
+          type: array
+          items:
+            type: string
+        matched_nameservers:
+          type: array
+          items:
+            type: string
+        missing_nameservers:
+          type: array
+          items:
+            type: string
+        checked_at:
+          type: integer
+        status:
+          type: string
+          enum: [verified, partial, not_configured]
+        resolver_errors:
+          type: array
+          items:
+            type: string
+        forced_verified:
+          type: boolean
+        reason:
+          type: string
       additionalProperties: true
     DomainCreateRequest:
       type: object

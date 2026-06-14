@@ -194,4 +194,18 @@ collect_diagnostics() {
       docker compose logs --no-color --tail=200 "$svc" >"$REPORT_DIR/${svc}-tail.log" || true
     fi
   done
+  if compose_has_service edge-agent; then
+    docker compose exec -T edge-agent sh -lc 'cat "${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}"' >"$REPORT_DIR/latest-edge-config.json" || true
+    docker compose exec -T edge-agent sh -lc 'cat "${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}"' >"$REPORT_DIR/metrics.ndjson" || true
+    docker compose exec -T edge-agent sh -lc 'cat "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"' >"$REPORT_DIR/security-events.ndjson" || true
+  fi
+  if compose_has_service edge; then
+    docker compose exec -T edge sh -lc 'cat /var/lib/cdnlite/config.json' >"$REPORT_DIR/latest-edge-config.edge.json" || true
+    docker compose exec -T edge sh -lc 'cat /var/lib/cdnlite/metrics.ndjson' >"$REPORT_DIR/metrics.edge.ndjson" || true
+    docker compose exec -T edge sh -lc 'cat /var/lib/cdnlite/security-events.ndjson' >"$REPORT_DIR/security-events.edge.ndjson" || true
+  fi
+  if compose_has_service core; then
+    docker compose exec -T core php /app/artisan cdn:powerdns:dry-run >"$REPORT_DIR/powerdns-dry-run.txt" 2>"$REPORT_DIR/powerdns-dry-run.err" || true
+    docker compose exec -T core php /app/artisan cdn:powerdns:force-sync --dry-run >"$REPORT_DIR/powerdns-force-sync-dry-run.txt" 2>"$REPORT_DIR/powerdns-force-sync-dry-run.err" || true
+  fi
 }

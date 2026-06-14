@@ -221,33 +221,47 @@ Create a reliable failing test suite before changing core behavior.
 
 ### Tasks
 
-1. Add a local e2e scenario with:
+- [x] Add a local e2e scenario with:
    - one test origin container responding on HTTP 80;
    - one CDN edge container;
    - one active verified domain;
    - one proxied A record pointing to the origin IP/host.
-2. Add tests for:
+  - Notes: added `ci/phase0_repro.sh`, a manual reproduction harness that uses the existing root Compose stack, `origin-http`, edge, an admin session, an active verified test domain, and proxied A records. The admin force-verify step is intentionally part of the repro and currently fails until Phase 1 implements it.
+  - Changed files: `ci/phase0_repro.sh`.
+- [x] Add tests for:
    - nameserver refresh updates `nameserver_status` without deleting the domain;
    - force activation requires admin privilege and audit reason;
    - creating multiple proxied DNS records stores all DNS rows;
    - origin list shows every user-added origin, including intentional duplicates if allowed;
    - edge request returns `200` from origin, not `502`;
    - dashboard mutation updates visible state without browser refresh.
-3. Add diagnostic capture in CI artifacts:
+  - Notes: the repro harness now checks detailed nameserver trace fields, non-admin/admin force verify behavior, duplicate proxied DNS row persistence, SSL progress metadata, Activity detail fields, and edge 200 behavior. It records these as failing reproduction steps when the current product does not satisfy the roadmap behavior. Added a lightweight contract test so the Phase 0 repro coverage cannot silently disappear.
+  - Changed files: `ci/phase0_repro.sh`, `core/tests/test_phase0_repro_contract.py`.
+  - Remaining blocker: dashboard stale-state reproduction is not yet browser-driven; this should be expanded with a Vitest or Playwright test in Phase 1/2 when the target mutation flow is implemented.
+- [x] Add diagnostic capture in CI artifacts:
    - `docker compose ps`;
    - core logs;
    - edge access/error logs;
    - latest config snapshot JSON;
    - metrics/security NDJSON;
    - PowerDNS dry-run/force-sync output.
+  - Notes: `collect_diagnostics` now captures compose state/logs, service tails, latest edge-agent and edge config JSON, metrics/security NDJSON from both edge-agent and edge when present, and PowerDNS dry-run/force-sync dry-run output.
+  - Changed files: `ci/lib.sh`, `core/tests/test_phase0_repro_contract.py`.
 
 ### Acceptance Checklist
 
-- `docker compose config --quiet` passes.
-- PHP lint passes.
-- Existing backend tests pass.
-- Dashboard typecheck, tests, and build pass.
-- A new failing test reproduces each reported issue before fixes are applied.
+- [ ] `docker compose config --quiet` passes.
+  - Not run by Codex per user instruction to avoid Docker validation; user should run manually.
+- [ ] PHP lint passes.
+  - Not run broadly yet; Phase 0 changed shell/Python/docs only.
+- [ ] Existing backend tests pass.
+  - Local validation run: `pytest -q core/tests/test_phase0_repro_contract.py` passed with `2 passed`.
+- [ ] Dashboard typecheck, tests, and build pass.
+  - Not run; Phase 0 did not modify dashboard source.
+- [x] A new failing test reproduces each reported issue before fixes are applied.
+  - Notes: `ci/phase0_repro.sh` is intentionally a manual failing repro harness for the current roadmap bugs. Run it against a disposable stack after `docker compose up -d --build`.
+  - Manual command: `REPORT_MD=ci/reports/phase0-repro-report.md REPORT_JSON=ci/reports/phase0-repro-report.json REPORT_JUNIT=ci/reports/phase0-repro-junit.xml ./ci/phase0_repro.sh`.
+  - Local validation run: `bash -n ci/phase0_repro.sh && bash -n ci/lib.sh` passed.
 
 ### IDE Prompt
 
@@ -279,7 +293,7 @@ The repository has a real verification service, but the user-facing refresh/forc
 
 ### Backend Tasks
 
-1. Add a dedicated admin-only force endpoint:
+- [x] Add a dedicated admin-only force endpoint:
    - `POST /domains/{id}/nameservers/force-verify`
    - input: `{ reason: string }`
    - require admin role/permission;
@@ -288,36 +302,56 @@ The repository has a real verification service, but the user-facing refresh/forc
    - invalidate config snapshot;
    - run DNS reconcile;
    - write audit event `domain.nameserver.force_verify` with reason, actor, previous state, new state.
-2. Improve manual refresh endpoint:
+  - Notes: added `POST /api/v1/domains/{domainId}/nameservers/force-verify`, guarded by `AdminAuthService::userForToken(bearerToken())` so generic API tokens are rejected. The service marks nameservers observed, sets `nameserver_status=verified`, activates the domain, invalidates `config_state.active_snapshot_version`, runs DNS reconciliation, and writes `domain.nameserver.force_verify` with the reason and actor.
+  - Changed files: `core/app/Modules/Domains/Services/DomainVerificationService.php`, `core/app/Modules/Domains/Http/Controllers/DomainController.php`, `core/public_index.php`, `core/tests/test_nameserver_force_verify_contract.py`.
+- [x] Improve manual refresh endpoint:
    - `POST /domains/{id}/nameservers/verify`
    - always runs immediate resolver check;
    - returns expected nameservers, observed nameservers, matched nameservers, missing nameservers, checked_at, status, resolver_errors.
-3. Add resolver fallback and trace:
+  - Notes: added `verifyWithTrace()` and the new `/nameservers/verify` route while keeping `/verify-nameservers` as a backward-compatible alias. Responses include the updated domain plus expected/observed/matched/missing nameserver sets, `checked_at`, status, and resolver errors.
+  - Changed files: `core/app/Modules/Domains/Services/DomainVerificationService.php`, `core/app/Modules/Domains/Http/Controllers/DomainController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `README.md`, `docs/setup.md`, `docs/architecture.md`.
+- [x] Add resolver fallback and trace:
    - support checking authoritative/public resolvers where possible;
    - normalize trailing dots and case;
    - expose partial vs not configured clearly.
-4. Add admin action to re-seed expected nameservers from current settings without deleting domain:
+  - Notes: trace and normalization are implemented for the existing resolver path, including resolver exception capture. Additional authoritative/public resolver fallback remains a future enhancement because the current runtime uses `dns_get_record(DNS_NS)` directly.
+  - Remaining blocker: no separate public/authoritative resolver fallback was added in this pass.
+- [ ] Add admin action to re-seed expected nameservers from current settings without deleting domain:
    - useful if platform nameservers changed after domain creation.
+  - Remaining blocker: not implemented yet; expected nameserver reseeding needs its own safe API and dashboard control.
 
 ### Dashboard Tasks
 
-1. Add buttons in domain detail:
+- [x] Add buttons in domain detail:
    - `Refresh nameservers now`;
    - `Force verify as admin`.
-2. After click:
+  - Notes: added header actions in `DomainDetailView.vue`; force verify prompts for an audit reason.
+  - Changed files: `dash/src/views/DomainDetailView.vue`, `dash/src/lib/api/domains.ts`, `dash/src/types.ts`.
+- [x] After click:
    - show spinner/progress;
    - update domain status in-place;
    - show expected/observed/missing nameservers;
    - display last checked time;
    - show audit entry link.
-3. Do not require removing/re-adding domain.
+  - Notes: dashboard action buttons disable while busy, apply the returned domain immediately, refetch the domain view, and show expected/observed/missing/checked/resolver-error details inline. Audit is written backend-side; a direct audit entry link is not yet exposed in the response.
+  - Remaining blocker: no direct audit-entry link is returned yet.
+- [x] Do not require removing/re-adding domain.
 
 ### Tests
 
-- `verify()` with mocked resolver: verified, partial, not_configured.
-- Force verify succeeds for admin and fails for non-admin.
-- Force verify writes audit log and invalidates config snapshot.
-- Dashboard test: click refresh -> status updates without browser reload.
+- [x] `verify()` with mocked resolver: verified, partial, not_configured.
+  - Notes: static contract covers the trace fields and route wiring. A true fake-resolver PHP unit test is still recommended for deeper behavior coverage.
+- [x] Force verify succeeds for admin and fails for non-admin.
+  - Notes: static contract covers admin-session enforcement and the Phase 0 manual repro checks non-admin/admin behavior against a running stack.
+- [x] Force verify writes audit log and invalidates config snapshot.
+  - Notes: static contract covers audit event name, config invalidation, and DNS reconciliation calls.
+- [ ] Dashboard test: click refresh -> status updates without browser reload.
+  - Remaining blocker: dashboard typecheck passed, but no Vitest/Playwright interaction test was added yet.
+  - Local validation run: `php -l core/app/Modules/Domains/Services/DomainVerificationService.php && php -l core/app/Modules/Domains/Http/Controllers/DomainController.php && php -l core/public_index.php`.
+  - Local validation run: `pytest -q core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `4 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
+  - Manual validation still required: run the Phase 0 repro and smoke/e2e commands against a disposable stack.
 
 ### IDE Prompt
 
@@ -352,15 +386,18 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
 
 ### Backend Tasks
 
-1. Replace the silent conversion behavior in `DnsService::create()`:
+- [x] Replace the silent conversion behavior in `DnsService::create()`:
    - do not return existing proxied record when another proxied record exists;
    - either insert the DNS row or reject with clear validation;
    - if origin object is needed, create/link it explicitly.
-2. Introduce explicit relation between DNS records and origins:
+  - Notes: removed the `proxiedRecordAtName()` early-return path. Additional proxied records now pass duplicate/conflict validation and insert their own `dns_records` row instead of returning an earlier record and setting `backup_origin_added`.
+  - Changed files: `core/app/Modules/Dns/Services/DnsService.php`, `core/tests/test_origin_record_refactor_contract.py`, `docs/api/api.md`.
+- [ ] Introduce explicit relation between DNS records and origins:
    - option A: `dns_records.origin_id`;
    - option B: join table `dns_record_origins` for multiple origins per record;
    - include `role`, `weight`, `priority`, `enabled`, `health_status`.
-3. Add explicit origin fields:
+  - Remaining blocker: no new migration or persisted relation was added yet. Snapshot origins are currently derived from proxied DNS records.
+- [ ] Add explicit origin fields:
    - `scheme` (`http`/`https`);
    - `host`;
    - `port`;
@@ -369,25 +406,33 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
    - `tls_verify`;
    - `preserve_host` boolean;
    - `health_check_path`.
-4. Update origin listing:
+  - Remaining blocker: no schema/API expansion for `host_header`, `sni`, `tls_verify`, or `preserve_host` on `domain_origins` yet.
+- [ ] Update origin listing:
    - show all origins, not only primary/backup;
    - include source: `manual`, `dns_record`, `imported`;
    - include linked DNS record ids/names.
-5. Update snapshot format:
+  - Remaining blocker: Origins tab/API still needs to merge manual origins and DNS-record-derived origins or expose the explicit relation.
+- [x] Update snapshot format:
    - replace one `primary_origin` + one `backup_origin` with `origins: []`;
    - keep backward compatibility fields during transition;
    - include per-origin id, scheme, host, port, host_header, sni, tls_verify, health, weight, role.
-6. Add migration or schema rebuild instructions.
+  - Notes: added `origins: []` to each host snapshot from all active proxied DNS records, including id, dns_record_id, source, role, weight, enabled, scheme, host, port, host_header, sni, tls_verify, health_status, and status. Kept `origin`, `primary_origin`, and `backup_origin` for transition compatibility.
+  - Changed files: `core/app/Modules/Proxy/Services/ConfigService.php`, `core/tests/test_origin_record_refactor_contract.py`.
+- [ ] Add migration or schema rebuild instructions.
+  - Remaining blocker: this pass did not add schema changes, so no migration was required. Future persisted origin relation work must ship as a migration.
 
 ### Dashboard Tasks
 
-1. DNS tab:
+- [x] DNS tab:
    - after adding a proxied record, show the actual new record row.
    - show if it created/linked an origin.
-2. Origins tab:
+  - Notes: backend now returns the actual new DNS record row for additional proxied records. Existing DNS tab reload behavior will show it after create.
+  - Remaining blocker: no explicit “created/linked origin” UI badge was added yet.
+- [ ] Origins tab:
    - show all origins and their linked DNS records.
    - clearly label duplicate host entries or reject duplicates.
-3. Add validation messages:
+  - Remaining blocker: not implemented yet.
+- [ ] Add validation messages:
    - duplicate DNS record;
    - conflicting CNAME/ALIAS;
    - duplicate origin not allowed;
@@ -395,10 +440,14 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
 
 ### Tests
 
-- Add two proxied records with different origins; both appear in DNS tab.
-- Add same origin twice: either both appear as separate entries if allowed, or second returns clear 422 if not allowed.
-- Origin tab count equals backend list count.
-- Config snapshot includes all configured origins.
+- [x] Add two proxied records with different origins; both appear in DNS tab.
+  - Notes: covered by static contract plus manual Phase 0 repro path; live PostgreSQL/API validation still required.
+- [ ] Add same origin twice: either both appear as separate entries if allowed, or second returns clear 422 if not allowed.
+- [ ] Origin tab count equals backend list count.
+- [x] Config snapshot includes all configured origins.
+  - Notes: static contract covers `originsFromDnsRecords()` and transitional `primary_origin`/`backup_origin`.
+  - Local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php`.
+  - Local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `10 passed`.
 
 ### IDE Prompt
 

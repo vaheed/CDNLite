@@ -89,6 +89,30 @@ The documentation site is built with VitePress from `docs/`.
 - [Use Cases](docs/use-cases/index.md)
 - [Best Practices](docs/best-practices/index.md)
 
+## Domain Nameserver Operations
+
+Use the domain detail page or API to run an immediate delegation check without
+waiting for the scheduler:
+
+```bash
+curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/verify" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The response includes expected, observed, matched, and missing nameservers,
+resolver errors, and `checked_at`. Admin-session tokens can force verification
+with an audit reason when an operator intentionally overrides DNS observation:
+
+```bash
+curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/force-verify" \
+  -H "Authorization: Bearer $ADMIN_SESSION" \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"registrar glue verified manually"}'
+```
+
+Force verification activates the domain, invalidates the edge snapshot, triggers
+DNS reconciliation, and writes `domain.nameserver.force_verify` to audit history.
+
 ## Development And Validation
 
 ```bash
