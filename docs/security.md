@@ -149,4 +149,11 @@ The edge runtime bypasses cache storage and lookup when request risk is high:
 - `Authorization` header sets cache bypass.
 - `Cache-Control: no-cache` or `no-store` sets cache bypass.
 
+Edge access logs are JSON lines on stdout and edge diagnostics are emitted to
+stderr. They include request ids and safe routing metadata, but must not include
+request bodies, `Authorization`, `Cookie`, origin shield secrets, ACME tokens,
+private keys, or sensitive query values. Query parameters named like `token`,
+`key`, `secret`, `password`, `auth`, or `signature` are redacted in structured
+diagnostics and metrics.
+
 See [Examples](examples/index.md) for copy-pasteable edge and API workflows.

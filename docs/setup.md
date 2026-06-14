@@ -167,7 +167,24 @@ Edge and agent settings:
 | `METRIC_PATH` | Metrics queue file for the agent. |
 | `SECURITY_EVENT_PATH` | Security event queue file for the agent. |
 | `CDNLITE_CACHE_DEFAULT_TTL` | Default OpenResty cache TTL. |
+| `CDNLITE_EDGE_LOG_FORMAT` | Edge access log format selector; `json` is the default and writes to stdout. |
+| `CDNLITE_EDGE_LOG_LEVEL` | Edge diagnostic log level: `debug`, `info`, `warn`, or `error`; default `info`. |
+| `CDNLITE_EDGE_LOG_REQUEST_BODY` | Reserved for future strict-redaction body logging; keep `false`. |
+| `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
+
+OpenResty writes edge access logs to stdout and diagnostics to stderr, so live
+operations can use:
+
+```bash
+docker compose logs -f edge
+docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson
+```
+
+Access logs include request id, host, method, path, status, selected origin id,
+upstream status/time, cache status, and byte counts. Query parameters with names
+such as `token`, `key`, `secret`, `password`, `auth`, or `signature` are
+redacted in structured diagnostics and metrics.
 
 Dashboard variables:
 

@@ -319,9 +319,14 @@ Origin tips:
   `dns_record_id`; manual origins use `source: "manual"`.
 - Duplicate manual origin hosts are allowed as separate rows because routing
   identity is the origin id, not only host and scheme.
+- Edge routing uses the explicit `scheme`, `host`, and `port`. It sends
+  `host_header` to the origin by default, uses `sni` for upstream TLS, and only
+  preserves the CDN hostname when `preserve_host` is true.
 - Add a backup origin before aggressive cache or WAF changes, so edge failover has somewhere to go.
 - Use the manual health-check route after every origin update.
 - The edge may emit `X-CDNLITE-Origin: primary|backup`; capture this header in incident reports.
+  Edge access logs and metrics also include `request_id`, `origin_id`,
+  upstream status/time, and router errors for 5xx diagnosis.
 
 ## Traffic Rules
 

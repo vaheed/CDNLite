@@ -4,6 +4,7 @@ local cjson = require('cjson.safe')
 local identity = require('identity')
 local origin_selector = require('origin_selector')
 local ip_rules = require('ip_rules')
+local edge_log = require('edge_log')
 
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
@@ -228,6 +229,7 @@ local function apply_rate_limit(cfg, host, domain_id)
   ngx.ctx.security_action = tostring(rule.action or 'block')
   if ngx.ctx.security_action == 'block' then
     append_security_event(domain_id)
+    edge_log.warn('rate_limited', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })
     ngx.status = 429
     ngx.header.content_type = 'application/json'
     identity.apply()
@@ -243,11 +245,13 @@ function M.handle()
   local cfg = loader.load()
   local host = normalize_host(ngx.var.host)
   if not host then
+    edge_log.warn('router_error', { router_error = 'missing_host' })
     return false, 'missing_host'
   end
 
   local domain = cfg.hosts[host]
   if not domain then
+    edge_log.warn('router_error', { router_error = 'domain_not_configured' })
     return false, 'domain_not_configured'
   end
   ngx.ctx.domain_id = domain.domain_id
@@ -255,6 +259,7 @@ function M.handle()
 
   local ip_ok = ip_rules.apply(domain)
   if not ip_ok then
+    edge_log.warn('router_error', { domain_id = tostring(domain.domain_id or ''), router_error = 'ip_access_blocked' })
     return false, 'ip_access_blocked'
   end
 
@@ -283,13 +288,28 @@ function M.handle()
   local country = request_country()
   local upstream, scheme_or_error = origin_selector.select(domain, country, 'primary')
   if not upstream then
+    edge_log.error('router_error', { domain_id = tostring(domain.domain_id or ''), router_error = tostring(scheme_or_error or 'missing_origin') })
     return false, scheme_or_error
   end
-  local backup_upstream = origin_selector.select(domain, country, 'backup')
+  local backup_upstream, backup_meta = origin_selector.select(domain, country, 'backup')
+  if type(backup_meta) ~= 'table' then
+    backup_meta = {}
+  end
   ngx.ctx.upstream = upstream
+  ngx.ctx.origin = scheme_or_error or {}
   ngx.ctx.backup_upstream = backup_upstream
-  ngx.ctx.origin_scheme = scheme_or_error
+  ngx.ctx.backup_origin = backup_meta
+  ngx.ctx.origin_scheme = ngx.ctx.origin.scheme
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
+  edge_log.info('origin_selected', {
+    domain_id = tostring(domain.domain_id or ''),
+    origin_id = tostring(ngx.ctx.origin.id or ''),
+    origin_role = tostring(ngx.ctx.origin.role or ''),
+    origin_scheme = tostring(ngx.ctx.origin.scheme or ''),
+    origin_host = tostring(ngx.ctx.origin.host or ''),
+    origin_port = tostring(ngx.ctx.origin.port or ''),
+    backup_origin_id = tostring((ngx.ctx.backup_origin or {}).id or ''),
+  })
   return proxy.forward(domain)
 end
 

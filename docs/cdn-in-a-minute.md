@@ -123,7 +123,18 @@ Send a request to the POP with your CDN hostname:
 curl -H "Host: demo.example.com" http://POP_IP/
 ```
 
-A `200` response means the edge accepted the hostname, loaded config from core, and reached the configured origin. If you receive a 404 or 502, check the POP logs, domain activation state, origin health, and edge heartbeat in the dashboard.
+A `200` response means the edge accepted the hostname, loaded config from core,
+and reached the configured origin. If you receive a 404 or 502, check the POP
+logs, domain activation state, origin health, and edge heartbeat in the
+dashboard:
+
+```bash
+docker compose logs -f edge
+docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson
+```
+
+For host-header or TLS/SNI origin issues, verify the origin's `host_header`,
+`sni`, `scheme`, `port`, and `preserve_host` settings.
 
 ## Next Steps
 

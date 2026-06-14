@@ -1,4 +1,5 @@
 local cjson = require('cjson.safe')
+local edge_log = require('edge_log')
 
 local M = {}
 local CONFIG_FILE = '/var/lib/cdnlite/config.json'
@@ -16,11 +17,13 @@ end
 function M.load()
   local raw = read_file(CONFIG_FILE)
   if not raw then
+    edge_log.warn('config_missing', { config_file = CONFIG_FILE })
     return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
   local decoded = cjson.decode(raw)
   if not decoded then
+    edge_log.error('config_invalid_json', { config_file = CONFIG_FILE })
     return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
@@ -29,10 +32,12 @@ function M.load()
   end
 
   if decoded.schema_version ~= EXPECTED_SCHEMA_VERSION then
+    edge_log.error('config_schema_unsupported', { schema_version = tostring(decoded.schema_version or '') })
     return { schema_version = EXPECTED_SCHEMA_VERSION, version = 0, hosts = {} }
   end
 
   decoded.hosts = decoded.hosts or {}
+  edge_log.debug('config_loaded', { version = tostring(decoded.version or 0), hosts_count = tostring(#decoded.hosts) })
   return decoded
 end
 

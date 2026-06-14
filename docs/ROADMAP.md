@@ -481,10 +481,12 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
 
 ### Edge Tasks
 
-1. Make origin scheme/port explicit:
+1. [x] Make origin scheme/port explicit:
    - stop guessing `443` then falling back to `80` unless the origin is explicitly configured as `auto`;
    - use `scheme://host:port` from config.
-2. Add origin host header and SNI variables:
+  - Notes: `origin_selector.lua` now uses configured `scheme`, `host`, and `port` for `http`/`https` origins. The old HTTPS-probe/HTTP-fallback path is retained only when an origin explicitly uses `scheme=auto`.
+  - Changed files: `edge/openresty/lua/origin_selector.lua`, `core/tests/test_origin_record_refactor_contract.py`, `core/tests/test_edge_phase3_contract.py`.
+2. [x] Add origin host header and SNI variables:
    - Lua sets:
      - `ngx.var.target_upstream`
      - `ngx.var.target_origin_host_header`
@@ -493,20 +495,27 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
    - Nginx uses:
      - `proxy_set_header Host $target_origin_host_header`
      - `proxy_ssl_name $target_origin_sni`
-3. Add preserve-host option:
+  - Notes: `proxy.lua` now sets primary and backup origin host-header/SNI/id variables, and both HTTP/HTTPS Nginx proxy locations use those variables for `Host` and upstream SNI.
+  - Changed files: `edge/openresty/nginx.conf`, `edge/openresty/lua/proxy.lua`, `edge/openresty/lua/router.lua`.
+3. [x] Add preserve-host option:
    - default should be safe and explicit;
    - recommended default: preserve CDN host only when user enables it; otherwise send origin host header.
-4. Improve 502 diagnostics:
+  - Notes: when `preserve_host` is false, the edge sends configured `host_header` or the origin host. When `preserve_host` is true, it sends the CDN request hostname.
+  - Changed files: `edge/openresty/lua/origin_selector.lua`.
+4. [x] Improve 502 diagnostics:
    - response includes `request_id`;
    - internal log includes domain_id, edge_node_id, selected origin id, upstream URL, upstream_status, upstream_response_time, router_error;
    - never expose secrets.
-5. Add edge route debug endpoint or admin-only diagnostic API:
+  - Notes: metrics now include host, method, path, redacted query, router_error, origin_id/role/host, upstream status/time/address, request_time, and existing request id. Structured edge diagnostics log router errors and origin selection without secrets.
+  - Changed files: `edge/openresty/lua/metrics.lua`, `edge/openresty/lua/edge_log.lua`, `edge/openresty/lua/router.lua`, `docs/api/api.md`, `docs/security.md`.
+5. [ ] Add edge route debug endpoint or admin-only diagnostic API:
    - input: domain + path + country;
    - output: selected origin, backup origin, cache rule, WAF/rate-limit match, SSL cert status.
+  - Remaining blocker: not implemented in this pass; needs a control-plane API design so diagnostics remain admin-only and do not expose origin internals.
 
 ### Backend Tasks
 
-1. Config snapshot must include:
+1. [x] Config snapshot must include:
    - origin id;
    - host;
    - port;
@@ -514,17 +523,21 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
    - host header;
    - SNI;
    - TLS verify mode.
-2. Add origin test action:
+  - Notes: already implemented in Phase 2 and now consumed by the edge routing path.
+2. [ ] Add origin test action:
    - `POST /domains/{id}/origins/{originId}/test`
    - returns DNS resolution, TCP connect, TLS handshake, HTTP status, response time, error.
+  - Remaining blocker: existing API has `/origins/{originId}/check`; the exact `/test` diagnostic action with DNS/TCP/TLS breakdown is not implemented yet.
 
 ### Tests
 
-- HTTP origin by IP returns 200 through edge.
-- HTTPS origin with SNI returns 200.
-- Origin requiring its own Host header returns 200 when `preserve_host=false`.
-- Origin requiring CDN Host header returns 200 when `preserve_host=true`.
-- Invalid origin returns 502 with request_id and detailed log/metric.
+- [ ] HTTP origin by IP returns 200 through edge.
+- [ ] HTTPS origin with SNI returns 200.
+- [ ] Origin requiring its own Host header returns 200 when `preserve_host=false`.
+- [ ] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
+- [ ] Invalid origin returns 502 with request_id and detailed log/metric.
+  - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_origin_health_phase19_contract.py` passed.
+  - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
 
@@ -576,18 +589,22 @@ Make the edge container fully observable from `docker compose logs -f edge` whil
 
 ### Engineering Tasks
 
-1. Update `edge/openresty/nginx.conf`:
+1. [x] Update `edge/openresty/nginx.conf`:
    - set `error_log /dev/stderr info;` or configurable log level;
    - set `access_log /dev/stdout cdnlite_json;`;
    - define `log_format cdnlite_json escape=json '{...}'` with request and upstream variables;
    - include `request_id`, `host`, `method`, `uri`, `status`, `body_bytes_sent`, `request_time`, `upstream_status`, `upstream_response_time`, `upstream_addr`, `upstream_cache_status`.
-2. Add Lua diagnostic logging helper, for example `edge/openresty/lua/edge_log.lua`:
+  - Notes: access logs now write JSON to stdout and error logs write to stderr for Docker-visible operations.
+  - Changed files: `edge/openresty/nginx.conf`.
+2. [x] Add Lua diagnostic logging helper, for example `edge/openresty/lua/edge_log.lua`:
    - `edge_log.info(event, fields)`;
    - `edge_log.warn(event, fields)`;
    - `edge_log.error(event, fields)`;
    - outputs JSON via `ngx.log()` or safely to stdout/stderr depending on level;
    - redacts sensitive values.
-3. Update `router.lua`, `proxy.lua`, `origin_selector.lua`, `tls_cert.lua`, and `config_loader.lua` to log important events:
+  - Notes: added `edge_log.lua` with level filtering and redaction for sensitive keys/query parameters.
+  - Changed files: `edge/openresty/lua/edge_log.lua`.
+3. [x] Update `router.lua`, `proxy.lua`, `origin_selector.lua`, `tls_cert.lua`, and `config_loader.lua` to log important events:
    - config loaded / config not ready / config version changed;
    - host matched or not configured;
    - selected origin and backup origin;
@@ -595,19 +612,25 @@ Make the edge container fully observable from `docker compose logs -f edge` whil
    - router failure before proxying;
    - upstream failover to backup;
    - certificate selected / certificate missing / default certificate used.
-4. Extend `metrics.lua`:
+  - Notes: routing errors, selected origins, proxy forwards, config load failures, and TLS certificate decisions now emit structured diagnostics. Upstream failover gets origin id/header/SNI variables for backup requests; a dedicated failover event still needs a deeper Nginx/Lua hook.
+  - Changed files: `edge/openresty/lua/router.lua`, `edge/openresty/lua/proxy.lua`, `edge/openresty/lua/config_loader.lua`, `edge/openresty/lua/tls_cert.lua`.
+4. [x] Extend `metrics.lua`:
    - write enriched request event fields;
    - include `host`, `method`, redacted path/query, `router_error`, `origin_id`, `origin_role`, `upstream_status`, `upstream_response_time`, `upstream_addr`, `request_time`;
    - optionally mirror one compact JSON line to stdout when `CDNLITE_EDGE_LOG_LEVEL=debug`.
-5. Update Docker/runbooks:
+  - Notes: metrics NDJSON now keeps collector ingestion while carrying richer Activity-ready request/origin/upstream fields.
+  - Changed files: `edge/openresty/lua/metrics.lua`.
+5. [x] Update Docker/runbooks:
    - document `docker compose logs -f edge`;
    - document `docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson` for raw metric ingestion;
    - document how to temporarily enable debug logging.
-6. Add local smoke script:
+  - Changed files: `docs/setup.md`, `docs/cdn-in-a-minute.md`, `docs/api/api.md`, `docs/security.md`.
+6. [ ] Add local smoke script:
    - send one valid proxied request;
    - send one unknown-host request;
    - send one origin-down request;
    - assert logs contain request id and event type.
+  - Remaining blocker: not added yet; should be folded into manual smoke/e2e validation without Codex running it.
 
 ### Suggested Nginx Log Format
 
@@ -635,13 +658,16 @@ access_log /dev/stdout cdnlite_json;
 
 ### Acceptance Checklist
 
-- `docker compose logs -f edge` shows access logs for every request.
-- Edge startup/config events are visible.
-- A 502 produces a visible structured log with `request_id`, `host`, `domain_id`, `router_error` or `upstream_status`, and selected origin metadata.
-- Unknown host and missing origin are logged clearly.
-- Logs do not expose Authorization, Cookie, ACME tokens, origin shield secrets, private keys, or raw sensitive query params.
-- Existing collector ingestion still works.
-- Dashboard Activity can correlate request events by `request_id`.
+- [ ] `docker compose logs -f edge` shows access logs for every request.
+- [ ] Edge startup/config events are visible.
+- [ ] A 502 produces a visible structured log with `request_id`, `host`, `domain_id`, `router_error` or `upstream_status`, and selected origin metadata.
+- [ ] Unknown host and missing origin are logged clearly.
+- [x] Logs do not expose Authorization, Cookie, ACME tokens, origin shield secrets, private keys, or raw sensitive query params.
+  - Notes: structured diagnostics/metrics redact sensitive query keys and do not log request bodies or secret headers. Access logs include `$uri`, not raw `$request_uri`.
+- [x] Existing collector ingestion still works.
+  - Notes: `/var/lib/cdnlite/metrics.ndjson` remains the metrics sink and now includes additional fields.
+- [x] Dashboard Activity can correlate request events by `request_id`.
+  - Notes: the enriched metrics row retains `request_id`; later Phase 6 still needs persistence/API/UI work.
 
 ### IDE Prompt
 

@@ -68,15 +68,19 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "public function create" in origins
 
 
-def test_https_first_fallback_and_tls_verification_modes():
+def test_edge_origin_selection_uses_explicit_scheme_except_auto():
     selector = read("edge/openresty/lua/origin_selector.lua")
 
+    assert "scheme == 'http' or scheme == 'https'" in selector
+    assert "return scheme .. '://' .. origin.host .. ':' .. tostring(port)" in selector
+    assert "scheme ~= 'auto'" in selector
+    assert "invalid_origin_scheme" in selector
     assert "sock:connect(origin.host, 443)" in selector
     assert "sock:sslhandshake(nil, origin.host, verify)" in selector
     assert "origin.tls_verify or 'verify'" in selector
     assert "~= 'ignore'" in selector
-    assert "return 'https://' .. origin.host .. ':443'" in selector
-    assert "return 'http://' .. origin.host .. ':80'" in selector
+    assert "host_header = origin.host" in selector
+    assert "origin.preserve_host == true" in selector
 
 
 def test_fresh_install_does_not_include_origin_upgrade_sql():
