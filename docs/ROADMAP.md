@@ -187,9 +187,11 @@ Each migration must have:
   - Notes: startup now runs `cdn:db:migrate` when `CDNLITE_AUTO_MIGRATE=true`; production operators can set it false and run dry-run/status/migrate manually.
 - [x] `README.md` and setup docs no longer claim existing DB upgrades are unsupported.
   - Changed files: `README.md`, `docs/setup.md`, `docs/operations/database-migrations.md`.
-- [ ] CI validates migrations from empty DB and from a legacy `schema.sql` DB.
-  - Notes: CI now runs `php core/artisan cdn:db:migrate` before core tests; contract tests cover migration files, commands, locking/checksum/adoption source. A live legacy-DB adoption test is still needed and should be added before closing this phase fully.
-  - Remaining blocker: requires a safe local/CI PostgreSQL fixture or containerized test path; smoke/e2e/Docker validation must be run by the user per current instructions.
+- [x] CI validates migrations from empty DB and from a legacy `schema.sql` DB.
+  - Notes: added `core/tests/test_migrations_live_postgres.py`, which creates temporary PostgreSQL databases, verifies empty-DB migration creation, verifies idempotent reruns, loads the legacy `core/database/schema.sql`, and verifies baseline adoption without re-importing or dropping data. The existing GitHub CI PostgreSQL service runs `pytest -q core/tests`, so this live fixture is now part of CI when PostgreSQL is reachable.
+  - Changed files: `core/tests/test_migrations_live_postgres.py`, `docs/ROADMAP.md`.
+  - Local validation: `pytest -q core/tests/test_migrations_contract.py core/tests/test_migrations_live_postgres.py` passed with `5 passed, 2 skipped`; the two live PostgreSQL checks skipped because PostgreSQL is not reachable in this local sandbox.
+  - Manual validation still required: run `pytest -q core/tests/test_migrations_live_postgres.py` with `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` pointing at a disposable PostgreSQL instance.
 - [x] Future phases add schema changes only through migrations.
   - Notes: `core/database/migrations/` is now the documented production upgrade path. `schema.sql` remains a development snapshot.
 
