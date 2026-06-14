@@ -238,6 +238,7 @@ Create a reliable failing test suite before changing core behavior.
   - Notes: the repro harness now checks detailed nameserver trace fields, non-admin/admin force verify behavior, duplicate proxied DNS row persistence, SSL progress metadata, Activity detail fields, and edge 200 behavior. It records these as failing reproduction steps when the current product does not satisfy the roadmap behavior. Added a lightweight contract test so the Phase 0 repro coverage cannot silently disappear.
   - Changed files: `ci/phase0_repro.sh`, `core/tests/test_phase0_repro_contract.py`.
   - Follow-up fix: the SSL progress repro now uses `/ssl/request`, the local pending-certificate request endpoint, instead of `/ssl/request-cert`, which can contact external ACME and fail on local fixture email domains such as `example.com`. The probe handles both object-shaped progress responses and the current array-shaped pending certificate response.
+  - Follow-up fix: the Activity detail probe now records a Phase 6 roadmap failure when `/domains/{id}/activity` returns 404, instead of aborting the whole reproduction harness before later checks can run.
   - Changed files: `ci/phase0_repro.sh`, `core/tests/test_phase0_repro_contract.py`.
   - Remaining blocker: dashboard stale-state reproduction is not yet browser-driven; this should be expanded with a Vitest or Playwright test in Phase 1/2 when the target mutation flow is implemented.
 - [x] Add diagnostic capture in CI artifacts:

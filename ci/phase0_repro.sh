@@ -132,8 +132,9 @@ fi
 record_step PASS "ssl-request-progress" "SSL request returned visible progress metadata"
 
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity?limit=10"
-assert_http_status "$HTTP_CODE" "200" "activity endpoint should return 200"
-if ! jq -e '.data.items and (.data.summary.request_count != null) and (.data.items[]? | has("request_id") or has("origin_id") or has("upstream_status"))' <<<"$HTTP_BODY" >/dev/null; then
+if [[ "$HTTP_CODE" != "200" ]]; then
+  phase0_expect_failure "activity-detail" "activity endpoint should return 200 once Phase 6 is implemented, got ${HTTP_CODE} body=${HTTP_BODY}"
+elif ! jq -e '.data.items and (.data.summary.request_count != null) and (.data.items[]? | has("request_id") or has("origin_id") or has("upstream_status"))' <<<"$HTTP_BODY" >/dev/null; then
   phase0_expect_failure "activity-detail" "activity page/API lacks request/origin/upstream detail needed for diagnosis"
 fi
 record_step PASS "activity-detail" "activity API includes request/origin/upstream detail"
