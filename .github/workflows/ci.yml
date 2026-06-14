@@ -97,8 +97,8 @@ jobs:
         run: '! rg -n "WIP_MARKER" -S core edge ci'
       - name: Install test deps
         run: pip install pytest
-      - name: Install fresh database schema
-        run: php -r "require 'core/app/Support/bootstrap.php'; App\\Support\\Database::installFreshSchema();"
+      - name: Run database migrations
+        run: php core/artisan cdn:db:migrate
       - name: Install dashboard deps
         working-directory: dash
         run: npm ci

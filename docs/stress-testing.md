@@ -9,7 +9,7 @@ topology and real local PowerDNS/DNSGeo services.
 The runner deletes all Core and PowerDNS data. Run it only on a disposable
 fresh installation. Never point it at shared, staging, or production databases.
 
-The script temporarily stops Core writer services, resets the canonical schema,
+The script temporarily stops Core writer services, resets the Core schema,
 clears PowerDNS zones, seeds the test model, runs the qualification, and restores
 the services before exiting.
 

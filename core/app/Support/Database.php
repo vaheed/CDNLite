@@ -29,16 +29,6 @@ class Database
 
     public static function installFreshSchema(): void
     {
-        $pdo = self::pdo();
-        $pdo->exec("SELECT pg_advisory_lock(hashtext('cdnlite_schema_migration'))");
-
-        try {
-            $schema = file_get_contents(__DIR__ . '/../../database/schema.sql');
-            if ($schema !== false) {
-                $pdo->exec($schema);
-            }
-        } finally {
-            $pdo->exec("SELECT pg_advisory_unlock(hashtext('cdnlite_schema_migration'))");
-        }
+        DatabaseMigrator::default()->migrate();
     }
 }

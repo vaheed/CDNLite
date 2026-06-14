@@ -35,6 +35,8 @@ use App\Console\Commands\CdnCacheSettingsCommand;
 use App\Console\Commands\CdnSslListCommand;
 use App\Console\Commands\CdnSslRequestCommand;
 use App\Console\Commands\CdnDbFreshCommand;
+use App\Console\Commands\CdnDbMigrateCommand;
+use App\Console\Commands\CdnDbStatusCommand;
 use App\Console\Commands\CdnBootstrapFreshCommand;
 use App\Console\Commands\CdnUsageRecalculateCommand;
 use App\Console\Commands\CdnUsageSummaryCommand;
@@ -129,6 +131,8 @@ $runner->register('cdn:origins:list', new CdnOriginsListCommand());
 $runner->register('cdn:ssl:renew-due', new CdnSslRenewDueCommand());
 $runner->register('cdn:ssl:list', new CdnSslListCommand());
 $runner->register('cdn:ssl:request', new CdnSslRequestCommand());
+$runner->register('cdn:db:migrate', new CdnDbMigrateCommand());
+$runner->register('cdn:db:status', new CdnDbStatusCommand());
 $runner->register('cdn:db:fresh', new CdnDbFreshCommand());
 $runner->register('cdn:bootstrap:fresh', new CdnBootstrapFreshCommand());
 

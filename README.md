@@ -1,23 +1,5 @@
 # CDNLite
 
-CDNLite uses a fresh-install-only database model. `core/database/schema.sql` is the
-authoritative schema. Existing database upgrades are outside the supported
-installation model.
-
-Durable customer and edge DNS records converge through one desired-state path:
-
-```bash
-docker compose exec core php artisan cdn:dns:reconcile
-docker compose exec core php artisan cdn:powerdns:dry-run
-docker compose exec core php artisan cdn:powerdns:force-sync
-```
-
-The default `dns-reconciler` service runs the same path every
-`CDNLITE_SYNC_INTERVAL_SECONDS` seconds. The `nameserver-scheduler` also checks
-every domain once per `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` (default
-`86400`, one day). Domains and their desired-active records are enabled after
-successful delegation verification and withdrawn automatically when delegation
-moves to another provider.
 
 [![CI](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
@@ -78,6 +60,7 @@ Use the dashboard to add domains, configure DNS and origins, define traffic/secu
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:readiness:check
+docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:powerdns:doctor
 docker compose exec core php artisan cdn:powerdns:dry-run
 docker compose exec core php artisan cdn:powerdns:force-sync
@@ -136,7 +119,7 @@ The destructive production DNS qualification defaults to 10,000 domains with
 ./ci/stress-dns.sh
 ```
 
-Use it only against a disposable fresh-install stack.
+Use it only against a disposable stack.
 See [DNS Stress Testing](docs/stress-testing.md) for prerequisites, reduced and
 full commands, environment controls, pass criteria, reports, and recovery.
 

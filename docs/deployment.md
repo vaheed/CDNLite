@@ -1,8 +1,9 @@
 # Production Deployment
 
 This guide describes the checked-in deployment bundles under `deploy/`. CDNLite
-is a fresh-install product: back up PostgreSQL and PowerDNS data before changing
-versions, and test restores before relying on those backups.
+uses versioned Core database migrations, but operators must still back up
+PostgreSQL and PowerDNS data before changing versions and test restores before
+relying on those backups.
 
 ## Choose A Topology
 
@@ -91,6 +92,7 @@ curl -fsS https://api.example.com/health
 curl -fsS https://api.example.com/ready
 curl -fsS https://api.example.com/cdn-health
 docker compose exec core php artisan cdn:readiness:check
+docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:powerdns:doctor
 ```
 
@@ -117,13 +119,16 @@ Upgrade one environment first:
 
 ```bash
 docker compose pull
+docker compose exec core php artisan cdn:db:migrate --dry-run
 docker compose up -d --wait
+docker compose exec core php artisan cdn:db:status
 ```
 
 Run readiness and DNS checks before adding traffic. To roll back, restore the
-previous `IMAGE_TAG` and run the same command. Schema upgrades are not supported;
-restore the matching database backup when a release changes the canonical
-fresh-install schema.
+previous `IMAGE_TAG`, restore the matching database backup when a migration has
+changed schema state, and run the same command. For controlled production
+rollouts, set `CDNLITE_AUTO_MIGRATE=false`, run the dry-run/status commands,
+take a backup, and then run `php artisan cdn:db:migrate` manually.
 
 ## Production Qualification
 

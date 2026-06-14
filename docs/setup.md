@@ -64,22 +64,27 @@ docker compose exec core php artisan cdn:admin:create \
 ## Backend Setup
 
 The core image runs PHP from `core/public_index.php` and CLI commands from
-`core/artisan`. Fresh installations apply the single canonical schema in
-`core/database/schema.sql`. Existing database upgrades are not supported.
-Core containers install this schema at startup. CI installs it explicitly before
-running the Core test suite against its empty PostgreSQL service.
+`core/artisan`. Database upgrades run through ordered PostgreSQL migrations in
+`core/database/migrations/`. `core/database/schema.sql` is a development
+snapshot for inspection and fresh local rebuilds, not the production upgrade
+path. Core containers run migrations at startup when `CDNLITE_AUTO_MIGRATE`
+is `true` (the local default). Set it to `false` for controlled production
+rollouts and run migrations manually after taking a backup.
 
 Useful commands:
 
 ```bash
 docker compose exec core php artisan cdn:dns:reconcile
 docker compose exec core php artisan cdn:domain:list
+docker compose exec core php artisan cdn:db:migrate --dry-run
+docker compose exec core php artisan cdn:db:migrate
+docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 ```
 
-The canonical schema is applied automatically when Core first connects to the
-database. Durable DNS state is reconciled after mutations and by the
+Migrations are applied automatically before the Core web process starts when
+auto-migration is enabled. Durable DNS state is reconciled after mutations and by the
 `dns-reconciler` service every
 `CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
@@ -94,6 +99,9 @@ Fresh local reset:
 docker compose down -v
 docker compose up -d --build
 ```
+
+For upgrade and backup details, see
+[Database Migrations](operations/database-migrations.md).
 
 The root Compose topology does not assign registry tags to locally built CDNLite
 services. Core, schedulers, Edge, and the Edge agent are built from the currently

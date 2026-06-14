@@ -42,7 +42,7 @@ CDNLite lets operators register domains, manage DNS records, define origins, con
 
 | Path | Purpose |
 | --- | --- |
-| `core/` | PHP control plane, API router, CLI commands, services, canonical fresh-install schema, and contract tests. |
+| `core/` | PHP control plane, API router, CLI commands, services, database migrations, schema snapshot, and contract tests. |
 | `dash/` | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, and ECharts dashboard. |
 | `edge/openresty/` | OpenResty Nginx config and Lua runtime modules. |
 | `edge/agent/` | POSIX shell agent that signs edge calls and syncs config/metrics/events. |

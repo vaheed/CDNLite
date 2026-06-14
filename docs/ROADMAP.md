@@ -180,11 +180,18 @@ Each migration must have:
 
 ### Acceptance Checklist
 
-- The repository can upgrade an existing CDNLite database in-place.
-- No phase in this roadmap depends on deleting the database or re-importing `schema.sql`.
-- `README.md` and setup docs no longer claim existing DB upgrades are unsupported.
-- CI validates migrations from empty DB and from a legacy `schema.sql` DB.
-- Future phases add schema changes only through migrations.
+- [x] The repository can upgrade an existing CDNLite database in-place.
+  - Notes: added `schema_migrations`, ordered SQL migration loading, advisory locking, checksum validation, dry-run/status commands, and legacy baseline adoption that validates required tables before marking baseline applied.
+  - Changed files: `core/app/Support/DatabaseMigrator.php`, `core/app/Support/Database.php`, `core/app/Console/Commands/CdnDbMigrateCommand.php`, `core/app/Console/Commands/CdnDbStatusCommand.php`, `core/artisan`, `core/docker-entrypoint.sh`, `.github/workflows/ci.yml`, `core/database/migrations/000001_baseline_schema.sql`.
+- [x] No phase in this roadmap depends on deleting the database or re-importing `schema.sql`.
+  - Notes: startup now runs `cdn:db:migrate` when `CDNLITE_AUTO_MIGRATE=true`; production operators can set it false and run dry-run/status/migrate manually.
+- [x] `README.md` and setup docs no longer claim existing DB upgrades are unsupported.
+  - Changed files: `README.md`, `docs/setup.md`, `docs/operations/database-migrations.md`.
+- [ ] CI validates migrations from empty DB and from a legacy `schema.sql` DB.
+  - Notes: CI now runs `php core/artisan cdn:db:migrate` before core tests; contract tests cover migration files, commands, locking/checksum/adoption source. A live legacy-DB adoption test is still needed and should be added before closing this phase fully.
+  - Remaining blocker: requires a safe local/CI PostgreSQL fixture or containerized test path; smoke/e2e/Docker validation must be run by the user per current instructions.
+- [x] Future phases add schema changes only through migrations.
+  - Notes: `core/database/migrations/` is now the documented production upgrade path. `schema.sql` remains a development snapshot.
 
 ### IDE Prompt
 
