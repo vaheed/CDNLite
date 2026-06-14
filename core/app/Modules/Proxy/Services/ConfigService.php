@@ -391,10 +391,7 @@ class ConfigService
             if ($host === '') {
                 continue;
             }
-            $scheme = (string) ($record['origin_scheme'] ?? 'http');
-            if ($scheme === '') {
-                $scheme = 'http';
-            }
+            $scheme = $this->schemeForDnsRecord($record);
             $origins[] = [
                 'id' => (string) ($record['id'] ?? ''),
                 'dns_record_id' => (string) ($record['id'] ?? ''),
@@ -428,6 +425,16 @@ class ConfigService
             }
         }
         return null;
+    }
+
+    private function schemeForDnsRecord(array $record): string
+    {
+        $scheme = (string) ($record['origin_scheme'] ?? '');
+        if ($scheme !== '') {
+            return $scheme;
+        }
+
+        return (string) ($record['origin_tls_verify'] ?? 'verify') === 'ignore' ? 'https' : 'http';
     }
 
     private function buildGeoOrigins(array $geoOrigins): array

@@ -258,10 +258,7 @@ class OriginHealthService
         }
 
         $existing = $this->findForDnsRecord($domainId, (string) $record['id']);
-        $scheme = (string) ($record['origin_scheme'] ?? '');
-        if ($scheme === '') {
-            $scheme = 'http';
-        }
+        $scheme = $this->schemeForDnsRecord($record);
         $payload = [
             'scheme' => $scheme,
             'host' => $host,
@@ -294,7 +291,7 @@ class OriginHealthService
     public function addBackupFromDnsRecord(string $domainId, array $record): array
     {
         $host = strtolower(trim((string) ($record['origin_host'] ?? $record['content'] ?? '')));
-        $scheme = (string) ($record['origin_scheme'] ?? 'http') ?: 'http';
+        $scheme = $this->schemeForDnsRecord($record);
         $existing = Database::pdo()->prepare(
             'SELECT id FROM domain_origins WHERE domain_id=:domain_id AND lower(host)=:host AND scheme=:scheme LIMIT 1'
         );
@@ -321,6 +318,16 @@ class OriginHealthService
         $stmt->execute([':domain_id' => $domainId, ':id' => $originId]);
         $row = $stmt->fetch();
         return $row ? $this->cast($row) : null;
+    }
+
+    private function schemeForDnsRecord(array $record): string
+    {
+        $scheme = (string) ($record['origin_scheme'] ?? '');
+        if ($scheme !== '') {
+            return $scheme;
+        }
+
+        return (string) ($record['origin_tls_verify'] ?? 'verify') === 'ignore' ? 'https' : 'http';
     }
 
     private function findForDnsRecord(string $domainId, string $dnsRecordId): ?array
