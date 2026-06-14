@@ -391,6 +391,7 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
    - either insert the DNS row or reject with clear validation;
    - if origin object is needed, create/link it explicitly.
   - Notes: removed the `proxiedRecordAtName()` early-return path. Additional proxied records now pass duplicate/conflict validation and insert their own `dns_records` row instead of returning an earlier record and setting `backup_origin_added`.
+  - Follow-up fix: `assertCompatiblePublicRecord()` now allows multiple active proxied records at the same DNS name when they publish to the same generated ALIAS/CNAME target, while still rejecting exact duplicate origin records and real CNAME/ALIAS conflicts. This fixes Phase 0 repro failure `dns_record_name_conflict` on the second proxied apex record without deleting or re-importing data.
   - Changed files: `core/app/Modules/Dns/Services/DnsService.php`, `core/tests/test_origin_record_refactor_contract.py`, `docs/api/api.md`.
 - [x] Introduce explicit relation between DNS records and origins:
    - option A: `dns_records.origin_id`;
@@ -447,7 +448,7 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
 ### Tests
 
 - [x] Add two proxied records with different origins; both appear in DNS tab.
-  - Notes: covered by static contract plus manual Phase 0 repro path; live PostgreSQL/API validation still required.
+  - Notes: static contracts now assert that proxied records sharing the same generated public ALIAS/CNAME target are allowed to coexist. Live PostgreSQL/API validation still required.
 - [x] Add same origin twice: either both appear as separate entries if allowed, or second returns clear 422 if not allowed.
   - Notes: duplicate manual origin hosts are allowed as separate `domain_origins` rows; `OriginHealthService::create()` no longer deduplicates manual creates by host/scheme.
 - [x] Origin tab count equals backend list count.
@@ -485,6 +486,7 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
    - stop guessing `443` then falling back to `80` unless the origin is explicitly configured as `auto`;
    - use `scheme://host:port` from config.
   - Notes: `origin_selector.lua` now uses configured `scheme`, `host`, and `port` for `http`/`https` origins. The old HTTPS-probe/HTTP-fallback path is retained only when an origin explicitly uses `scheme=auto`.
+  - Follow-up fix: country geo overrides again take precedence over the general `origins[]` list, and `ConfigService::buildGeoOrigins()` now includes explicit scheme, port, host header, SNI, preserve-host, role, id, and source metadata. This fixes the e2e failure where the IR geo route missed `"origin_scheme":"http"`.
   - Changed files: `edge/openresty/lua/origin_selector.lua`, `core/tests/test_origin_record_refactor_contract.py`, `core/tests/test_edge_phase3_contract.py`.
 2. [x] Add origin host header and SNI variables:
    - Lua sets:
@@ -537,6 +539,8 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
 - [ ] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
 - [ ] Invalid origin returns 502 with request_id and detailed log/metric.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_origin_health_phase19_contract.py` passed.
+  - Follow-up local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_dns_reconciler_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_origin_health_phase19_contract.py core/tests/test_phase0_repro_contract.py` passed with `29 passed`.
   - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt

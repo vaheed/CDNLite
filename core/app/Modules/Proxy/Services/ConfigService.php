@@ -449,8 +449,16 @@ class ConfigService
                 continue;
             }
             $out[strtoupper(trim($key))] = [
+                'id' => (string) ($origin['id'] ?? 'geo-' . strtoupper(trim($key))),
+                'role' => 'primary',
+                'source' => 'geo_origin',
                 'host' => $host,
+                'scheme' => (string) ($origin['scheme'] ?? (((string) ($origin['tls_verify'] ?? 'verify') === 'ignore') ? 'https' : 'http')),
+                'port' => (int) ($origin['port'] ?? (((string) ($origin['tls_verify'] ?? 'verify') === 'ignore') ? 443 : 80)),
+                'host_header' => (string) ($origin['host_header'] ?? $host),
+                'sni' => (string) ($origin['sni'] ?? $host),
                 'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+                'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
             ];
         }
         ksort($out);

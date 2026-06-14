@@ -98,5 +98,7 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     assert "'host_header'" in config
     assert "'sni'" in config
     assert "'preserve_host'" in config
+    assert "'source' => 'geo_origin'" in config
+    assert "'scheme' => (string) ($origin['scheme']" in config
     assert "'primary_origin' => $primaryOrigin" in config
     assert "'backup_origin' => $backupOrigin" in config

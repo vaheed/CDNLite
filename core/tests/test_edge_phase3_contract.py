@@ -28,6 +28,7 @@ def test_origin_selector_returns_routing_metadata_without_silent_guessing():
     selector = read("edge/openresty/lua/origin_selector.lua")
 
     assert "local function first_enabled_by_role" in selector
+    assert "local selected = selected_origin(domain, country, role)" in selector
     assert "scheme == 'http' or scheme == 'https'" in selector
     assert "scheme ~= 'auto'" in selector
     assert "invalid_origin_scheme" in selector

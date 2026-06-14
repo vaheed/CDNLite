@@ -47,6 +47,8 @@ def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
 def test_apex_alias_can_coexist_with_mail_and_verification_records():
     service = read("core/app/Modules/Dns/Services/DnsService.php")
 
+    assert "$proxied && $existingProxied" in service
+    assert "trim($publicContent) === trim($existingContent)" in service
     assert "$newType === 'CNAME' || $existingType === 'CNAME'" in service
     assert "$newType === 'ALIAS' && $existingType === 'ALIAS'" in service
     assert "['CNAME', 'ALIAS']" not in service

@@ -19,11 +19,11 @@ local function first_enabled_by_role(domain, role)
 end
 
 local function origin_for(domain, country, role)
-  local from_list = first_enabled_by_role(domain, role)
-  if from_list then
-    return from_list
+  local selected = selected_origin(domain, country, role)
+  if selected then
+    return selected
   end
-  return selected_origin(domain, country, role)
+  return first_enabled_by_role(domain, role)
 end
 
 local function origin_port(origin, scheme)

@@ -116,6 +116,8 @@ class DnsService
             null,
             (string) $input['name'],
             (string) $public['type'],
+            (string) $public['content'],
+            (bool) $record['proxied'],
             (string) $input['status']
         );
 
@@ -237,6 +239,8 @@ class DnsService
             $recordId,
             (string) $recordForProjection['name'],
             (string) $public['type'],
+            (string) $public['content'],
+            (bool) $recordForProjection['proxied'],
             (string) $patch['status']
         );
 
@@ -477,12 +481,14 @@ class DnsService
         ?string $recordId,
         string $name,
         string $publicType,
+        string $publicContent,
+        bool $proxied,
         string $status
     ): void {
         if ($status !== 'active') {
             return;
         }
-        $sql = 'SELECT public_type FROM dns_records
+        $sql = 'SELECT public_type, public_content, proxied FROM dns_records
                 WHERE domain_id = :domain_id AND status = \'active\' AND LOWER(name) = :name';
         $params = [':domain_id' => $domainId, ':name' => strtolower(trim($name))];
         if ($recordId !== null) {
@@ -494,6 +500,13 @@ class DnsService
         $newType = strtoupper($publicType);
         foreach ($stmt->fetchAll() as $row) {
             $existingType = strtoupper((string) $row['public_type']);
+            $existingContent = (string) ($row['public_content'] ?? '');
+            $existingProxied = in_array($row['proxied'], [true, 1, '1', 't', 'true'], true);
+            if ($proxied && $existingProxied && $newType === $existingType
+                && trim($publicContent) === trim($existingContent)
+                && in_array($newType, ['ALIAS', 'CNAME'], true)) {
+                continue;
+            }
             if ($newType === 'CNAME' || $existingType === 'CNAME'
                 || ($newType === 'ALIAS' && $existingType === 'ALIAS')) {
                 throw new \RuntimeException('dns_record_name_conflict');
