@@ -12,7 +12,7 @@ class OriginHealthService
     {
         $this->ensurePrimaryFromDnsRecords($domainId);
         $stmt = Database::pdo()->prepare(
-            'SELECT * FROM domain_origins WHERE domain_id=:domain_id ORDER BY is_primary DESC, enabled DESC, created_at ASC'
+            'SELECT * FROM domain_origins WHERE domain_id=:domain_id ORDER BY is_primary DESC, enabled DESC, created_at ASC, id ASC'
         );
         $stmt->execute([':domain_id' => $domainId]);
         return array_map([$this, 'cast'], $stmt->fetchAll());
@@ -36,6 +36,14 @@ class OriginHealthService
                 'scheme' => (string) ($input['scheme'] ?? 'http'),
                 'host' => strtolower(trim((string) ($input['host'] ?? ''))),
                 'port' => (int) ($input['port'] ?? ((string) ($input['scheme'] ?? 'http') === 'https' ? 443 : 80)),
+                'host_header' => trim((string) ($input['host_header'] ?? $input['host'] ?? '')),
+                'sni' => trim((string) ($input['sni'] ?? $input['host'] ?? '')),
+                'tls_verify' => (string) ($input['tls_verify'] ?? 'verify'),
+                'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : false,
+                'dns_record_id' => $input['dns_record_id'] ?? null,
+                'source' => (string) ($input['source'] ?? 'manual'),
+                'role' => $isPrimary ? 'primary' : (string) ($input['role'] ?? 'backup'),
+                'weight' => (int) ($input['weight'] ?? 1),
                 'is_primary' => $isPrimary,
                 'health_check_path' => (string) ($input['health_check_path'] ?? '/'),
                 'health_check_interval_seconds' => (int) ($input['health_check_interval_seconds'] ?? 30),
@@ -45,17 +53,31 @@ class OriginHealthService
                 'created_at' => $now,
                 'updated_at' => $now,
             ];
+            if ($row['host_header'] === '') {
+                $row['host_header'] = $row['host'];
+            }
+            if ($row['sni'] === '') {
+                $row['sni'] = $row['host'];
+            }
             $pdo->prepare(
                 'INSERT INTO domain_origins
-                 (id,domain_id,scheme,host,port,is_primary,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,health_status,last_check_at,last_error,enabled,created_at,updated_at)
+                 (id,domain_id,dns_record_id,source,role,weight,scheme,host,port,host_header,sni,tls_verify,preserve_host,is_primary,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,health_status,last_check_at,last_error,enabled,created_at,updated_at)
                  VALUES
-                 (:id,:domain_id,:scheme,:host,:port,:is_primary,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
+                 (:id,:domain_id,:dns_record_id,:source,:role,:weight,:scheme,:host,:port,:host_header,:sni,:tls_verify,:preserve_host,:is_primary,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
             )->execute([
                 ':id' => $row['id'],
                 ':domain_id' => $row['domain_id'],
+                ':dns_record_id' => $row['dns_record_id'],
+                ':source' => $row['source'],
+                ':role' => $row['role'],
+                ':weight' => $row['weight'],
                 ':scheme' => $row['scheme'],
                 ':host' => $row['host'],
                 ':port' => $row['port'],
+                ':host_header' => $row['host_header'],
+                ':sni' => $row['sni'],
+                ':tls_verify' => $row['tls_verify'],
+                ':preserve_host' => (int) $row['preserve_host'],
                 ':is_primary' => (int) $row['is_primary'],
                 ':health_check_path' => $row['health_check_path'],
                 ':health_check_interval_seconds' => $row['health_check_interval_seconds'],
@@ -92,8 +114,23 @@ class OriginHealthService
             'health_check_path' => (string) ($input['health_check_path'] ?? $existing['health_check_path']),
             'health_check_interval_seconds' => (int) ($input['health_check_interval_seconds'] ?? $existing['health_check_interval_seconds']),
             'health_check_timeout_seconds' => (int) ($input['health_check_timeout_seconds'] ?? $existing['health_check_timeout_seconds']),
+            'host_header' => array_key_exists('host_header', $input) ? trim((string) $input['host_header']) : (string) ($existing['host_header'] ?? ''),
+            'sni' => array_key_exists('sni', $input) ? trim((string) $input['sni']) : (string) ($existing['sni'] ?? ''),
+            'tls_verify' => (string) ($input['tls_verify'] ?? $existing['tls_verify'] ?? 'verify'),
+            'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : (bool) ($existing['preserve_host'] ?? false),
+            'role' => array_key_exists('role', $input) ? (string) $input['role'] : (string) ($existing['role'] ?? 'backup'),
+            'weight' => (int) ($input['weight'] ?? $existing['weight'] ?? 1),
             'enabled' => array_key_exists('enabled', $input) ? !empty($input['enabled']) : (bool) $existing['enabled'],
         ];
+        if ($patch['host_header'] === '') {
+            $patch['host_header'] = $patch['host'];
+        }
+        if ($patch['sni'] === '') {
+            $patch['sni'] = $patch['host'];
+        }
+        if ($patch['is_primary']) {
+            $patch['role'] = 'primary';
+        }
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
@@ -102,7 +139,8 @@ class OriginHealthService
                     ->execute([':domain_id' => $domainId, ':id' => $originId, ':updated_at' => $now]);
             }
             $pdo->prepare(
-                'UPDATE domain_origins SET scheme=:scheme,host=:host,port=:port,is_primary=:is_primary,
+                'UPDATE domain_origins SET scheme=:scheme,host=:host,port=:port,host_header=:host_header,sni=:sni,
+                 tls_verify=:tls_verify,preserve_host=:preserve_host,role=:role,weight=:weight,is_primary=:is_primary,
                  health_check_path=:health_check_path,health_check_interval_seconds=:health_check_interval_seconds,
                  health_check_timeout_seconds=:health_check_timeout_seconds,enabled=:enabled,updated_at=:updated_at
                  WHERE domain_id=:domain_id AND id=:id'
@@ -112,6 +150,12 @@ class OriginHealthService
                 ':scheme' => $patch['scheme'],
                 ':host' => $patch['host'],
                 ':port' => $patch['port'],
+                ':host_header' => $patch['host_header'],
+                ':sni' => $patch['sni'],
+                ':tls_verify' => $patch['tls_verify'],
+                ':preserve_host' => (int) $patch['preserve_host'],
+                ':role' => $patch['role'],
+                ':weight' => $patch['weight'],
                 ':is_primary' => (int) $patch['is_primary'],
                 ':health_check_path' => $patch['health_check_path'],
                 ':health_check_interval_seconds' => $patch['health_check_interval_seconds'],
@@ -201,9 +245,54 @@ class OriginHealthService
         return ['primary' => $primary, 'backup' => $backup];
     }
 
+    public function syncFromDnsRecord(string $domainId, array $record): ?array
+    {
+        if (empty($record['proxied']) || (string) ($record['status'] ?? 'active') !== 'active') {
+            $this->deleteForDnsRecord($domainId, (string) $record['id']);
+            return null;
+        }
+
+        $host = strtolower(trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? '')));
+        if ($host === '') {
+            return null;
+        }
+
+        $existing = $this->findForDnsRecord($domainId, (string) $record['id']);
+        $scheme = (string) ($record['origin_scheme'] ?? '');
+        if ($scheme === '') {
+            $scheme = 'http';
+        }
+        $payload = [
+            'scheme' => $scheme,
+            'host' => $host,
+            'port' => $scheme === 'https' ? 443 : 80,
+            'host_header' => $host,
+            'sni' => $host,
+            'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
+            'source' => 'dns_record',
+            'role' => $this->hasPrimaryOrigin($domainId, (string) ($existing['id'] ?? '')) ? 'backup' : 'primary',
+            'is_primary' => !$this->hasPrimaryOrigin($domainId, (string) ($existing['id'] ?? '')),
+            'enabled' => true,
+            'dns_record_id' => (string) $record['id'],
+        ];
+
+        if ($existing !== null) {
+            return $this->update($domainId, (string) $existing['id'], $payload);
+        }
+
+        return $this->create($domainId, $payload);
+    }
+
+    public function deleteForDnsRecord(string $domainId, string $dnsRecordId): void
+    {
+        $stmt = Database::pdo()->prepare(
+            "DELETE FROM domain_origins WHERE domain_id=:domain_id AND dns_record_id=:dns_record_id AND source='dns_record'"
+        );
+        $stmt->execute([':domain_id' => $domainId, ':dns_record_id' => $dnsRecordId]);
+    }
+
     public function addBackupFromDnsRecord(string $domainId, array $record): array
     {
-        $this->ensurePrimaryFromDnsRecords($domainId);
         $host = strtolower(trim((string) ($record['origin_host'] ?? $record['content'] ?? '')));
         $scheme = (string) ($record['origin_scheme'] ?? 'http') ?: 'http';
         $existing = Database::pdo()->prepare(
@@ -232,6 +321,30 @@ class OriginHealthService
         $stmt->execute([':domain_id' => $domainId, ':id' => $originId]);
         $row = $stmt->fetch();
         return $row ? $this->cast($row) : null;
+    }
+
+    private function findForDnsRecord(string $domainId, string $dnsRecordId): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT * FROM domain_origins WHERE domain_id=:domain_id AND dns_record_id=:dns_record_id AND source='dns_record' LIMIT 1"
+        );
+        $stmt->execute([':domain_id' => $domainId, ':dns_record_id' => $dnsRecordId]);
+        $row = $stmt->fetch();
+        return $row ? $this->cast($row) : null;
+    }
+
+    private function hasPrimaryOrigin(string $domainId, string $exceptOriginId = ''): bool
+    {
+        $sql = 'SELECT 1 FROM domain_origins WHERE domain_id=:domain_id AND is_primary=true';
+        $params = [':domain_id' => $domainId];
+        if ($exceptOriginId !== '') {
+            $sql .= ' AND id<>:id';
+            $params[':id'] = $exceptOriginId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchColumn() !== false;
     }
 
     private function probe(array $origin): array
@@ -295,12 +408,19 @@ class OriginHealthService
 
     private function cast(array $row): array
     {
-        foreach (['port', 'health_check_interval_seconds', 'health_check_timeout_seconds', 'created_at', 'updated_at'] as $key) {
+        foreach (['port', 'weight', 'health_check_interval_seconds', 'health_check_timeout_seconds', 'created_at', 'updated_at'] as $key) {
             $row[$key] = (int) $row[$key];
         }
+        $row['dns_record_id'] = $row['dns_record_id'] === null ? null : (string) $row['dns_record_id'];
+        $row['source'] = (string) ($row['source'] ?? 'manual');
+        $row['role'] = (string) ($row['role'] ?? (!empty($row['is_primary']) ? 'primary' : 'backup'));
+        $row['host_header'] = (string) ($row['host_header'] ?: $row['host']);
+        $row['sni'] = (string) ($row['sni'] ?: $row['host']);
+        $row['tls_verify'] = (string) ($row['tls_verify'] ?? 'verify');
         $row['last_check_at'] = $row['last_check_at'] === null ? null : (int) $row['last_check_at'];
         $row['is_primary'] = in_array($row['is_primary'], [true, 1, '1', 't', 'true'], true);
         $row['enabled'] = in_array($row['enabled'], [true, 1, '1', 't', 'true'], true);
+        $row['preserve_host'] = in_array($row['preserve_host'], [true, 1, '1', 't', 'true'], true);
         return $row;
     }
 

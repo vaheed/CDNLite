@@ -46,15 +46,16 @@ class ConfigService
             if ($originHost === '') {
                 continue;
             }
-            $configuredOrigins = $this->origins->primaryAndBackupForDomain((string) $domain['id']);
-            $origins = $this->originsFromDnsRecords($records);
-            $primaryOrigin = [
-                'host' => $originHost,
-                'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
-                'scheme' => $record['origin_scheme'] ?? null,
-                'status' => (string) ($record['origin_status'] ?? 'pending'),
-            ];
-            $backupOrigin = $configuredOrigins['backup'] !== null ? $this->originForSnapshot($configuredOrigins['backup']) : null;
+            $configuredOrigins = $this->origins->list((string) $domain['id']);
+            $origins = $this->originsForSnapshot($configuredOrigins);
+            if ($origins === []) {
+                $origins = $this->originsFromDnsRecords($records);
+            }
+            if ($origins === []) {
+                continue;
+            }
+            $primaryOrigin = $this->firstOriginByRole($origins, 'primary') ?? $origins[0];
+            $backupOrigin = $this->firstOriginByRole($origins, 'backup');
             $hosts[$domain['domain']] = [
                 'domain_id' => (string) $domain['id'],
                 'origin' => $primaryOrigin,
@@ -323,12 +324,48 @@ class ConfigService
     {
         return [
             'id' => (string) $origin['id'],
+            'dns_record_id' => $origin['dns_record_id'] ?? null,
+            'source' => (string) ($origin['source'] ?? 'manual'),
+            'role' => (string) ($origin['role'] ?? (!empty($origin['is_primary']) ? 'primary' : 'backup')),
+            'weight' => (int) ($origin['weight'] ?? 1),
+            'enabled' => (bool) ($origin['enabled'] ?? true),
             'host' => (string) $origin['host'],
             'scheme' => (string) $origin['scheme'],
             'port' => (int) $origin['port'],
+            'host_header' => (string) ($origin['host_header'] ?? $origin['host']),
+            'sni' => (string) ($origin['sni'] ?? $origin['host']),
+            'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+            'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
+    }
+
+    private function originsForSnapshot(array $origins): array
+    {
+        $out = [];
+        foreach ($origins as $origin) {
+            if (empty($origin['enabled'])) {
+                continue;
+            }
+            $out[] = $this->originForSnapshot($origin);
+        }
+        usort($out, static function (array $a, array $b): int {
+            $role = ['primary' => 0, 'backup' => 1];
+            return [$role[$a['role']] ?? 2, $b['weight'], $a['id']]
+                <=> [$role[$b['role']] ?? 2, $a['weight'], $b['id']];
+        });
+        return $out;
+    }
+
+    private function firstOriginByRole(array $origins, string $role): ?array
+    {
+        foreach ($origins as $origin) {
+            if (($origin['role'] ?? '') === $role) {
+                return $origin;
+            }
+        }
+        return null;
     }
 
     private function originsFromDnsRecords(array $records): array

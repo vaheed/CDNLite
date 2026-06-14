@@ -63,13 +63,39 @@ class OriginController
                 return ['error' => 'invalid_field', 'field' => 'scheme', 'detail' => 'must_be_one_of_http_https', 'status' => 422];
             }
         }
+        if (array_key_exists('tls_verify', $body)) {
+            $tlsVerify = Validator::enum($body, 'tls_verify', ['verify', 'ignore']);
+            if (($tlsVerify['ok'] ?? false) !== true) {
+                return ['error' => 'invalid_field', 'field' => 'tls_verify', 'detail' => 'must_be_verify_or_ignore', 'status' => 422];
+            }
+        }
+        if (array_key_exists('role', $body)) {
+            $role = Validator::enum($body, 'role', ['primary', 'backup']);
+            if (($role['ok'] ?? false) !== true) {
+                return ['error' => 'invalid_field', 'field' => 'role', 'detail' => 'must_be_primary_or_backup', 'status' => 422];
+            }
+        }
+        foreach (['host_header', 'sni'] as $field) {
+            if (array_key_exists($field, $body) && trim((string) $body[$field]) !== '') {
+                $value = Validator::requiredString($body, $field, 255);
+                if (($value['ok'] ?? false) !== true) {
+                    return $value;
+                }
+            }
+        }
         if (array_key_exists('port', $body)) {
             $port = Validator::intRange($body, 'port', 80, 443);
             if (($port['ok'] ?? false) !== true || !in_array((int) $port['value'], [80, 443], true)) {
                 return ['error' => 'invalid_field', 'field' => 'port', 'detail' => 'must_be_80_or_443', 'status' => 422];
             }
         }
-        foreach (['is_primary', 'enabled'] as $field) {
+        if (array_key_exists('weight', $body)) {
+            $weight = Validator::intRange($body, 'weight', 1, 10000);
+            if (($weight['ok'] ?? false) !== true) {
+                return $weight;
+            }
+        }
+        foreach (['is_primary', 'enabled', 'preserve_host'] as $field) {
             if (array_key_exists($field, $body)) {
                 $bool = Validator::bool($body, $field);
                 if (($bool['ok'] ?? false) !== true) {

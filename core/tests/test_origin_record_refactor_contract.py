@@ -8,10 +8,27 @@ def read(path: str) -> str:
     return (ROOT / path).read_text()
 
 
-def test_domain_schema_has_no_origin_port():
+def test_domain_schema_keeps_record_level_origin_fields():
     schema = read("core/database/schema.sql")
 
     assert "origin_port INTEGER" not in schema
+    assert "dns_record_id TEXT NULL REFERENCES dns_records(id) ON DELETE CASCADE" in schema
+    assert "source TEXT NOT NULL DEFAULT 'manual'" in schema
+    assert "host_header TEXT NULL" in schema
+    assert "sni TEXT NULL" in schema
+    assert "tls_verify TEXT NOT NULL DEFAULT 'verify'" in schema
+    assert "preserve_host BOOLEAN NOT NULL DEFAULT false" in schema
+    assert "domain_origins_dns_record_idx" in schema
+
+
+def test_dns_origin_link_migration_is_additive():
+    migration = read("core/database/migrations/000002_link_dns_records_to_origins.sql")
+
+    assert "ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS dns_record_id" in migration
+    assert "FOREIGN KEY (dns_record_id) REFERENCES dns_records(id) ON DELETE CASCADE" in migration
+    assert "CREATE INDEX IF NOT EXISTS domain_origins_dns_record_idx" in migration
+    assert "DROP TABLE" not in migration
+    assert "TRUNCATE" not in migration
 
 
 def test_record_level_origin_proxy_and_geo_contract():
@@ -35,6 +52,20 @@ def test_duplicate_proxy_target_is_stored_as_dns_record():
     assert "addBackupFromDnsRecord($domainId, $record)" not in dns
     assert "backup_origin_added" not in dns
     assert "assertNotDuplicate" in dns
+    assert "syncFromDnsRecord($domainId, $created)" in dns
+    assert "syncFromDnsRecord($domainId, $updated)" in dns
+    assert "deleteForDnsRecord($domainId, $recordId)" in dns
+
+
+def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
+    origins = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
+
+    assert "public function syncFromDnsRecord" in origins
+    assert "public function deleteForDnsRecord" in origins
+    assert "source' => 'dns_record'" in origins
+    assert "dns_record_id" in origins
+    assert "lower(host)=:host AND scheme=:scheme LIMIT 1" in origins
+    assert "public function create" in origins
 
 
 def test_https_first_fallback_and_tls_verification_modes():
@@ -56,8 +87,12 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "'origins' => $origins" in config
+    assert "private function originsForSnapshot" in config
     assert "private function originsFromDnsRecords" in config
     assert "'source' => 'dns_record'" in config
     assert "'dns_record_id'" in config
+    assert "'host_header'" in config
+    assert "'sni'" in config
+    assert "'preserve_host'" in config
     assert "'primary_origin' => $primaryOrigin" in config
     assert "'backup_origin' => $backupOrigin" in config

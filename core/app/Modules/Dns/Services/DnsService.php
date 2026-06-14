@@ -3,6 +3,7 @@
 namespace App\Modules\Dns\Services;
 
 use App\Modules\Domains\Services\DomainService;
+use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -13,12 +14,14 @@ class DnsService
     private DomainService $domains;
     private CustomerDnsService $customerDns;
     private DnsPublishingPlanner $planner;
+    private OriginHealthService $origins;
 
     public function __construct()
     {
         $this->domains = new DomainService();
         $this->planner = new DnsPublishingPlanner();
         $this->customerDns = new CustomerDnsService($this->planner);
+        $this->origins = new OriginHealthService();
     }
 
     public function listByDomain(string $domainId): array
@@ -159,6 +162,7 @@ class DnsService
         if ($created === null) {
             throw new \RuntimeException('dns_record_create_failed');
         }
+        $this->origins->syncFromDnsRecord($domainId, $created);
         $this->reconcile();
         return $created;
     }
@@ -286,6 +290,7 @@ class DnsService
         if ($updated === null) {
             return null;
         }
+        $this->origins->syncFromDnsRecord($domainId, $updated);
         $this->reconcile();
         return $updated;
     }
@@ -306,6 +311,7 @@ class DnsService
         $stmt->execute([':domain_id' => $domainId, ':id' => $recordId]);
         $deleted = $stmt->rowCount() > 0;
         if ($deleted) {
+            $this->origins->deleteForDnsRecord($domainId, $recordId);
             $this->reconcile();
         }
         return $deleted;

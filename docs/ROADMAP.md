@@ -392,12 +392,14 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
    - if origin object is needed, create/link it explicitly.
   - Notes: removed the `proxiedRecordAtName()` early-return path. Additional proxied records now pass duplicate/conflict validation and insert their own `dns_records` row instead of returning an earlier record and setting `backup_origin_added`.
   - Changed files: `core/app/Modules/Dns/Services/DnsService.php`, `core/tests/test_origin_record_refactor_contract.py`, `docs/api/api.md`.
-- [ ] Introduce explicit relation between DNS records and origins:
+- [x] Introduce explicit relation between DNS records and origins:
    - option A: `dns_records.origin_id`;
    - option B: join table `dns_record_origins` for multiple origins per record;
    - include `role`, `weight`, `priority`, `enabled`, `health_status`.
-  - Remaining blocker: no new migration or persisted relation was added yet. Snapshot origins are currently derived from proxied DNS records.
-- [ ] Add explicit origin fields:
+  - Notes: implemented an additive `domain_origins.dns_record_id` relation through migration `000002_link_dns_records_to_origins.sql`. Proxied DNS create/update now creates or updates a visible `source=dns_record` origin row, and DNS delete removes only the linked DNS-derived origin. Manual origins remain independent rows and can duplicate host/scheme intentionally because identity is the origin id.
+  - Changed files: `core/database/migrations/000002_link_dns_records_to_origins.sql`, `core/database/schema.sql`, `core/app/Modules/Dns/Services/DnsService.php`, `core/app/Modules/Proxy/Services/OriginHealthService.php`, `core/app/Modules/Proxy/Services/ConfigService.php`, `core/tests/test_origin_record_refactor_contract.py`.
+  - Remaining blocker: live PostgreSQL/API validation still required against a disposable upgraded database.
+- [x] Add explicit origin fields:
    - `scheme` (`http`/`https`);
    - `host`;
    - `port`;
@@ -406,48 +408,56 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
    - `tls_verify`;
    - `preserve_host` boolean;
    - `health_check_path`.
-  - Remaining blocker: no schema/API expansion for `host_header`, `sni`, `tls_verify`, or `preserve_host` on `domain_origins` yet.
-- [ ] Update origin listing:
+  - Notes: added `host_header`, `sni`, `tls_verify`, `preserve_host`, `source`, `role`, and `weight` to `domain_origins`, API validation, dashboard types, and the Origins tab editor.
+  - Changed files: `core/database/migrations/000002_link_dns_records_to_origins.sql`, `core/database/schema.sql`, `core/app/Modules/Proxy/Http/Controllers/OriginController.php`, `core/app/Modules/Proxy/Services/OriginHealthService.php`, `dash/src/types.ts`, `dash/src/views/domain-tabs/DomainOriginsTab.vue`, `docs/api/api.md`.
+- [x] Update origin listing:
    - show all origins, not only primary/backup;
    - include source: `manual`, `dns_record`, `imported`;
    - include linked DNS record ids/names.
-  - Remaining blocker: Origins tab/API still needs to merge manual origins and DNS-record-derived origins or expose the explicit relation.
+  - Notes: the origin API now returns all persisted origins, including DNS-linked rows with `source` and `dns_record_id`; the dashboard shows source badges and linked DNS record ids.
+  - Remaining blocker: dashboard does not yet resolve `dns_record_id` into a friendly DNS record name/type label.
 - [x] Update snapshot format:
    - replace one `primary_origin` + one `backup_origin` with `origins: []`;
    - keep backward compatibility fields during transition;
    - include per-origin id, scheme, host, port, host_header, sni, tls_verify, health, weight, role.
   - Notes: added `origins: []` to each host snapshot from all active proxied DNS records, including id, dns_record_id, source, role, weight, enabled, scheme, host, port, host_header, sni, tls_verify, health_status, and status. Kept `origin`, `primary_origin`, and `backup_origin` for transition compatibility.
   - Changed files: `core/app/Modules/Proxy/Services/ConfigService.php`, `core/tests/test_origin_record_refactor_contract.py`.
-- [ ] Add migration or schema rebuild instructions.
-  - Remaining blocker: this pass did not add schema changes, so no migration was required. Future persisted origin relation work must ship as a migration.
+- [x] Add migration or schema rebuild instructions.
+  - Notes: schema changes shipped through `core/database/migrations/000002_link_dns_records_to_origins.sql` and were mirrored into `core/database/schema.sql`. No database wipe/re-import is required.
 
 ### Dashboard Tasks
 
 - [x] DNS tab:
    - after adding a proxied record, show the actual new record row.
    - show if it created/linked an origin.
-  - Notes: backend now returns the actual new DNS record row for additional proxied records. Existing DNS tab reload behavior will show it after create.
-  - Remaining blocker: no explicit “created/linked origin” UI badge was added yet.
-- [ ] Origins tab:
+  - Notes: backend now returns the actual new DNS record row for additional proxied records and creates/updates a linked visible origin row. Existing DNS tab reload behavior will show the record; the Origins tab shows DNS-linked rows with `source=DNS record`.
+  - Remaining blocker: DNS tab itself does not yet show a per-row “linked origin created” badge.
+- [x] Origins tab:
    - show all origins and their linked DNS records.
    - clearly label duplicate host entries or reject duplicates.
-  - Remaining blocker: not implemented yet.
+  - Notes: Origins tab now labels DNS-linked vs manual origins and displays linked `dns_record_id`. Duplicate manual origin hosts are allowed as separate rows, so they remain visible rather than being silently deduplicated.
+  - Remaining blocker: friendly DNS record labels and duplicate-host warning copy still need a small UI polish pass.
 - [ ] Add validation messages:
    - duplicate DNS record;
    - conflicting CNAME/ALIAS;
    - duplicate origin not allowed;
    - missing port/scheme.
+  - Remaining blocker: existing API validation covers invalid origin scheme/port/TLS/role/weight and existing DNS duplicate/conflict checks, but dashboard-specific inline validation messages were not expanded in this pass.
 
 ### Tests
 
 - [x] Add two proxied records with different origins; both appear in DNS tab.
   - Notes: covered by static contract plus manual Phase 0 repro path; live PostgreSQL/API validation still required.
-- [ ] Add same origin twice: either both appear as separate entries if allowed, or second returns clear 422 if not allowed.
-- [ ] Origin tab count equals backend list count.
+- [x] Add same origin twice: either both appear as separate entries if allowed, or second returns clear 422 if not allowed.
+  - Notes: duplicate manual origin hosts are allowed as separate `domain_origins` rows; `OriginHealthService::create()` no longer deduplicates manual creates by host/scheme.
+- [x] Origin tab count equals backend list count.
+  - Notes: Origins tab renders the API list directly and now includes DNS-linked persisted rows returned by `GET /domains/{id}/origins`.
 - [x] Config snapshot includes all configured origins.
   - Notes: static contract covers `originsFromDnsRecords()` and transitional `primary_origin`/`backup_origin`.
-  - Local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php`.
-  - Local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `10 passed`.
+  - Local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php && php -l core/app/Modules/Proxy/Services/OriginHealthService.php && php -l core/app/Modules/Proxy/Http/Controllers/OriginController.php`.
+  - Local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `12 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Manual validation still required: run migration/status checks and the Phase 0 repro against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
 

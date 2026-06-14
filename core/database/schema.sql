@@ -191,9 +191,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS dns_record_geo_routes_country_idx
 CREATE TABLE IF NOT EXISTS domain_origins (
   id TEXT PRIMARY KEY,
   domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  dns_record_id TEXT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
+  source TEXT NOT NULL DEFAULT 'manual',
+  role TEXT NOT NULL DEFAULT 'backup',
+  weight INTEGER NOT NULL DEFAULT 1,
   scheme TEXT NOT NULL DEFAULT 'http',
   host TEXT NOT NULL,
   port INTEGER NOT NULL DEFAULT 80,
+  host_header TEXT NULL,
+  sni TEXT NULL,
+  tls_verify TEXT NOT NULL DEFAULT 'verify',
+  preserve_host BOOLEAN NOT NULL DEFAULT false,
   is_primary BOOLEAN NOT NULL DEFAULT true,
   health_check_path TEXT NOT NULL DEFAULT '/',
   health_check_interval_seconds INTEGER NOT NULL DEFAULT 30,
@@ -206,12 +214,23 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   updated_at BIGINT NOT NULL,
   CHECK (scheme IN ('http', 'https')),
   CHECK (port IN (80, 443)),
+  CHECK (source IN ('manual', 'dns_record', 'imported')),
+  CHECK (role IN ('primary', 'backup')),
+  CHECK (tls_verify IN ('verify', 'ignore')),
+  CHECK (weight BETWEEN 1 AND 10000),
   CHECK (health_status IN ('healthy', 'unhealthy', 'unknown'))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS domain_origins_one_primary_idx
   ON domain_origins (domain_id)
   WHERE is_primary = true;
+
+CREATE INDEX IF NOT EXISTS domain_origins_dns_record_idx
+  ON domain_origins (dns_record_id)
+  WHERE dns_record_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS domain_origins_domain_source_idx
+  ON domain_origins (domain_id, source, enabled);
 
 CREATE TABLE IF NOT EXISTS dns_desired_generations (
   id BIGSERIAL PRIMARY KEY,

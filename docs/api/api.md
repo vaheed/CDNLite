@@ -303,6 +303,10 @@ Example:
   "host": "origin.example.com",
   "scheme": "https",
   "port": 443,
+  "host_header": "origin.example.com",
+  "sni": "origin.example.com",
+  "tls_verify": "verify",
+  "preserve_host": false,
   "role": "primary",
   "enabled": true
 }
@@ -311,6 +315,10 @@ Example:
 Origin tips:
 
 - Configure at least one enabled primary origin before sending traffic.
+- Proxied DNS records create visible origins with `source: "dns_record"` and
+  `dns_record_id`; manual origins use `source: "manual"`.
+- Duplicate manual origin hosts are allowed as separate rows because routing
+  identity is the origin id, not only host and scheme.
 - Add a backup origin before aggressive cache or WAF changes, so edge failover has somewhere to go.
 - Use the manual health-check route after every origin update.
 - The edge may emit `X-CDNLITE-Origin: primary|backup`; capture this header in incident reports.
@@ -527,5 +535,6 @@ becomes active; a domain with missing, partial, or changed delegation becomes
 `pending_nameserver`. DNS records may be created at any time. Record responses
 include `effective_status` and `disabled_reason` so clients can distinguish a
 desired-active record waiting for delegation from an explicitly disabled record.
-Creating a second proxied target at the same name adds it as a backup origin and
-returns the existing public DNS record with `backup_origin_added: true`.
+Creating a second proxied target at the same name stores and returns the new DNS
+record. When proxying is enabled, CDNLite also creates or updates a visible
+linked origin row with `source: "dns_record"` and `dns_record_id`.
