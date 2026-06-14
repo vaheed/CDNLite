@@ -642,7 +642,7 @@ assert_eq "$edge_id_header_health" "$EDGE_ID" "proxied response should expose ed
 record_step PASS "edge-proxy-health" "health endpoint proxied"
 
 edge_domains_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" "${EDGE_URL}/api/v1/domains?via=edge")"
-assert_contains "$edge_domains_body" "$TEST_DOMAIN" "edge proxied domains list missing test domain"
+assert_contains "$edge_domains_body" '"origin_scheme":"https"' "edge proxied GET should reach the configured HTTPS origin"
 record_step PASS "edge-proxy-get-query" "GET with query proxied"
 
 # WAF block behavior (path_prefix /admin).

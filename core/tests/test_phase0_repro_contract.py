@@ -27,7 +27,8 @@ def test_phase0_repro_script_covers_reported_failures():
     assert "phase0_expect_failure" in script
     assert "/verify-nameservers" in script
     assert "/nameservers/force-verify" in script
-    assert "/ssl/request-cert" in script
+    assert "/ssl/request" in script
+    assert "/ssl/request-cert" not in script
     assert "/activity?limit=10" in script
     assert "Host: ${TEST_DOMAIN}" in script
 

@@ -237,6 +237,8 @@ Create a reliable failing test suite before changing core behavior.
    - dashboard mutation updates visible state without browser refresh.
   - Notes: the repro harness now checks detailed nameserver trace fields, non-admin/admin force verify behavior, duplicate proxied DNS row persistence, SSL progress metadata, Activity detail fields, and edge 200 behavior. It records these as failing reproduction steps when the current product does not satisfy the roadmap behavior. Added a lightweight contract test so the Phase 0 repro coverage cannot silently disappear.
   - Changed files: `ci/phase0_repro.sh`, `core/tests/test_phase0_repro_contract.py`.
+  - Follow-up fix: the SSL progress repro now uses `/ssl/request`, the local pending-certificate request endpoint, instead of `/ssl/request-cert`, which can contact external ACME and fail on local fixture email domains such as `example.com`.
+  - Changed files: `ci/phase0_repro.sh`, `core/tests/test_phase0_repro_contract.py`.
   - Remaining blocker: dashboard stale-state reproduction is not yet browser-driven; this should be expanded with a Vitest or Playwright test in Phase 1/2 when the target mutation flow is implemented.
 - [x] Add diagnostic capture in CI artifacts:
    - `docker compose ps`;
@@ -509,6 +511,7 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
    - internal log includes domain_id, edge_node_id, selected origin id, upstream URL, upstream_status, upstream_response_time, router_error;
    - never expose secrets.
   - Notes: metrics now include host, method, path, redacted query, router_error, origin_id/role/host, upstream status/time/address, request_time, and existing request id. Structured edge diagnostics log router errors and origin selection without secrets.
+  - Follow-up fix: e2e now validates that a proxied GET reaches the configured origin by checking the origin mock response instead of expecting the mock origin to return Core's domain list.
   - Changed files: `edge/openresty/lua/metrics.lua`, `edge/openresty/lua/edge_log.lua`, `edge/openresty/lua/router.lua`, `docs/api/api.md`, `docs/security.md`.
 5. [ ] Add edge route debug endpoint or admin-only diagnostic API:
    - input: domain + path + country;
@@ -541,6 +544,7 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_origin_health_phase19_contract.py` passed.
   - Follow-up local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_dns_reconciler_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_origin_health_phase19_contract.py core/tests/test_phase0_repro_contract.py` passed with `29 passed`.
+  - Follow-up local validation run: `bash -n ci/phase0_repro.sh && bash -n ci/e2e.sh` passed.
   - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt

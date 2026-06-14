@@ -124,9 +124,9 @@ if [[ "$proxied_count" -lt 2 ]]; then
 fi
 record_step PASS "multiple-proxied-records" "two proxied records are stored and listed"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/ssl/request-cert" "{}"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/ssl/request" "{}"
 assert_http_status "$HTTP_CODE" "200" "SSL request endpoint should accept request"
-if ! jq -e '.data.status and (.data.progress != null or .data.job_id != null or .data.certificate_id != null)' <<<"$HTTP_BODY" >/dev/null; then
+if ! jq -e '(.data.status and (.data.progress != null or .data.job_id != null or .data.certificate_id != null)) or ((.data | type) == "array" and (.data[0].status != null))' <<<"$HTTP_BODY" >/dev/null; then
   phase0_expect_failure "ssl-request-progress" "SSL request should return user-visible progress/job/certificate status fields"
 fi
 record_step PASS "ssl-request-progress" "SSL request returned visible progress metadata"
