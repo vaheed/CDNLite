@@ -11,13 +11,17 @@ Date: 2026-06-15
 - Phase 6: added targeted e2e coverage for a 502 edge request showing selected origin and router/upstream diagnostics in Activity.
 - Fixed user-reported e2e failure where SNI was not observable in the origin fixture by adding a dedicated `phase3-sni.local` TLS virtual host.
 - Fixed user-reported e2e failure where later POST proxy validation expected HTTPS after an HTTP-origin test by making restore payloads explicitly set `origin_scheme: "https"`.
+- Fixed user-reported e2e failure where DNS-linked origin updates corrupted A/AAAA record content and triggered strict PowerDNS `invalid_dns_record_content`.
+- Fixed user-reported e2e failure where TLS verify-mode expected HTTPS-to-HTTP fallback; explicit HTTPS self-signed origins now assert a 502 with request id.
 - Updated `docs/ROADMAP.md` with checkboxes, notes, changed files, lightweight validation, and remaining manual validation blockers.
 
 ## 2. Changed Files
 
 - `ci/e2e.sh`
 - `ci/origin-mock/nginx.conf`
+- `core/app/Modules/Proxy/Services/OriginHealthService.php`
 - `core/tests/test_edge_phase3_contract.py`
+- `core/tests/test_origin_record_refactor_contract.py`
 - `core/tests/test_phase6_activity_diagnostics_contract.py`
 - `docs/ROADMAP.md`
 - `docs/ide-report.md`
@@ -26,6 +30,7 @@ Date: 2026-06-15
 
 - No database schema changes.
 - No migration changes.
+- DNS-linked origin updates no longer rewrite public DNS record `content` or `origin_content`; existing corrupted local rows, if any, should be corrected by updating the DNS record content back to the intended IP/target before rerunning strict reconciliation.
 - No data reset, wipe, truncate, or fresh-install-only logic was used.
 
 ## 4. Tests Run
@@ -34,6 +39,9 @@ Date: 2026-06-15
 - `pytest -q core/tests/test_edge_phase3_contract.py`
 - `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py`
 - `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py`
+- `php -l core/app/Modules/Proxy/Services/OriginHealthService.php`
+- `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_phase7_config_invalidation_contract.py`
+- `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py`
 - `git diff --check`
 
 ## 5. Smoke/E2E Commands For Manual Run
@@ -57,6 +65,8 @@ EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> \
 
 - Codex did not run Docker, smoke, or e2e tests per instruction.
 - User reported `191 passed in 46.32s` and smoke passing at `2026-06-15T19:05:35Z`; the subsequent e2e failures were addressed but need a rerun.
+- User reported a later e2e failure at `HTTP fallback origin update failed` with `dns_publish_failed` / `invalid_dns_record_content`; the service bug was addressed but needs a rerun.
+- User reported `193 passed in 45.60s` and smoke passing at `2026-06-15T19:19:58Z`; the later e2e verify-mode fallback expectation was corrected but needs a rerun.
 - The fixed Phase 3 e2e assertions still need runtime validation on a disposable stack.
 - The new Phase 6 Activity ingest and 502 diagnostics assertions still need runtime validation on a disposable stack.
 - The SNI assertion uses the local self-signed origin fixture with `tls_verify=ignore`; this proves edge SNI forwarding, not public CA validation.

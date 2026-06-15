@@ -78,6 +78,9 @@ def test_phase3_e2e_covers_https_sni_and_preserve_host_runtime_cases():
     assert "origin-host-header-cdn" in e2e
     assert '\\"preserve_host\\":true' in e2e
     assert '\\"origin_host\\":\\"${TEST_DOMAIN}\\"' in e2e
+    assert "verify mode should reject the self-signed certificate" in e2e
+    assert 'assert_eq "$origin_verify_status" "502"' in e2e
+    assert "verify-mode 502 should include X-CDNLITE-Request-Id" in e2e
 
 
 def test_router_proxy_and_metrics_expose_phase3_diagnostics():

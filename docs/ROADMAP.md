@@ -591,6 +591,11 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Follow-up local validation run: `php -l core/app/Modules/Proxy/Services/OriginHealthService.php` passed.
   - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_phase7_config_invalidation_contract.py` passed with `20 passed`.
+  - User-reported validation on 2026-06-15: lightweight/backend tests passed with `193 passed in 45.60s`; smoke passed at `2026-06-15T19:19:58Z`; e2e later failed because the TLS verify-mode check expected the removed HTTPS-to-HTTP fallback.
+  - Follow-up fix: the verify-mode self-signed origin check now expects an explicit HTTPS origin to fail with a diagnosable `502` and `X-CDNLITE-Request-Id`, matching the Phase 3 rule that fallback is only allowed for `scheme=auto`.
+  - Changed files: `ci/e2e.sh`, `core/tests/test_edge_phase3_contract.py`.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `18 passed`.
   - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt

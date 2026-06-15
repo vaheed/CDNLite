@@ -535,9 +535,16 @@ api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}
   '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"verify"}'
 assert_http_status "$HTTP_CODE" "200" "verified TLS origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
-origin_verify_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=verify")"
-assert_contains "$origin_verify_body" '"origin_scheme":"http"' "verify mode should reject the self-signed certificate"
-record_step PASS "origin-tls-verify" "self-signed certificate rejected in verify mode"
+origin_verify_headers="$(mktemp)"
+origin_verify_status="$(curl -sS -o /tmp/e2e-origin-verify.txt -D "$origin_verify_headers" -w '%{http_code}' \
+  -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=verify")"
+assert_eq "$origin_verify_status" "502" "verify mode should reject the self-signed certificate"
+origin_verify_request_id="$(awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Request-Id:/ {gsub("\r","",$2); print $2}' "$origin_verify_headers" | tail -n1)"
+rm -f "$origin_verify_headers"
+if [[ -z "$origin_verify_request_id" ]]; then
+  fail "verify-mode 502 should include X-CDNLITE-Request-Id"
+fi
+record_step PASS "origin-tls-verify" "self-signed certificate rejected with 502 request_id=${origin_verify_request_id}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
   '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","scheme":"https","tls_verify":"ignore"},"IR":{"host":"origin-http","scheme":"http","tls_verify":"verify"}}}'
