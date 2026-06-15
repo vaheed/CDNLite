@@ -878,16 +878,19 @@ SSL issuance is treated as an action that eventually changes state, but the dash
    - `GET /domains/{id}/ssl/jobs/{jobId}`
   - Notes: added authenticated `GET /api/v1/domains/{domainId}/ssl/jobs/{jobId}` and included recent SSL jobs in `GET /ssl/acme-status`.
   - Changed files: `core/app/Modules/Proxy/Services/CertRenewalService.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
-4. [ ] Emit audit/activity events:
+4. [x] Emit audit/activity events:
    - `ssl.requested`
    - `ssl.dns_challenge_created`
    - `ssl.validation_pending`
    - `ssl.issued`
    - `ssl.failed`
-  - Notes: `ssl.requested` is now written when a job is queued.
-  - Remaining blocker: DNS challenge, validation, issued, and failed activity events need to be wired into the ACME issuer/worker state transitions.
-5. [ ] Update certificate install to invalidate config and notify edge.
-  - Remaining blocker: not changed in this pass; existing certificate install behavior was left intact.
+  - Notes: `ssl.requested` is written when a durable job is queued. ACME issuance now writes `ssl.validation_pending` at DNS/prerequisite and validation stages, `ssl.dns_challenge_created` after the DNS-01 TXT record is published, `ssl.issued` after certificates are stored, and `ssl.failed` with a safe error code/detail when issuance fails. Active `ssl_jobs` are updated from queued to `checking_dns`, `validating_challenge`, `issued`, or `failed` so the polling endpoint reflects lifecycle progress.
+  - Changed files: `core/app/Modules/Proxy/Services/CertRenewalService.php`, `core/app/Modules/Proxy/Services/AcmeIssuerService.php`, `core/tests/test_ssl_jobs_phase4_contract.py`.
+  - Local validation run: `php -l core/app/Modules/Proxy/Services/CertRenewalService.php && php -l core/app/Modules/Proxy/Services/AcmeIssuerService.php` passed.
+  - Local validation run: `pytest -q core/tests/test_ssl_jobs_phase4_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_domain_tabs_phase10_contract.py core/tests/test_cert_renewal_service.py` passed with `23 passed`.
+5. [x] Update certificate install to invalidate config and notify edge.
+  - Notes: `storeIssuedSslCertificate()` now invalidates `config_state.active_snapshot_version` after an ACME-issued or manually imported certificate is stored, so the next snapshot publish/edge pull can include updated TLS material. This does not wipe or rebuild the database.
+  - Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/tests/test_ssl_jobs_phase4_contract.py`.
 
 ### Dashboard Tasks
 
@@ -908,13 +911,13 @@ SSL issuance is treated as an action that eventually changes state, but the dash
 ### Tests
 
 - [x] SSL request returns job id.
-- [ ] Job status transitions appear in API.
-  - Notes: queued jobs are visible through API; full ACME worker transitions are not implemented yet.
+- [x] Job status transitions appear in API.
+  - Notes: active `ssl_jobs` now transition to `checking_dns`, `validating_challenge`, `issued`, or `failed` from the ACME renewal/issuance path and remain visible through `GET /api/v1/domains/{domainId}/ssl/jobs/{jobId}`.
 - [x] Dashboard shows progress without refresh.
 - [x] Failure message is visible and actionable.
   - Notes: `error_detail` is shown when present.
-- [ ] Audit/activity timeline includes SSL lifecycle.
-  - Notes: `ssl.requested` is emitted; full lifecycle events remain.
+- [x] Audit/activity timeline includes SSL lifecycle.
+  - Notes: lifecycle audit events now include `ssl.requested`, `ssl.dns_challenge_created`, `ssl.validation_pending`, `ssl.issued`, and `ssl.failed`. Phase 6 still needs the richer mixed timeline UI/API to present all product and request events together.
   - Local validation run: `php -l core/app/Modules/Proxy/Services/TrafficRulesService.php && php -l core/app/Modules/Proxy/Services/CertRenewalService.php && php -l core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php && php -l core/public_index.php` passed.
   - Local validation run: `pytest -q core/tests/test_ssl_jobs_phase4_contract.py core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py` passed with `11 passed`.
   - Local validation run: `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"` passed.

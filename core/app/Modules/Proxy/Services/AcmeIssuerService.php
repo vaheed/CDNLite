@@ -3,6 +3,7 @@
 namespace App\Modules\Proxy\Services;
 
 use App\Modules\Dns\Services\PowerDnsService;
+use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Secrets;
 use App\Support\Uuid;
@@ -45,7 +46,7 @@ class AcmeIssuerService
         $orderBody = $order['body'];
 
         foreach (($orderBody['authorizations'] ?? []) as $authUrl) {
-            $this->completeDnsAuthorization((string) $authUrl, $account, (string) $domain['domain']);
+            $this->completeDnsAuthorization($domainId, (string) $authUrl, $account, (string) $domain['domain']);
         }
 
         $keyPair = $this->generatePrivateKey();
@@ -67,7 +68,7 @@ class AcmeIssuerService
         return $rows;
     }
 
-    private function completeDnsAuthorization(string $authUrl, array $account, string $zoneDomain): void
+    private function completeDnsAuthorization(string $domainId, string $authUrl, array $account, string $zoneDomain): void
     {
         $auth = $this->signedPost($authUrl, null, $account)['body'];
         if (($auth['status'] ?? '') === 'valid') {
@@ -93,6 +94,15 @@ class AcmeIssuerService
         if (($dns['ok'] ?? false) !== true) {
             throw new \RuntimeException((string) ($dns['error'] ?? 'powerdns_challenge_sync_failed'));
         }
+        AuditLog::write('ssl.dns_challenge_created', 'ssl', null, $domainId, null, [
+            'domain_id' => $domainId,
+            'hostname' => $identifier,
+            'record_name' => $name,
+            'record_type' => 'TXT',
+            'ttl' => 60,
+            'status' => 'validating_challenge',
+            'created_at' => time(),
+        ], 'system');
 
         $delay = max(0, (int) (getenv('CDNLITE_ACME_DNS_PROPAGATION_SECONDS') ?: 0));
         if ($delay > 0) {
