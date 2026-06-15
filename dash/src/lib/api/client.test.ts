@@ -50,4 +50,11 @@ describe('buildUrl', () => {
     expect(humanizeApiError('origin_host_required')).toBe('Origin host is required.');
     expect(humanizeApiError('custom_backend_error')).toBe('Custom backend error.');
   });
+
+  it('humanizes DNS and origin validation errors used by domain tabs', () => {
+    expect(humanizeApiError('dns_record_duplicate')).toBe('This DNS record already exists.');
+    expect(humanizeApiError('dns_record_name_conflict')).toBe('This DNS name already has an incompatible CNAME or ALIAS record.');
+    expect(humanizeApiError('must_be_80_or_443')).toBe('Port must be 80 or 443.');
+    expect(humanizeApiError('must_start_with_slash')).toBe('Health check path must start with /.');
+  });
 });

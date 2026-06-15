@@ -41,6 +41,7 @@
           <input v-model="form.preserve_host" class="toggle" type="checkbox" />
         </label>
       </div>
+      <p v-if="error" class="state-error mt-4">{{ error }}</p>
       <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
         <button type="button" class="button-secondary" @click="editing = false">Cancel</button>
         <button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save origin' }}</button>
@@ -89,6 +90,7 @@ const saving = ref(false);
 const editing = ref(false);
 const editingId = ref('');
 const message = ref('');
+const error = ref('');
 const form = reactive({
   scheme: 'http' as 'http' | 'https',
   host: '',
@@ -109,13 +111,29 @@ const columns = [
   { key: 'enabled', label: 'Enabled' }, { key: 'actions', label: 'Actions' },
 ];
 
-function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'verify', preserve_host: false, is_primary: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); }
+function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'verify', preserve_host: false, is_primary: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
 function healthSeverity(status: string): Severity { if (status === 'healthy') return 'healthy'; if (status === 'unhealthy') return 'critical'; return 'unknown'; }
 function formatTime(value: number) { return new Date(value * 1000).toLocaleString(); }
 async function load() { loading.value = true; try { rows.value = await originsApi.list(props.domainId); } finally { loading.value = false; } }
 function startCreate() { editingId.value = ''; reset(); editing.value = true; }
-function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'verify'), preserve_host: Boolean(row.preserve_host), is_primary: Boolean(row.is_primary), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); editing.value = true; }
-async function save() { saving.value = true; try { editingId.value ? await originsApi.update(props.domainId, editingId.value, form) : await originsApi.create(props.domainId, form); editing.value = false; message.value = 'Origin saved.'; await load(); } finally { saving.value = false; } }
+function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'verify'), preserve_host: Boolean(row.preserve_host), is_primary: Boolean(row.is_primary), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
+async function save() {
+  error.value = '';
+  const host = form.host.trim();
+  if (!host) { error.value = 'Origin host is required.'; return; }
+  if (/^https?:\/\//i.test(host) || host.includes('/')) { error.value = 'Enter a hostname or IP only, without protocol or path.'; return; }
+  if (![80, 443].includes(Number(form.port))) { error.value = 'Port must be 80 or 443.'; return; }
+  if (!form.health_check_path.startsWith('/')) { error.value = 'Health check path must start with /.'; return; }
+  saving.value = true;
+  try {
+    editingId.value ? await originsApi.update(props.domainId, editingId.value, form) : await originsApi.create(props.domainId, form);
+    editing.value = false;
+    message.value = 'Origin saved.';
+    await load();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to save origin.';
+  } finally { saving.value = false; }
+}
 async function toggle(row: Record<string, unknown>) { await originsApi.update(props.domainId, String(row.id), { enabled: !row.enabled }); await load(); }
 async function check(row: Record<string, unknown>) { await originsApi.check(props.domainId, String(row.id)); message.value = 'Origin health checked.'; await load(); }
 async function remove(row: Record<string, unknown>) { await originsApi.remove(props.domainId, String(row.id)); message.value = 'Origin deleted.'; await load(); }

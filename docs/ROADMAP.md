@@ -354,8 +354,11 @@ The repository has a real verification service, but the user-facing refresh/forc
   - Notes: static contract covers admin-session enforcement and the Phase 0 manual repro checks non-admin/admin behavior against a running stack.
 - [x] Force verify writes audit log and invalidates config snapshot.
   - Notes: static contract covers audit event name, config invalidation, and DNS reconciliation calls.
-- [ ] Dashboard test: click refresh -> status updates without browser reload.
-  - Remaining blocker: dashboard typecheck passed, but no Vitest/Playwright interaction test was added yet.
+- [x] Dashboard test: click refresh -> status updates without browser reload.
+  - Notes: added a Vitest component test for `DomainDetailView` that mocks the domain API, clicks **Refresh nameservers now**, and asserts returned nameserver trace/status is rendered in-place. Also corrected the dashboard `domainsApi` unit test to expect the canonical `/nameservers/verify` endpoint instead of the legacy alias.
+  - Changed files: `dash/src/views/DomainDetailView.test.ts`, `dash/src/lib/api/domains.test.ts`.
+  - Local validation run: `(cd dash && npm test -- --run src/lib/api/domains.test.ts src/views/DomainDetailView.test.ts)` passed with `2 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
   - Local validation run: `php -l core/app/Modules/Domains/Services/DomainVerificationService.php && php -l core/app/Modules/Domains/Http/Controllers/DomainController.php && php -l core/public_index.php`.
   - Local validation run: `pytest -q core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `4 passed`.
   - Local validation run: `(cd dash && npm run typecheck)` passed.
@@ -447,12 +450,15 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
    - clearly label duplicate host entries or reject duplicates.
   - Notes: Origins tab now labels DNS-linked vs manual origins and displays linked `dns_record_id`. Duplicate manual origin hosts are allowed as separate rows, so they remain visible rather than being silently deduplicated.
   - Remaining blocker: friendly DNS record labels and duplicate-host warning copy still need a small UI polish pass.
-- [ ] Add validation messages:
+- [x] Add validation messages:
    - duplicate DNS record;
    - conflicting CNAME/ALIAS;
    - duplicate origin not allowed;
    - missing port/scheme.
-  - Remaining blocker: existing API validation covers invalid origin scheme/port/TLS/role/weight and existing DNS duplicate/conflict checks, but dashboard-specific inline validation messages were not expanded in this pass.
+  - Notes: dashboard API errors now humanize DNS duplicate/conflict and origin validation codes such as invalid scheme, TLS mode, role, port, and health path. Origins tab now shows inline save errors and prevents common invalid input before submit: missing host, host with protocol/path, unsupported port, and health path without `/`. Duplicate manual origins remain allowed and visible by product rule, so no duplicate-origin rejection message is shown for that allowed case.
+  - Changed files: `dash/src/lib/api/client.ts`, `dash/src/lib/api/client.test.ts`, `dash/src/views/domain-tabs/DomainOriginsTab.vue`.
+  - Local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts src/lib/api/domains.test.ts src/views/DomainDetailView.test.ts)` passed with `8 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
 
 ### Tests
 
@@ -467,6 +473,7 @@ A user-created DNS record must always be represented in the DNS tab. A user-crea
   - Local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php && php -l core/app/Modules/Proxy/Services/OriginHealthService.php && php -l core/app/Modules/Proxy/Http/Controllers/OriginController.php`.
   - Local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_nameserver_force_verify_contract.py core/tests/test_phase0_repro_contract.py` passed with `12 passed`.
   - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - User-reported manual validation on 2026-06-15: `ci/smoke.sh` completed with `[2026-06-15T08:44:50Z] PASS: smoke checks completed`; `ci/e2e.sh` completed with `[2026-06-15T08:47:49Z] PASS: e2e checks completed`.
   - Manual validation still required: run migration/status checks and the Phase 0 repro against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
