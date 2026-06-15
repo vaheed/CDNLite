@@ -66,6 +66,20 @@ def test_origin_selector_returns_routing_metadata_without_silent_guessing():
     assert "tls_verify = tostring(origin.tls_verify or 'verify')" in selector
 
 
+def test_phase3_e2e_covers_https_sni_and_preserve_host_runtime_cases():
+    e2e = read("ci/e2e.sh")
+    origin_mock = read("ci/origin-mock/nginx.conf")
+
+    assert '"origin_sni":"$ssl_server_name"' in origin_mock
+    assert "origin-https-sni" in e2e
+    assert '"origin_sni":"phase3-sni.local"' in e2e
+    assert "origin-host-header-own" in e2e
+    assert '"origin_host":"origin-http"' in e2e
+    assert "origin-host-header-cdn" in e2e
+    assert '\\"preserve_host\\":true' in e2e
+    assert '\\"origin_host\\":\\"${TEST_DOMAIN}\\"' in e2e
+
+
 def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     router = read("edge/openresty/lua/router.lua")
     proxy = read("edge/openresty/lua/proxy.lua")

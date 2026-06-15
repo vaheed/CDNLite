@@ -553,9 +553,20 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
 ### Tests
 
 - [x] HTTP origin by IP returns 200 through edge.
-- [ ] HTTPS origin with SNI returns 200.
-- [ ] Origin requiring its own Host header returns 200 when `preserve_host=false`.
-- [ ] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
+- [x] HTTPS origin with SNI returns 200.
+  - Notes: added a targeted manual-run e2e assertion that updates the DNS-linked primary origin to HTTPS, sets `sni=phase3-sni.local`, routes through the edge, and verifies the origin fixture reports that SNI in a 200 response.
+  - Changed files: `ci/e2e.sh`, `ci/origin-mock/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
+  - Local validation run: `bash -n ci/e2e.sh` passed.
+  - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `6 passed`.
+  - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
+- [x] Origin requiring its own Host header returns 200 when `preserve_host=false`.
+  - Notes: added a targeted manual-run e2e assertion that updates the routed origin to HTTP with `host_header=origin-http` and `preserve_host=false`, then verifies the origin fixture receives `Host: origin-http` in a 200 edge response.
+  - Changed files: `ci/e2e.sh`, `ci/origin-mock/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
+  - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
+- [x] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
+  - Notes: added a targeted manual-run e2e assertion that updates the routed origin to `preserve_host=true`, then verifies the origin fixture receives the CDN request hostname in a 200 edge response.
+  - Changed files: `ci/e2e.sh`, `ci/origin-mock/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
+  - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
 - [x] Invalid origin returns 502 with request_id and detailed log/metric.
   - Local validation run: `php -l core/app/Modules/Proxy/Services/OriginHealthService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php && php -l core/app/Modules/Proxy/Http/Controllers/OriginController.php && php -l core/public_index.php` passed.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `4 passed`.
@@ -565,7 +576,9 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Follow-up local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_dns_reconciler_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_origin_health_phase19_contract.py core/tests/test_phase0_repro_contract.py` passed with `29 passed`.
   - Follow-up local validation run: `bash -n ci/phase0_repro.sh && bash -n ci/e2e.sh` passed.
-  - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are still unchecked unless they are explicitly covered by the current e2e fixture; add targeted e2e cases before closing those two checklist items.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `6 passed`.
+  - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt
 
