@@ -402,6 +402,13 @@ $router->add('POST', '/api/v1/domains/{domainId}/origins/{originId}/check', stat
     $result = $originController->check((string) $p['domainId'], (string) $p['originId']);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/origins/{originId}/test', static function (Request $req, array $p) use ($originController): array {
+    $result = $originController->test((string) $p['domainId'], (string) $p['originId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/route-debug', static function (Request $req, array $p) use ($configService): array {
+    return Response::json(['data' => $configService->debugRoute((string) $p['domainId'], $req->body)]);
+}, auth: true);
 
 $router->add('POST', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->createRedirect((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects', static fn (Request $req, array $p) => Response::json($rulesController->listRedirects((string) $p['domainId'])), auth: true);

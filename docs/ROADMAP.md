@@ -514,10 +514,11 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Notes: metrics now include host, method, path, redacted query, router_error, origin_id/role/host, upstream status/time/address, request_time, and existing request id. Structured edge diagnostics log router errors and origin selection without secrets.
   - Follow-up fix: e2e now validates that a proxied GET reaches the configured origin by checking the origin mock response instead of expecting the mock origin to return Core's domain list.
   - Changed files: `edge/openresty/lua/metrics.lua`, `edge/openresty/lua/edge_log.lua`, `edge/openresty/lua/router.lua`, `docs/api/api.md`, `docs/security.md`.
-5. [ ] Add edge route debug endpoint or admin-only diagnostic API:
+5. [x] Add edge route debug endpoint or admin-only diagnostic API:
    - input: domain + path + country;
    - output: selected origin, backup origin, cache rule, WAF/rate-limit match, SSL cert status.
-  - Remaining blocker: not implemented in this pass; needs a control-plane API design so diagnostics remain admin-only and do not expose origin internals.
+  - Notes: added authenticated `POST /api/v1/domains/{domainId}/route-debug`. It uses the active config snapshot, or builds one when no active snapshot exists, and returns admin-safe route selection details: matched/request host, path, country, snapshot version, selected origin, selected origin source, backup origin, cache/WAF/rate-limit counts, SSL status, and router error such as `domain_not_configured` or `missing_origin`.
+  - Changed files: `core/app/Modules/Proxy/Services/ConfigService.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `core/tests/test_edge_phase3_contract.py`.
 
 ### Backend Tasks
 
@@ -530,10 +531,11 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
    - SNI;
    - TLS verify mode.
   - Notes: already implemented in Phase 2 and now consumed by the edge routing path.
-2. [ ] Add origin test action:
+2. [x] Add origin test action:
    - `POST /domains/{id}/origins/{originId}/test`
    - returns DNS resolution, TCP connect, TLS handshake, HTTP status, response time, error.
-  - Remaining blocker: existing API has `/origins/{originId}/check`; the exact `/test` diagnostic action with DNS/TCP/TLS breakdown is not implemented yet.
+  - Notes: added authenticated `POST /api/v1/domains/{domainId}/origins/{originId}/test`. Unlike `/check`, it is non-mutating and returns DNS, TCP, TLS, HTTP status, timing, configured host header, SNI, TLS verification mode, health result, and a safe error code.
+  - Changed files: `core/app/Modules/Proxy/Services/OriginHealthService.php`, `core/app/Modules/Proxy/Http/Controllers/OriginController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `core/tests/test_edge_phase3_contract.py`.
 
 ### Tests
 
@@ -542,6 +544,10 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
 - [ ] Origin requiring its own Host header returns 200 when `preserve_host=false`.
 - [ ] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
 - [ ] Invalid origin returns 502 with request_id and detailed log/metric.
+  - Local validation run: `php -l core/app/Modules/Proxy/Services/OriginHealthService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php && php -l core/app/Modules/Proxy/Http/Controllers/OriginController.php && php -l core/public_index.php` passed.
+  - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `4 passed`.
+  - Local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
+  - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_origin_health_phase19_contract.py` passed.
   - Follow-up local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_dns_reconciler_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_origin_health_phase19_contract.py core/tests/test_phase0_repro_contract.py` passed with `29 passed`.

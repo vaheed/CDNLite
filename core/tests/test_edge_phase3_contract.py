@@ -67,3 +67,34 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     assert "cookie = true" in edge_log
     assert "signature = true" in edge_log
     assert "function M.redacted_query()" in edge_log
+
+
+def test_origin_diagnostic_and_route_debug_api_contract():
+    public_index = read("core/public_index.php")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/OriginController.php")
+    origins = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
+    config = read("core/app/Modules/Proxy/Services/ConfigService.php")
+    api = read("docs/api/api.md")
+    openapi = read("docs/public/api/openapi.yaml")
+
+    assert "/api/v1/domains/{domainId}/origins/{originId}/test" in public_index
+    assert "/api/v1/domains/{domainId}/route-debug" in public_index
+    assert "public function test(string $domainId, string $originId)" in controller
+    assert "public function test(string $domainId, string $originId): ?array" in origins
+    assert "private function probeDetailed" in origins
+    for field in ("dns", "tcp", "tls", "http", "duration_ms", "host_header", "sni"):
+        assert field in origins
+    assert "stream_socket_client" in origins
+    assert "stream_socket_enable_crypto" in origins
+    assert "'peer_name' => $sni" in origins
+
+    assert "public function debugRoute(string $domainId, array $input): array" in config
+    assert "selected_origin" in config
+    assert "backup_origin" in config
+    assert "cache_rules_count" in config
+    assert "router_error" in config
+
+    assert "/api/v1/domains/{domainId}/origins/{originId}/test" in api
+    assert "/api/v1/domains/{domainId}/route-debug" in api
+    assert "/api/v1/domains/{domainId}/origins/{originId}/test:" in openapi
+    assert "/api/v1/domains/{domainId}/route-debug:" in openapi

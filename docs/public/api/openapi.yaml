@@ -501,6 +501,42 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/origins/{originId}/test:
+    post:
+      tags: [Origins]
+      summary: Run non-mutating origin diagnostic
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: originId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/route-debug:
+    post:
+      tags: [Origins]
+      summary: Preview edge route selection
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host:
+                  type: string
+                path:
+                  type: string
+                country:
+                  type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/redirects:
     $ref: "#/components/pathItems/RedirectCollection"
   /api/v1/domains/{domainId}/redirects/{ruleId}:

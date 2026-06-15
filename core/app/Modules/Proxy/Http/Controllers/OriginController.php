@@ -46,6 +46,12 @@ class OriginController
         return $origin === null ? ['error' => 'origin_not_found', 'status' => 404] : ['data' => $origin];
     }
 
+    public function test(string $domainId, string $originId): array
+    {
+        $result = $this->service->test($domainId, $originId);
+        return $result === null ? ['error' => 'origin_not_found', 'status' => 404] : ['data' => $result];
+    }
+
     private function validate(array $body, bool $partial): ?array
     {
         if ($partial && $body === []) {

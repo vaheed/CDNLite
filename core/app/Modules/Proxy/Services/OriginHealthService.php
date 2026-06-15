@@ -209,6 +209,16 @@ class OriginHealthService
         return $this->find($domainId, $originId);
     }
 
+    public function test(string $domainId, string $originId): ?array
+    {
+        $origin = $this->find($domainId, $originId);
+        if ($origin === null) {
+            return null;
+        }
+
+        return $this->probeDetailed($origin);
+    }
+
     public function checkDue(): array
     {
         $cutoff = time();
@@ -384,6 +394,152 @@ class OriginHealthService
             'last_check_at' => $now,
             'last_error' => $healthy ? null : ($status > 0 ? 'http_' . $status : 'connection_failed'),
         ];
+    }
+
+    private function probeDetailed(array $origin): array
+    {
+        $started = microtime(true);
+        $host = (string) $origin['host'];
+        $port = (int) $origin['port'];
+        $scheme = (string) $origin['scheme'];
+        $path = '/' . ltrim((string) ($origin['health_check_path'] ?? '/'), '/');
+        $timeout = max(1, (int) ($origin['health_check_timeout_seconds'] ?? 5));
+        $hostHeader = !empty($origin['preserve_host'])
+            ? $host
+            : (string) ($origin['host_header'] ?: $host);
+        $sni = (string) ($origin['sni'] ?: $hostHeader);
+
+        $result = [
+            'origin_id' => (string) $origin['id'],
+            'scheme' => $scheme,
+            'host' => $host,
+            'port' => $port,
+            'host_header' => $hostHeader,
+            'sni' => $scheme === 'https' ? $sni : null,
+            'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+            'path' => $path,
+            'started_at' => time(),
+            'finished_at' => null,
+            'duration_ms' => null,
+            'dns' => [
+                'ok' => false,
+                'addresses' => [],
+                'error' => null,
+                'duration_ms' => null,
+            ],
+            'tcp' => [
+                'ok' => false,
+                'remote' => $host . ':' . $port,
+                'error' => null,
+                'duration_ms' => null,
+            ],
+            'tls' => [
+                'ok' => $scheme !== 'https',
+                'error' => null,
+                'duration_ms' => null,
+            ],
+            'http' => [
+                'ok' => false,
+                'status' => null,
+                'error' => null,
+                'duration_ms' => null,
+            ],
+            'healthy' => false,
+            'error' => null,
+        ];
+
+        $dnsStarted = microtime(true);
+        $addresses = @gethostbynamel($host);
+        if (is_array($addresses) && $addresses !== []) {
+            $result['dns']['ok'] = true;
+            $result['dns']['addresses'] = array_values(array_unique($addresses));
+        } elseif (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            $result['dns']['ok'] = true;
+            $result['dns']['addresses'] = [$host];
+        } else {
+            $result['dns']['error'] = 'dns_resolution_failed';
+            $result['error'] = 'dns_resolution_failed';
+        }
+        $result['dns']['duration_ms'] = $this->elapsedMs($dnsStarted);
+
+        $tcpStarted = microtime(true);
+        $context = stream_context_create([
+            'ssl' => [
+                'SNI_enabled' => true,
+                'peer_name' => $sni,
+                'verify_peer' => (string) ($origin['tls_verify'] ?? 'verify') === 'verify',
+                'verify_peer_name' => (string) ($origin['tls_verify'] ?? 'verify') === 'verify',
+            ],
+        ]);
+        $socket = @stream_socket_client(
+            'tcp://' . $host . ':' . $port,
+            $errno,
+            $errstr,
+            $timeout,
+            STREAM_CLIENT_CONNECT,
+            $context
+        );
+        $result['tcp']['duration_ms'] = $this->elapsedMs($tcpStarted);
+        if (!is_resource($socket)) {
+            $result['tcp']['error'] = $errstr !== '' ? $errstr : 'tcp_connect_failed';
+            $result['error'] = $result['error'] ?? 'tcp_connect_failed';
+            return $this->finishProbeDetailed($result, $started);
+        }
+        $result['tcp']['ok'] = true;
+        stream_set_timeout($socket, $timeout);
+
+        if ($scheme === 'https') {
+            $tlsStarted = microtime(true);
+            $crypto = @stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+            $result['tls']['duration_ms'] = $this->elapsedMs($tlsStarted);
+            if ($crypto !== true) {
+                $result['tls']['ok'] = false;
+                $result['tls']['error'] = 'tls_handshake_failed';
+                $result['error'] = $result['error'] ?? 'tls_handshake_failed';
+                fclose($socket);
+                return $this->finishProbeDetailed($result, $started);
+            }
+            $result['tls']['ok'] = true;
+        }
+
+        $httpStarted = microtime(true);
+        $request = "GET {$path} HTTP/1.1\r\n"
+            . 'Host: ' . $hostHeader . "\r\n"
+            . "User-Agent: CDNLite-Origin-Diagnostic/1.0\r\n"
+            . "Connection: close\r\n\r\n";
+        if (@fwrite($socket, $request) === false) {
+            $result['http']['error'] = 'http_write_failed';
+            $result['error'] = $result['error'] ?? 'http_write_failed';
+            fclose($socket);
+            return $this->finishProbeDetailed($result, $started);
+        }
+        $line = @fgets($socket, 4096);
+        fclose($socket);
+        $result['http']['duration_ms'] = $this->elapsedMs($httpStarted);
+        if (is_string($line) && preg_match('/^HTTP\/\S+\s+(\d+)/', $line, $m)) {
+            $status = (int) $m[1];
+            $result['http']['status'] = $status;
+            $result['http']['ok'] = $status >= 100;
+            $result['healthy'] = $status >= 200 && $status < 500;
+            $result['error'] = $result['healthy'] ? null : 'http_' . $status;
+            return $this->finishProbeDetailed($result, $started);
+        }
+
+        $result['http']['error'] = 'invalid_http_response';
+        $result['error'] = $result['error'] ?? 'invalid_http_response';
+        return $this->finishProbeDetailed($result, $started);
+    }
+
+    private function finishProbeDetailed(array $result, float $started): array
+    {
+        $result['finished_at'] = time();
+        $result['duration_ms'] = $this->elapsedMs($started);
+        return $result;
+    }
+
+    private function elapsedMs(float $started): int
+    {
+        return max(0, (int) round((microtime(true) - $started) * 1000));
     }
 
     private function ensurePrimaryFromDnsRecords(string $domainId): void

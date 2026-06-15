@@ -295,6 +295,8 @@ DNS tips:
 | `PATCH` | `/api/v1/domains/{domainId}/origins/{originId}` | Update origin. |
 | `DELETE` | `/api/v1/domains/{domainId}/origins/{originId}` | Delete origin. |
 | `POST` | `/api/v1/domains/{domainId}/origins/{originId}/check` | Run manual health check. |
+| `POST` | `/api/v1/domains/{domainId}/origins/{originId}/test` | Run a non-mutating origin diagnostic with DNS, TCP, TLS, and HTTP timing details. |
+| `POST` | `/api/v1/domains/{domainId}/route-debug` | Preview the selected origin, backup origin, cache/rule counts, and SSL state for a host/path/country using the active config snapshot. |
 
 Example:
 
@@ -324,6 +326,13 @@ Origin tips:
   preserves the CDN hostname when `preserve_host` is true.
 - Add a backup origin before aggressive cache or WAF changes, so edge failover has somewhere to go.
 - Use the manual health-check route after every origin update.
+- Use the non-mutating origin diagnostic route when debugging 502s. It reports
+  DNS resolution, TCP connect, TLS handshake, HTTP status, timing, configured
+  host header, and SNI without changing the stored origin health state.
+- Use `route-debug` before or during incidents to confirm which configured
+  origin CDNLite would select for `{ "host": "www.example.com", "path": "/",
+  "country": "US" }`. The response is admin-safe and does not expose origin
+  secrets or request headers.
 - The edge may emit `X-CDNLITE-Origin: primary|backup`; capture this header in incident reports.
   Edge access logs and metrics also include `request_id`, `origin_id`,
   upstream status/time, and router errors for 5xx diagnosis.

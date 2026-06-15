@@ -232,6 +232,85 @@ class ConfigService
         return $payload;
     }
 
+    public function debugRoute(string $domainId, array $input): array
+    {
+        $snapshot = $this->activeSnapshot();
+        $payload = $snapshot['payload'] ?? null;
+        if (!is_array($payload)) {
+            $payload = $this->buildSnapshot();
+            $snapshot = ['version' => (int) ($payload['version'] ?? 0), 'payload' => $payload];
+        }
+
+        $host = strtolower(trim((string) ($input['host'] ?? '')));
+        $path = (string) ($input['path'] ?? '/');
+        $country = strtoupper(trim((string) ($input['country'] ?? '')));
+        if ($path === '' || $path[0] !== '/') {
+            $path = '/' . ltrim($path, '/');
+        }
+
+        $matchedHost = null;
+        $domainConfig = null;
+        foreach (($payload['hosts'] ?? []) as $configuredHost => $config) {
+            if ((string) ($config['domain_id'] ?? '') !== $domainId) {
+                continue;
+            }
+            if ($host === '' || $host === strtolower((string) $configuredHost)) {
+                $matchedHost = (string) $configuredHost;
+                $domainConfig = is_array($config) ? $config : null;
+                break;
+            }
+        }
+
+        if ($domainConfig === null) {
+            return [
+                'configured' => false,
+                'domain_id' => $domainId,
+                'host' => $host,
+                'path' => $path,
+                'country' => $country,
+                'snapshot_version' => (int) ($snapshot['version'] ?? $payload['version'] ?? 0),
+                'router_error' => 'domain_not_configured',
+            ];
+        }
+
+        $origin = null;
+        $originSource = 'origins';
+        $geoOrigins = $domainConfig['geo_origins'] ?? [];
+        if ($country !== '' && is_array($geoOrigins) && isset($geoOrigins[$country]) && is_array($geoOrigins[$country])) {
+            $origin = $geoOrigins[$country];
+            $originSource = 'geo_origins.' . $country;
+        }
+        $origins = array_values(array_filter(
+            is_array($domainConfig['origins'] ?? null) ? $domainConfig['origins'] : [],
+            static fn (mixed $origin): bool => is_array($origin) && !empty($origin['enabled'])
+        ));
+        if ($origin === null) {
+            $origin = $this->firstOriginByRole($origins, 'primary') ?? $origins[0] ?? null;
+        }
+        $backupOrigin = $this->firstOriginByRole($origins, 'backup');
+
+        return [
+            'configured' => true,
+            'domain_id' => $domainId,
+            'host' => $matchedHost,
+            'request_host' => $host === '' ? $matchedHost : $host,
+            'path' => $path,
+            'country' => $country === '' ? null : $country,
+            'snapshot_version' => (int) ($snapshot['version'] ?? $payload['version'] ?? 0),
+            'selected_origin' => $origin,
+            'selected_origin_source' => $origin === null ? null : $originSource,
+            'backup_origin' => $backupOrigin,
+            'cache_rules_count' => count($domainConfig['cache_rules']['rules'] ?? []),
+            'waf_rules_count' => count($payload['waf_rules'] ?? []),
+            'rate_limits_count' => count($payload['rate_limits'] ?? []),
+            'ssl' => [
+                'enabled' => (bool) ($domainConfig['ssl']['enabled'] ?? false),
+                'certificate_status' => (string) ($domainConfig['ssl']['certificate_status'] ?? 'unknown'),
+            ],
+            'router_error' => $origin === null ? 'missing_origin' : null,
+        ];
+    }
+
     private function activeSnapshot(): ?array
     {
         $row = Database::pdo()->query(
