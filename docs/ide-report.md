@@ -7,6 +7,8 @@ Date: 2026-06-15
 - Phase 3: added targeted e2e coverage for HTTPS origins with configured SNI.
 - Phase 3: added targeted e2e coverage for origin Host header behavior when `preserve_host=false`.
 - Phase 3: added targeted e2e coverage for CDN Host header preservation when `preserve_host=true`.
+- Phase 6: added targeted e2e coverage for a real proxied edge request appearing in Activity after agent metrics ingest.
+- Phase 6: added targeted e2e coverage for a 502 edge request showing selected origin and router/upstream diagnostics in Activity.
 - Updated `docs/ROADMAP.md` with checkboxes, notes, changed files, lightweight validation, and remaining manual validation blockers.
 
 ## 2. Changed Files
@@ -14,6 +16,7 @@ Date: 2026-06-15
 - `ci/e2e.sh`
 - `ci/origin-mock/nginx.conf`
 - `core/tests/test_edge_phase3_contract.py`
+- `core/tests/test_phase6_activity_diagnostics_contract.py`
 - `docs/ROADMAP.md`
 - `docs/ide-report.md`
 
@@ -27,6 +30,7 @@ Date: 2026-06-15
 
 - `bash -n ci/e2e.sh`
 - `pytest -q core/tests/test_edge_phase3_contract.py`
+- `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py`
 - `git diff --check`
 
 ## 5. Smoke/E2E Commands For Manual Run
@@ -50,4 +54,5 @@ EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> \
 
 - Codex did not run Docker, smoke, or e2e tests per instruction.
 - The new Phase 3 e2e assertions still need runtime validation on a disposable stack.
+- The new Phase 6 Activity ingest and 502 diagnostics assertions still need runtime validation on a disposable stack.
 - The SNI assertion uses the local self-signed origin fixture with `tls_verify=ignore`; this proves edge SNI forwarding, not public CA validation.

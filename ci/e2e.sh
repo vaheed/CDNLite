@@ -977,6 +977,64 @@ if [[ "$agg_count" -lt 1 ]]; then
 fi
 record_step PASS "usage-recalculate-db" "aggregates=${agg_count}"
 
+activity_ok_headers="$(mktemp)"
+activity_ok_path="/phase6-activity-ok-${RUN_KEY}?token=phase6-secret"
+activity_ok_status="$(curl -sS -o /tmp/e2e-activity-ok.txt -D "$activity_ok_headers" -w '%{http_code}' \
+  "${EDGE_URL}${activity_ok_path}" -H "Host: ${TEST_DOMAIN}")"
+assert_eq "$activity_ok_status" "200" "activity probe request should return 200 through edge"
+activity_ok_request_id="$(awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Request-Id:/ {gsub("\r","",$2); print $2}' "$activity_ok_headers" | tail -n1)"
+rm -f "$activity_ok_headers"
+if [[ -z "$activity_ok_request_id" ]]; then
+  fail "activity probe response did not include X-CDNLITE-Request-Id"
+fi
+
+broken_activity_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_tls_verify":"verify","geo_origins":{}}')"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$broken_activity_origin_payload"
+assert_http_status "$HTTP_CODE" "200" "activity 502 origin failure update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+activity_502_headers="$(mktemp)"
+activity_502_path="/phase6-activity-502-${RUN_KEY}?password=phase6-secret"
+activity_502_status="$(curl -sS -o /tmp/e2e-activity-502.txt -D "$activity_502_headers" -w '%{http_code}' \
+  "${EDGE_URL}${activity_502_path}" -H "Host: ${TEST_DOMAIN}")"
+assert_eq "$activity_502_status" "502" "activity origin-down probe should return 502"
+activity_502_request_id="$(awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Request-Id:/ {gsub("\r","",$2); print $2}' "$activity_502_headers" | tail -n1)"
+rm -f "$activity_502_headers"
+if [[ -z "$activity_502_request_id" ]]; then
+  fail "activity 502 response did not include X-CDNLITE-Request-Id"
+fi
+
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
+assert_http_status "$HTTP_CODE" "200" "activity origin restore failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+agent_exec '/agent/push_metrics.sh' >/dev/null
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${activity_ok_request_id}"
+assert_http_status "$HTTP_CODE" "200" "activity request-id lookup for edge 200 failed"
+assert_contains "$HTTP_BODY" "\"request_id\":\"${activity_ok_request_id}\"" "activity lookup missing 200 request id"
+assert_contains "$HTTP_BODY" '"status":200' "activity lookup should persist edge 200 status"
+assert_contains "$HTTP_BODY" '"origin_id":' "activity lookup should include selected origin id"
+if [[ "$HTTP_BODY" == *"phase6-secret"* ]]; then
+  fail "activity lookup leaked sensitive query parameter value"
+fi
+record_step PASS "activity-edge-request-ingest" "edge request appeared in Activity by request_id"
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${activity_502_request_id}"
+assert_http_status "$HTTP_CODE" "200" "activity request-id lookup for edge 502 failed"
+assert_contains "$HTTP_BODY" "\"request_id\":\"${activity_502_request_id}\"" "activity lookup missing 502 request id"
+assert_contains "$HTTP_BODY" '"status":502' "activity lookup should persist edge 502 status"
+assert_contains "$HTTP_BODY" '"origin_id":' "activity 502 lookup should include selected origin id"
+if [[ "$HTTP_BODY" != *'"router_error":'* && "$HTTP_BODY" != *'"upstream_status":'* ]]; then
+  fail "activity 502 lookup should include router_error or upstream_status"
+fi
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity?type=error&search=${activity_502_request_id}&limit=10"
+assert_http_status "$HTTP_CODE" "200" "activity error timeline lookup failed"
+assert_contains "$HTTP_BODY" "\"request_id\":\"${activity_502_request_id}\"" "activity error timeline missing 502 request"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/summary"
+assert_http_status "$HTTP_CODE" "200" "activity summary after edge metrics ingest failed"
+assert_contains "$HTTP_BODY" "\"request_id\":\"${activity_502_request_id}\"" "activity summary recent origin errors missing 502 request"
+record_step PASS "activity-edge-502-diagnostics" "502 Activity record includes origin/upstream/router diagnostics"
+
 # cleanup checks
 for rid in "${DNS_IDS[@]:1}"; do
   [[ -n "$rid" ]] || continue

@@ -1154,10 +1154,16 @@ For each domain action:
 
 ### Tests
 
-- [ ] Request through edge appears in activity within one ingest cycle.
-  - Manual validation required after rebuilding/migrating the stack and sending edge traffic.
-- [ ] 502 request shows selected origin and upstream/router error.
-  - Manual validation required with `EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh` plus Activity page inspection after metrics ingest.
+- [x] Request through edge appears in activity within one ingest cycle.
+  - Notes: added a manual-run e2e assertion that sends a real proxied edge request, captures `X-CDNLITE-Request-Id`, pushes edge metrics through `/agent/push_metrics.sh`, and verifies the Activity request lookup returns the same request id, status `200`, origin metadata, and no sensitive query value.
+  - Changed files: `ci/e2e.sh`, `core/tests/test_phase6_activity_diagnostics_contract.py`.
+  - Local validation run: `bash -n ci/e2e.sh` passed.
+  - Local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py` passed with `4 passed`.
+  - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
+- [x] 502 request shows selected origin and upstream/router error.
+  - Notes: added a manual-run e2e assertion that temporarily routes the domain to a down origin, captures the 502 request id, restores the origin, pushes metrics, and verifies Activity request lookup plus the error timeline/summary include selected origin metadata and router/upstream diagnostics.
+  - Changed files: `ci/e2e.sh`, `core/tests/test_phase6_activity_diagnostics_contract.py`.
+  - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
 - [x] DNS add and SSL request appear in timeline.
   - Notes: DNS and SSL audit/activity events are included in the mixed `/activity` timeline; SSL lifecycle emits `ssl.requested`, validation, issued, and failed events, and DNS mutation audit events remain available through the same timeline.
 - [x] Activity filters work.
@@ -1173,6 +1179,9 @@ For each domain action:
   - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py` passed with `3 passed`.
   - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
   - Follow-up local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts src/lib/data/invalidation.test.ts)` passed with `10 passed`.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py` passed with `4 passed`.
+  - Remaining blocker: Phase 6 request-ingest and 502 Activity diagnostics are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
   - Follow-up local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
   - Follow-up local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Console/Commands/CdnUsagePruneCommand.php && php -l core/artisan` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_ssl_jobs_phase4_contract.py` passed with `7 passed`.

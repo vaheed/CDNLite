@@ -91,3 +91,20 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "/api/v1/domains/{domainId}/activity/requests:" in openapi
     assert "/api/v1/domains/{domainId}/activity:" in openapi
     assert "/api/v1/domains/{domainId}/activity/summary:" in openapi
+
+
+def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
+    e2e = read("ci/e2e.sh")
+
+    assert "activity-edge-request-ingest" in e2e
+    assert "activity-edge-502-diagnostics" in e2e
+    assert "/agent/push_metrics.sh" in e2e
+    assert "X-CDNLITE-Request-Id" in e2e
+    assert "phase6-activity-ok-${RUN_KEY}" in e2e
+    assert "phase6-activity-502-${RUN_KEY}" in e2e
+    assert "/activity/requests/${activity_ok_request_id}" in e2e
+    assert "/activity/requests/${activity_502_request_id}" in e2e
+    assert "activity?type=error&search=${activity_502_request_id}" in e2e
+    assert "recent origin errors missing 502 request" in e2e
+    assert "phase6-secret" in e2e
+    assert "activity lookup leaked sensitive query parameter value" in e2e
