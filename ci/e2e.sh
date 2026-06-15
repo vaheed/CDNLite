@@ -532,7 +532,7 @@ assert_contains "$origin_http_body" '"origin_scheme":"http"' "closed 443 should 
 record_step PASS "origin-http-80-fallback" "closed HTTPS port fell back to HTTP/80"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
-  '{"origin_host":"origin-tls","origin_tls_verify":"verify"}'
+  '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"verify"}'
 assert_http_status "$HTTP_CODE" "200" "verified TLS origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 origin_verify_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=verify")"
@@ -540,7 +540,7 @@ assert_contains "$origin_verify_body" '"origin_scheme":"http"' "verify mode shou
 record_step PASS "origin-tls-verify" "self-signed certificate rejected in verify mode"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
-  '{"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
+  '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","scheme":"https","tls_verify":"ignore"},"IR":{"host":"origin-http","scheme":"http","tls_verify":"verify"}}}'
 assert_http_status "$HTTP_CODE" "200" "geo origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 geo_origin_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" -H "X-CDNLITE-Country: IR" "${EDGE_URL}/origin-probe?mode=geo")"
@@ -828,7 +828,7 @@ case "$stale_status" in
     fail "stale validation expected STALE or HIT after origin failure (got='${stale_status}' body='${stale_body}')"
     ;;
 esac
-restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{}}')"
+restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"ignore","geo_origins":{}}')"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "DNS record origin restore failed"
 agent_exec '/agent/pull_config.sh' >/dev/null

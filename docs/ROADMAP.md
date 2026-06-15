@@ -558,6 +558,10 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Changed files: `ci/e2e.sh`, `ci/origin-mock/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
   - Local validation run: `bash -n ci/e2e.sh` passed.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `6 passed`.
+  - User-reported validation on 2026-06-15: lightweight/backend tests passed with `191 passed in 46.32s`; smoke passed at `2026-06-15T19:05:35Z`; e2e failed because the origin fixture did not prove configured SNI robustly.
+  - Follow-up fix: the HTTPS origin fixture now uses a dedicated `server_name phase3-sni.local` TLS virtual host that returns `origin_sni=phase3-sni.local` only when edge sends the configured SNI.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `10 passed`.
   - Manual validation still required: run `./ci/e2e.sh` against a disposable rebuilt stack; Codex did not run Docker/e2e per user instruction.
 - [x] Origin requiring its own Host header returns 200 when `preserve_host=false`.
   - Notes: added a targeted manual-run e2e assertion that updates the routed origin to HTTP with `host_header=origin-http` and `preserve_host=false`, then verifies the origin fixture receives `Host: origin-http` in a 200 edge response.
@@ -578,6 +582,9 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Follow-up local validation run: `bash -n ci/phase0_repro.sh && bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `6 passed`.
+  - Follow-up fix after user e2e: DNS-record origin restore/update payloads now include `origin_scheme=https` when returning to `origin-tls`, because omitted fields preserve the prior HTTP scheme. This fixes the later e2e failure where POST routing expected HTTPS after an HTTP-origin test.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `10 passed`.
   - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt
