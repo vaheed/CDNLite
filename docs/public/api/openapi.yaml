@@ -1087,6 +1087,51 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericArray"
+  /api/v1/domains/{domainId}/activity:
+    get:
+      tags: [Analytics, Operations]
+      summary: Mixed domain activity timeline
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/activity/summary:
+    get:
+      tags: [Analytics, Operations]
+      summary: Domain activity summary and recent origin errors
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/activity/requests/{requestId}:
+    get:
+      tags: [Analytics, Operations]
+      summary: Find one edge request by request id
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/activity/export:
+    get:
+      tags: [Analytics, Operations]
+      summary: Export mixed domain activity as JSON
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/security/events:
     get:
       tags: [Analytics, Operations]

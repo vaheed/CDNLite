@@ -498,6 +498,10 @@ $router->add('GET', '/api/v1/analytics/cache', static fn (Request $req) => Respo
 $router->add('GET', '/api/v1/domains/{domainId}/analytics/summary', static fn (Request $req, array $p) => Response::json($collectorController->summary((string) $p['domainId'], isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['domainId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/activity/requests', static fn (Request $req, array $p) => Response::json($collectorController->recentRequests((string) $p['domainId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/activity', static fn (Request $req, array $p) => Response::json($collectorController->activityTimeline((string) $p['domainId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/activity/summary', static fn (Request $req, array $p) => Response::json($collectorController->activitySummary((string) $p['domainId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/activity/requests/{requestId}', static fn (Request $req, array $p) => Response::json($collectorController->findRequest((string) $p['domainId'], (string) $p['requestId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/activity/export', static fn (Request $req, array $p) => Response::json($collectorController->activityExport((string) $p['domainId'], $req->query)), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('GET', '/api/v1/edges/pools', static fn () => Response::json($edgeController->pools()), auth: true);

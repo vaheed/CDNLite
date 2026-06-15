@@ -117,6 +117,20 @@ export interface RequestActivity {
   upstream_addr?: string | null; request_time_ms?: number | null; router_error?: string | null;
   security_event_type?: string | null; rule_id?: string | null;
 }
+export interface ActivityTimelineItem {
+  id: string; type: 'request' | 'error' | 'audit' | 'security' | string; ts: number;
+  title: string; summary?: string | null; request_id?: string | null; details: unknown;
+}
+export interface ActivityTimeline { items: ActivityTimelineItem[]; total: number; limit: number; cursor?: string | null; }
+export interface ActivitySummary {
+  total_requests: number; forwarded_requests: number; bytes_in: number; bytes_out: number;
+  cache_hit_ratio: number; status_counts: Record<string, number>;
+  top_paths: Array<{ value: string; count: number }>;
+  top_origins: Array<{ value: string; count: number }>;
+  top_edge_nodes: Array<{ value: string; count: number }>;
+  recent_origin_errors: RequestActivity[];
+}
+export interface ActivityExport { domain_id: Id; generated_at: number; format: 'json'; items: ActivityTimelineItem[]; }
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }
 export interface CacheAnalytics { rows?: CacheAnalyticsRow[]; total_requests?: number; bytes_out?: number; hit?: number; miss?: number; expired?: number; stale?: number; bypass?: number; unknown?: number; hit_ratio?: number; }
 export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; actor_id?: string | null; edge_id?: string | null; type?: string; decision?: string; action?: string; severity?: Severity | string; timestamp?: number | string; created_at?: number | string; payload?: unknown; details?: Record<string, unknown> | null; }

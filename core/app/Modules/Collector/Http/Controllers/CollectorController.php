@@ -85,4 +85,32 @@ class CollectorController
         }
         return ['data' => $this->service->recentRequests($domainId, $limit)];
     }
+
+    public function activityTimeline(string $domainId, array $query): array
+    {
+        return ['data' => $this->service->activityTimeline($domainId, $query)];
+    }
+
+    public function activitySummary(string $domainId, array $query): array
+    {
+        return ['data' => $this->service->activitySummary($domainId, $query)];
+    }
+
+    public function findRequest(string $domainId, string $requestId): array
+    {
+        $requestId = trim($requestId);
+        if ($requestId === '') {
+            return ['error' => 'request_id_must_be_non_empty', 'status' => 422];
+        }
+        $request = $this->service->findRequest($domainId, $requestId);
+        if ($request === null) {
+            return ['error' => 'request_not_found', 'status' => 404];
+        }
+        return ['data' => $request];
+    }
+
+    public function activityExport(string $domainId, array $query): array
+    {
+        return ['data' => $this->service->activityExport($domainId, $query)];
+    }
 }

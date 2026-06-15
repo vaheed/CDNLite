@@ -1078,8 +1078,9 @@ For each domain action:
    - response includes mixed timeline: product events + request summaries + recent errors.
   - Notes: added `GET /api/v1/domains/{domainId}/activity/requests` for recent edge request/origin diagnostics. The existing Activity tab still combines security and audit logs separately.
   - Changed files: `core/app/Modules/Collector/Http/Controllers/CollectorController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
-  - Remaining blocker: the full mixed timeline endpoint with cursor/type filters is not implemented yet.
-4. [ ] Add summary API:
+  - Follow-up notes: added the full mixed timeline endpoint `GET /api/v1/domains/{domainId}/activity` with request/error/audit/security items, `from`, `to`, `type`, `search`, `cursor`, and `limit` filters. Added request-id lookup and JSON export endpoints.
+  - Changed files: `core/app/Modules/Collector/Services/CollectorService.php`, `core/app/Modules/Collector/Http/Controllers/CollectorController.php`, `core/public_index.php`, `dash/src/lib/api/usage.ts`, `dash/src/types.ts`, `dash/src/views/domain-tabs/DomainActivityTab.vue`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `core/tests/test_phase6_activity_diagnostics_contract.py`.
+4. [x] Add summary API:
    - total requests;
    - forwarded edge requests;
    - cache hit/miss ratio;
@@ -1089,17 +1090,18 @@ For each domain action:
    - top origins;
    - top edge nodes;
    - recent origin errors.
-  - Remaining blocker: existing analytics/cache summaries remain; new top-path/top-origin/recent-error summary API is not implemented.
+  - Notes: added `GET /api/v1/domains/{domainId}/activity/summary` backed by `usage_rollups`, including status buckets, forwarded request count, cache hit ratio, top paths/origins/edge nodes, and recent origin/router/upstream errors.
+  - Changed files: `core/app/Modules/Collector/Services/CollectorService.php`, `core/app/Modules/Collector/Http/Controllers/CollectorController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
 5. [ ] Retention and privacy:
    - keep raw detailed events short retention;
    - aggregate long-term metrics;
    - redact query strings and sensitive headers;
    - avoid storing full IP unless user explicitly configures retention.
-  - Notes: query strings are stored from the already-redacted edge metric object. Full retention policy and configurable IP storage were not added.
+  - Notes: query strings are stored from the already-redacted edge metric object. Request-id lookup and export use the same redacted stored data. Full retention policy and configurable IP storage were not added.
 
 ### Dashboard Tasks
 
-1. [ ] Replace minimal Activity page with:
+1. [x] Replace minimal Activity page with:
    - KPI cards;
    - timeline;
    - filters by event type;
@@ -1109,11 +1111,13 @@ For each domain action:
    - per-edge request table.
   - Notes: added a Recent edge requests table with status, cache, origin id/host, upstream status/time, router error, and request id JSON details.
   - Changed files: `dash/src/types.ts`, `dash/src/lib/api/usage.ts`, `dash/src/views/domain-tabs/DomainActivityTab.vue`.
-  - Remaining blocker: KPI cards, mixed timeline, filters for request fields, recent-error panels, and export are still pending.
-2. [ ] Add request-id search:
+  - Follow-up notes: added KPI cards, event-type filtering, mixed Activity timeline, top path/origin/edge panels, recent origin errors, and JSON export from the current filter. Existing security/change-log tables remain for detailed paginated streams.
+  - Changed files: `dash/src/views/domain-tabs/DomainActivityTab.vue`, `dash/src/types.ts`, `dash/src/lib/api/usage.ts`.
+2. [x] Add request-id search:
    - paste request id from 502 page and find exact event.
-  - Remaining blocker: request id is visible and opens JSON, but search by request id is not implemented.
-3. [ ] Add “Export CSV/JSON” for current filter.
+  - Notes: added request-id lookup form that calls `GET /api/v1/domains/{domainId}/activity/requests/{requestId}` and opens the exact stored request details in the Activity drawer.
+3. [x] Add “Export CSV/JSON” for current filter.
+  - Notes: added JSON export endpoint and dashboard action. The UI opens the export payload in the details drawer for inspection in the shared workspace or browser devtools; CSV is not implemented.
 
 ### Tests
 
@@ -1123,8 +1127,8 @@ For each domain action:
   - Manual validation required with `EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh` plus Activity page inspection after metrics ingest.
 - [ ] DNS add and SSL request appear in timeline.
   - Notes: DNS/SSL audit events exist, but the full mixed timeline is still pending.
-- [ ] Activity filters work.
-  - Notes: existing security/audit filters remain; request table filters/search are pending.
+- [x] Activity filters work.
+  - Notes: mixed timeline supports `from`, `to`, `type`, `search`, `cursor`, and `limit`; dashboard exposes date range, search, and event-type filters. Existing security/audit filters remain.
 - [x] Sensitive query params are redacted.
   - Notes: persisted request details use `metrics.lua` redacted query output and contract coverage verifies the persistence path.
   - Local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Modules/Collector/Http/Controllers/CollectorController.php && php -l core/public_index.php` passed.
@@ -1132,6 +1136,12 @@ For each domain action:
   - Local validation run: `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"` passed.
   - Local validation run: `(cd dash && npm run typecheck && npm test -- --run src/lib/data/invalidation.test.ts)` passed.
   - User-reported manual validation on 2026-06-15: `184 passed in 45.97s`; smoke completed with `[2026-06-15T08:19:56Z] PASS: smoke checks completed`; e2e completed with `[2026-06-15T08:22:47Z] PASS: e2e checks completed`.
+  - Follow-up local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Modules/Collector/Http/Controllers/CollectorController.php && php -l core/public_index.php` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py` passed with `3 passed`.
+  - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
+  - Follow-up local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts src/lib/data/invalidation.test.ts)` passed with `10 passed`.
+  - Follow-up local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
+  - Remaining blockers: manual runtime validation is still required to confirm edge traffic appears in Activity within one ingest cycle and a 502 can be found by request id after rebuilding/migrating the stack. Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
 

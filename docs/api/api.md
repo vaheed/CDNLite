@@ -523,7 +523,11 @@ Settings tips:
 | `POST` | `/api/v1/usage/recalculate` | Rebuild minute/hour/day aggregates. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
+| `GET` | `/api/v1/domains/{domainId}/activity` | Mixed domain activity timeline with request, error, audit, and security events. |
+| `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths/origins/edges, and recent origin errors. |
 | `GET` | `/api/v1/domains/{domainId}/activity/requests` | Recent edge request and origin diagnostics. |
+| `GET` | `/api/v1/domains/{domainId}/activity/requests/{requestId}` | Find one edge request by request ID from a 5xx page or edge log. |
+| `GET` | `/api/v1/domains/{domainId}/activity/export` | Export the current mixed activity filter as JSON. |
 | `GET` | `/api/v1/domains/{domainId}/security/events` | Domain security event list. |
 
 Analytics tips:
@@ -531,6 +535,7 @@ Analytics tips:
 - Use `bucket=minute` for fresh debugging, `hour` for incident windows, and `day` for trends.
 - Recalculate aggregates after bulk ingest, test fixture loading, or suspected aggregation drift.
 - Domain-filtered analytics are safer for customer-facing reports than global analytics.
+- Activity endpoints store edge query data only after the edge-side redaction step. Use request-id lookup to correlate the public 5xx page, Docker-visible edge logs, and dashboard Activity details without exposing raw secret query values.
 ## Operations Logs
 
 `GET /api/v1/security/events` and `GET /api/v1/audit` return:

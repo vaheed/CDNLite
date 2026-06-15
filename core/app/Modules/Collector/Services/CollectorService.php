@@ -207,6 +207,143 @@ class CollectorService
         return array_map([$this, 'castRequestActivity'], $stmt->fetchAll());
     }
 
+    /**
+     * @return array{items: array<int,array<string,mixed>>, total:int, limit:int, cursor:?string}
+     */
+    public function activityTimeline(string $domainId, array $filters = []): array
+    {
+        $limit = max(1, min(250, (int) ($filters['limit'] ?? 100)));
+        $type = isset($filters['type']) ? trim((string) $filters['type']) : '';
+        $cursor = isset($filters['cursor']) && ctype_digit((string) $filters['cursor']) ? (int) $filters['cursor'] : null;
+        $from = isset($filters['from']) && is_numeric($filters['from']) ? (int) $filters['from'] : null;
+        $to = isset($filters['to']) && is_numeric($filters['to']) ? (int) $filters['to'] : null;
+        $search = isset($filters['search']) ? trim((string) $filters['search']) : '';
+
+        $items = [];
+        if ($type === '' || $type === 'request' || $type === 'error') {
+            foreach ($this->timelineRequests($domainId, $limit, $cursor, $from, $to, $search, $type === 'error') as $row) {
+                $request = $this->castRequestActivity($row);
+                $items[] = [
+                    'id' => 'request:' . $request['id'],
+                    'type' => ((int) ($request['status'] ?? 0) >= 500 || !empty($request['router_error'])) ? 'error' : 'request',
+                    'ts' => (int) $request['ts'],
+                    'title' => trim(((string) ($request['method'] ?? 'GET')) . ' ' . ((string) ($request['host'] ?? '')) . ((string) ($request['path'] ?? ''))),
+                    'summary' => 'HTTP ' . (string) ($request['status'] ?? 0) . ' / ' . (string) ($request['cache_status'] ?? 'UNKNOWN'),
+                    'request_id' => $request['request_id'] ?? null,
+                    'details' => $request,
+                ];
+            }
+        }
+        if ($type === '' || $type === 'audit' || $type === 'security') {
+            foreach ($this->timelineAudit($domainId, $limit, $cursor, $from, $to, $search, $type) as $row) {
+                $event = (string) ($row['event'] ?? '');
+                $items[] = [
+                    'id' => 'audit:' . (string) $row['id'],
+                    'type' => in_array($event, ['waf_match', 'rate_limited', 'geo_block'], true) ? 'security' : 'audit',
+                    'ts' => (int) $row['created_at'],
+                    'title' => (string) ($row['event'] ?: $row['action']),
+                    'summary' => (string) $row['resource_type'] . ($row['resource_id'] ? ' ' . (string) $row['resource_id'] : ''),
+                    'request_id' => $this->requestIdFromDetails($row['details_json'] ?? null),
+                    'details' => [
+                        'id' => (string) $row['id'],
+                        'actor_type' => (string) $row['actor_type'],
+                        'actor_id' => $row['actor_id'],
+                        'action' => (string) $row['action'],
+                        'resource_type' => (string) $row['resource_type'],
+                        'resource_id' => $row['resource_id'],
+                        'event' => $row['event'],
+                        'details' => $this->decodeJson($row['details_json'] ?? null),
+                    ],
+                ];
+            }
+        }
+
+        usort($items, static fn (array $a, array $b): int => ($b['ts'] <=> $a['ts']) ?: strcmp((string) $b['id'], (string) $a['id']));
+        $items = array_slice($items, 0, $limit);
+        $nextCursor = count($items) === $limit ? (string) min(array_map(static fn (array $item): int => (int) $item['ts'], $items)) : null;
+
+        return [
+            'items' => $items,
+            'total' => count($items),
+            'limit' => $limit,
+            'cursor' => $nextCursor,
+        ];
+    }
+
+    public function activitySummary(string $domainId, array $filters = []): array
+    {
+        $where = ['domain_id = :domain_id'];
+        $params = [':domain_id' => $domainId];
+        $this->applyTimeFilters($where, $params, $filters, 'ts');
+        $whereSql = 'WHERE ' . implode(' AND ', $where);
+        $pdo = Database::pdo();
+
+        $totals = $pdo->prepare("SELECT COALESCE(SUM(requests_count),0) total_requests,
+                                        COALESCE(SUM(bytes_in),0) bytes_in,
+                                        COALESCE(SUM(bytes_out),0) bytes_out,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE status BETWEEN 200 AND 299),0) status_2xx,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE status BETWEEN 300 AND 399),0) status_3xx,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE status BETWEEN 400 AND 499),0) status_4xx,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE status >= 500),0) status_5xx,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE status = 502),0) status_502,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE origin_id IS NOT NULL),0) forwarded_requests,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE UPPER(cache_status)='HIT'),0) cache_hits,
+                                        COALESCE(SUM(requests_count) FILTER (WHERE UPPER(cache_status)='MISS'),0) cache_misses
+                                 FROM usage_rollups {$whereSql}");
+        $totals->execute($params);
+        $row = (array) $totals->fetch();
+        $totalRequests = (int) ($row['total_requests'] ?? 0);
+        $hitMiss = (int) ($row['cache_hits'] ?? 0) + (int) ($row['cache_misses'] ?? 0);
+
+        return [
+            'total_requests' => $totalRequests,
+            'forwarded_requests' => (int) ($row['forwarded_requests'] ?? 0),
+            'bytes_in' => (int) ($row['bytes_in'] ?? 0),
+            'bytes_out' => (int) ($row['bytes_out'] ?? 0),
+            'cache_hit_ratio' => $hitMiss > 0 ? round(((int) $row['cache_hits']) / $hitMiss, 4) : 0.0,
+            'status_counts' => [
+                '2xx' => (int) ($row['status_2xx'] ?? 0),
+                '3xx' => (int) ($row['status_3xx'] ?? 0),
+                '4xx' => (int) ($row['status_4xx'] ?? 0),
+                '5xx' => (int) ($row['status_5xx'] ?? 0),
+                '502' => (int) ($row['status_502'] ?? 0),
+            ],
+            'top_paths' => $this->topUsageDimension('path', $whereSql, $params),
+            'top_origins' => $this->topUsageDimension('origin_id', $whereSql, $params),
+            'top_edge_nodes' => $this->topUsageDimension('edge_node_id', $whereSql, $params),
+            'recent_origin_errors' => $this->recentOriginErrors($whereSql, $params),
+        ];
+    }
+
+    public function findRequest(string $domainId, string $requestId): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                    query_redacted, client_country, status, bytes_in, bytes_out,
+                    cache_status, origin_id, origin_host, upstream_status,
+                    upstream_response_time_ms, upstream_addr, request_time_ms,
+                    router_error, security_event_type, rule_id
+             FROM usage_rollups
+             WHERE domain_id=:domain_id AND request_id=:request_id
+             ORDER BY ts DESC, id DESC
+             LIMIT 1"
+        );
+        $stmt->execute([':domain_id' => $domainId, ':request_id' => $requestId]);
+        $row = $stmt->fetch();
+        return $row ? $this->castRequestActivity($row) : null;
+    }
+
+    public function activityExport(string $domainId, array $filters = []): array
+    {
+        $timeline = $this->activityTimeline($domainId, ['limit' => $filters['limit'] ?? 250] + $filters);
+        return [
+            'domain_id' => $domainId,
+            'generated_at' => time(),
+            'format' => 'json',
+            'items' => $timeline['items'],
+        ];
+    }
+
     public function summary(?string $domainId = null, ?string $bucket = null): array
     {
         $pdo = Database::pdo();
@@ -513,6 +650,136 @@ class CollectorService
             ? (json_decode((string) $row['query_redacted'], true) ?: [])
             : [];
         return $row;
+    }
+
+    private function timelineRequests(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): array
+    {
+        $where = ['domain_id = :domain_id'];
+        $params = [':domain_id' => $domainId];
+        if ($cursor !== null) {
+            $where[] = 'ts < :cursor';
+            $params[':cursor'] = $cursor;
+        }
+        if ($from !== null) {
+            $where[] = 'ts >= :from';
+            $params[':from'] = $from;
+        }
+        if ($to !== null) {
+            $where[] = 'ts <= :to';
+            $params[':to'] = $to;
+        }
+        if ($errorsOnly) {
+            $where[] = '(status >= 500 OR router_error IS NOT NULL OR upstream_status LIKE :upstream_error)';
+            $params[':upstream_error'] = '5%';
+        }
+        if ($search !== '') {
+            $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
+            $params[':search'] = '%' . $search . '%';
+        }
+        $sql = "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                       query_redacted, client_country, status, bytes_in, bytes_out,
+                       cache_status, origin_id, origin_host, upstream_status,
+                       upstream_response_time_ms, upstream_addr, request_time_ms,
+                       router_error, security_event_type, rule_id
+                FROM usage_rollups
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY ts DESC, id DESC
+                LIMIT {$limit}";
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    private function timelineAudit(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, string $type): array
+    {
+        $where = ['domain_id = :domain_id'];
+        $params = [':domain_id' => $domainId];
+        if ($cursor !== null) {
+            $where[] = 'created_at < :cursor';
+            $params[':cursor'] = $cursor;
+        }
+        if ($from !== null) {
+            $where[] = 'created_at >= :from';
+            $params[':from'] = $from;
+        }
+        if ($to !== null) {
+            $where[] = 'created_at <= :to';
+            $params[':to'] = $to;
+        }
+        if ($type === 'security') {
+            $where[] = "event IN ('waf_match','rate_limited','geo_block')";
+        } elseif ($type === 'audit') {
+            $where[] = "(event IS NULL OR event NOT IN ('waf_match','rate_limited','geo_block'))";
+        }
+        if ($search !== '') {
+            $where[] = '(details_json ILIKE :search OR event ILIKE :search OR action ILIKE :search OR resource_type ILIKE :search OR resource_id ILIKE :search)';
+            $params[':search'] = '%' . $search . '%';
+        }
+        $sql = "SELECT id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at
+                FROM audit_log
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY created_at DESC, id DESC
+                LIMIT {$limit}";
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    private function applyTimeFilters(array &$where, array &$params, array $filters, string $column): void
+    {
+        if (isset($filters['from']) && is_numeric($filters['from'])) {
+            $where[] = "{$column} >= :from";
+            $params[':from'] = (int) $filters['from'];
+        }
+        if (isset($filters['to']) && is_numeric($filters['to'])) {
+            $where[] = "{$column} <= :to";
+            $params[':to'] = (int) $filters['to'];
+        }
+    }
+
+    private function topUsageDimension(string $column, string $whereSql, array $params): array
+    {
+        $stmt = Database::pdo()->prepare("SELECT COALESCE({$column}, 'unknown') AS value,
+                                                 COALESCE(SUM(requests_count),0) AS count
+                                          FROM usage_rollups {$whereSql}
+                                          GROUP BY COALESCE({$column}, 'unknown')
+                                          ORDER BY count DESC, value ASC
+                                          LIMIT 10");
+        $stmt->execute($params);
+        return array_map(static fn (array $row): array => ['value' => (string) $row['value'], 'count' => (int) $row['count']], $stmt->fetchAll());
+    }
+
+    private function recentOriginErrors(string $whereSql, array $params): array
+    {
+        $stmt = Database::pdo()->prepare("SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                                                 query_redacted, client_country, status, bytes_in, bytes_out,
+                                                 cache_status, origin_id, origin_host, upstream_status,
+                                                 upstream_response_time_ms, upstream_addr, request_time_ms,
+                                                 router_error, security_event_type, rule_id
+                                          FROM usage_rollups {$whereSql}
+                                          AND (status >= 500 OR router_error IS NOT NULL OR upstream_status LIKE '5%')
+                                          ORDER BY ts DESC, id DESC
+                                          LIMIT 10");
+        $stmt->execute($params);
+        return array_map([$this, 'castRequestActivity'], $stmt->fetchAll());
+    }
+
+    private function decodeJson(?string $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $decoded = json_decode($value, true);
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $value;
+    }
+
+    private function requestIdFromDetails(?string $value): ?string
+    {
+        $decoded = $this->decodeJson($value);
+        if (!is_array($decoded) || !isset($decoded['request_id'])) {
+            return null;
+        }
+        return is_scalar($decoded['request_id']) ? (string) $decoded['request_id'] : null;
     }
 
     private function domainExists(string $domainId): bool

@@ -40,9 +40,16 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert ":upstream_response_time_ms" in collector
     assert "$this->durationMs($item['upstream_response_time'] ?? null)" in collector
     assert "public function recentRequests(string $domainId" in collector
+    assert "public function activityTimeline(string $domainId" in collector
+    assert "public function activitySummary(string $domainId" in collector
+    assert "public function findRequest(string $domainId, string $requestId)" in collector
     assert "castRequestActivity" in collector
     assert "public function recentRequests(string $domainId, array $query)" in controller
+    assert "public function activityTimeline(string $domainId, array $query)" in controller
     assert "/api/v1/domains/{domainId}/activity/requests" in routes
+    assert "/api/v1/domains/{domainId}/activity/summary" in routes
+    assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in routes
+    assert "/api/v1/domains/{domainId}/activity/export" in routes
 
 
 def test_dashboard_activity_shows_request_origin_and_router_details():
@@ -55,9 +62,22 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "recentRequests" in usage_api
     assert "export interface RequestActivity" in types
     assert "Recent edge requests" in activity
+    assert "Activity timeline" in activity
+    assert "Request-id lookup" in activity
+    assert "Recent origin errors" in activity
+    assert "Export JSON" in activity
+    assert "usageApi.activitySummary" in activity
+    assert "usageApi.activityTimeline" in activity
+    assert "usageApi.findRequest" in activity
+    assert "usageApi.exportActivity" in activity
     assert "usageApi.recentRequests" in activity
     assert "request.origin_id" in activity
     assert "request.upstream_status" in activity
     assert "request.router_error" in activity
+    assert "/api/v1/domains/{domainId}/activity" in docs
+    assert "/api/v1/domains/{domainId}/activity/summary" in docs
     assert "/api/v1/domains/{domainId}/activity/requests" in docs
+    assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in docs
     assert "/api/v1/domains/{domainId}/activity/requests:" in openapi
+    assert "/api/v1/domains/{domainId}/activity:" in openapi
+    assert "/api/v1/domains/{domainId}/activity/summary:" in openapi
