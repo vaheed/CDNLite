@@ -76,5 +76,8 @@ def test_dashboard_and_docs_expose_origins():
     assert "label: 'Origins'" in detail
     assert "Origin health" in tab
     assert "Add backup" in tab
+    assert '<span class="field-label">Protocol</span>' in tab
+    assert '<span class="field-label">Port</span>' not in tab
+    assert "const originProtocol = computed" in tab
     assert "origins/${originId}/check" in api
     assert "X-CDNLITE-Origin: primary|backup" in docs

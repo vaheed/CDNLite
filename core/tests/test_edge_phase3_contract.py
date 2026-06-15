@@ -23,7 +23,11 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert "proxy_set_header Host $target_origin_host_header" in nginx
     assert "proxy_ssl_name $target_origin_sni" in nginx
     assert "set $target_origin_id '';" in nginx
+    assert nginx.count("set $target_origin_id '';") == 2
     assert "set $target_backup_origin_id '';" in nginx
+    assert nginx.count("set $target_backup_origin_id '';") == 2
+    assert "primary_origin_unavailable" in nginx
+    assert "missing_backup_origin" not in nginx
     assert "env CDNLITE_EDGE_LOG_LEVEL;" in nginx
     assert "CDNLITE_EDGE_LOG_FORMAT: ${CDNLITE_EDGE_LOG_FORMAT:-json}" in compose
     assert "CDNLITE_EDGE_LOG_LEVEL: ${CDNLITE_EDGE_LOG_LEVEL:-info}" in compose

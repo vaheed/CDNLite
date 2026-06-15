@@ -18,9 +18,8 @@
         <div class="help-item"><b>Health checks</b><span>Use a lightweight path such as /health that returns 200 without expensive work.</span></div>
       </div>
       <div class="grid gap-4 md:grid-cols-3">
-        <label><span class="field-label">Scheme</span><select v-model="form.scheme" class="input"><option value="http">HTTP</option><option value="https">HTTPS</option></select><span class="field-description">Use HTTPS when your origin has a valid certificate.</span></label>
+        <label><span class="field-label">Protocol</span><select v-model="originProtocol" class="input"><option value="http">HTTP :80</option><option value="https">HTTPS :443</option></select><span class="field-description">Choose how the edge connects to this origin.</span></label>
         <label class="md:col-span-2"><span class="field-label">Host</span><input v-model="form.host" class="input" placeholder="origin.example.com" /><span class="field-description">Hostname or IP only, without protocol or path.</span></label>
-        <label><span class="field-label">Port</span><select v-model.number="form.port" class="input"><option :value="80">80</option><option :value="443">443</option></select><span class="field-description">Use 443 for HTTPS and 80 for HTTP.</span></label>
         <label><span class="field-label">Host header</span><input v-model="form.host_header" class="input" placeholder="origin.example.com" /><span class="field-description">Leave blank to send the origin host.</span></label>
         <label><span class="field-label">SNI</span><input v-model="form.sni" class="input" placeholder="origin.example.com" /><span class="field-description">Leave blank to use the origin host for TLS SNI.</span></label>
         <label><span class="field-label">TLS verify</span><select v-model="form.tls_verify" class="input"><option value="verify">Verify</option><option value="ignore">Ignore</option></select><span class="field-description">Ignore only for private/test origins.</span></label>
@@ -158,6 +157,13 @@ const originStats = computed(() => ({
   healthy: rows.value.filter((row) => row.health_status === 'healthy').length,
   enabled: rows.value.filter((row) => row.enabled).length,
 }));
+const originProtocol = computed<'http' | 'https'>({
+  get: () => form.scheme,
+  set: (value) => {
+    form.scheme = value;
+    form.port = value === 'https' ? 443 : 80;
+  },
+});
 
 function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'verify', preserve_host: false, is_primary: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
 function healthSeverity(status: string): Severity { if (status === 'healthy') return 'healthy'; if (status === 'unhealthy') return 'critical'; return 'unknown'; }
@@ -193,7 +199,7 @@ async function save() {
   const host = form.host.trim();
   if (!host) { error.value = 'Origin host is required.'; return; }
   if (/^https?:\/\//i.test(host) || host.includes('/')) { error.value = 'Enter a hostname or IP only, without protocol or path.'; return; }
-  if (![80, 443].includes(Number(form.port))) { error.value = 'Port must be 80 or 443.'; return; }
+  form.port = form.scheme === 'https' ? 443 : 80;
   if (!form.health_check_path.startsWith('/')) { error.value = 'Health check path must start with /.'; return; }
   saving.value = true;
   try {
