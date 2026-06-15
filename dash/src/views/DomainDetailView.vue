@@ -23,19 +23,8 @@
         </div>
         <div class="flex shrink-0 flex-wrap gap-2">
           <button class="button-secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" /> Refresh</button>
-          <button class="button-secondary" :disabled="nameserverBusy" @click="refreshNameservers"><RefreshCw class="h-4 w-4" /> Refresh nameservers now</button>
           <ReportExportButton title="Domain detail" :data="{ domain }" />
         </div>
-      </div>
-      <div v-if="nameserverMessage || nameserverTrace" class="mt-4 rounded-lg border border-slate-200 bg-white p-4 text-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <p v-if="nameserverMessage" :class="nameserverError ? 'text-rose-600' : 'text-emerald-700'">{{ nameserverMessage }}</p>
-        <dl v-if="nameserverTrace" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div><dt class="text-xs font-semibold uppercase text-slate-500">Expected</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.expected_nameservers.join(', ') || 'none' }}</dd></div>
-          <div><dt class="text-xs font-semibold uppercase text-slate-500">Observed</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.observed_nameservers.join(', ') || 'none' }}</dd></div>
-          <div><dt class="text-xs font-semibold uppercase text-slate-500">Missing</dt><dd class="mt-1 font-mono text-xs">{{ nameserverTrace.missing_nameservers.join(', ') || 'none' }}</dd></div>
-          <div><dt class="text-xs font-semibold uppercase text-slate-500">Checked</dt><dd class="mt-1">{{ formatTimestamp(nameserverTrace.checked_at) }}</dd></div>
-        </dl>
-        <p v-if="nameserverTrace?.resolver_errors.length" class="mt-3 text-xs text-rose-600">{{ nameserverTrace.resolver_errors.join('; ') }}</p>
       </div>
       <div class="mt-5 grid gap-2 border-t border-slate-200 pt-4 sm:grid-cols-2 lg:grid-cols-5 dark:border-white/10">
         <div v-for="health in healthItems" :key="health.label" class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-white/[0.04]">
@@ -70,6 +59,10 @@
       :domain-id="domainId"
       :domain="domain"
       :nameserver-busy="nameserverBusy"
+      :nameserver-message="nameserverMessage"
+      :nameserver-error="nameserverError"
+      :nameserver-trace="nameserverTrace"
+      @refresh-nameservers="refreshNameservers"
       @reseed-expected-nameservers="reseedExpectedNameservers"
       @force-verify-nameservers="forceVerifyNameservers"
     />
@@ -266,10 +259,6 @@ function applyNameserverResult(result: Domain & NameserverVerification) {
     reseeded_expected: result.reseeded_expected,
     reason: result.reason,
   };
-}
-
-function formatTimestamp(value?: number | null): string {
-  return value ? new Date(value * 1000).toLocaleString() : 'Not checked';
 }
 
 watch(domainId, load);

@@ -58,7 +58,6 @@ describe('DomainDetailView nameserver actions', () => {
     const view = render(DomainDetailView, {
       global: {
         stubs: {
-          DomainOverviewTab: true,
           DomainDnsTab: true,
           DomainSslTab: true,
           DomainCacheTab: true,

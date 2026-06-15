@@ -897,6 +897,8 @@ SSL issuance is treated as an action that eventually changes state, but the dash
 1. [x] Show an SSL progress panel in Domain SSL tab.
   - Notes: the SSL tab now shows active job status, progress percent, hostnames, message, and error detail.
   - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`, `dash/src/types.ts`, `dash/src/lib/api/ssl.ts`.
+  - Follow-up UI fix: added a **Check job queue** button and a persistent **SSL job queue** table so operators can refresh and inspect every recent SSL job status, progress, hostnames, update time, and message/error from the SSL tab.
+  - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`.
 2. [ ] Show toast after request:
    - “SSL request queued”
    - “DNS validation in progress”
@@ -991,6 +993,11 @@ The dashboard renders routed views but there is no visible global data invalidat
   - Local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts src/lib/data/polling.test.ts src/lib/api/client.test.ts)` passed with `12 passed`.
   - Local validation run: `(cd dash && npm run typecheck)` passed.
   - Remaining blocker: toast wording is intentionally generic (`Action queued`, `Changes saved`, `Deleted`) and can be made action-specific in a later polish pass.
+  - Follow-up UI fix: moved **Refresh nameservers now** out of the domain detail header and into the Nameservers overview card with the expected/observed/missing/checked trace so nameserver controls stay with nameserver status.
+  - Follow-up UI fix: replaced the Overview dashboard's generic **Top domains by requests** table with a bottom-anchored card sorted by highest request count, with the request number right-aligned and visually prominent for one-domain and short-list layouts.
+  - Changed files: `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainOverviewTab.vue`, `dash/src/views/OverviewView.vue`, `dash/src/views/DomainDetailView.test.ts`.
+  - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
+  - Follow-up local validation run: `(cd dash && npm test -- --run src/views/DomainDetailView.test.ts src/lib/api/domains.test.ts)` passed with `2 passed`.
 
 ### Tests
 

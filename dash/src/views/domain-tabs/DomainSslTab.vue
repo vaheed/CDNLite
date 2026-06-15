@@ -27,11 +27,35 @@
       <div class="help-panel">
         <div class="help-item"><b>Managed certificate</b><span>Use Request Certificate when DNS points at CDNLite and you want automated issuance.</span></div>
         <div class="help-item"><b>Check status</b><span>Use after DNS changes or failed issuance to refresh challenge and certificate state.</span></div>
+        <div class="help-item"><b>Job queue</b><span>Use Check job queue to list every recent SSL job and its current status.</span></div>
         <div class="help-item"><b>Manual import</b><span>Use only when you already have a PEM certificate and matching private key.</span></div>
       </div>
-      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button><button class="button-secondary" :disabled="busy" @click="showManualImport = !showManualImport">{{ showManualImport ? 'Close manual import' : 'Import manual certificate' }}</button></div>
+      <div class="flex flex-wrap gap-2"><button v-if="certificates.length === 0" class="button-primary" :disabled="busy" @click="requestCertificate">Request Certificate</button><button v-else class="button-primary" :disabled="busy" @click="renew">Force Renew</button><button class="button-secondary" :disabled="busy" @click="check">Check status</button><button class="button-secondary" :disabled="jobQueueBusy" @click="checkJobQueue">{{ jobQueueBusy ? 'Checking jobs...' : 'Check job queue' }}</button><button class="button-secondary" :disabled="busy" @click="showManualImport = !showManualImport">{{ showManualImport ? 'Close manual import' : 'Import manual certificate' }}</button></div>
       <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
         Customers without access to managed commercial SSL can provide their own certificate and private key here.
+      </div>
+    </section>
+
+    <section class="panel-section">
+      <div class="section-heading">
+        <div><h2>SSL job queue</h2><p>Recent certificate jobs and their current lifecycle status.</p></div>
+        <StatusBadge :status="jobQueueStatus" :label="`${sslJobs.length} jobs`" />
+      </div>
+      <p v-if="jobQueueMessage" class="mb-3 text-sm" :class="jobQueueError ? 'text-rose-600' : 'text-emerald-700'">{{ jobQueueMessage }}</p>
+      <EmptyState v-if="sslJobs.length === 0" title="No SSL jobs queued" message="Request a certificate to create a durable SSL job." />
+      <div v-else class="overflow-x-auto">
+        <table class="w-full min-w-[760px] text-left text-sm">
+          <thead class="table-head"><tr><th>Status</th><th>Progress</th><th>Hostnames</th><th>Updated</th><th>Message</th></tr></thead>
+          <tbody class="divide-y divide-slate-100 dark:divide-white/5">
+            <tr v-for="job in sslJobs" :key="job.id">
+              <td class="table-cell"><StatusBadge :status="jobBadgeStatus(job.status)" :label="jobLabel(job.status)" /></td>
+              <td class="table-cell">{{ job.progress_percent }}%</td>
+              <td class="table-cell font-mono text-xs">{{ job.hostnames.join(', ') || 'domain default' }}</td>
+              <td class="table-cell whitespace-nowrap">{{ formatDate(job.updated_at) }}</td>
+              <td class="table-cell">{{ job.error_detail || job.message }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -111,7 +135,11 @@ const props = defineProps<{ domainId: string }>();
 const certificates = ref<SslCertificate[]>([]);
 const status = ref<AcmeStatus>({ progress: [], history: [] });
 const activeJob = ref<SslJob | null>(null);
+const sslJobs = ref<SslJob[]>([]);
 const busy = ref(false);
+const jobQueueBusy = ref(false);
+const jobQueueMessage = ref('');
+const jobQueueError = ref(false);
 const saving = ref(false);
 const saveMessage = ref('');
 const saveError = ref(false);
@@ -122,6 +150,7 @@ const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' 
 const manual = reactive({ hostname: '', certificate_pem: '', private_key_pem: '' });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
 const rows = computed(() => certificates.value.map(c => ({ ...c, expiry: c.not_after ? formatDate(c.not_after) : '' })));
+const jobQueueStatus = computed(() => sslJobs.value.some(job => job.status === 'failed') ? 'critical' : sslJobs.value.some(job => isActiveJob(job)) ? 'warning' : sslJobs.value.length ? 'healthy' : 'unknown');
 
 async function load() {
   const [certs, current, acme] = await Promise.all([
@@ -132,7 +161,8 @@ async function load() {
   certificates.value = certs;
   Object.assign(settings, current);
   status.value = acme;
-  activeJob.value = newestActiveJob(acme.jobs ?? []) ?? activeJob.value;
+  sslJobs.value = acme.jobs ?? [];
+  activeJob.value = newestActiveJob(sslJobs.value) ?? activeJob.value;
 }
 async function saveSettings() {
   saving.value = true;
@@ -163,6 +193,23 @@ async function requestCertificate() {
 }
 async function renew() { await runAction(() => sslApi.renew(props.domainId)); }
 async function check() { busy.value = true; try { await sslApi.check(props.domainId); await load(); } finally { busy.value = false; } }
+async function checkJobQueue() {
+  jobQueueBusy.value = true;
+  jobQueueMessage.value = '';
+  jobQueueError.value = false;
+  try {
+    const acme = await sslApi.acmeStatus(props.domainId);
+    status.value = acme;
+    sslJobs.value = acme.jobs ?? [];
+    activeJob.value = newestActiveJob(sslJobs.value) ?? activeJob.value;
+    jobQueueMessage.value = sslJobs.value.length ? `Checked ${sslJobs.value.length} SSL jobs.` : 'No SSL jobs are currently queued.';
+  } catch (error) {
+    jobQueueError.value = true;
+    jobQueueMessage.value = error instanceof Error ? error.message : 'Unable to check SSL job queue.';
+  } finally {
+    jobQueueBusy.value = false;
+  }
+}
 async function runAction(action: () => Promise<unknown>) { busy.value = true; try { await action(); await load(); } finally { busy.value = false; } }
 async function importManual() {
   busy.value = true;
@@ -197,7 +244,8 @@ async function pollSslProgress() {
   }
   const next = await sslApi.acmeStatus(props.domainId);
   status.value = next;
-  activeJob.value = newestActiveJob(next.jobs ?? []);
+  sslJobs.value = next.jobs ?? [];
+  activeJob.value = newestActiveJob(sslJobs.value);
 }
 watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainSsl(props.domainId)], load);
