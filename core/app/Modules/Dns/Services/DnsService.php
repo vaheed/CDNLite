@@ -5,6 +5,7 @@ namespace App\Modules\Dns\Services;
 use App\Modules\Domains\Services\DomainService;
 use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Settings\Repositories\SettingsRepository;
+use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
 use App\Support\Validator;
@@ -58,7 +59,7 @@ class DnsService
             return null;
         }
         $this->rebuildDomain($domainId);
-        $this->reconcile();
+        $this->reconcile($domainId);
         return $settings;
     }
 
@@ -165,7 +166,7 @@ class DnsService
             throw new \RuntimeException('dns_record_create_failed');
         }
         $this->origins->syncFromDnsRecord($domainId, $created);
-        $this->reconcile();
+        $this->reconcile($domainId);
         return $created;
     }
 
@@ -295,7 +296,7 @@ class DnsService
             return null;
         }
         $this->origins->syncFromDnsRecord($domainId, $updated);
-        $this->reconcile();
+        $this->reconcile($domainId);
         return $updated;
     }
 
@@ -316,7 +317,7 @@ class DnsService
         $deleted = $stmt->rowCount() > 0;
         if ($deleted) {
             $this->origins->deleteForDnsRecord($domainId, $recordId);
-            $this->reconcile();
+            $this->reconcile($domainId);
         }
         return $deleted;
     }
@@ -398,12 +399,25 @@ class DnsService
         return $row === false ? null : $this->castRow((array) $row);
     }
 
-    private function reconcile(): void
+    private function reconcile(?string $domainId = null): void
     {
+        $this->invalidateConfigSnapshot();
         $result = (new DnsReconciler())->reconcile();
-        if (($result['ok'] ?? false) !== true && (new PowerDnsService())->isStrict()) {
-            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_reconcile_failed'));
+        if (($result['ok'] ?? false) !== true) {
+            AuditLog::write('dns.reconcile.failed', 'dns', 'powerdns', $domainId, null, [
+                'error' => (string) ($result['error'] ?? 'powerdns_reconcile_failed'),
+                'local_state_saved' => true,
+                'strict' => (new PowerDnsService())->isStrict(),
+            ], 'system');
+            if ((new PowerDnsService())->isStrict()) {
+                throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_reconcile_failed'));
+            }
         }
+    }
+
+    private function invalidateConfigSnapshot(): void
+    {
+        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
     }
 
     private function castRow(array $row): array

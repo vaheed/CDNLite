@@ -81,3 +81,9 @@ def test_dashboard_polls_ssl_job_progress():
     assert "progress_percent" in view
     assert "sslApi.job(props.domainId, activeJob.value.id)" in view
     assert "queued: 'Queued'" in view
+    assert "SSL request queued" in view
+    assert "DNS validation in progress" in view
+    assert "Certificate issued" in view
+    assert "SSL failed" in view
+    assert "retryFailedJob" in view
+    assert "{ hostnames: job.hostnames }" in view

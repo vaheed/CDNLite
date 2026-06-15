@@ -49,7 +49,7 @@ class DnsController
         try {
             $settings = $this->service->updateRouting($domainId, $input);
         } catch (\RuntimeException $e) {
-            return ['error' => $e->getMessage(), 'status' => 422];
+            return $this->dnsPublishFailure($e->getMessage(), 502);
         }
         return $settings === null
             ? ['error' => 'domain_not_found', 'status' => 404]
@@ -143,7 +143,7 @@ class DnsController
             if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
                 return ['error' => $message, 'status' => 422];
             }
-            $payload = ['error' => $message, 'status' => 502];
+            $payload = $this->dnsPublishFailure($message);
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
             }
@@ -253,10 +253,13 @@ class DnsController
             $record = $this->service->update($domainId, $recordId, $input);
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
-            $status = in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)
-                ? 409
-                : (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true) ? 422 : 502);
-            $payload = ['error' => $message, 'status' => $status];
+            if (in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)) {
+                $payload = ['error' => $message, 'status' => 409];
+            } elseif (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
+                $payload = ['error' => $message, 'status' => 422];
+            } else {
+                $payload = $this->dnsPublishFailure($message);
+            }
             if (Logger::isDebug()) {
                 $payload['detail'] = $e->getMessage();
             }
@@ -275,7 +278,7 @@ class DnsController
                 ? ['ok' => true]
                 : ['error' => 'record_not_found', 'status' => 404];
         } catch (\RuntimeException $e) {
-            return ['error' => $e->getMessage(), 'status' => 502];
+            return $this->dnsPublishFailure($e->getMessage());
         }
     }
 
@@ -295,7 +298,7 @@ class DnsController
         try {
             $routes = $this->geo->replace($domainId, $recordId, $input['routes']);
         } catch (\RuntimeException $e) {
-            return ['error' => $e->getMessage(), 'status' => 422];
+            return $this->dnsPublishFailure($e->getMessage(), 502);
         }
         return $routes === null
             ? ['error' => 'record_not_found', 'status' => 404]
@@ -322,6 +325,17 @@ class DnsController
             return ['error' => 'geo_origins_must_be_object', 'field' => 'geo_origins', 'status' => 422];
         }
         return null;
+    }
+
+    private function dnsPublishFailure(string $message, int $status = 502): array
+    {
+        return [
+            'error' => 'dns_publish_failed',
+            'status' => $status,
+            'detail' => $message,
+            'local_state_saved' => true,
+            'retry' => 'cdn:dns:reconcile',
+        ];
     }
 
     private function validateRoutingPolicy(array &$input): ?array

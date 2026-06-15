@@ -536,6 +536,8 @@ Analytics tips:
 - Recalculate aggregates after bulk ingest, test fixture loading, or suspected aggregation drift.
 - Domain-filtered analytics are safer for customer-facing reports than global analytics.
 - Activity endpoints store edge query data only after the edge-side redaction step. Use request-id lookup to correlate the public 5xx page, Docker-visible edge logs, and dashboard Activity details without exposing raw secret query values.
+- Prune raw detailed request rows with `php artisan cdn:usage:prune --dry-run` followed by `php artisan cdn:usage:prune --days=30` or the value configured in `CDNLITE_ANALYTICS_RETENTION_DAYS`.
+- Security-event ingest stores `client_ip` as a SHA-256 hash by default. Set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your deployment has an explicit policy for full IP retention.
 ## Operations Logs
 
 `GET /api/v1/security/events` and `GET /api/v1/audit` return:

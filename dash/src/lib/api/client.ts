@@ -119,6 +119,7 @@ export function humanizeApiError(code: string): string {
     origin_host_required: 'Origin host is required.',
     dns_record_duplicate: 'This DNS record already exists.',
     dns_record_name_conflict: 'This DNS name already has an incompatible CNAME or ALIAS record.',
+    dns_publish_failed: 'DNS changes were saved locally, but publishing to PowerDNS failed. Run DNS reconcile or use the retry action.',
     at_least_one_field_required: 'Change at least one field before saving.',
     must_be_one_of_http_https: 'Scheme must be HTTP or HTTPS.',
     must_be_verify_or_ignore: 'TLS verification must be Verify or Ignore.',
@@ -139,6 +140,11 @@ export function humanizeApiError(code: string): string {
 function formatApiError(payload: unknown, fallback: string): string {
   if (payload && typeof payload === 'object') {
     const record = payload as Record<string, unknown>;
+    if (record.error === 'dns_publish_failed') {
+      const detail = typeof record.detail === 'string' ? ` Detail: ${humanizeApiError(record.detail)}` : '';
+      const retry = typeof record.retry === 'string' ? ` Retry: ${record.retry}.` : '';
+      return `${humanizeApiError('dns_publish_failed')}${detail}${retry}`;
+    }
     if (typeof record.detail === 'string') {
       const detail = humanizeApiError(record.detail);
       return typeof record.field === 'string'

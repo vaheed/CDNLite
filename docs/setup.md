@@ -81,6 +81,7 @@ docker compose exec core php artisan cdn:db:migrate
 docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
+docker compose exec core php artisan cdn:usage:prune --dry-run
 ```
 
 Migrations are applied automatically before the Core web process starts when
@@ -148,6 +149,8 @@ Core settings:
 | `CDNLITE_CORS_ALLOWED_ORIGINS` | Browser origins allowed to call the API. |
 | `CDNLITE_SSL_SECRET_KEY` | Secret used for stored SSL material handling. |
 | `CDNLITE_ORIGIN_SHIELD_SECRET` | Default origin shield secret. |
+| `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
+| `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
 | `CDNLITE_ACME_*` | ACME directory, contact email, propagation delay, and polling. |
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
@@ -191,6 +194,20 @@ Access logs include request id, host, method, path, status, selected origin id,
 upstream status/time, cache status, and byte counts. Query parameters with names
 such as `token`, `key`, `secret`, `password`, `auth`, or `signature` are
 redacted in structured diagnostics and metrics.
+
+Detailed request/activity rows are retained until an operator prunes them. Run
+a dry run first, then prune rows older than `CDNLITE_ANALYTICS_RETENTION_DAYS`
+or an explicit `--days` value:
+
+```bash
+docker compose exec core php artisan cdn:usage:prune --dry-run
+docker compose exec core php artisan cdn:usage:prune --days=30
+```
+
+Longer-term rollups and dashboard summaries should use aggregate views and
+exports, not indefinite raw request retention. Security-event ingest hashes
+client IPs by default; set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your
+privacy policy and retention process explicitly allow it.
 
 Dashboard variables:
 

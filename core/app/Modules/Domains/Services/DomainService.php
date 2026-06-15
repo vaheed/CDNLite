@@ -64,6 +64,7 @@ class DomainService
         }
 
         AuditLog::write('domain.create', 'domain', $id, $id, null, $domain);
+        $this->invalidateConfigSnapshot();
         (new DnsReconciler())->reconcile();
         return $domain;
     }
@@ -128,6 +129,7 @@ class DomainService
 
         $updated = $this->find($domainId);
         AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);
+        $this->invalidateConfigSnapshot();
         (new DnsReconciler())->reconcile();
         return $updated;
     }
@@ -143,6 +145,7 @@ class DomainService
         $stmt->execute([':id' => $domainId]);
         $deleted = $stmt->rowCount() > 0;
         if ($deleted) {
+            $this->invalidateConfigSnapshot();
             (new DnsReconciler())->reconcile();
         }
         return $deleted;
@@ -181,6 +184,11 @@ class DomainService
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;
+    }
+
+    private function invalidateConfigSnapshot(): void
+    {
+        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
     }
 
 }

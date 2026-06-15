@@ -899,16 +899,18 @@ SSL issuance is treated as an action that eventually changes state, but the dash
   - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`, `dash/src/types.ts`, `dash/src/lib/api/ssl.ts`.
   - Follow-up UI fix: added a **Check job queue** button and a persistent **SSL job queue** table so operators can refresh and inspect every recent SSL job status, progress, hostnames, update time, and message/error from the SSL tab.
   - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`.
-2. [ ] Show toast after request:
+2. [x] Show toast after request:
    - “SSL request queued”
    - “DNS validation in progress”
    - “Certificate issued”
    - “SSL failed: reason”
-  - Notes: inline progress is visible, but a dashboard-wide toast system was not added in this pass.
+  - Notes: SSL-specific dashboard notifications now fire when a job is queued, when it transitions into DNS/challenge validation, when it is issued, and when it fails with the safe error/message returned by the API.
+  - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`, `core/tests/test_ssl_jobs_phase4_contract.py`, `docs/ROADMAP.md`.
 3. [x] Poll every 2–5 seconds while job is active, stop after terminal status.
   - Notes: the tab polls `/ssl/jobs/{jobId}` every 3 seconds for active jobs and falls back to `/ssl/acme-status` to discover recent jobs.
-4. [ ] Show retry action if failed.
-  - Remaining blocker: failed jobs display their error detail; retry still uses the existing Request Certificate/Force Renew actions rather than a per-job retry button.
+4. [x] Show retry action if failed.
+  - Notes: failed rows in the SSL job queue now show a `Retry` action that queues a new SSL request for the failed job's hostnames and immediately resumes progress polling.
+  - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`, `core/tests/test_ssl_jobs_phase4_contract.py`, `docs/ROADMAP.md`.
 
 ### Tests
 
@@ -924,6 +926,9 @@ SSL issuance is treated as an action that eventually changes state, but the dash
   - Local validation run: `pytest -q core/tests/test_ssl_jobs_phase4_contract.py core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py` passed with `11 passed`.
   - Local validation run: `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"` passed.
   - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_ssl_jobs_phase4_contract.py` passed with `4 passed`.
+  - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
+  - Follow-up local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts src/lib/api/client.test.ts)` passed with `10 passed`.
   - Manual validation still required: run migrations against a disposable PostgreSQL database and request SSL through the dashboard/API to verify `/ssl/request` returns 202 and `/ssl/jobs/{jobId}` is pollable.
 
 ### IDE Prompt
@@ -1106,12 +1111,13 @@ For each domain action:
    - recent origin errors.
   - Notes: added `GET /api/v1/domains/{domainId}/activity/summary` backed by `usage_rollups`, including status buckets, forwarded request count, cache hit ratio, top paths/origins/edge nodes, and recent origin/router/upstream errors.
   - Changed files: `core/app/Modules/Collector/Services/CollectorService.php`, `core/app/Modules/Collector/Http/Controllers/CollectorController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
-5. [ ] Retention and privacy:
+5. [x] Retention and privacy:
    - keep raw detailed events short retention;
    - aggregate long-term metrics;
    - redact query strings and sensitive headers;
    - avoid storing full IP unless user explicitly configures retention.
-  - Notes: query strings are stored from the already-redacted edge metric object. Request-id lookup and export use the same redacted stored data. Full retention policy and configurable IP storage were not added.
+  - Notes: query strings are stored from the already-redacted edge metric object. Added `php artisan cdn:usage:prune` with `--dry-run` and optional `--days`, defaulting to `CDNLITE_ANALYTICS_RETENTION_DAYS` (`30`) for old detailed `usage_rollups` rows. Security-event ingest now hashes `client_ip` by default and stores the full IP only when `CDNLITE_STORE_FULL_CLIENT_IP=true`.
+  - Changed files: `core/app/Modules/Collector/Services/CollectorService.php`, `core/app/Console/Commands/CdnUsagePruneCommand.php`, `core/artisan`, `README.md`, `docs/setup.md`, `docs/api/api.md`, `core/tests/test_phase6_activity_diagnostics_contract.py`, `docs/ROADMAP.md`.
 
 ### Dashboard Tasks
 
@@ -1139,8 +1145,8 @@ For each domain action:
   - Manual validation required after rebuilding/migrating the stack and sending edge traffic.
 - [ ] 502 request shows selected origin and upstream/router error.
   - Manual validation required with `EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh` plus Activity page inspection after metrics ingest.
-- [ ] DNS add and SSL request appear in timeline.
-  - Notes: DNS/SSL audit events exist, but the full mixed timeline is still pending.
+- [x] DNS add and SSL request appear in timeline.
+  - Notes: DNS and SSL audit/activity events are included in the mixed `/activity` timeline; SSL lifecycle emits `ssl.requested`, validation, issued, and failed events, and DNS mutation audit events remain available through the same timeline.
 - [x] Activity filters work.
   - Notes: mixed timeline supports `from`, `to`, `type`, `search`, `cursor`, and `limit`; dashboard exposes date range, search, and event-type filters. Existing security/audit filters remain.
 - [x] Sensitive query params are redacted.
@@ -1155,6 +1161,8 @@ For each domain action:
   - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
   - Follow-up local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts src/lib/data/invalidation.test.ts)` passed with `10 passed`.
   - Follow-up local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
+  - Follow-up local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Console/Commands/CdnUsagePruneCommand.php && php -l core/artisan` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_ssl_jobs_phase4_contract.py` passed with `7 passed`.
   - Remaining blockers: manual runtime validation is still required to confirm edge traffic appears in Activity within one ingest cycle and a 502 can be found by request id after rebuilding/migrating the stack. Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
@@ -1187,6 +1195,15 @@ Add a versioned migration system or safe schema upgrade scripts for CDNLite. Cur
 
 Any DNS, origin, SSL, domain, WAF, cache, redirect, or header change must invalidate and republish edge config. Audit every mutating service.
 
+- [x] Domain create/update/delete now explicitly invalidates `config_state.active_snapshot_version` before DNS reconciliation so edge config cannot remain pinned to a stale active snapshot after lifecycle or hostname changes.
+- [x] DNS create/update/delete and routing rebuild paths invalidate through the shared DNS reconciliation path.
+- [x] Geo route replacement now writes an audit event, invalidates the active snapshot, and runs DNS reconciliation so country route changes are picked up by edge polling.
+- Notes: traffic-rule, origin, and SSL certificate install paths already had explicit invalidation; this pass tightened domain and GeoDNS route paths.
+- Changed files: `core/app/Modules/Domains/Services/DomainService.php`, `core/app/Modules/Dns/Services/DnsService.php`, `core/app/Modules/Dns/Services/GeoRoutingService.php`, `core/tests/test_phase7_config_invalidation_contract.py`, `docs/ROADMAP.md`.
+- Local validation run: `php -l core/app/Modules/Domains/Services/DomainService.php && php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Dns/Services/GeoRoutingService.php` passed.
+- Local validation run: `pytest -q core/tests/test_phase7_config_invalidation_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `5 passed`.
+- Manual validation still required: run a disposable stack, mutate a domain/DNS/geo route, then confirm `cdn:edge:sync-config` publishes a new snapshot and edge pulls it.
+
 **Prompt**
 
 ```text
@@ -1196,6 +1213,17 @@ Audit all mutating services and ensure every domain-affecting change invalidates
 ### 7.3 PowerDNS/DNS Reconcile Error UX
 
 DNS create/update may fail or partially publish under strict PowerDNS mode. Return clear UI errors and keep local state consistent.
+
+- [x] Strict PowerDNS publish failures now return a structured `dns_publish_failed` API error with `local_state_saved=true`, safe `detail`, and retry guidance (`cdn:dns:reconcile`) instead of only surfacing the raw backend error.
+- [x] DNS reconcile failures write `dns.reconcile.failed` audit/activity events with safe error details and strict-mode state.
+- [x] Dashboard API error handling now explains that the DNS change was saved locally but PowerDNS publishing failed, and includes retry guidance.
+- Notes: this keeps local desired DNS state intact; it does not roll back the user-created record when external PowerDNS publishing is unavailable. DNS tab already shows zone sync `last_error` from the status API.
+- Changed files: `core/app/Modules/Dns/Services/DnsService.php`, `core/app/Modules/Dns/Http/Controllers/DnsController.php`, `dash/src/lib/api/client.ts`, `dash/src/lib/api/client.test.ts`, `core/tests/test_phase7_config_invalidation_contract.py`, `docs/ROADMAP.md`.
+- Local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Dns/Http/Controllers/DnsController.php && php -l core/app/Modules/Dns/Services/GeoRoutingService.php` passed.
+- Local validation run: `pytest -q core/tests/test_phase7_config_invalidation_contract.py` passed with `2 passed`.
+- Local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts)` passed with `7 passed`.
+- Local validation run: `(cd dash && npm run typecheck)` passed.
+- Remaining blocker: dashboard still does not have a dedicated per-row retry button in the DNS tab; operators can retry through `cdn:dns:reconcile`, PowerDNS force sync, or existing DNS operations controls.
 
 **Prompt**
 

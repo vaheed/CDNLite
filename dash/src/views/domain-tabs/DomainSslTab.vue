@@ -45,7 +45,7 @@
       <EmptyState v-if="sslJobs.length === 0" title="No SSL jobs queued" message="Request a certificate to create a durable SSL job." />
       <div v-else class="overflow-x-auto">
         <table class="w-full min-w-[760px] text-left text-sm">
-          <thead class="table-head"><tr><th>Status</th><th>Progress</th><th>Hostnames</th><th>Updated</th><th>Message</th></tr></thead>
+          <thead class="table-head"><tr><th>Status</th><th>Progress</th><th>Hostnames</th><th>Updated</th><th>Message</th><th>Action</th></tr></thead>
           <tbody class="divide-y divide-slate-100 dark:divide-white/5">
             <tr v-for="job in sslJobs" :key="job.id">
               <td class="table-cell"><StatusBadge :status="jobBadgeStatus(job.status)" :label="jobLabel(job.status)" /></td>
@@ -53,6 +53,16 @@
               <td class="table-cell font-mono text-xs">{{ job.hostnames.join(', ') || 'domain default' }}</td>
               <td class="table-cell whitespace-nowrap">{{ formatDate(job.updated_at) }}</td>
               <td class="table-cell">{{ job.error_detail || job.message }}</td>
+              <td class="table-cell">
+                <button
+                  v-if="job.status === 'failed'"
+                  class="button-secondary !px-3 !py-1.5 text-xs"
+                  :disabled="busy"
+                  @click="retryFailedJob(job)"
+                >
+                  Retry
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -129,6 +139,7 @@ import { sslApi } from '@/lib/api/ssl';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
 import { useVisibilityPolling } from '@/lib/data/polling';
+import { notify } from '@/lib/ui/notifications';
 import type { AcmeStatus, SslCertificate, SslJob } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
@@ -146,6 +157,7 @@ const saveError = ref(false);
 const showManualImport = ref(false);
 const manualMessage = ref('');
 const manualError = ref(false);
+const lastJobStatuses = new Map<string, string>();
 const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: false });
 const manual = reactive({ hostname: '', certificate_pem: '', private_key_pem: '' });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
@@ -162,6 +174,7 @@ async function load() {
   Object.assign(settings, current);
   status.value = acme;
   sslJobs.value = acme.jobs ?? [];
+  announceJobChanges(sslJobs.value);
   activeJob.value = newestActiveJob(sslJobs.value) ?? activeJob.value;
 }
 async function saveSettings() {
@@ -186,6 +199,8 @@ async function requestCertificate() {
   try {
     const queued = await sslApi.request(props.domainId);
     activeJob.value = queued.job;
+    rememberJobStatus(queued.job);
+    notify({ kind: 'success', title: 'SSL request queued', message: queued.message || 'Certificate issuance is queued.' });
     await load();
   } finally {
     busy.value = false;
@@ -201,6 +216,7 @@ async function checkJobQueue() {
     const acme = await sslApi.acmeStatus(props.domainId);
     status.value = acme;
     sslJobs.value = acme.jobs ?? [];
+    announceJobChanges(sslJobs.value);
     activeJob.value = newestActiveJob(sslJobs.value) ?? activeJob.value;
     jobQueueMessage.value = sslJobs.value.length ? `Checked ${sslJobs.value.length} SSL jobs.` : 'No SSL jobs are currently queued.';
   } catch (error) {
@@ -211,6 +227,18 @@ async function checkJobQueue() {
   }
 }
 async function runAction(action: () => Promise<unknown>) { busy.value = true; try { await action(); await load(); } finally { busy.value = false; } }
+async function retryFailedJob(job: SslJob) {
+  busy.value = true;
+  try {
+    const queued = await sslApi.request(props.domainId, { hostnames: job.hostnames });
+    activeJob.value = queued.job;
+    rememberJobStatus(queued.job);
+    notify({ kind: 'success', title: 'SSL request queued', message: `Retry queued for ${hostnamesLabel(queued.job)}.` });
+    await load();
+  } finally {
+    busy.value = false;
+  }
+}
 async function importManual() {
   busy.value = true;
   manualMessage.value = '';
@@ -234,9 +262,38 @@ function jobBadgeStatus(value: string) { return value === 'issued' ? 'healthy' :
 function isActiveJob(job: SslJob) { return ['queued', 'checking_dns', 'creating_order', 'validating_challenge', 'issuing', 'installing'].includes(job.status); }
 function newestActiveJob(jobs: SslJob[]) { return jobs.find(isActiveJob) ?? null; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
+function hostnamesLabel(job: SslJob) { return job.hostnames.length ? job.hostnames.join(', ') : 'the domain default hostnames'; }
+function rememberJobStatus(job: SslJob) { lastJobStatuses.set(job.id, job.status); }
+function announceJobChanges(jobs: SslJob[]) {
+  for (const job of jobs) {
+    const previous = lastJobStatuses.get(job.id);
+    if (!previous) {
+      rememberJobStatus(job);
+      continue;
+    }
+    if (previous === job.status) continue;
+    rememberJobStatus(job);
+    announceJobStatus(job);
+  }
+}
+function announceJobStatus(job: SslJob) {
+  if (job.status === 'validating_challenge' || job.status === 'checking_dns') {
+    notify({ kind: 'info', title: 'DNS validation in progress', message: job.message || `Checking ${hostnamesLabel(job)}.` });
+    return;
+  }
+  if (job.status === 'issued') {
+    notify({ kind: 'success', title: 'Certificate issued', message: `SSL is ready for ${hostnamesLabel(job)}.` });
+    return;
+  }
+  if (job.status === 'failed') {
+    notify({ kind: 'error', title: 'SSL failed', message: job.error_detail || job.message || 'Certificate issuance failed.' }, 8000);
+  }
+}
 async function pollSslProgress() {
   if (activeJob.value && isActiveJob(activeJob.value)) {
-    activeJob.value = await sslApi.job(props.domainId, activeJob.value.id);
+    const current = await sslApi.job(props.domainId, activeJob.value.id);
+    announceJobChanges([current]);
+    activeJob.value = current;
     if (!isActiveJob(activeJob.value)) {
       await load();
     }
@@ -245,6 +302,7 @@ async function pollSslProgress() {
   const next = await sslApi.acmeStatus(props.domainId);
   status.value = next;
   sslJobs.value = next.jobs ?? [];
+  announceJobChanges(sslJobs.value);
   activeJob.value = newestActiveJob(sslJobs.value);
 }
 watch(() => props.domainId, load);

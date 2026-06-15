@@ -171,7 +171,13 @@ class CollectorService
                     ':resource_type' => $event === 'waf_match' ? 'waf' : 'rate_limit',
                     ':resource_id' => (string) ($item['rule_id'] ?? ''),
                     ':domain_id' => $domainId,
-                    ':details_json' => json_encode(['decision' => (string) ($item['action'] ?? ''), 'request_id' => (string) ($item['request_id'] ?? ''), 'path' => (string) ($item['path'] ?? ''), 'method' => (string) ($item['method'] ?? ''), 'client_ip' => (string) ($item['client_ip'] ?? '')], JSON_UNESCAPED_SLASHES),
+                    ':details_json' => json_encode([
+                        'decision' => (string) ($item['action'] ?? ''),
+                        'request_id' => (string) ($item['request_id'] ?? ''),
+                        'path' => (string) ($item['path'] ?? ''),
+                        'method' => (string) ($item['method'] ?? ''),
+                        'client_ip' => $this->securityClientIpValue($item['client_ip'] ?? null),
+                    ], JSON_UNESCAPED_SLASHES),
                     ':event' => $event,
                     ':created_at' => (int) ($item['ts'] ?? $now),
                 ]);
@@ -187,6 +193,33 @@ class CollectorService
             throw $e;
         }
         return ['ingested' => $count, 'skipped_unknown_domains' => $skippedUnknownDomains, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
+    }
+
+    public function pruneDetailedEvents(?int $retentionDays = null, bool $dryRun = false): array
+    {
+        $days = $retentionDays ?? $this->analyticsRetentionDays();
+        $days = max(1, min(3650, $days));
+        $cutoff = time() - ($days * 86400);
+        $pdo = Database::pdo();
+
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM usage_rollups WHERE ts < :cutoff');
+        $countStmt->execute([':cutoff' => $cutoff]);
+        $matching = (int) $countStmt->fetchColumn();
+
+        $deleted = 0;
+        if (!$dryRun && $matching > 0) {
+            $deleteStmt = $pdo->prepare('DELETE FROM usage_rollups WHERE ts < :cutoff');
+            $deleteStmt->execute([':cutoff' => $cutoff]);
+            $deleted = $deleteStmt->rowCount();
+        }
+
+        return [
+            'retention_days' => $days,
+            'cutoff' => $cutoff,
+            'dry_run' => $dryRun,
+            'matching' => $matching,
+            'deleted' => $deleted,
+        ];
     }
 
     public function recentRequests(string $domainId, int $limit = 100): array
@@ -637,6 +670,27 @@ class CollectorService
             return null;
         }
         return (int) round(((float) $value) * 1000);
+    }
+
+    private function analyticsRetentionDays(): int
+    {
+        $value = getenv('CDNLITE_ANALYTICS_RETENTION_DAYS');
+        if ($value === false || !is_numeric($value)) {
+            return 30;
+        }
+        return max(1, (int) $value);
+    }
+
+    private function securityClientIpValue(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $ip = (string) $value;
+        if (filter_var(getenv('CDNLITE_STORE_FULL_CLIENT_IP') ?: 'false', FILTER_VALIDATE_BOOLEAN)) {
+            return $ip;
+        }
+        return 'sha256:' . hash('sha256', $ip);
     }
 
     private function castRequestActivity(array $row): array

@@ -54,7 +54,20 @@ describe('buildUrl', () => {
   it('humanizes DNS and origin validation errors used by domain tabs', () => {
     expect(humanizeApiError('dns_record_duplicate')).toBe('This DNS record already exists.');
     expect(humanizeApiError('dns_record_name_conflict')).toBe('This DNS name already has an incompatible CNAME or ALIAS record.');
+    expect(humanizeApiError('dns_publish_failed')).toContain('saved locally');
     expect(humanizeApiError('must_be_80_or_443')).toBe('Port must be 80 or 443.');
     expect(humanizeApiError('must_start_with_slash')).toBe('Health check path must start with /.');
+  });
+
+  it('preserves PowerDNS publish failure context', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(
+      '{"error":"dns_publish_failed","detail":"powerdns_timeout","local_state_saved":true,"retry":"cdn:dns:reconcile"}',
+      { status: 502 },
+    ));
+
+    await expect(apiRequest('/api/v1/domains/domain-1/dns/records', { method: 'POST' })).rejects.toMatchObject({
+      message: expect.stringContaining('saved locally'),
+      code: 'dns_publish_failed',
+    } satisfies Partial<CdnLiteApiError>);
   });
 });

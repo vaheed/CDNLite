@@ -2,6 +2,7 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
 
@@ -92,7 +93,16 @@ class GeoRoutingService
             $pdo->rollBack();
             throw $e;
         }
-        return $this->list($domainId, $recordId);
+        $updated = $this->list($domainId, $recordId);
+        AuditLog::write('dns.geo_routes.update', 'dns_record', $recordId, $domainId, null, $updated);
+        $this->invalidateConfigSnapshot();
+        (new DnsReconciler())->reconcile();
+        return $updated;
+    }
+
+    private function invalidateConfigSnapshot(): void
+    {
+        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
     }
 
     private function recordExists(string $domainId, string $recordId): bool

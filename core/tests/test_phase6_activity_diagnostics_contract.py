@@ -35,6 +35,8 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     collector = read("core/app/Modules/Collector/Services/CollectorService.php")
     controller = read("core/app/Modules/Collector/Http/Controllers/CollectorController.php")
     routes = read("core/public_index.php")
+    artisan = read("core/artisan")
+    prune_command = read("core/app/Console/Commands/CdnUsagePruneCommand.php")
 
     assert "host, method, path, query_redacted" in collector
     assert ":upstream_response_time_ms" in collector
@@ -50,6 +52,12 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert "/api/v1/domains/{domainId}/activity/summary" in routes
     assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in routes
     assert "/api/v1/domains/{domainId}/activity/export" in routes
+    assert "public function pruneDetailedEvents" in collector
+    assert "CDNLITE_ANALYTICS_RETENTION_DAYS" in collector
+    assert "CDNLITE_STORE_FULL_CLIENT_IP" in collector
+    assert "'sha256:' . hash('sha256', $ip)" in collector
+    assert "cdn:usage:prune" in artisan
+    assert "pruneDetailedEvents($days, $dryRun)" in prune_command
 
 
 def test_dashboard_activity_shows_request_origin_and_router_details():
@@ -78,6 +86,8 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "/api/v1/domains/{domainId}/activity/summary" in docs
     assert "/api/v1/domains/{domainId}/activity/requests" in docs
     assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in docs
+    assert "cdn:usage:prune --dry-run" in docs
+    assert "CDNLITE_STORE_FULL_CLIENT_IP" in docs
     assert "/api/v1/domains/{domainId}/activity/requests:" in openapi
     assert "/api/v1/domains/{domainId}/activity:" in openapi
     assert "/api/v1/domains/{domainId}/activity/summary:" in openapi
