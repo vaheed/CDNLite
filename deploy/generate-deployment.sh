@@ -9,7 +9,7 @@ set -euo pipefail
 
 umask 077
 
-SCRIPT_VERSION="upstream-runtime-v18"
+SCRIPT_VERSION="upstream-runtime-v19"
 CDNLITE_REPO="${CDNLITE_REPO:-https://github.com/vaheed/CDNLite.git}"
 CDNLITE_REF_DEFAULT="${CDNLITE_REF_DEFAULT:-main}"
 REGISTRY_OWNER_DEFAULT="${REGISTRY_OWNER_DEFAULT:-vaheed}"
@@ -337,6 +337,7 @@ VITE_ENABLE_USAGE_SIMULATOR=false
 VITE_ENABLE_SSL_TOOLS=true
 VITE_ENABLE_SECURITY_EVENT_VIEWER=true
 VITE_ENABLE_LOG_VIEWER=true
+# Dashboard build includes Event Viewer and central Job Queue operations pages.
 VITE_DEFAULT_USAGE_BUCKET=minute
 VITE_DASHBOARD_REFRESH_SECONDS=15
 VITE_REQUEST_TIMEOUT_MS=15000

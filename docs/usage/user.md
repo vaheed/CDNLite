@@ -14,6 +14,7 @@ Dashboard
 |-- Usage Analytics: traffic, cache, and bandwidth views
 |-- DNS records: effective published values and PowerDNS sync status
 |-- Event Viewer: diagnostics and runtime event search
+|-- Job Queue: central SSL/system job status
 |-- Security Events: WAF/rate-limit/IP/security decisions
 |-- Audit Log: admin and system changes
 |-- Settings: platform, PowerDNS, edge DNS, and runtime settings

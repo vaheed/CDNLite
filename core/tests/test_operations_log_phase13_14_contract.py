@@ -9,6 +9,8 @@ def test_global_security_and_audit_routes_are_registered():
     assert "'/api/v1/security/events'" in public_index
     assert "'/api/v1/security/summary'" in public_index
     assert "'/api/v1/audit'" in public_index
+    assert "'/api/v1/events'" in public_index
+    assert "'/api/v1/jobs'" in public_index
     assert "auth: true" in public_index
 
 
@@ -20,6 +22,10 @@ def test_operations_log_service_supports_required_filters_and_pagination():
     assert "top_ips" in service
     assert "top_domains" in service
     assert "FROM audit_log a" in service
+    assert "FROM dns_sync_events e" in service
+    assert "FROM ssl_jobs j" in service
+    assert "eventDnsRows" in service
+    assert "eventJobRows" in service
     assert "d.zone_name" not in service
     assert "SELECT a.event" in service
 
@@ -34,8 +40,10 @@ def test_dashboard_exposes_security_events_and_audit_log_pages():
     nav = (ROOT / "dash/src/components/layout/nav.ts").read_text()
     assert "/security-events" in router and "/security-events" in nav
     assert "/audit-log" in router and "/audit-log" in nav
+    assert "/jobs" in router and "/jobs" in nav
     assert (ROOT / "dash/src/views/SecurityEventsView.vue").exists()
     assert (ROOT / "dash/src/views/AuditLogView.vue").exists()
+    assert (ROOT / "dash/src/views/JobQueueView.vue").exists()
 
 
 def test_domain_activity_view_is_paginated_and_domain_scoped():

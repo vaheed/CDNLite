@@ -96,7 +96,8 @@ docker compose exec core php artisan cdn:edge:sync-config
 | Edge Network | Edge identity, region, public IP, health, DNS data. |
 | Security Events | Blocks, challenges, rate-limit hits, WAF matches. |
 | Audit Log | Settings, domain, rule, and config changes. |
-| Event Viewer | Diagnostic reports and runtime event details. |
+| Event Viewer | Audit, security, DNS sync, and job lifecycle event details. |
+| Job Queue | Central SSL/system job status across every domain. |
 
 ## Backup And Recovery
 

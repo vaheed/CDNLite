@@ -24,4 +24,14 @@ class OperationsLogController
     {
         return ['data' => $this->service->audit($query)];
     }
+
+    public function events(array $query): array
+    {
+        return ['data' => $this->service->events($query)];
+    }
+
+    public function jobs(array $query): array
+    {
+        return ['data' => $this->service->jobs($query)];
+    }
 }

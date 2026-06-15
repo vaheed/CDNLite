@@ -69,7 +69,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import DetailsDrawer from '@/components/ui/DetailsDrawer.vue'; import EmptyState from '@/components/ui/EmptyState.vue'; import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue'; import PageHeader from '@/components/ui/PageHeader.vue'; import StatusBadge from '@/components/ui/StatusBadge.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
 import PaginationControls from '@/components/ui/PaginationControls.vue';
-import { auditLogApi } from '@/lib/api/auditLog'; import { securityEventsApi } from '@/lib/api/securityEvents'; import { formatDate } from '@/lib/utils/format'; import type { AuditEntry, SecurityEvent } from '@/types';
+import { operationsApi } from '@/lib/api/operations'; import { formatDate } from '@/lib/utils/format'; import type { OperationsEvent } from '@/types';
 type EventRow = { id: string; domain: string; type: string; severity: string; decision: string; time: string; timestamp: number; summary: string; raw: unknown };
 const events = ref<EventRow[]>([]); const loading = ref(true); const error = ref(''); const selected = ref<EventRow | null>(null);
 const search = ref(''); const severity = ref(''); const type = ref(''); const domain = ref('');
@@ -93,18 +93,11 @@ async function loadEvents() {
   loading.value = true; error.value = '';
   try {
     const from = toEpoch(fromInput.value); const to = toEpoch(toInput.value);
-    const [security, audit] = await Promise.all([
-      securityEventsApi.list({ from, to, limit: 500, offset: 0 }),
-      auditLogApi.list({ from, to, limit: 500, offset: 0 }),
-    ]);
-    events.value = [
-      ...security.items.map(normalizeSecurity),
-      ...audit.items.filter((entry) => !entry.type).map(normalizeAudit),
-    ];
+    const result = await operationsApi.events({ from, to, limit: 500, offset: 0 });
+    events.value = result.items.map(normalizeEvent);
   } catch (cause) { error.value = cause instanceof Error ? cause.message : 'An unexpected request error occurred.'; } finally { loading.value = false; }
 }
-function normalizeSecurity(event: SecurityEvent): EventRow { const timestamp = toTimestamp(event.timestamp ?? event.created_at); const decision = event.decision ?? event.action ?? 'observed'; return { id: event.id, domain: event.domain_name ?? event.domain_id ?? 'Platform', type: event.type ?? 'Security event', severity: event.severity ?? 'info', decision, time: formatDate(event.timestamp ?? event.created_at), timestamp, summary: `${decision} decision recorded by ${event.type ?? 'the security engine'}.`, raw: event }; }
-function normalizeAudit(entry: AuditEntry): EventRow { const timestamp = toTimestamp(entry.created_at); return { id: entry.id, domain: entry.domain_name ?? entry.domain_id ?? 'Platform', type: entry.action, severity: 'info', decision: entry.resource_type, time: formatDate(entry.created_at), timestamp, summary: `${entry.action} changed ${entry.resource_type}${entry.resource_id ? ` ${entry.resource_id}` : ''}.`, raw: entry }; }
+function normalizeEvent(event: OperationsEvent): EventRow { const timestamp = toTimestamp(event.created_at); return { id: event.id, domain: event.domain_name ?? event.domain_id ?? 'Platform', type: event.type, severity: event.severity ?? 'info', decision: event.status, time: formatDate(event.created_at), timestamp, summary: event.summary, raw: event }; }
 function toTimestamp(value?: number | string) { if (!value) return 0; if (typeof value === 'number') return value < 10_000_000_000 ? value * 1000 : value; return new Date(value).getTime() || 0; }
 function toEpoch(value: string) { return value ? Math.floor(new Date(value).getTime() / 1000) : 0; }
 function unique(values: string[]) { return [...new Set(values)].sort(); }

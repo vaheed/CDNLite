@@ -137,6 +137,12 @@ export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; a
 export interface PaginatedResult<T> { items: T[]; total: number; limit: number; offset: number; }
 export interface SecuritySummary { total: number; by_type: Record<string, number>; top_ips: Array<{ value: string; count: number }>; top_domains: Array<{ domain_id?: Id | null; name?: string | null; count: number }>; }
 export interface AuditEntry { id: Id; actor_type: string; actor_id?: string | null; action: string; resource_type: string; resource_id?: string | null; domain_id?: Id | null; domain_name?: string | null; type?: string | null; details?: unknown; before?: unknown; after?: unknown; created_at: number; }
+export interface OperationsEvent {
+  id: Id; source: 'audit' | 'security' | 'dns' | 'job' | string; type: string; severity: Severity | string;
+  status: string; summary: string; domain_id?: Id | null; domain_name?: string | null;
+  created_at: number; details: unknown;
+}
+export interface SystemJob extends SslJob { domain_name?: string | null; }
 export interface ConfigSnapshot { version?: string; generated_at?: number | string; hosts?: unknown[]; upstreams?: unknown[]; geo_upstreams?: unknown[]; headers?: unknown; dns_records?: unknown[]; cache_rules?: unknown[]; [key: string]: unknown; }
 export interface ConfigSnapshotSummary { version: number; generated_at: number; content_hash: string; size: number; active: boolean; }
 export interface ConfigSnapshotChange { path: string; before: unknown; after: unknown; }

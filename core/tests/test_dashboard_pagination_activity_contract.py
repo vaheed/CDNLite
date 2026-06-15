@@ -21,6 +21,7 @@ def test_shared_tables_have_page_size_pagination():
 def test_operations_pages_use_consistent_pagination_and_filters():
     for path in (
         "dash/src/views/EventViewerView.vue",
+        "dash/src/views/JobQueueView.vue",
         "dash/src/views/SecurityEventsView.vue",
         "dash/src/views/AuditLogView.vue",
     ):
@@ -28,10 +29,15 @@ def test_operations_pages_use_consistent_pagination_and_filters():
         assert "PaginationControls" in view
 
     events = read("dash/src/views/EventViewerView.vue")
-    assert "securityEventsApi.list" in events
-    assert "auditLogApi.list" in events
+    assert "operationsApi.events" in events
+    assert "securityEventsApi.list" not in events
+    assert "auditLogApi.list" not in events
     assert "loadSecurityEventsForDomains" not in events
     assert "From" in events and "To" in events
+
+    jobs = read("dash/src/views/JobQueueView.vue")
+    assert "operationsApi.jobs" in jobs
+    assert "Status" in jobs and "Domain" in jobs
 
 
 def test_domain_activity_has_filtered_independent_streams():

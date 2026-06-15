@@ -540,7 +540,8 @@ Analytics tips:
 - Security-event ingest stores `client_ip` as a SHA-256 hash by default. Set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your deployment has an explicit policy for full IP retention.
 ## Operations Logs
 
-`GET /api/v1/security/events` and `GET /api/v1/audit` return:
+`GET /api/v1/events`, `GET /api/v1/jobs`, `GET /api/v1/security/events`,
+and `GET /api/v1/audit` return:
 
 ```json
 {
@@ -551,7 +552,12 @@ Analytics tips:
 }
 ```
 
-Both endpoints accept `domain_id`, `from`, `to`, `limit`, and `offset`.
+All four endpoints accept `domain_id`, `from`, `to`, `limit`, and `offset`.
+`/api/v1/events` is the central Event Viewer feed and combines audit entries,
+security decisions, DNS sync attempts, and SSL job lifecycle rows.
+`/api/v1/jobs` is the central Job Queue feed for durable system jobs and
+currently lists SSL certificate jobs across every domain; it also accepts
+`status`, `active`, and `search`.
 Security events additionally support `edge_id`, `type`, `ip`, and `search`.
 Audit entries support `actor`, `action`, `resource_type`, and `search`.
 The `search` filter matches serialized details plus action, resource type, and

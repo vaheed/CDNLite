@@ -7,6 +7,7 @@ import EdgeNetworkView from '@/views/EdgeNetworkView.vue';
 import UsageAnalyticsView from '@/views/UsageAnalyticsView.vue';
 import DnsOperationsView from '@/views/DnsOperationsView.vue';
 import EventViewerView from '@/views/EventViewerView.vue';
+import JobQueueView from '@/views/JobQueueView.vue';
 import SettingsView from '@/views/SettingsView.vue';
 import EdgeDevToolsView from '@/views/EdgeDevToolsView.vue';
 import SecurityEventsView from '@/views/SecurityEventsView.vue';
@@ -20,6 +21,7 @@ export const routes = [
   { path: '/usage', name: 'usage', component: UsageAnalyticsView, meta: { label: 'Usage Analytics' } },
   { path: '/dns-operations', name: 'dns-operations', component: DnsOperationsView, meta: { label: 'DNS Operations' } },
   { path: '/events', name: 'events', component: EventViewerView, meta: { label: 'Event Viewer' } },
+  { path: '/jobs', name: 'jobs', component: JobQueueView, meta: { label: 'Job Queue' } },
   { path: '/security-events', name: 'security-events', component: SecurityEventsView, meta: { label: 'Security Events' } },
   { path: '/audit-log', name: 'audit-log', component: AuditLogView, meta: { label: 'Audit Log' } },
   { path: '/settings', name: 'settings', component: SettingsView, meta: { label: 'Settings' } },

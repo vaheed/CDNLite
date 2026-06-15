@@ -278,6 +278,8 @@ $router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response
 $router->add('GET', '/api/v1/security/events', static fn (Request $req): array => Response::json($operationsLogController->securityEvents($req->query)), auth: true);
 $router->add('GET', '/api/v1/security/summary', static fn (Request $req): array => Response::json($operationsLogController->securitySummary($req->query)), auth: true);
 $router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);
+$router->add('GET', '/api/v1/events', static fn (Request $req): array => Response::json($operationsLogController->events($req->query)), auth: true);
+$router->add('GET', '/api/v1/jobs', static fn (Request $req): array => Response::json($operationsLogController->jobs($req->query)), auth: true);
 $router->add('GET', '/api/v1/config/snapshots', static fn (): array => Response::json(['data' => $configService->snapshots()]), auth: true);
 $router->add('GET', '/api/v1/config/snapshots/{version}', static function (Request $req, array $p) use ($configService): array {
     $snapshot = $configService->snapshot((int) $p['version']);

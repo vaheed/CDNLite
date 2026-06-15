@@ -7,6 +7,7 @@ export const navItems = [
   { to: '/usage', label: 'Usage Analytics' },
   { to: '/dns-operations', label: 'DNS Operations' },
   { to: '/events', label: 'Event Viewer' },
+  { to: '/jobs', label: 'Job Queue' },
   { to: '/security-events', label: 'Security Events' },
   { to: '/audit-log', label: 'Audit Log' },
   { to: '/settings', label: 'Settings' },
