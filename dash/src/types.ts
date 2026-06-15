@@ -49,7 +49,7 @@ export interface DnsRecord {
   effective_status?: 'active' | 'disabled'; disabled_reason?: string | null; backup_origin_added?: boolean;
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
-  origin_status?: string; geo_origins?: Record<string, { host: string; tls_verify?: 'verify' | 'ignore' }>;
+  origin_status?: string; geo_origins?: Record<string, { host: string; scheme?: 'http' | 'https'; port?: 80 | 443 | number; tls_verify?: 'verify' | 'ignore' }>;
   routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
   geo_routes_count?: number;
 }

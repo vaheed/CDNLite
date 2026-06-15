@@ -33,6 +33,7 @@
         <label><span class="field-label">Type</span><select v-model="form.type" class="input"><option v-for="type in recordTypes" :key="type">{{ type }}</option></select><span class="field-description">Choose the DNS record kind you want to publish.</span></label>
         <label><span class="field-label">Name</span><input v-model="form.name" class="input" placeholder="@ or www" /><span class="field-description">@ means the root domain. Use www, api, or mail for subdomains.</span></label>
         <label class="xl:col-span-2"><span class="field-label">{{ form.proxied ? 'Default origin IP or hostname' : 'Content' }}</span><input v-model="form.content" class="input" placeholder="192.0.2.10" /><span class="field-description">{{ form.proxied ? 'Example: origin.example.com or 192.0.2.10. Avoid exposing this directly to visitors.' : 'Example: 192.0.2.10 for A, target.example.com for CNAME, or verification text for TXT.' }}</span></label>
+        <label v-if="form.proxied || form.geo_enabled"><span class="field-label">Default origin protocol</span><select v-model="form.origin_scheme" class="input"><option value="http">HTTP :80</option><option value="https">HTTPS :443</option></select><span class="field-description">Choose how the edge connects to the default origin.</span></label>
         <label><span class="field-label">TTL</span><select v-model="form.ttl" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="86400">1 day</option></select><span class="field-description">Lower TTLs update faster but increase DNS query volume.</span></label>
         <label v-if="form.type === 'MX'"><span class="field-label">Priority</span><input v-model.number="form.priority" min="0" type="number" class="input" /><span class="field-description">Lower numbers are preferred first by mail senders.</span></label>
       </div>
@@ -54,9 +55,10 @@
           <button type="button" class="button-secondary" @click="addGeoOrigin"><Plus class="h-4 w-4" /> Add country</button>
         </div>
         <div v-if="geoOrigins.length" class="divide-y divide-slate-100 dark:divide-white/5">
-          <div v-for="(origin, index) in geoOrigins" :key="index" class="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_auto_auto] md:items-end">
+          <div v-for="(origin, index) in geoOrigins" :key="index" class="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] md:items-end">
             <label><span class="field-label">Visitor country</span><select v-model="origin.country_code" class="input"><option value="" disabled>Select country</option><option v-for="country in countryOptions" :key="country.code" :value="country.code">{{ country.name }}</option></select><span class="field-description">Traffic from this country uses the origin below.</span></label>
             <label><span class="field-label">Origin IP or hostname</span><input v-model="origin.host" class="input" placeholder="origin-us.example.com" /><span class="field-description">Use a backend close to that visitor region.</span></label>
+            <label><span class="field-label">Protocol</span><select v-model="origin.scheme" class="input"><option value="http">HTTP :80</option><option value="https">HTTPS :443</option></select><span class="field-description">Country override connection.</span></label>
             <label class="flex min-h-10 items-center gap-2 text-sm"><input v-model="origin.verify_tls" type="checkbox" /> Verify TLS</label>
             <button type="button" class="icon-button text-rose-600" title="Remove country origin" @click="geoOrigins.splice(index, 1)"><Trash2 class="h-4 w-4" /></button>
           </div>
@@ -96,7 +98,8 @@ import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
 import type { DnsRecord, DomainDnsStatus } from '@/types';
 
-type GeoOriginForm = { country_code: string; host: string; verify_tls: boolean };
+type OriginScheme = 'http' | 'https';
+type GeoOriginForm = { country_code: string; host: string; scheme: OriginScheme; verify_tls: boolean };
 const props = defineProps<{ domainId: string }>();
 const records = ref<Array<DnsRecord & { geo_origins_count: number }>>([]);
 const dnsStatus = ref<DomainDnsStatus | null>(null);
@@ -113,7 +116,7 @@ const countryOptions = [
   { code: 'IN', name: 'India' }, { code: 'SG', name: 'Singapore' }, { code: 'JP', name: 'Japan' },
   { code: 'AU', name: 'Australia' }, { code: 'BR', name: 'Brazil' }, { code: 'ZA', name: 'South Africa' },
 ];
-const form = reactive({ type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false });
+const form = reactive({ type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false, origin_scheme: 'http' as OriginScheme });
 const columns = [
   { key: 'type', label: 'Type' }, { key: 'name', label: 'Name' }, { key: 'content', label: 'Content / origin' },
   { key: 'proxied', label: 'Proxy status' }, { key: 'ttl', label: 'TTL' }, { key: 'status', label: 'Status' }, { key: 'actions', label: '' },
@@ -125,7 +128,7 @@ async function load() {
   records.value = result.map((record) => ({ ...record, geo_origins_count: Object.keys(record.geo_origins ?? {}).filter((key) => key !== 'DEFAULT').length }));
 }
 function reset() {
-  Object.assign(form, { type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false });
+  Object.assign(form, { type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false, origin_scheme: 'http' });
   geoOrigins.value = [];
   error.value = '';
 }
@@ -136,22 +139,24 @@ function edit(value: Record<string, unknown>) {
   Object.assign(form, {
     type: row.type, name: row.name, content: row.origin_host || row.content, ttl: row.ttl || 300,
     priority: row.priority ?? 10, proxied: !!row.proxied, geo_enabled: Object.keys(row.geo_origins ?? {}).some((key) => key !== 'DEFAULT'),
+    origin_scheme: (row.geo_origins?.DEFAULT?.scheme ?? row.origin_scheme ?? 'http') === 'https' ? 'https' : 'http',
   });
   geoOrigins.value = Object.entries(row.geo_origins ?? {}).filter(([country]) => country !== 'DEFAULT').map(([country, origin]) => ({
-    country_code: country, host: origin.host, verify_tls: origin.tls_verify !== 'ignore',
+    country_code: country, host: origin.host, scheme: origin.scheme === 'https' ? 'https' : 'http', verify_tls: origin.tls_verify !== 'ignore',
   }));
   error.value = '';
   editing.value = true;
 }
-function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', verify_tls: true }); }
+function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', scheme: form.origin_scheme, verify_tls: true }); }
 function geoOriginPayload() {
-  const origins: Record<string, { host: string; tls_verify: 'verify' | 'ignore' }> = {};
-  if (form.content.trim()) origins.DEFAULT = { host: form.content.trim(), tls_verify: 'verify' };
+  const origins: Record<string, { host: string; scheme: OriginScheme; port: 80 | 443; tls_verify: 'verify' | 'ignore' }> = {};
+  if (form.content.trim()) origins.DEFAULT = { host: form.content.trim(), ...originProtocolPayload(form.origin_scheme), tls_verify: 'verify' };
   if (form.geo_enabled) {
-    for (const origin of geoOrigins.value) origins[origin.country_code] = { host: origin.host.trim(), tls_verify: origin.verify_tls ? 'verify' : 'ignore' };
+    for (const origin of geoOrigins.value) origins[origin.country_code] = { host: origin.host.trim(), ...originProtocolPayload(origin.scheme), tls_verify: origin.verify_tls ? 'verify' : 'ignore' };
   }
   return origins;
 }
+function originProtocolPayload(scheme: OriginScheme) { return { scheme, port: scheme === 'https' ? 443 as const : 80 as const }; }
 async function save() {
   error.value = '';
   if (!form.name.trim() || !form.content.trim()) { error.value = 'Name and content are required.'; return; }
@@ -162,7 +167,7 @@ async function save() {
     const payload = {
       type: form.type, name: form.name.trim(), content: form.content.trim(), ttl: Number(form.ttl),
       priority: form.type === 'MX' ? Number(form.priority) : null, proxied: form.proxied,
-      origin_host: form.content.trim(), origin_tls_verify: 'verify' as const,
+      origin_host: form.content.trim(), origin_scheme: form.origin_scheme, origin_tls_verify: 'verify' as const,
       geo_origins: geoOriginPayload(), routing_policy: 'standard' as const,
     };
     if (editingId.value) await dnsApi.update(props.domainId, editingId.value, payload);

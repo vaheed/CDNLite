@@ -321,6 +321,13 @@ class DnsController
             }
             $input['origin_tls_verify'] = $mode['value'];
         }
+        if (array_key_exists('origin_scheme', $input)) {
+            $scheme = Validator::enum($input, 'origin_scheme', ['http', 'https']);
+            if (($scheme['ok'] ?? false) !== true) {
+                return $scheme;
+            }
+            $input['origin_scheme'] = $scheme['value'];
+        }
         if (array_key_exists('geo_origins', $input) && !is_array($input['geo_origins'])) {
             return ['error' => 'geo_origins_must_be_object', 'field' => 'geo_origins', 'status' => 422];
         }

@@ -47,6 +47,9 @@ def test_dashboard_record_level_routing_contract():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
     assert "Default origin IP or hostname" in view
     assert "Proxy through CDNLite" in view
+    assert "Default origin protocol" in view
+    assert "origin_scheme: form.origin_scheme" in view
+    assert "...originProtocolPayload(form.origin_scheme)" in view
     assert "Geo origin routing" in view
     assert "country-specific origins" in view
     assert "geoOriginPayload" in view
@@ -62,6 +65,7 @@ def test_dashboard_geo_origins_are_independent_from_proxy_status():
     assert "if (form.proxied && form.geo_enabled)" not in view
     assert "if (form.geo_enabled)" in view
     assert "origin_host: form.content.trim()" in view
+    assert "scheme: origin.scheme === 'https' ? 'https' : 'http'" in view
 
 
 def test_local_development_edges_are_selectable():

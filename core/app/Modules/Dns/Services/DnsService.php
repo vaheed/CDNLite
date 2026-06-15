@@ -99,6 +99,7 @@ class DnsService
             'geo_policy_id' => $input['geo_policy_id'] ?? null,
             'origin_host' => trim((string) ($input['origin_host'] ?? $originContent)),
             'origin_tls_verify' => (string) ($input['origin_tls_verify'] ?? 'verify'),
+            'origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
             'geo_origins' => $input['geo_origins'] ?? [],
             'routing_policy' => (string) ($input['routing_policy'] ?? 'standard'),
         ];
@@ -147,7 +148,7 @@ class DnsService
              VALUES (
                 :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id,
                 :origin_type, :origin_content, :public_type, :public_content, :origin_host, :origin_tls_verify,
-                NULL, :origin_status, :geo_origins_json, :routing_policy,
+                :origin_scheme, :origin_status, :geo_origins_json, :routing_policy,
                 :status, :created_at, :updated_at
              )'
         );
@@ -167,6 +168,7 @@ class DnsService
             ':public_content' => $public['content'],
             ':origin_host' => $record['origin_host'],
             ':origin_tls_verify' => $record['origin_tls_verify'],
+            ':origin_scheme' => $record['origin_scheme'],
             ':origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
             ':geo_origins_json' => $this->encodeGeoOrigins($record['geo_origins']),
             ':routing_policy' => $record['routing_policy'],
@@ -208,11 +210,12 @@ class DnsService
             'status' => (string) $oldRecord['status'],
             'origin_host' => $oldRecord['origin_host'],
             'origin_tls_verify' => $oldRecord['origin_tls_verify'],
+            'origin_scheme' => $oldRecord['origin_scheme'],
             'geo_origins' => $oldRecord['geo_origins'],
             'routing_policy' => $oldRecord['routing_policy'],
         ];
 
-        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'origin_host', 'origin_tls_verify', 'routing_policy'] as $field) {
+        foreach (['type', 'name', 'content', 'status', 'geo_policy_id', 'origin_host', 'origin_tls_verify', 'origin_scheme', 'routing_policy'] as $field) {
             if (array_key_exists($field, $input)) {
                 $patch[$field] = $input[$field] === null ? null : (string) $input[$field];
             }
@@ -274,7 +277,7 @@ class DnsService
                 public_content = :public_content,
                 origin_host = :origin_host,
                 origin_tls_verify = :origin_tls_verify,
-                origin_scheme = NULL,
+                origin_scheme = :origin_scheme,
                 origin_status = :origin_status,
                 geo_origins_json = :geo_origins_json,
                 routing_policy = :routing_policy,
@@ -298,6 +301,7 @@ class DnsService
             ':public_content' => $public['content'],
             ':origin_host' => trim((string) $patch['origin_host']),
             ':origin_tls_verify' => (string) $patch['origin_tls_verify'],
+            ':origin_scheme' => (string) $patch['origin_scheme'],
             ':origin_status' => $patch['proxied'] ? 'pending' : 'dns_only',
             ':geo_origins_json' => $this->encodeGeoOrigins($patch['geo_origins']),
             ':routing_policy' => (string) $patch['routing_policy'],

@@ -163,6 +163,9 @@ class OriginHealthService
                 ':enabled' => (int) $patch['enabled'],
                 ':updated_at' => $now,
             ]);
+            if (!$this->skipDnsRecordSync($input) && $this->isDnsLinkedOrigin($existing)) {
+                $this->syncDnsRecordFromLinkedOrigin($domainId, (string) $existing['dns_record_id'], $patch, $now);
+            }
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
@@ -284,6 +287,7 @@ class OriginHealthService
         ];
 
         if ($existing !== null) {
+            $payload['_skip_dns_record_sync'] = true;
             return $this->update($domainId, (string) $existing['id'], $payload);
         }
 
@@ -362,6 +366,85 @@ class OriginHealthService
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchColumn() !== false;
+    }
+
+    private function isDnsLinkedOrigin(array $origin): bool
+    {
+        return (string) ($origin['source'] ?? '') === 'dns_record'
+            && trim((string) ($origin['dns_record_id'] ?? '')) !== '';
+    }
+
+    private function skipDnsRecordSync(array $input): bool
+    {
+        return !empty($input['_skip_dns_record_sync']);
+    }
+
+    private function syncDnsRecordFromLinkedOrigin(string $domainId, string $dnsRecordId, array $origin, int $now): void
+    {
+        $pdo = Database::pdo();
+        $record = $pdo->prepare(
+            "SELECT * FROM dns_records WHERE domain_id=:domain_id AND id=:id AND proxied=true LIMIT 1"
+        );
+        $record->execute([':domain_id' => $domainId, ':id' => $dnsRecordId]);
+        $row = $record->fetch();
+        if (!$row) {
+            return;
+        }
+
+        $host = strtolower(trim((string) $origin['host']));
+        if ($host === '') {
+            return;
+        }
+        $scheme = (string) $origin['scheme'] === 'https' ? 'https' : 'http';
+        $geoOrigins = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
+        if (isset($geoOrigins['DEFAULT']) && is_array($geoOrigins['DEFAULT'])) {
+            $geoOrigins['DEFAULT']['host'] = $host;
+            $geoOrigins['DEFAULT']['scheme'] = $scheme;
+            $geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80;
+            $geoOrigins['DEFAULT']['tls_verify'] = (string) ($origin['tls_verify'] ?? 'verify');
+            $geoOrigins['DEFAULT']['host_header'] = (string) ($origin['host_header'] ?? $host);
+            $geoOrigins['DEFAULT']['sni'] = (string) ($origin['sni'] ?? $host);
+            $geoOrigins['DEFAULT']['preserve_host'] = !empty($origin['preserve_host']);
+        }
+
+        $pdo->prepare(
+            'UPDATE dns_records SET
+                content=:content,
+                origin_content=:origin_content,
+                origin_host=:origin_host,
+                origin_scheme=:origin_scheme,
+                origin_tls_verify=:origin_tls_verify,
+                geo_origins_json=:geo_origins_json,
+                updated_at=:updated_at
+             WHERE domain_id=:domain_id AND id=:id'
+        )->execute([
+            ':domain_id' => $domainId,
+            ':id' => $dnsRecordId,
+            ':content' => $host,
+            ':origin_content' => $host,
+            ':origin_host' => $host,
+            ':origin_scheme' => $scheme,
+            ':origin_tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+            ':geo_origins_json' => $this->encodeGeoOrigins($geoOrigins),
+            ':updated_at' => $now,
+        ]);
+    }
+
+    private function decodeGeoOrigins(?string $json): array
+    {
+        if ($json === null || trim($json) === '') {
+            return [];
+        }
+        $decoded = json_decode($json, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function encodeGeoOrigins(array $origins): ?string
+    {
+        if ($origins === []) {
+            return null;
+        }
+        return json_encode($origins, JSON_UNESCAPED_SLASHES);
     }
 
     private function probe(array $origin): array
