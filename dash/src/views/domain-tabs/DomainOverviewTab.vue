@@ -16,6 +16,10 @@
           <div><h2>Nameservers</h2><p>Authoritative delegation for this domain.</p></div>
           <StatusBadge :status="nameserverSeverity" :label="nameserverLabel" />
         </div>
+        <div class="mb-2 flex flex-wrap gap-2">
+          <button type="button" class="button-secondary" :disabled="nameserverBusy" @click="$emit('reseedExpectedNameservers')">Re-seed expected NS</button>
+          <button type="button" class="button-primary" :disabled="nameserverBusy" @click="$emit('forceVerifyNameservers')">Force verify as admin</button>
+        </div>
         <div v-if="domain.nameservers?.length" class="divide-y divide-slate-100 dark:divide-white/5">
           <div v-for="nameserver in domain.nameservers" :key="nameserver.hostname" class="flex items-center justify-between gap-4 py-4">
             <div class="min-w-0">
@@ -54,7 +58,8 @@ import { CheckCircle2, Clock3, Globe2, Network, Server, ShieldCheck } from 'luci
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import type { Domain, Severity } from '@/types';
 
-const props = defineProps<{ domain: Domain }>();
+const props = defineProps<{ domain: Domain; nameserverBusy?: boolean }>();
+defineEmits<{ reseedExpectedNameservers: []; forceVerifyNameservers: [] }>();
 const nameserverLabel = computed(() => String(props.domain.nameserver_status ?? 'unknown').replaceAll('_', ' '));
 const nameserverSeverity = computed<Severity>(() => props.domain.nameserver_status === 'verified' ? 'healthy' : 'warning');
 const lastCheck = computed(() => props.domain.last_ns_check_at ? new Date(props.domain.last_ns_check_at * 1000).toLocaleString() : 'Not checked');

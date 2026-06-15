@@ -24,8 +24,6 @@
         <div class="flex shrink-0 flex-wrap gap-2">
           <button class="button-secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" /> Refresh</button>
           <button class="button-secondary" :disabled="nameserverBusy" @click="refreshNameservers"><RefreshCw class="h-4 w-4" /> Refresh nameservers now</button>
-          <button class="button-secondary" :disabled="nameserverBusy" @click="reseedExpectedNameservers">Re-seed expected NS</button>
-          <button class="button-primary" :disabled="nameserverBusy" @click="forceVerifyNameservers">Force verify as admin</button>
           <ReportExportButton title="Domain detail" :data="{ domain }" />
         </div>
       </div>
@@ -67,7 +65,14 @@
       </nav>
     </HorizontalScrollFrame>
 
-    <component :is="activeComponent" :domain-id="domainId" :domain="domain" />
+    <component
+      :is="activeComponent"
+      :domain-id="domainId"
+      :domain="domain"
+      :nameserver-busy="nameserverBusy"
+      @reseed-expected-nameservers="reseedExpectedNameservers"
+      @force-verify-nameservers="forceVerifyNameservers"
+    />
   </section>
   <EmptyState v-else-if="!loading" title="Domain not found" message="Return to Domains and choose an existing domain." />
 </template>
