@@ -15,6 +15,7 @@ Date: 2026-06-15
 - Fixed user-reported e2e failure where TLS verify-mode expected HTTPS-to-HTTP fallback; explicit HTTPS self-signed origins now assert a 502 with request id.
 - Fixed user-reported e2e failure where TLS verify-mode still returned 200 by enforcing `proxy_ssl_verify on` for default proxy paths and routing `tls_verify=ignore` origins through no-verify locations.
 - Fixed user-reported e2e failure where Activity request lookup returned `request_not_found` after no-verify routing by preserving domain/origin metadata in nginx variables across internal redirects.
+- Fixed e2e harness false failure where raw metrics spool files were required to contain request ids even though the edge-agent can drain them before the assertion; the test now retries the durable Activity lookup.
 - Updated `docs/ROADMAP.md` with checkboxes, notes, changed files, lightweight validation, and remaining manual validation blockers.
 
 ## 2. Changed Files
@@ -77,6 +78,7 @@ EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> \
 - User reported `193 passed in 45.60s` and smoke passing at `2026-06-15T19:19:58Z`; the later e2e verify-mode fallback expectation was corrected but needs a rerun.
 - User reported the verify-mode self-signed request still returned 200; upstream certificate verification enforcement was added but needs a rerun.
 - User reported Phase 6 Activity lookup returned `request_not_found`; no-verify internal redirect metadata preservation was added but needs a rerun.
+- User reported raw metrics file missing the Activity request id; the transient-spool assertion was replaced with durable Activity lookup retries but needs a rerun.
 - The fixed Phase 3 e2e assertions still need runtime validation on a disposable stack.
 - The new Phase 6 Activity ingest and 502 diagnostics assertions still need runtime validation on a disposable stack.
 - The SNI assertion uses the local self-signed origin fixture with `tls_verify=ignore`; this proves edge SNI forwarding, not public CA validation.
