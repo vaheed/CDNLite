@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import DetailsDrawer from '@/components/ui/DetailsDrawer.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
@@ -66,6 +66,8 @@ import LoadingSkeleton from '@/components/ui/LoadingSkeleton.vue';
 import PaginationControls from '@/components/ui/PaginationControls.vue';
 import { auditLogApi } from '@/lib/api/auditLog';
 import { securityEventsApi } from '@/lib/api/securityEvents';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { useInvalidationListener } from '@/lib/data/invalidation';
 import { formatDate } from '@/lib/utils/format';
 import type { AuditEntry, PaginatedResult, SecurityEvent } from '@/types';
 
@@ -83,6 +85,8 @@ const auditOffset = ref(0);
 const security = ref<PaginatedResult<SecurityEvent>>({ items: [], total: 0, limit: 25, offset: 0 });
 const audit = ref<PaginatedResult<AuditEntry>>({ items: [], total: 0, limit: 25, offset: 0 });
 
+watch(() => props.domainId, load);
+useInvalidationListener(() => [queryKeys.domainActivity(props.domainId), queryKeys.auditLog()], load);
 onMounted(load);
 
 async function load() {

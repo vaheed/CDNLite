@@ -85,7 +85,13 @@ export interface SslCertificate { id: Id; hostname: string; status?: string; acm
 export interface SslSettings { domain_id: Id; force_https: boolean; min_tls_version: '1.2' | '1.3'; auto_renew: boolean; created_at?: number; updated_at?: number; }
 export interface AcmeProgress { certificate_id: Id; hostname: string; status: string; error?: string | null; updated_at: number; }
 export interface SslRenewalHistory { id: Id; hostname: string; action: string; status: string; error?: string | null; started_at: number; completed_at?: number | null; }
-export interface AcmeStatus { progress: AcmeProgress[]; history: SslRenewalHistory[]; }
+export interface SslJob {
+  id: Id; domain_id: Id; status: string; progress_percent: number; message: string;
+  error_code?: string | null; error_detail?: string | null; hostnames: string[];
+  created_at: number; updated_at: number; finished_at?: number | null;
+}
+export interface SslJobRequest { job_id: Id; status: string; message: string; job: SslJob; }
+export interface AcmeStatus { progress: AcmeProgress[]; history: SslRenewalHistory[]; jobs?: SslJob[]; }
 export interface ManualCertificateInput { hostname: string; certificate_pem: string; private_key_pem: string; }
 export interface EdgeNode { edge_id: string; identity_status?: 'ok' | 'warning' | string; hostname?: string; public_ip?: string; public_ipv4?: string; public_ipv6?: string; region?: string; country?: string; continent?: string; version?: string; status?: string; is_enabled?: boolean; geo_enabled?: boolean; anycast_enabled?: boolean; health_status?: string; last_heartbeat?: number | string | null; last_heartbeat_at?: number | string | null; created_at?: number | string; updated_at?: number | string; }
 export interface EdgePoolMember { id: Id; edge_id: string; hostname: string; status: string; public_ipv4: string; public_ipv6: string; enabled: boolean; weight: number; }

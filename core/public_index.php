@@ -465,7 +465,10 @@ $router->add('PATCH', '/api/v1/domains/{domainId}/ssl/settings', static function
     $result = $rulesController->setSslSettings((string) $p['domainId'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
-$router->add('POST', '/api/v1/domains/{domainId}/ssl/request', static fn (Request $req, array $p) => Response::json($rulesController->requestSslCertificate((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/ssl/request', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->requestSslCertificate((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 202));
+}, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/acme/issue', static fn (Request $req, array $p) => Response::json($rulesController->issueAcmeCertificate((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/request-cert', static function (Request $req, array $p) use ($rulesController): array {
     $result = $rulesController->requestAutomatedSslCertificate((string) $p['domainId'], $req->body);
@@ -476,6 +479,10 @@ $router->add('POST', '/api/v1/domains/{domainId}/ssl/renew', static function (Re
     return Response::json($result, (int) ($result['status'] ?? 202));
 }, auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/ssl/acme-status', static fn (Request $req, array $p) => Response::json($rulesController->acmeStatus((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/ssl/jobs/{jobId}', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->getSslJob((string) $p['domainId'], (string) $p['jobId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/check', static fn (Request $req, array $p) => Response::json($rulesController->checkSslCertificates((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/ssl/manual-certificate', static fn (Request $req, array $p) => Response::json($rulesController->importManualSslCertificate((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/security/events', static fn (Request $req, array $p) => Response::json($rulesController->listSecurityEvents((string) $p['domainId'], $req->query)), auth: true);

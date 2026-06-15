@@ -287,6 +287,78 @@ class TrafficRulesService
         }
         return $this->listSslCertificates($domainId);
     }
+    public function requestSslJob(string $domainId, array $hostnames): array {
+        $domain = $this->domainForSsl($domainId);
+        if ($domain === null) {
+            throw new \OutOfBoundsException('domain_not_found');
+        }
+        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
+        $normalized = [];
+        foreach ($targets as $hostname) {
+            $h = strtolower(trim((string) $hostname));
+            if ($h !== '') {
+                $normalized[] = $h;
+            }
+        }
+        $normalized = array_values(array_unique($normalized));
+        if ($normalized === []) {
+            throw new \DomainException('ssl_hostnames_required');
+        }
+
+        $this->requestSslCertificate($domainId, $normalized);
+
+        $now = time();
+        $job = [
+            'id' => Uuid::v4(),
+            'domain_id' => $domainId,
+            'status' => 'queued',
+            'progress_percent' => 5,
+            'message' => 'SSL request queued. DNS validation will start shortly.',
+            'error_code' => null,
+            'error_detail' => null,
+            'hostnames' => $normalized,
+            'created_at' => $now,
+            'updated_at' => $now,
+            'finished_at' => null,
+        ];
+        Database::pdo()->prepare(
+            'INSERT INTO ssl_jobs
+             (id,domain_id,status,progress_percent,message,error_code,error_detail,hostnames_json,created_at,updated_at,finished_at)
+             VALUES
+             (:id,:domain_id,:status,:progress_percent,:message,:error_code,:error_detail,:hostnames_json,:created_at,:updated_at,:finished_at)'
+        )->execute([
+            ':id' => $job['id'],
+            ':domain_id' => $job['domain_id'],
+            ':status' => $job['status'],
+            ':progress_percent' => $job['progress_percent'],
+            ':message' => $job['message'],
+            ':error_code' => $job['error_code'],
+            ':error_detail' => $job['error_detail'],
+            ':hostnames_json' => json_encode($normalized, JSON_UNESCAPED_SLASHES),
+            ':created_at' => $job['created_at'],
+            ':updated_at' => $job['updated_at'],
+            ':finished_at' => $job['finished_at'],
+        ]);
+        AuditLog::write('ssl.requested', 'ssl_job', (string) $job['id'], $domainId, null, $job);
+        return [
+            'job_id' => $job['id'],
+            'status' => $job['status'],
+            'message' => $job['message'],
+            'job' => $job,
+        ];
+    }
+    public function getSslJob(string $domainId, string $jobId): ?array {
+        $s = Database::pdo()->prepare('SELECT * FROM ssl_jobs WHERE domain_id=:domain_id AND id=:id LIMIT 1');
+        $s->execute([':domain_id' => $domainId, ':id' => $jobId]);
+        $row = $s->fetch();
+        return $row ? $this->castSslJob((array) $row) : null;
+    }
+    public function listSslJobs(string $domainId, int $limit = 20): array {
+        $limit = max(1, min(100, $limit));
+        $s = Database::pdo()->prepare("SELECT * FROM ssl_jobs WHERE domain_id=:domain_id ORDER BY created_at DESC LIMIT {$limit}");
+        $s->execute([':domain_id' => $domainId]);
+        return array_map([$this, 'castSslJob'], $s->fetchAll());
+    }
     public function checkSslCertificates(string $domainId, array $hostnames): array {
         $now = time();
         $targets = $hostnames === [] ? [''] : $hostnames;
@@ -635,6 +707,16 @@ class TrafficRulesService
         return $payload;
     }
     private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https', 'auto_renew'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function castSslJob(array $r): array {
+        foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
+            if (isset($r[$i]) && $r[$i] !== null) {
+                $r[$i] = (int) $r[$i];
+            }
+        }
+        $r['hostnames'] = isset($r['hostnames_json']) ? (json_decode((string) $r['hostnames_json'], true) ?: []) : [];
+        unset($r['hostnames_json']);
+        return $r;
+    }
     private function redirectV2Supported(): bool {
         if ($this->redirectV2ColumnsAvailable !== null) {
             return $this->redirectV2ColumnsAvailable;

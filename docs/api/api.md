@@ -393,7 +393,8 @@ Cache tips:
 | `GET` | `/api/v1/domains/{domainId}/ssl` | Show SSL settings. |
 | `PATCH` | `/api/v1/domains/{domainId}/ssl/settings` | Update SSL settings. |
 | `GET` | `/api/v1/domains/{domainId}/ssl/certificates` | List certificates. |
-| `POST` | `/api/v1/domains/{domainId}/ssl/request` | Request SSL flow. |
+| `POST` | `/api/v1/domains/{domainId}/ssl/request` | Queue SSL flow and return `{ job_id, status, message }`. |
+| `GET` | `/api/v1/domains/{domainId}/ssl/jobs/{jobId}` | Show SSL job progress. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/acme/issue` | Issue ACME certificate. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/request-cert` | Request automated certificate. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/renew` | Force renewal. |
@@ -404,6 +405,7 @@ Cache tips:
 SSL tips:
 
 - Use the ACME staging directory until DNS-01 automation is proven.
+- The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
 - Keep DNS-only `_acme-challenge` records available during issuance.
 - Do not enable force HTTPS until an active certificate exists for the domain.
 - Keep `CDNLITE_SSL_SECRET_KEY` stable; changing it can break stored certificate material.

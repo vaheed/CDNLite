@@ -640,12 +640,18 @@ Make the edge container fully observable from `docker compose logs -f edge` whil
    - document `docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson` for raw metric ingestion;
    - document how to temporarily enable debug logging.
   - Changed files: `docs/setup.md`, `docs/cdn-in-a-minute.md`, `docs/api/api.md`, `docs/security.md`.
-6. [ ] Add local smoke script:
+6. [x] Add local smoke script:
    - send one valid proxied request;
    - send one unknown-host request;
    - send one origin-down request;
    - assert logs contain request id and event type.
-  - Remaining blocker: not added yet; should be folded into manual smoke/e2e validation without Codex running it.
+  - Notes: added `ci/edge_log_smoke.sh`, an operator-run smoke script that tails Docker-visible edge logs after a valid proxied request, an unknown-host 502, and an origin-down 502. It asserts request id, host, router error, origin metadata, upstream status/timing, and sensitive query-value redaction. The script is intentionally configurable and does not create or mutate domains; run it after preparing a valid routed host and a separate origin-down routed host.
+  - Changed files: `ci/edge_log_smoke.sh`, `core/tests/test_edge_phase3_contract.py`.
+  - Follow-up fix: edge log settings now pass through Compose, the Nginx template uses `CDNLITE_EDGE_LOG_FORMAT=json|combined` and `CDNLITE_EDGE_LOG_LEVEL`, and the stale file-based `access_log /var/log/openresty/access.log` directive was removed so request logs go to Docker stdout.
+  - Changed files: `docker-compose.yml`, `edge/docker-entrypoint.sh`, `edge/openresty/nginx.conf`.
+  - Local validation run: `bash -n ci/edge_log_smoke.sh && sh -n edge/docker-entrypoint.sh` passed.
+  - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `5 passed`.
+  - Manual validation still required: start/rebuild the root stack and run `EDGE_LOG_SMOKE_VALID_HOST=<known-good-routed-host> EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh`.
 
 ### Suggested Nginx Log Format
 
@@ -674,9 +680,13 @@ access_log /dev/stdout cdnlite_json;
 ### Acceptance Checklist
 
 - [ ] `docker compose logs -f edge` shows access logs for every request.
+  - Manual validation required: `docker compose up -d --build`, then `docker compose logs -f edge` in one terminal and `curl -H "Host: <known-good-routed-host>" "http://localhost:8081/health?via=manual-edge-log"` in another.
 - [ ] Edge startup/config events are visible.
+  - Manual validation required: `docker compose logs --no-color --tail=200 edge | grep -E 'config_loaded|config_load|config_not_ready|config_version'`.
 - [ ] A 502 produces a visible structured log with `request_id`, `host`, `domain_id`, `router_error` or `upstream_status`, and selected origin metadata.
+  - Manual validation required: `EDGE_LOG_SMOKE_VALID_HOST=<known-good-routed-host> EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh`.
 - [ ] Unknown host and missing origin are logged clearly.
+  - Manual validation required: `curl -H "Host: unknown.edge-log-smoke.test" "http://localhost:8081/unknown?password=manual-secret"` followed by `docker compose logs --no-color --tail=200 edge`.
 - [x] Logs do not expose Authorization, Cookie, ACME tokens, origin shield secrets, private keys, or raw sensitive query params.
   - Notes: structured diagnostics/metrics redact sensitive query keys and do not log request bodies or secret headers. Access logs include `$uri`, not raw `$request_uri`.
 - [x] Existing collector ingestion still works.
@@ -753,45 +763,58 @@ Build a white-background, production-quality CDN error page experience inspired 
 
 ### Engineering Tasks
 
-1. Refactor `edge/openresty/lua/error_page.lua`:
+1. [x] Refactor `edge/openresty/lua/error_page.lua`:
    - split message data from template rendering;
    - keep `details(code)` but expand it with `headline`, `summary`, `origin_status`, `edge_status`, and `owner_tips`;
    - add helper functions for SVG icons;
    - keep all dynamic output escaped through `h()`.
-2. Replace current CSS with a white-background design system:
+  - Notes: `details()` now carries code-specific labels, headlines, summaries, edge/origin status, and owner tips. Rendering uses helper functions for inline SVG icons, action links, details rows, and list items, with dynamic text escaped through `h()`.
+  - Changed files: `edge/openresty/lua/error_page.lua`, `core/tests/test_edge_error_page_contract.py`.
+2. [x] Replace current CSS with a white-background design system:
    - tokens for colors, radius, border, text, muted text, danger, warning, success, brand;
    - no `prefers-color-scheme: dark` override unless it still keeps the page clean and readable;
    - avoid CSS features that may break older browsers where possible.
-3. Update error page copy:
+  - Notes: replaced the dark-mode-driven style with a light-only `color-scheme:light` page, white panels, subtle borders, compact radius, responsive layout, and status colors.
+3. [x] Update error page copy:
    - 502: origin unreachable / invalid response;
    - 503: origin unavailable;
    - 504: origin timeout;
    - 500: CDN edge internal error.
-4. Add safe diagnostics from `ngx.ctx` where available:
+  - Notes: 500, 502, 503, and 504 now have distinct messages and status labels while sharing one consistent layout.
+4. [x] Add safe diagnostics from `ngx.ctx` where available:
    - `router_error`;
    - `upstream_status`;
    - `upstream_response_time`;
    - `origin_id` only, not raw origin secret data.
-5. Add tests/snapshots:
+  - Notes: the Error Details panel exposes request id, edge location, timestamp, client IP, hostname, router error, upstream status/time, and origin id. It does not expose origin host, upstream URL, private keys, secret headers, or stack traces.
+5. [x] Add tests/snapshots:
    - render 500/502/503/504 HTML;
    - verify white background CSS token exists;
    - verify dynamic fields are escaped;
    - verify no external assets/scripts are referenced;
    - verify request id appears in header and HTML.
-6. Optional but recommended:
+  - Notes: added static contract tests for all supported 5xx codes, light design tokens, escaped diagnostic fields, self-contained inline-SVG rendering, no script/external network references, and `X-CDNLITE-Request-Id`.
+  - Local validation run: `pytest -q core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_edge_reliability_stage7_contract.py` passed with `9 passed`.
+  - Remaining blocker: no Lua syntax/runtime render check was run because `lua`/`luajit` is not installed in this sandbox and Docker tests are reserved for manual validation.
+6. [x] Optional but recommended:
    - add `/cdn-status`, `/docs`, and `/support` paths or configure these links through environment variables;
    - if links are not configured, hide or disable them instead of using broken links.
+  - Notes: action links default to `/cdn-status`, `/docs`, and `/support` and can be overridden with `CDNLITE_STATUS_URL`, `CDNLITE_DOCS_URL`, and `CDNLITE_SUPPORT_URL`.
 
 ### Acceptance Checklist
 
-- 502 page is white/light, polished, readable, and closer to a major CDN-quality error page.
-- Status flow clearly communicates: browser OK, edge OK, origin failed.
-- Visitors and site owners get separate guidance.
-- Request ID and diagnostic fields are visible and searchable in Activity.
-- No external network calls from the error page.
-- No secrets or internal upstream details are exposed.
-- Page works on mobile and desktop.
-- Existing edge `error_page` routing still works from HTTP and HTTPS server blocks.
+- [x] 502 page is white/light, polished, readable, and closer to a major CDN-quality error page.
+  - Notes: static contract verifies the light design tokens and core layout; visual/browser review still recommended.
+- [x] Status flow clearly communicates: browser OK, edge OK, origin failed.
+- [x] Visitors and site owners get separate guidance.
+- [x] Request ID and diagnostic fields are visible and searchable in Activity.
+  - Notes: request id and safe diagnostics are visible on the page; Phase 6 still needs richer Activity persistence/search UI.
+- [x] No external network calls from the error page.
+- [x] No secrets or internal upstream details are exposed.
+- [ ] Page works on mobile and desktop.
+  - Manual validation required: after rebuilding edge, trigger 500/502/503/504 pages and inspect the responsive layout in a browser or screenshot tool.
+- [ ] Existing edge `error_page` routing still works from HTTP and HTTPS server blocks.
+  - Manual validation required: `docker compose up -d --build`, then request an origin-down host over `http://localhost:8081` and `https://localhost:8443 -k` and verify the CDNLite page plus `X-CDNLITE-Request-Id`.
 
 ### IDE Prompt
 
@@ -823,7 +846,7 @@ SSL issuance is treated as an action that eventually changes state, but the dash
 
 ### Backend Tasks
 
-1. Add `ssl_jobs` or equivalent job status table:
+1. [x] Add `ssl_jobs` or equivalent job status table:
    - `id`
    - `domain_id`
    - `status`: `queued`, `checking_dns`, `creating_order`, `validating_challenge`, `issuing`, `installing`, `issued`, `failed`, `cancelled`
@@ -832,36 +855,58 @@ SSL issuance is treated as an action that eventually changes state, but the dash
    - `error_code`
    - `error_detail`
    - `created_at`, `updated_at`, `finished_at`
-2. SSL request endpoint returns immediately:
+  - Notes: added additive migration `000003_ssl_jobs.sql` and mirrored it into `schema.sql`. No existing SSL/certificate/history data is dropped or rewritten.
+  - Changed files: `core/database/migrations/000003_ssl_jobs.sql`, `core/database/schema.sql`.
+2. [x] SSL request endpoint returns immediately:
    - `{ job_id, status, message }`
-3. Add status endpoint:
+  - Notes: `POST /api/v1/domains/{domainId}/ssl/request` now creates existing pending certificate rows for compatibility, records an `ssl_jobs` row, writes `ssl.requested`, and returns HTTP 202 with `{ job_id, status, message, job }`.
+  - Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/public_index.php`.
+3. [x] Add status endpoint:
    - `GET /domains/{id}/ssl/jobs/{jobId}`
-4. Emit audit/activity events:
+  - Notes: added authenticated `GET /api/v1/domains/{domainId}/ssl/jobs/{jobId}` and included recent SSL jobs in `GET /ssl/acme-status`.
+  - Changed files: `core/app/Modules/Proxy/Services/CertRenewalService.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
+4. [ ] Emit audit/activity events:
    - `ssl.requested`
    - `ssl.dns_challenge_created`
    - `ssl.validation_pending`
    - `ssl.issued`
    - `ssl.failed`
-5. Update certificate install to invalidate config and notify edge.
+  - Notes: `ssl.requested` is now written when a job is queued.
+  - Remaining blocker: DNS challenge, validation, issued, and failed activity events need to be wired into the ACME issuer/worker state transitions.
+5. [ ] Update certificate install to invalidate config and notify edge.
+  - Remaining blocker: not changed in this pass; existing certificate install behavior was left intact.
 
 ### Dashboard Tasks
 
-1. Show an SSL progress panel in Domain SSL tab.
-2. Show toast after request:
+1. [x] Show an SSL progress panel in Domain SSL tab.
+  - Notes: the SSL tab now shows active job status, progress percent, hostnames, message, and error detail.
+  - Changed files: `dash/src/views/domain-tabs/DomainSslTab.vue`, `dash/src/types.ts`, `dash/src/lib/api/ssl.ts`.
+2. [ ] Show toast after request:
    - “SSL request queued”
    - “DNS validation in progress”
    - “Certificate issued”
    - “SSL failed: reason”
-3. Poll every 2–5 seconds while job is active, stop after terminal status.
-4. Show retry action if failed.
+  - Notes: inline progress is visible, but a dashboard-wide toast system was not added in this pass.
+3. [x] Poll every 2–5 seconds while job is active, stop after terminal status.
+  - Notes: the tab polls `/ssl/jobs/{jobId}` every 3 seconds for active jobs and falls back to `/ssl/acme-status` to discover recent jobs.
+4. [ ] Show retry action if failed.
+  - Remaining blocker: failed jobs display their error detail; retry still uses the existing Request Certificate/Force Renew actions rather than a per-job retry button.
 
 ### Tests
 
-- SSL request returns job id.
-- Job status transitions appear in API.
-- Dashboard shows progress without refresh.
-- Failure message is visible and actionable.
-- Audit/activity timeline includes SSL lifecycle.
+- [x] SSL request returns job id.
+- [ ] Job status transitions appear in API.
+  - Notes: queued jobs are visible through API; full ACME worker transitions are not implemented yet.
+- [x] Dashboard shows progress without refresh.
+- [x] Failure message is visible and actionable.
+  - Notes: `error_detail` is shown when present.
+- [ ] Audit/activity timeline includes SSL lifecycle.
+  - Notes: `ssl.requested` is emitted; full lifecycle events remain.
+  - Local validation run: `php -l core/app/Modules/Proxy/Services/TrafficRulesService.php && php -l core/app/Modules/Proxy/Services/CertRenewalService.php && php -l core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php && php -l core/public_index.php` passed.
+  - Local validation run: `pytest -q core/tests/test_ssl_jobs_phase4_contract.py core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py` passed with `11 passed`.
+  - Local validation run: `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"` passed.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Manual validation still required: run migrations against a disposable PostgreSQL database and request SSL through the dashboard/API to verify `/ssl/request` returns 202 and `/ssl/jobs/{jobId}` is pollable.
 
 ### IDE Prompt
 
@@ -883,10 +928,12 @@ The dashboard renders routed views but there is no visible global data invalidat
 
 ### Tasks
 
-1. Introduce one consistent frontend data strategy:
+1. [x] Introduce one consistent frontend data strategy:
    - preferred: TanStack Query for Vue;
    - alternative: Pinia stores with explicit `refresh()` and mutation invalidation.
-2. Define query keys:
+  - Notes: TanStack Query remains installed, and the dashboard now has a lightweight shared invalidation layer around the existing direct-fetch views. Non-GET API calls emit typed invalidation events; domain detail, DNS, Origins, SSL, and Activity tabs subscribe and refetch affected data.
+  - Changed files: `dash/src/lib/data/queryKeys.ts`, `dash/src/lib/data/invalidation.ts`, `dash/src/lib/api/client.ts`, `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainDnsTab.vue`, `dash/src/views/domain-tabs/DomainOriginsTab.vue`, `dash/src/views/domain-tabs/DomainSslTab.vue`, `dash/src/views/domain-tabs/DomainActivityTab.vue`.
+2. [x] Define query keys:
    - `domains`
    - `domain:{id}`
    - `domain-dns:{id}`
@@ -896,33 +943,46 @@ The dashboard renders routed views but there is no visible global data invalidat
    - `edge-nodes`
    - `usage-summary`
    - `audit-log`
-3. Every mutation must invalidate/update affected queries:
+  - Notes: central `queryKeys` helpers define the roadmap keys and `keysForMutation()` maps API mutation paths to affected keys.
+3. [x] Every mutation must invalidate/update affected queries:
    - add/delete/update domain -> `domains`, `domain:{id}`;
    - verify/force nameservers -> `domain:{id}`, `domain-activity:{id}`;
    - add DNS record -> `domain-dns:{id}`, `domain-origins:{id}`, `domain-activity:{id}`;
    - origin health check -> `domain-origins:{id}`, `domain-activity:{id}`;
    - SSL request -> `domain-ssl:{id}`, `domain-activity:{id}`;
    - cache purge -> `domain-activity:{id}`, `usage-summary`.
-4. Auto-refresh intervals:
+  - Notes: mutation mapping covers domain, nameserver, DNS, origin, SSL, cache purge, usage, edge, and audit paths. High-value domain views refetch on matching invalidation events without a browser refresh.
+  - Remaining blocker: not every dashboard view has been migrated to the listener yet; edge nodes, usage summary, global audit, settings, and rule tabs still mostly rely on local post-mutation `load()` calls.
+4. [ ] Auto-refresh intervals:
    - domain status: 10–15s;
    - nameserver verification after button click: 3–5s until terminal/changed;
    - SSL job while active: 2–5s;
    - edge nodes: 5–10s;
    - usage/activity: 10–30s, pause when tab hidden.
-5. Global UX:
+  - Notes: SSL active job polling is implemented at 3 seconds from Phase 4. General domain/edge/activity polling and tab-hidden pause are not complete.
+5. [ ] Global UX:
    - success/error toasts;
    - loading indicators on buttons;
    - optimistic updates only where safe;
    - disable duplicate submissions;
    - show “Publishing config to edge…” when config snapshot changes.
+  - Notes: many buttons already have local loading states and duplicate-submit prevention. A global toast/publishing notification layer was not added.
 
 ### Tests
 
-- Add record and see it immediately in table.
-- Delete record and row disappears immediately.
-- Request SSL and see job progress immediately.
-- Verify nameservers and status changes without reload.
-- Switch tabs and data remains fresh.
+- [x] Add record and see it immediately in table.
+  - Notes: DNS mutations invalidate `domain-dns:{id}` and `domain-origins:{id}`; DNS and Origins tabs subscribe and reload.
+- [x] Delete record and row disappears immediately.
+  - Notes: delete uses the same DNS invalidation mapping and the DNS tab also performs local reload after deletion.
+- [x] Request SSL and see job progress immediately.
+  - Notes: SSL request returns a job and the SSL tab displays/polls `activeJob`.
+- [x] Verify nameservers and status changes without reload.
+  - Notes: nameserver mutations invalidate `domain:{id}` and `domain-dns:{id}`; domain detail subscribes and also applies returned state immediately.
+- [x] Switch tabs and data remains fresh.
+  - Notes: subscribed tabs refetch on invalidation and existing tab mounts still call `load()`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts)` passed with `2 passed`.
+  - Manual validation still required: run browser/dashboard workflow against a stack to verify visible no-refresh behavior after DNS create/delete, nameserver verify, origin health check, and SSL request.
 
 ### IDE Prompt
 

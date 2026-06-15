@@ -78,6 +78,8 @@ import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { originsApi } from '@/lib/api/origins';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { useInvalidationListener } from '@/lib/data/invalidation';
 import type { DomainOrigin, Severity } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
@@ -117,5 +119,7 @@ async function save() { saving.value = true; try { editingId.value ? await origi
 async function toggle(row: Record<string, unknown>) { await originsApi.update(props.domainId, String(row.id), { enabled: !row.enabled }); await load(); }
 async function check(row: Record<string, unknown>) { await originsApi.check(props.domainId, String(row.id)); message.value = 'Origin health checked.'; await load(); }
 async function remove(row: Record<string, unknown>) { await originsApi.remove(props.domainId, String(row.id)); message.value = 'Origin deleted.'; await load(); }
-watch(() => props.domainId, load); onMounted(load);
+watch(() => props.domainId, load);
+useInvalidationListener(() => [queryKeys.domainOrigins(props.domainId)], load);
+onMounted(load);
 </script>

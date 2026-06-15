@@ -92,6 +92,8 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
 import { dnsApi } from '@/lib/api/dns';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { useInvalidationListener } from '@/lib/data/invalidation';
 import type { DnsRecord, DomainDnsStatus } from '@/types';
 
 type GeoOriginForm = { country_code: string; host: string; verify_tls: boolean };
@@ -183,5 +185,6 @@ async function remove(value: Record<string, unknown>) {
 function isApex(name: string) { return ['', '@'].includes(name.trim().replace(/\.$/, '').toLowerCase()); }
 
 watch(() => props.domainId, load);
+useInvalidationListener(() => [queryKeys.domainDns(props.domainId)], load);
 onMounted(load);
 </script>

@@ -406,6 +406,10 @@ class TrafficRulesController
     public function acmeStatus(string $domainId): array {
         return ['data' => (new CertRenewalService($this->service))->status($domainId)];
     }
+    public function getSslJob(string $domainId, string $jobId): array {
+        $job = $this->service->getSslJob($domainId, $jobId);
+        return $job ? ['data' => $job] : ['error' => 'ssl_job_not_found', 'status' => 404];
+    }
     private function sslHostnames(array $body): array {
         if (!array_key_exists('hostnames', $body)) { return []; }
         if (!is_array($body['hostnames'])) {
@@ -434,7 +438,7 @@ class TrafficRulesController
             }
         }
         try {
-            return ['data' => $this->service->requestSslCertificate($domainId, $hostnames)];
+            return ['data' => $this->service->requestSslJob($domainId, $hostnames), 'status' => 202];
         } catch (\OutOfBoundsException) {
             return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {

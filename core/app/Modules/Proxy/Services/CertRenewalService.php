@@ -80,6 +80,7 @@ class CertRenewalService
                 'updated_at' => $row['updated_at'],
             ], $certificates),
             'history' => $history->fetchAll(),
+            'jobs' => $this->certificates->listSslJobs($domainId),
         ];
     }
 

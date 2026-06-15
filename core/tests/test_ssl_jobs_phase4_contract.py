@@ -1,0 +1,58 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def read(path: str) -> str:
+    return (ROOT / path).read_text()
+
+
+def test_ssl_jobs_migration_and_schema_are_additive():
+    migration = read("core/database/migrations/000003_ssl_jobs.sql")
+    schema = read("core/database/schema.sql")
+
+    for source in (migration, schema):
+        assert "CREATE TABLE IF NOT EXISTS ssl_jobs" in source
+        assert "progress_percent INTEGER NOT NULL DEFAULT 0" in source
+        assert "hostnames_json TEXT NOT NULL DEFAULT '[]'" in source
+        assert "idx_ssl_jobs_domain_created" in source
+        assert "idx_ssl_jobs_active" in source
+        assert "DROP TABLE" not in source
+        assert "TRUNCATE" not in source
+
+
+def test_ssl_request_endpoint_returns_job_and_status_route():
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    renewals = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
+    public_index = read("core/public_index.php")
+    docs = read("docs/api/api.md")
+    openapi = read("docs/public/api/openapi.yaml")
+
+    assert "public function requestSslJob" in service
+    assert "INSERT INTO ssl_jobs" in service
+    assert "AuditLog::write('ssl.requested'" in service
+    assert "'job_id' => $job['id']" in service
+    assert "public function getSslJob" in service
+    assert "public function getSslJob(string $domainId, string $jobId)" in controller
+    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in public_index
+    assert "'jobs' => $this->certificates->listSslJobs($domainId)" in renewals
+    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in docs
+    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}:" in openapi
+
+
+def test_dashboard_polls_ssl_job_progress():
+    types = read("dash/src/types.ts")
+    api = read("dash/src/lib/api/ssl.ts")
+    view = read("dash/src/views/domain-tabs/DomainSslTab.vue")
+
+    assert "export interface SslJob" in types
+    assert "export interface SslJobRequest" in types
+    assert "api.post<SslJobRequest>" in api
+    assert "ssl/jobs/${jobId}" in api
+    assert "SSL request progress" in view
+    assert "activeJob" in view
+    assert "progress_percent" in view
+    assert "sslApi.job(props.domainId, activeJob.value.id)" in view
+    assert "queued: 'Queued'" in view

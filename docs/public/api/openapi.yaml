@@ -703,14 +703,30 @@ paths:
   /api/v1/domains/{domainId}/ssl/request:
     post:
       tags: [SSL]
-      summary: Request SSL flow
+      summary: Queue SSL flow
       parameters:
         - $ref: "#/components/parameters/DomainId"
       requestBody:
         $ref: "#/components/requestBodies/GenericObject"
       responses:
+        "202":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/ssl/jobs/{jobId}:
+    get:
+      tags: [SSL]
+      summary: Show SSL job progress
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/ssl/acme/issue:
     post:
       tags: [SSL]

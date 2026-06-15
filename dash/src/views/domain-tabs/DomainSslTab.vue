@@ -35,6 +35,21 @@
       </div>
     </section>
 
+    <section v-if="activeJob" class="panel-section">
+      <div class="section-heading">
+        <div><h2>SSL request progress</h2><p>{{ activeJob.message }}</p></div>
+        <StatusBadge :status="jobBadgeStatus(activeJob.status)" :label="jobLabel(activeJob.status)" />
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+        <div class="h-full rounded-full bg-cyan-500 transition-all" :style="{ width: `${activeJob.progress_percent}%` }" />
+      </div>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
+        <span>{{ activeJob.progress_percent }}% complete</span>
+        <span>{{ activeJob.hostnames.join(', ') }}</span>
+      </div>
+      <p v-if="activeJob.error_detail" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ activeJob.error_detail }}</p>
+    </section>
+
     <form v-if="showManualImport" class="panel-section" @submit.prevent="importManual">
       <div class="section-heading"><div><h2>Manual certificate</h2><p>Paste PEM material generated outside CDNLite.</p></div></div>
       <div class="help-panel">
@@ -87,11 +102,14 @@ import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { sslApi } from '@/lib/api/ssl';
-import type { AcmeStatus, SslCertificate } from '@/types';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { useInvalidationListener } from '@/lib/data/invalidation';
+import type { AcmeStatus, SslCertificate, SslJob } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
 const certificates = ref<SslCertificate[]>([]);
 const status = ref<AcmeStatus>({ progress: [], history: [] });
+const activeJob = ref<SslJob | null>(null);
 const busy = ref(false);
 const saving = ref(false);
 const saveMessage = ref('');
@@ -114,6 +132,7 @@ async function load() {
   certificates.value = certs;
   Object.assign(settings, current);
   status.value = acme;
+  activeJob.value = newestActiveJob(acme.jobs ?? []) ?? activeJob.value;
 }
 async function saveSettings() {
   saving.value = true;
@@ -132,7 +151,16 @@ async function saveSettings() {
     saving.value = false;
   }
 }
-async function requestCertificate() { await runAction(() => sslApi.requestCertificate(props.domainId)); }
+async function requestCertificate() {
+  busy.value = true;
+  try {
+    const queued = await sslApi.request(props.domainId);
+    activeJob.value = queued.job;
+    await load();
+  } finally {
+    busy.value = false;
+  }
+}
 async function renew() { await runAction(() => sslApi.renew(props.domainId)); }
 async function check() { busy.value = true; try { await sslApi.check(props.domainId); await load(); } finally { busy.value = false; } }
 async function runAction(action: () => Promise<unknown>) { busy.value = true; try { await action(); await load(); } finally { busy.value = false; } }
@@ -154,12 +182,28 @@ async function importManual() {
   }
 }
 function progressLabel(value: string) { return ({ pending_dns: 'Pending DNS-01', verifying: 'Verifying', issued: 'Issued', error: 'Failed', idle: 'Idle' } as Record<string, string>)[value] ?? value; }
+function jobLabel(value: string) { return ({ queued: 'Queued', checking_dns: 'Checking DNS', creating_order: 'Creating order', validating_challenge: 'Validating challenge', issuing: 'Issuing', installing: 'Installing', issued: 'Issued', failed: 'Failed', cancelled: 'Cancelled' } as Record<string, string>)[value] ?? value; }
+function jobBadgeStatus(value: string) { return value === 'issued' ? 'healthy' : value === 'failed' ? 'critical' : 'warning'; }
+function isActiveJob(job: SslJob) { return ['queued', 'checking_dns', 'creating_order', 'validating_challenge', 'issuing', 'installing'].includes(job.status); }
+function newestActiveJob(jobs: SslJob[]) { return jobs.find(isActiveJob) ?? null; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
 function startPolling() {
   window.clearInterval(pollTimer);
-  pollTimer = window.setInterval(async () => { status.value = await sslApi.acmeStatus(props.domainId); }, 3000);
+  pollTimer = window.setInterval(async () => {
+    if (activeJob.value && isActiveJob(activeJob.value)) {
+      activeJob.value = await sslApi.job(props.domainId, activeJob.value.id);
+      if (!isActiveJob(activeJob.value)) {
+        await load();
+      }
+      return;
+    }
+    const next = await sslApi.acmeStatus(props.domainId);
+    status.value = next;
+    activeJob.value = newestActiveJob(next.jobs ?? []);
+  }, 3000);
 }
 watch(() => props.domainId, async () => { await load(); startPolling(); });
+useInvalidationListener(() => [queryKeys.domainSsl(props.domainId)], load);
 onMounted(async () => { await load(); startPolling(); });
 onBeforeUnmount(() => window.clearInterval(pollTimer));
 </script>

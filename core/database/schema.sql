@@ -669,6 +669,29 @@ CREATE INDEX IF NOT EXISTS idx_ssl_certificates_renewal_due
 CREATE INDEX IF NOT EXISTS idx_ssl_renewal_history_domain
   ON ssl_renewal_history(domain_id, started_at DESC);
 
+CREATE TABLE IF NOT EXISTS ssl_jobs (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  progress_percent INTEGER NOT NULL DEFAULT 0,
+  message TEXT NOT NULL DEFAULT '',
+  error_code TEXT NULL,
+  error_detail TEXT NULL,
+  hostnames_json TEXT NOT NULL DEFAULT '[]',
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  finished_at BIGINT NULL,
+  CHECK (status IN ('queued','checking_dns','creating_order','validating_challenge','issuing','installing','issued','failed','cancelled')),
+  CHECK (progress_percent >= 0 AND progress_percent <= 100)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ssl_jobs_domain_created
+  ON ssl_jobs(domain_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ssl_jobs_active
+  ON ssl_jobs(domain_id, status)
+  WHERE status IN ('queued','checking_dns','creating_order','validating_challenge','issuing','installing');
+
 CREATE TABLE IF NOT EXISTS ssl_acme_accounts (
   id TEXT PRIMARY KEY,
   directory_url TEXT NOT NULL UNIQUE,

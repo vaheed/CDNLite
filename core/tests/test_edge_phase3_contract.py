@@ -10,9 +10,12 @@ def read(path: str) -> str:
 
 def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     nginx = read("edge/openresty/nginx.conf")
+    compose = read("docker-compose.yml")
+    entrypoint = read("edge/docker-entrypoint.sh")
 
-    assert "error_log /dev/stderr info;" in nginx
-    assert "access_log /dev/stdout cdnlite_json;" in nginx
+    assert "error_log /dev/stderr __CDNLITE_EDGE_ERROR_LOG_LEVEL__;" in nginx
+    assert "access_log /dev/stdout __CDNLITE_EDGE_ACCESS_LOG_FORMAT__;" in nginx
+    assert "access_log /var/log/openresty/access.log" not in nginx
     assert "log_format cdnlite_json escape=json" in nginx
     assert '"request_id":"$request_id"' in nginx
     assert '"upstream_status":"$upstream_status"' in nginx
@@ -22,6 +25,27 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert "set $target_origin_id '';" in nginx
     assert "set $target_backup_origin_id '';" in nginx
     assert "env CDNLITE_EDGE_LOG_LEVEL;" in nginx
+    assert "CDNLITE_EDGE_LOG_FORMAT: ${CDNLITE_EDGE_LOG_FORMAT:-json}" in compose
+    assert "CDNLITE_EDGE_LOG_LEVEL: ${CDNLITE_EDGE_LOG_LEVEL:-info}" in compose
+    assert "log_format=\"${CDNLITE_EDGE_LOG_FORMAT:-json}\"" in entrypoint
+    assert "access_log_format=\"combined\"" in entrypoint
+
+
+def test_edge_log_smoke_script_covers_docker_visible_diagnostics():
+    script = read("ci/edge_log_smoke.sh")
+
+    assert "EDGE_LOG_SMOKE_VALID_HOST" in script
+    assert "EDGE_LOG_SMOKE_DOWN_HOST" in script
+    assert "docker compose logs --no-color --tail" in script
+    assert "valid-proxied-request" in script
+    assert "unknown-host-request" in script
+    assert "origin-down-request" in script
+    assert '"request_id":' in script
+    assert "router_error" in script
+    assert "origin_id" in script
+    assert "upstream_status" in script
+    assert "secret-smoke-token" in script
+    assert "assert_edge_log_not_contains" in script
 
 
 def test_origin_selector_returns_routing_metadata_without_silent_guessing():

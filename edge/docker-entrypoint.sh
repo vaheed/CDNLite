@@ -14,7 +14,29 @@ case "$ttl" in
     ;;
 esac
 
-sed "s/__CDNLITE_CACHE_DEFAULT_TTL__/$ttl/g" \
+log_level="${CDNLITE_EDGE_LOG_LEVEL:-info}"
+case "$log_level" in
+  debug|info|notice|warn|error|crit|alert|emerg) ;;
+  *)
+    echo "invalid CDNLITE_EDGE_LOG_LEVEL: $log_level" >&2
+    exit 1
+    ;;
+esac
+
+log_format="${CDNLITE_EDGE_LOG_FORMAT:-json}"
+case "$log_format" in
+  json) access_log_format="cdnlite_json" ;;
+  combined) access_log_format="combined" ;;
+  *)
+    echo "invalid CDNLITE_EDGE_LOG_FORMAT: $log_format" >&2
+    exit 1
+    ;;
+esac
+
+sed \
+  -e "s/__CDNLITE_CACHE_DEFAULT_TTL__/$ttl/g" \
+  -e "s/__CDNLITE_EDGE_ERROR_LOG_LEVEL__/$log_level/g" \
+  -e "s/__CDNLITE_EDGE_ACCESS_LOG_FORMAT__/$access_log_format/g" \
   /usr/local/openresty/nginx/conf/nginx.conf.template \
   > /usr/local/openresty/nginx/conf/nginx.conf
 

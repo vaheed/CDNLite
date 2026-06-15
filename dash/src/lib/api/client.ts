@@ -1,5 +1,6 @@
 import { runtimeConfig } from '@/lib/config/env';
 import { getAdminSessionToken } from '@/lib/auth/session';
+import { emitInvalidation } from '@/lib/data/invalidation';
 import type { ApiEnvelope } from '@/types';
 
 export class CdnLiteApiError extends Error {
@@ -68,7 +69,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       const raw = extractErrorCode(payload) ?? `HTTP ${response.status}`;
       throw new CdnLiteApiError(response.status, formatApiError(payload, raw), payload, raw);
     }
-    return unwrap<T>(payload);
+    const result = unwrap<T>(payload);
+    emitInvalidation(options.method ?? 'GET', path);
+    return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw new CdnLiteApiError(408, 'Request timed out');
