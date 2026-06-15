@@ -409,8 +409,6 @@ class OriginHealthService
 
         $pdo->prepare(
             'UPDATE dns_records SET
-                content=:content,
-                origin_content=:origin_content,
                 origin_host=:origin_host,
                 origin_scheme=:origin_scheme,
                 origin_tls_verify=:origin_tls_verify,
@@ -420,8 +418,6 @@ class OriginHealthService
         )->execute([
             ':domain_id' => $domainId,
             ':id' => $dnsRecordId,
-            ':content' => $host,
-            ':origin_content' => $host,
             ':origin_host' => $host,
             ':origin_scheme' => $scheme,
             ':origin_tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),

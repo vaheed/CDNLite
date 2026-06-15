@@ -585,6 +585,12 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Follow-up fix after user e2e: DNS-record origin restore/update payloads now include `origin_scheme=https` when returning to `origin-tls`, because omitted fields preserve the prior HTTP scheme. This fixes the later e2e failure where POST routing expected HTTPS after an HTTP-origin test.
   - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `10 passed`.
+  - User-reported validation on 2026-06-15: e2e later failed at `HTTP fallback origin update failed` with `dns_publish_failed` / `invalid_dns_record_content`.
+  - Follow-up fix: updating a DNS-linked origin no longer writes the origin hostname back into `dns_records.content` or `origin_content`, so A/AAAA record content is not corrupted before PowerDNS reconciliation. Origin routing metadata now updates `origin_host`, scheme, TLS mode, and geo-origin metadata only.
+  - Changed files: `core/app/Modules/Proxy/Services/OriginHealthService.php`, `core/tests/test_origin_record_refactor_contract.py`.
+  - Follow-up local validation run: `php -l core/app/Modules/Proxy/Services/OriginHealthService.php` passed.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_phase7_config_invalidation_contract.py` passed with `20 passed`.
   - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt

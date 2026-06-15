@@ -74,7 +74,9 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "syncDnsRecordFromLinkedOrigin" in origins
     assert "isDnsLinkedOrigin($existing)" in origins
     assert "$payload['_skip_dns_record_sync'] = true" in origins
-    assert "content=:content" in origins
+    linked_sync = origins.split("private function syncDnsRecordFromLinkedOrigin", 1)[1].split("private function decodeGeoOrigins", 1)[0]
+    assert "content=:content" not in linked_sync
+    assert "origin_content=:origin_content" not in linked_sync
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins
