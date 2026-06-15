@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-pdns_control rping >/dev/null 2>&1
+pdns_control ping >/dev/null 2>&1

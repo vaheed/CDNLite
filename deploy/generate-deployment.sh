@@ -542,8 +542,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      pdns-auth:
-        condition: service_healthy
     env_file: .env
     ports:
       - "${CORE_HOST_PORT}:8080"
@@ -569,8 +567,6 @@ services:
     restart: unless-stopped
     depends_on:
       core:
-        condition: service_healthy
-      pdns-auth:
         condition: service_healthy
       platform-settings-bootstrap:
         condition: service_completed_successfully
@@ -633,8 +629,6 @@ services:
     restart: "no"
     depends_on:
       core:
-        condition: service_healthy
-      pdns-auth:
         condition: service_healthy
     env_file: .env
     volumes:

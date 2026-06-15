@@ -994,10 +994,17 @@ The dashboard renders routed views but there is no visible global data invalidat
   - Local validation run: `(cd dash && npm run typecheck)` passed.
   - Remaining blocker: toast wording is intentionally generic (`Action queued`, `Changes saved`, `Deleted`) and can be made action-specific in a later polish pass.
   - Follow-up UI fix: moved **Refresh nameservers now** out of the domain detail header and into the Nameservers overview card with the expected/observed/missing/checked trace so nameserver controls stay with nameserver status.
+  - Follow-up UI fix: replaced the raw browser prompt for **Force verify as admin** with a friendly in-dashboard confirmation dialog that explains the override, requires an audit reason, and has clear cancel/confirm actions.
   - Follow-up UI fix: replaced the Overview dashboard's generic **Top domains by requests** table with a bottom-anchored card sorted by highest request count, with the request number right-aligned and visually prominent for one-domain and short-list layouts.
   - Changed files: `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainOverviewTab.vue`, `dash/src/views/OverviewView.vue`, `dash/src/views/DomainDetailView.test.ts`.
   - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
-  - Follow-up local validation run: `(cd dash && npm test -- --run src/views/DomainDetailView.test.ts src/lib/api/domains.test.ts)` passed with `2 passed`.
+  - Follow-up local validation run: `(cd dash && npm test -- --run src/views/DomainDetailView.test.ts src/lib/api/domains.test.ts)` passed with `3 passed`.
+  - Follow-up operations fix: changed the rebuilt `pdns-auth` image healthcheck from `pdns_control rping` to the authoritative-server readiness check `pdns_control ping`.
+  - Follow-up operations fix: removed the fixed 60-second `pdns-auth` healthcheck grace period and removed `pdns-auth: service_healthy` from core/dashboard startup chains. Backend and dashboard now wait only for the core PostgreSQL dependency; DNS-specific services retry until PowerDNS is ready, and Poweradmin still waits for PowerDNS because it is a PowerDNS UI.
+  - Changed files: `infra/dnsgeo/docker/pdns-auth/healthcheck.sh`, `docker-compose.yml`, `deploy/dnsgeo/docker-compose.yml`, `deploy/generate-deployment.sh`.
+  - Follow-up local validation run: `bash -n infra/dnsgeo/docker/pdns-auth/healthcheck.sh && bash -n deploy/generate-deployment.sh` passed.
+  - Follow-up local validation run: `docker compose config --quiet` passed.
+  - Follow-up local validation run: `docker compose -f deploy/dnsgeo/docker-compose.yml config --quiet` passed with expected unset-env warnings in this sandbox.
 
 ### Tests
 

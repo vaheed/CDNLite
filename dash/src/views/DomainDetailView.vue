@@ -66,6 +66,30 @@
       @reseed-expected-nameservers="reseedExpectedNameservers"
       @force-verify-nameservers="forceVerifyNameservers"
     />
+
+    <div v-if="forceVerifyDialogOpen" class="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="force-verify-title">
+      <form class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-950" @submit.prevent="submitForceVerify">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Admin confirmation</p>
+            <h2 id="force-verify-title" class="mt-1 text-xl font-bold text-slate-950 dark:text-white">Force verify nameservers?</h2>
+          </div>
+          <StatusBadge status="warning" label="Override" />
+        </div>
+        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+          This marks <b>{{ domain.domain }}</b> as verified even if public DNS has not fully delegated yet. CDNLite will activate the domain, invalidate edge config, reconcile DNS, and write an audit event with your reason.
+        </p>
+        <label class="mt-5 block">
+          <span class="field-label">Reason for audit log</span>
+          <textarea v-model="forceVerifyReason" class="input min-h-28 py-3" required placeholder="Example: Registrar delegation confirmed manually by operator." />
+        </label>
+        <p v-if="forceVerifyDialogError" class="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{{ forceVerifyDialogError }}</p>
+        <div class="mt-5 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end dark:border-white/10">
+          <button type="button" class="button-secondary" :disabled="nameserverBusy" @click="cancelForceVerify">Cancel</button>
+          <button class="button-primary" :disabled="nameserverBusy">{{ nameserverBusy ? 'Verifying...' : 'Force verify domain' }}</button>
+        </div>
+      </form>
+    </div>
   </section>
   <EmptyState v-else-if="!loading" title="Domain not found" message="Return to Domains and choose an existing domain." />
 </template>
@@ -109,6 +133,9 @@ const nameserverBusy = ref(false);
 const nameserverMessage = ref('');
 const nameserverError = ref(false);
 const nameserverTrace = ref<NameserverVerification | null>(null);
+const forceVerifyDialogOpen = ref(false);
+const forceVerifyReason = ref('');
+const forceVerifyDialogError = ref('');
 const domainId = computed(() => String(route.params.domainId));
 const mainTabs = [
   { key: 'overview', label: 'Overview', icon: Activity, component: DomainOverviewTab },
@@ -207,18 +234,33 @@ async function refreshNameservers() {
 }
 
 async function forceVerifyNameservers() {
-  const reason = window.prompt('Reason for force verifying this domain?');
-  if (reason === null) return;
-  if (!reason.trim()) {
-    nameserverError.value = true;
-    nameserverMessage.value = 'A reason is required to force verify nameservers.';
+  forceVerifyReason.value = '';
+  forceVerifyDialogError.value = '';
+  forceVerifyDialogOpen.value = true;
+}
+
+function cancelForceVerify() {
+  if (nameserverBusy.value) return;
+  forceVerifyDialogOpen.value = false;
+  forceVerifyDialogError.value = '';
+}
+
+async function submitForceVerify() {
+  const reason = forceVerifyReason.value.trim();
+  if (!reason) {
+    forceVerifyDialogError.value = 'Please add a short reason so the audit trail explains this override.';
     return;
   }
   await runNameserverAction(async () => {
-    const result = await domainsApi.forceVerifyNameservers(domainId.value, reason.trim());
+    const result = await domainsApi.forceVerifyNameservers(domainId.value, reason);
     applyNameserverResult(result);
     nameserverMessage.value = 'Domain nameservers force verified and activated.';
   });
+  if (!nameserverError.value) {
+    forceVerifyDialogOpen.value = false;
+  } else {
+    forceVerifyDialogError.value = nameserverMessage.value;
+  }
 }
 
 async function reseedExpectedNameservers() {

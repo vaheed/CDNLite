@@ -23,8 +23,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      pdns-auth:
-        condition: service_healthy
     environment:
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
@@ -148,8 +146,6 @@ services:
       dockerfile: Dockerfile
     depends_on:
       postgres:
-        condition: service_healthy
-      pdns-auth:
         condition: service_healthy
     environment:
       DB_HOST: ${DB_HOST:-postgres}

@@ -83,4 +83,49 @@ describe('DomainDetailView nameserver actions', () => {
     expect(view.getAllByText('ns1.example.test, ns2.example.test')).toHaveLength(2);
     expect(domainsApiMock.verifyNameservers).toHaveBeenCalledWith('domain-1');
   });
+
+  it('uses a friendly force-verify confirmation with an audit reason', async () => {
+    domainsApiMock.forceVerifyNameservers.mockResolvedValue({
+      ...baseDomain,
+      status: 'active',
+      nameserver_status: 'verified',
+      expected_nameservers: ['ns1.example.test'],
+      observed_nameservers: ['ns1.example.test'],
+      matched_nameservers: ['ns1.example.test'],
+      missing_nameservers: [],
+      checked_at: 1710000000,
+      resolver_errors: [],
+    });
+
+    const view = render(DomainDetailView, {
+      global: {
+        stubs: {
+          DomainDnsTab: true,
+          DomainSslTab: true,
+          DomainCacheTab: true,
+          DomainRedirectsTab: true,
+          DomainPageRulesTab: true,
+          DomainWafTab: true,
+          DomainRateLimitsTab: true,
+          DomainAnalyticsTab: true,
+          DomainHeadersTab: true,
+          DomainIpRulesTab: true,
+          DomainOriginsTab: true,
+          DomainActivityTab: true,
+          HorizontalScrollFrame: { template: '<div><slot /></div>' },
+          ReportExportButton: true,
+        },
+      },
+    });
+
+    await waitFor(() => expect(view.getByRole('button', { name: /force verify as admin/i })).toBeInTheDocument());
+    await fireEvent.click(view.getByRole('button', { name: /force verify as admin/i }));
+
+    expect(view.getByRole('dialog', { name: /force verify nameservers/i })).toBeInTheDocument();
+    await fireEvent.update(view.getByPlaceholderText(/registrar delegation confirmed/i), 'Verified registrar NS manually');
+    await fireEvent.click(view.getByRole('button', { name: /force verify domain/i }));
+
+    await waitFor(() => expect(domainsApiMock.forceVerifyNameservers).toHaveBeenCalledWith('domain-1', 'Verified registrar NS manually'));
+    await waitFor(() => expect(view.queryByRole('dialog', { name: /force verify nameservers/i })).not.toBeInTheDocument());
+  });
 });
