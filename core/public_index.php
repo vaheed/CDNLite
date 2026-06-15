@@ -489,6 +489,7 @@ $router->add('GET', '/api/v1/domains/{domainId}/security/events', static fn (Req
 $router->add('GET', '/api/v1/analytics/cache', static fn (Request $req) => Response::json($collectorController->cacheAnalytics(isset($req->query['domain_id']) ? (string) $req->query['domain_id'] : null)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/analytics/summary', static fn (Request $req, array $p) => Response::json($collectorController->summary((string) $p['domainId'], isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/analytics/cache', static fn (Request $req, array $p) => Response::json($collectorController->cacheAnalytics((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/activity/requests', static fn (Request $req, array $p) => Response::json($collectorController->recentRequests((string) $p['domainId'], $req->query)), auth: true);
 
 $router->add('GET', '/api/v1/edge/nodes', static fn () => Response::json($edgeController->list()), auth: true);
 $router->add('GET', '/api/v1/edges/pools', static fn () => Response::json($edgeController->pools()), auth: true);

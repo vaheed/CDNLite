@@ -76,4 +76,13 @@ class CollectorController
         }
         return ['data' => $this->service->cacheAnalytics($domainId ?? '')];
     }
+
+    public function recentRequests(string $domainId, array $query): array
+    {
+        $limit = 100;
+        if (isset($query['limit']) && is_string($query['limit']) && ctype_digit($query['limit'])) {
+            $limit = (int) $query['limit'];
+        }
+        return ['data' => $this->service->recentRequests($domainId, $limit)];
+    }
 }

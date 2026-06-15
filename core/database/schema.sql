@@ -384,8 +384,28 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   request_id TEXT NULL,
   origin_status INTEGER NULL,
   origin_time_ms INTEGER NULL,
+  host TEXT NULL,
+  method TEXT NULL,
+  path TEXT NULL,
+  query_redacted JSONB NULL,
+  client_country TEXT NULL,
+  origin_id TEXT NULL,
+  origin_host TEXT NULL,
+  upstream_status TEXT NULL,
+  upstream_response_time_ms INTEGER NULL,
+  upstream_addr TEXT NULL,
+  request_time_ms INTEGER NULL,
+  router_error TEXT NULL,
+  security_event_type TEXT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_ts
+  ON usage_rollups(domain_id, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_request_id
+  ON usage_rollups(request_id)
+  WHERE request_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS usage_ingest_keys (
   idempotency_key TEXT PRIMARY KEY,

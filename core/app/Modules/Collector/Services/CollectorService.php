@@ -48,8 +48,18 @@ class CollectorService
         $pdo->beginTransaction();
         $stmt = $this->usageRollupCacheColumnsAvailable()
             ? $pdo->prepare(
-                'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status, rule_id, request_id, origin_status, origin_time_ms)
-                 VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms)'
+                'INSERT INTO usage_rollups
+                 (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status,
+                  cache_status, rule_id, request_id, origin_status, origin_time_ms,
+                  host, method, path, query_redacted, client_country, origin_id, origin_host,
+                  upstream_status, upstream_response_time_ms, upstream_addr, request_time_ms,
+                  router_error, security_event_type)
+                 VALUES
+                 (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status,
+                  :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms,
+                  :host, :method, :path, :query_redacted, :client_country, :origin_id, :origin_host,
+                  :upstream_status, :upstream_response_time_ms, :upstream_addr, :request_time_ms,
+                  :router_error, :security_event_type)'
             )
             : $pdo->prepare(
                 'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
@@ -82,6 +92,19 @@ class CollectorService
                     $params[':request_id'] = isset($item['request_id']) ? (string) $item['request_id'] : null;
                     $params[':origin_status'] = isset($item['origin_status']) ? (int) $item['origin_status'] : null;
                     $params[':origin_time_ms'] = isset($item['origin_time_ms']) ? (int) $item['origin_time_ms'] : null;
+                    $params[':host'] = isset($item['host']) ? (string) $item['host'] : null;
+                    $params[':method'] = isset($item['method']) ? (string) $item['method'] : null;
+                    $params[':path'] = isset($item['path']) ? (string) $item['path'] : null;
+                    $params[':query_redacted'] = isset($item['query']) ? json_encode($item['query'], JSON_UNESCAPED_SLASHES) : (isset($item['query_redacted']) ? json_encode($item['query_redacted'], JSON_UNESCAPED_SLASHES) : null);
+                    $params[':client_country'] = isset($item['client_country']) ? (string) $item['client_country'] : null;
+                    $params[':origin_id'] = isset($item['origin_id']) ? (string) $item['origin_id'] : null;
+                    $params[':origin_host'] = isset($item['origin_host']) ? (string) $item['origin_host'] : null;
+                    $params[':upstream_status'] = isset($item['upstream_status']) ? (string) $item['upstream_status'] : null;
+                    $params[':upstream_response_time_ms'] = $this->durationMs($item['upstream_response_time'] ?? null);
+                    $params[':upstream_addr'] = isset($item['upstream_addr']) ? (string) $item['upstream_addr'] : null;
+                    $params[':request_time_ms'] = $this->durationMs($item['request_time'] ?? null);
+                    $params[':router_error'] = isset($item['router_error']) ? (string) $item['router_error'] : null;
+                    $params[':security_event_type'] = isset($item['security_event_type']) ? (string) $item['security_event_type'] : null;
                 }
                 $stmt->execute($params);
                 $count++;
@@ -164,6 +187,24 @@ class CollectorService
             throw $e;
         }
         return ['ingested' => $count, 'skipped_unknown_domains' => $skippedUnknownDomains, 'duplicate' => false, 'idempotency_key' => $idempotencyKey];
+    }
+
+    public function recentRequests(string $domainId, int $limit = 100): array
+    {
+        $limit = max(1, min(250, $limit));
+        $stmt = Database::pdo()->prepare(
+            "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                    query_redacted, client_country, status, bytes_in, bytes_out,
+                    cache_status, origin_id, origin_host, upstream_status,
+                    upstream_response_time_ms, upstream_addr, request_time_ms,
+                    router_error, security_event_type, rule_id
+             FROM usage_rollups
+             WHERE domain_id=:domain_id
+             ORDER BY ts DESC, id DESC
+             LIMIT {$limit}"
+        );
+        $stmt->execute([':domain_id' => $domainId]);
+        return array_map([$this, 'castRequestActivity'], $stmt->fetchAll());
     }
 
     public function summary(?string $domainId = null, ?string $bucket = null): array
@@ -441,11 +482,37 @@ class CollectorService
         $stmt = Database::pdo()->prepare(
             "SELECT COUNT(*) FROM information_schema.columns
              WHERE table_schema='public' AND table_name='usage_rollups'
-             AND column_name IN ('cache_status', 'rule_id', 'request_id', 'origin_status', 'origin_time_ms')"
+             AND column_name IN (
+                'cache_status', 'rule_id', 'request_id', 'origin_status', 'origin_time_ms',
+                'host', 'method', 'path', 'query_redacted', 'client_country', 'origin_id',
+                'origin_host', 'upstream_status', 'upstream_response_time_ms', 'upstream_addr',
+                'request_time_ms', 'router_error', 'security_event_type'
+             )"
         );
         $stmt->execute();
-        $this->usageRollupCacheColumnsAvailable = (int) $stmt->fetchColumn() === 5;
+        $this->usageRollupCacheColumnsAvailable = (int) $stmt->fetchColumn() === 18;
         return $this->usageRollupCacheColumnsAvailable;
+    }
+
+    private function durationMs(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return (int) round(((float) $value) * 1000);
+    }
+
+    private function castRequestActivity(array $row): array
+    {
+        foreach (['ts', 'status', 'bytes_in', 'bytes_out', 'upstream_response_time_ms', 'request_time_ms'] as $key) {
+            if (isset($row[$key]) && $row[$key] !== null) {
+                $row[$key] = (int) $row[$key];
+            }
+        }
+        $row['query_redacted'] = isset($row['query_redacted']) && $row['query_redacted'] !== null
+            ? (json_decode((string) $row['query_redacted'], true) ?: [])
+            : [];
+        return $row;
     }
 
     private function domainExists(string $domainId): bool
