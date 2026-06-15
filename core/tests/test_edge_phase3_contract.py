@@ -22,6 +22,14 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert '"origin_id":"$target_origin_id"' in nginx
     assert "proxy_set_header Host $target_origin_host_header" in nginx
     assert "proxy_ssl_name $target_origin_sni" in nginx
+    assert "proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;" in nginx
+    assert "proxy_ssl_verify on;" in nginx
+    assert "proxy_ssl_verify off;" in nginx
+    assert "@cdnlite_noverify" in nginx
+    assert "@cdnlite_backup_noverify" in nginx
+    assert "@cdnlite_tls_noverify" in nginx
+    assert "@cdnlite_tls_backup_noverify" in nginx
+    assert "ngx.var.target_origin_tls_verify == 'ignore'" in nginx
     assert "set $target_origin_id '';" in nginx
     assert nginx.count("set $target_origin_id '';") == 2
     assert "set $target_backup_origin_id '';" in nginx

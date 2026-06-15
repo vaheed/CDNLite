@@ -596,6 +596,11 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Changed files: `ci/e2e.sh`, `core/tests/test_edge_phase3_contract.py`.
   - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `18 passed`.
+  - User-reported validation on 2026-06-15: e2e still returned `200` for the verify-mode self-signed origin, proving the edge was carrying `tls_verify=verify` metadata but not enforcing upstream certificate validation.
+  - Follow-up fix: OpenResty now uses `proxy_ssl_verify on` with trusted CA configuration for the default origin and backup proxy paths, and dispatches `tls_verify=ignore` origins to dedicated no-verify named locations. No-verify primary locations retain metrics/header hooks so Activity ingestion still sees ignored-TLS traffic.
+  - Changed files: `edge/openresty/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `18 passed`.
   - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt
