@@ -45,12 +45,12 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "buildGeoOrigins($record['geo_origins']" in config
 
 
-def test_duplicate_proxy_target_is_stored_as_dns_record():
+def test_duplicate_proxy_target_is_stored_as_backup_origin():
     dns = read("core/app/Modules/Dns/Services/DnsService.php")
 
-    assert "proxiedRecordAtName" not in dns
-    assert "addBackupFromDnsRecord($domainId, $record)" not in dns
-    assert "backup_origin_added" not in dns
+    assert "findCompatibleProxiedPublicRecord" in dns
+    assert "addBackupFromDnsRecord($domainId, $record)" in dns
+    assert "backup_origin_added" in dns
     assert "assertNotDuplicate" in dns
     assert "syncFromDnsRecord($domainId, $created)" in dns
     assert "syncFromDnsRecord($domainId, $updated)" in dns
