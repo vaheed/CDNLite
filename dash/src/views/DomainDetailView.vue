@@ -264,7 +264,7 @@ async function submitForceVerify() {
 }
 
 async function reseedExpectedNameservers() {
-  if (!window.confirm('Replace this domain’s expected nameservers with the current platform nameserver settings?')) return;
+  if (!window.confirm('Re-seed expected NS from the current platform nameserver settings?')) return;
   await runNameserverAction(async () => {
     const result = await domainsApi.reseedExpectedNameservers(domainId.value);
     applyNameserverResult(result);

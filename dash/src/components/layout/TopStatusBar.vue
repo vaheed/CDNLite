@@ -3,9 +3,9 @@
     <div class="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
       <div class="flex min-w-0 flex-wrap items-center gap-2">
         <span class="mr-1 hidden text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 sm:inline">System status</span>
-        <StatusBadge :status="coreHealth" :label="`Core: ${statusLabel(coreHealth)}`" />
-        <ReadinessBadge label="Core" :status="coreReadiness" @click="drawerOpen = true" />
-        <ReadinessBadge label="Edge" :status="edgeReadiness" @click="drawerOpen = true" />
+        <StatusBadge :status="coreHealth" :label="`Core health: ${statusLabel(coreHealth)}`" />
+        <ReadinessBadge label="Core ready" :status="coreReadiness" @click="drawerOpen = true" />
+        <ReadinessBadge label="Edge ready" :status="edgeReadiness" @click="drawerOpen = true" />
         <StatusBadge :status="auth.isAuthenticated ? 'enabled' : 'disabled'" :label="apiTokenConfigured ? 'API token configured' : 'Admin session active'" />
       </div>
 
