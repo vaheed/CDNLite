@@ -1013,6 +1013,14 @@ fi
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "activity origin restore failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
+if ! docker compose exec -T edge sh -lc "grep -Fq '${activity_ok_request_id}' /var/lib/cdnlite/metrics.ndjson" \
+  && ! docker compose exec -T edge-agent sh -lc "grep -Fq '${activity_ok_request_id}' \"\${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}\""; then
+  fail "edge metrics file missing activity 200 request_id=${activity_ok_request_id}"
+fi
+if ! docker compose exec -T edge sh -lc "grep -Fq '${activity_502_request_id}' /var/lib/cdnlite/metrics.ndjson" \
+  && ! docker compose exec -T edge-agent sh -lc "grep -Fq '${activity_502_request_id}' \"\${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}\""; then
+  fail "edge metrics file missing activity 502 request_id=${activity_502_request_id}"
+fi
 agent_exec '/agent/push_metrics.sh' >/dev/null
 
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${activity_ok_request_id}"

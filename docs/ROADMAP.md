@@ -601,6 +601,11 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
   - Changed files: `edge/openresty/nginx.conf`, `core/tests/test_edge_phase3_contract.py`.
   - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `18 passed`.
+  - User-reported validation on 2026-06-15: e2e reached Phase 6 and failed `activity request-id lookup for edge 200` with `request_not_found`.
+  - Follow-up fix: origin/domain metadata is now copied into nginx variables before no-verify internal redirects, and metrics fall back to those variables when `ngx.ctx` is reset by `ngx.exec()`. The e2e also now verifies the captured request ids exist in the raw edge/agent metrics file before pushing metrics, so future failures identify the exact broken hop.
+  - Changed files: `edge/openresty/nginx.conf`, `edge/openresty/lua/proxy.lua`, `edge/openresty/lua/metrics.lua`, `ci/e2e.sh`, `core/tests/test_edge_phase3_contract.py`.
+  - Follow-up local validation run: `bash -n ci/e2e.sh` passed.
+  - Follow-up local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_origin_record_refactor_contract.py` passed with `18 passed`.
   - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are now covered in `ci/e2e.sh`, but runtime validation still requires a disposable Docker stack because Codex did not run smoke/e2e or long-running Docker tests per user instruction.
 
 ### IDE Prompt

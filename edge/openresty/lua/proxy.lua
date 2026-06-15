@@ -48,13 +48,16 @@ function M.forward(domain)
 
   ngx.var.target_upstream = upstream
   ngx.var.target_backup_upstream = tostring(ngx.ctx.backup_upstream or '')
+  ngx.var.target_domain_id = tostring(domain.domain_id or '')
   ngx.var.target_origin_host_header = tostring((ngx.ctx.origin or {}).host_header or ngx.var.host or '')
   ngx.var.target_origin_sni = tostring((ngx.ctx.origin or {}).sni or (ngx.ctx.origin or {}).host or ngx.var.host or '')
   ngx.var.target_origin_id = tostring((ngx.ctx.origin or {}).id or '')
+  ngx.var.target_origin_host = tostring((ngx.ctx.origin or {}).host or '')
   ngx.var.target_origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'verify')
   ngx.var.target_backup_origin_host_header = tostring((ngx.ctx.backup_origin or {}).host_header or ngx.var.target_origin_host_header or '')
   ngx.var.target_backup_origin_sni = tostring((ngx.ctx.backup_origin or {}).sni or ngx.var.target_origin_sni or '')
   ngx.var.target_backup_origin_id = tostring((ngx.ctx.backup_origin or {}).id or '')
+  ngx.var.target_backup_origin_host = tostring((ngx.ctx.backup_origin or {}).host or '')
   ngx.var.target_backup_origin_tls_verify = tostring((ngx.ctx.backup_origin or {}).tls_verify or 'verify')
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'

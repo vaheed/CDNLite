@@ -31,7 +31,7 @@ function M.on_log()
   local bytes_out = tonumber(ngx.var.bytes_sent) or 0
   local row = {
     ts = os.time(),
-    domain_id = tostring(ngx.ctx.domain_id or ''),
+    domain_id = tostring(ngx.ctx.domain_id or ngx.var.target_domain_id or ''),
     edge_node_id = identity.get(),
     requests_count = 1,
     bytes_in = bytes_in,
@@ -46,7 +46,7 @@ function M.on_log()
     router_error = tostring(ngx.ctx.router_error or ''),
     origin_id = tostring((ngx.ctx.origin or {}).id or ngx.var.target_origin_id or ''),
     origin_role = tostring((ngx.ctx.origin or {}).role or ''),
-    origin_host = tostring((ngx.ctx.origin or {}).host or ''),
+    origin_host = tostring((ngx.ctx.origin or {}).host or ngx.var.target_origin_host or ''),
     upstream_status = tostring(ngx.var.upstream_status or ''),
     upstream_response_time = tostring(ngx.var.upstream_response_time or ''),
     upstream_addr = tostring(ngx.var.upstream_addr or ''),

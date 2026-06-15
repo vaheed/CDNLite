@@ -32,6 +32,10 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert "ngx.var.target_origin_tls_verify == 'ignore'" in nginx
     assert "set $target_origin_id '';" in nginx
     assert nginx.count("set $target_origin_id '';") == 2
+    assert "set $target_domain_id '';" in nginx
+    assert nginx.count("set $target_domain_id '';") == 2
+    assert "set $target_origin_host '';" in nginx
+    assert "set $target_backup_origin_host '';" in nginx
     assert "set $target_backup_origin_id '';" in nginx
     assert nginx.count("set $target_backup_origin_id '';") == 2
     assert "primary_origin_unavailable" in nginx
@@ -106,11 +110,16 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     assert "ngx.var.target_origin_host_header" in proxy
     assert "ngx.var.target_origin_sni" in proxy
     assert "ngx.var.target_origin_id" in proxy
+    assert "ngx.var.target_domain_id" in proxy
+    assert "ngx.var.target_origin_host" in proxy
+    assert "ngx.var.target_backup_origin_host" in proxy
     assert "ngx.var.target_backup_origin_host_header" in proxy
     assert "edge_log.debug('proxy_forward'" in proxy
 
     assert "router_error" in metrics
     assert "origin_id" in metrics
+    assert "ngx.var.target_domain_id" in metrics
+    assert "ngx.var.target_origin_host" in metrics
     assert "upstream_status" in metrics
     assert "upstream_response_time" in metrics
     assert "upstream_addr" in metrics

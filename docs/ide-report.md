@@ -14,6 +14,7 @@ Date: 2026-06-15
 - Fixed user-reported e2e failure where DNS-linked origin updates corrupted A/AAAA record content and triggered strict PowerDNS `invalid_dns_record_content`.
 - Fixed user-reported e2e failure where TLS verify-mode expected HTTPS-to-HTTP fallback; explicit HTTPS self-signed origins now assert a 502 with request id.
 - Fixed user-reported e2e failure where TLS verify-mode still returned 200 by enforcing `proxy_ssl_verify on` for default proxy paths and routing `tls_verify=ignore` origins through no-verify locations.
+- Fixed user-reported e2e failure where Activity request lookup returned `request_not_found` after no-verify routing by preserving domain/origin metadata in nginx variables across internal redirects.
 - Updated `docs/ROADMAP.md` with checkboxes, notes, changed files, lightweight validation, and remaining manual validation blockers.
 
 ## 2. Changed Files
@@ -22,6 +23,8 @@ Date: 2026-06-15
 - `ci/origin-mock/nginx.conf`
 - `core/app/Modules/Proxy/Services/OriginHealthService.php`
 - `edge/openresty/nginx.conf`
+- `edge/openresty/lua/metrics.lua`
+- `edge/openresty/lua/proxy.lua`
 - `core/tests/test_edge_phase3_contract.py`
 - `core/tests/test_origin_record_refactor_contract.py`
 - `core/tests/test_phase6_activity_diagnostics_contract.py`
@@ -34,6 +37,7 @@ Date: 2026-06-15
 - No migration changes.
 - DNS-linked origin updates no longer rewrite public DNS record `content` or `origin_content`; existing corrupted local rows, if any, should be corrected by updating the DNS record content back to the intended IP/target before rerunning strict reconciliation.
 - Edge upstream TLS behavior changed: `tls_verify=verify` now enforces CA validation; `tls_verify=ignore` is routed through explicit no-verify proxy locations.
+- Edge metrics now fall back to nginx variables for domain and origin metadata so internal redirects do not drop Activity correlation fields.
 - No data reset, wipe, truncate, or fresh-install-only logic was used.
 
 ## 4. Tests Run
@@ -45,6 +49,7 @@ Date: 2026-06-15
 - `php -l core/app/Modules/Proxy/Services/OriginHealthService.php`
 - `pytest -q core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_phase7_config_invalidation_contract.py`
 - `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_phase6_activity_diagnostics_contract.py`
+- `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_origin_record_refactor_contract.py`
 - `git diff --check`
 
 ## 5. Smoke/E2E Commands For Manual Run
@@ -71,6 +76,7 @@ EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> \
 - User reported a later e2e failure at `HTTP fallback origin update failed` with `dns_publish_failed` / `invalid_dns_record_content`; the service bug was addressed but needs a rerun.
 - User reported `193 passed in 45.60s` and smoke passing at `2026-06-15T19:19:58Z`; the later e2e verify-mode fallback expectation was corrected but needs a rerun.
 - User reported the verify-mode self-signed request still returned 200; upstream certificate verification enforcement was added but needs a rerun.
+- User reported Phase 6 Activity lookup returned `request_not_found`; no-verify internal redirect metadata preservation was added but needs a rerun.
 - The fixed Phase 3 e2e assertions still need runtime validation on a disposable stack.
 - The new Phase 6 Activity ingest and 502 diagnostics assertions still need runtime validation on a disposable stack.
 - The SNI assertion uses the local self-signed origin fixture with `tls_verify=ignore`; this proves edge SNI forwarding, not public CA validation.
