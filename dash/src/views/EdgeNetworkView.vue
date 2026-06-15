@@ -158,6 +158,9 @@ import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import { edgesApi } from '@/lib/api/edges';
+import { queryKeys } from '@/lib/data/queryKeys';
+import { useInvalidationListener } from '@/lib/data/invalidation';
+import { useVisibilityPolling } from '@/lib/data/polling';
 import { heartbeatStatus } from '@/lib/utils/diagnostics';
 import { formatDate } from '@/lib/utils/format';
 import type { EdgeDnsStatus, EdgeNode, EdgePool } from '@/types';
@@ -220,11 +223,15 @@ const chart = computed(() => ({
   }],
 }));
 
-onMounted(async () => {
+async function load() {
   [edges.value, pools.value, dns.value] = await Promise.all([
     edgesApi.list().catch(() => []),
     edgesApi.pools().catch(() => []),
     edgesApi.dns().catch(() => null),
   ]);
-});
+}
+
+useInvalidationListener(() => [queryKeys.edgeNodes()], load);
+useVisibilityPolling(load, 8000);
+onMounted(load);
 </script>

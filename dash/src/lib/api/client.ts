@@ -1,6 +1,7 @@
 import { runtimeConfig } from '@/lib/config/env';
 import { getAdminSessionToken } from '@/lib/auth/session';
 import { emitInvalidation } from '@/lib/data/invalidation';
+import { notify } from '@/lib/ui/notifications';
 import type { ApiEnvelope } from '@/types';
 
 export class CdnLiteApiError extends Error {
@@ -71,15 +72,29 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
     const result = unwrap<T>(payload);
     emitInvalidation(options.method ?? 'GET', path);
+    if ((options.method ?? 'GET').toUpperCase() !== 'GET') {
+      notify({ kind: 'success', title: mutationSuccessTitle(options.method ?? 'GET') }, 3500);
+    }
     return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
+      notify({ kind: 'error', title: 'Request timed out' });
       throw new CdnLiteApiError(408, 'Request timed out');
+    }
+    if ((options.method ?? 'GET').toUpperCase() !== 'GET' && error instanceof Error) {
+      notify({ kind: 'error', title: 'Action failed', message: error.message });
     }
     throw error;
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function mutationSuccessTitle(method: string): string {
+  const normalized = method.toUpperCase();
+  if (normalized === 'DELETE') return 'Deleted';
+  if (normalized === 'POST') return 'Action queued';
+  return 'Changes saved';
 }
 
 function safeJson(text: string): unknown {

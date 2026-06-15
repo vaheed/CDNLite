@@ -89,6 +89,7 @@ import { auditLogApi } from '@/lib/api/auditLog';
 import { securityEventsApi } from '@/lib/api/securityEvents';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
+import { useVisibilityPolling } from '@/lib/data/polling';
 import { usageApi } from '@/lib/api/usage';
 import { formatDate } from '@/lib/utils/format';
 import type { AuditEntry, PaginatedResult, RequestActivity, SecurityEvent } from '@/types';
@@ -110,6 +111,7 @@ const requests = ref<RequestActivity[]>([]);
 
 watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainActivity(props.domainId), queryKeys.auditLog()], load);
+useVisibilityPolling(load, 30000);
 onMounted(load);
 
 async function load() {

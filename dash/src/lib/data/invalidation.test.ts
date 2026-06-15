@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DATA_INVALIDATED_EVENT, emitInvalidation } from './invalidation';
+import { CONFIG_PUBLISHING_EVENT, DATA_INVALIDATED_EVENT, emitInvalidation } from './invalidation';
+import { notify, useNotifications } from '@/lib/ui/notifications';
 import { keysForMutation } from './queryKeys';
 
 describe('dashboard data invalidation', () => {
@@ -32,5 +33,26 @@ describe('dashboard data invalidation', () => {
       'domain-origins:domain-1',
       'domain-activity:domain-1',
     ]));
+  });
+
+  it('emits a publishing indicator event for domain-affecting mutations', () => {
+    const listener = vi.fn();
+    window.addEventListener(CONFIG_PUBLISHING_EVENT, listener);
+    emitInvalidation('POST', '/api/v1/domains/domain-1/dns/records');
+    window.removeEventListener(CONFIG_PUBLISHING_EVENT, listener);
+
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it('stores dismissible dashboard notifications', () => {
+    const { notifications, dismissNotification } = useNotifications();
+    const before = notifications.value.length;
+    const id = notify({ kind: 'success', title: 'Saved' }, 0);
+
+    expect(notifications.value.length).toBe(before + 1);
+    expect(notifications.value.at(-1)).toMatchObject({ id, kind: 'success', title: 'Saved' });
+
+    dismissNotification(id);
+    expect(notifications.value.find((item) => item.id === id)).toBeUndefined();
   });
 });

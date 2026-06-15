@@ -20,12 +20,16 @@
       </aside>
     </div>
     <CommandPalette />
+    <PublishingIndicator />
+    <NotificationToasts />
   </div>
 </template>
 <script setup lang="ts">
 import Sidebar from './Sidebar.vue';
 import TopStatusBar from './TopStatusBar.vue';
 import CommandPalette from './CommandPalette.vue';
+import NotificationToasts from '@/components/ui/NotificationToasts.vue';
+import PublishingIndicator from '@/components/ui/PublishingIndicator.vue';
 import { navItems } from './nav';
 import { useRoute } from 'vue-router';
 import { computed, ref } from 'vue';

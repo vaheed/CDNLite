@@ -968,21 +968,29 @@ The dashboard renders routed views but there is no visible global data invalidat
    - SSL request -> `domain-ssl:{id}`, `domain-activity:{id}`;
    - cache purge -> `domain-activity:{id}`, `usage-summary`.
   - Notes: mutation mapping covers domain, nameserver, DNS, origin, SSL, cache purge, usage, edge, and audit paths. High-value domain views refetch on matching invalidation events without a browser refresh.
-  - Remaining blocker: not every dashboard view has been migrated to the listener yet; edge nodes, usage summary, global audit, settings, and rule tabs still mostly rely on local post-mutation `load()` calls.
-4. [ ] Auto-refresh intervals:
+  - Remaining blocker: not every dashboard view has been migrated to the listener yet; usage summary, global audit, settings, and some rule tabs still mostly rely on local post-mutation `load()` calls.
+4. [x] Auto-refresh intervals:
    - domain status: 10–15s;
    - nameserver verification after button click: 3–5s until terminal/changed;
    - SSL job while active: 2–5s;
    - edge nodes: 5–10s;
    - usage/activity: 10–30s, pause when tab hidden.
-  - Notes: SSL active job polling is implemented at 3 seconds from Phase 4. General domain/edge/activity polling and tab-hidden pause are not complete.
-5. [ ] Global UX:
+  - Notes: added `useVisibilityPolling()` so polling avoids overlapping requests and pauses while the browser tab is hidden. Domain detail now refreshes every 15 seconds for active/setup/error states, SSL active jobs poll every 3 seconds through the shared helper, edge network refreshes every 8 seconds, and domain Activity refreshes every 30 seconds.
+  - Changed files: `dash/src/lib/data/polling.ts`, `dash/src/lib/data/polling.test.ts`, `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainSslTab.vue`, `dash/src/views/domain-tabs/DomainActivityTab.vue`, `dash/src/views/EdgeNetworkView.vue`.
+  - Local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts src/lib/data/polling.test.ts src/lib/api/client.test.ts)` passed with `12 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Manual validation still required: open the dashboard against a disposable stack, keep the domain detail, SSL, Activity, and Edge Network pages open, and verify data updates without browser refresh while polling pauses/resumes when the tab is hidden/visible.
+5. [x] Global UX:
    - success/error toasts;
    - loading indicators on buttons;
    - optimistic updates only where safe;
    - disable duplicate submissions;
    - show “Publishing config to edge…” when config snapshot changes.
-  - Notes: many buttons already have local loading states and duplicate-submit prevention. A global toast/publishing notification layer was not added.
+  - Notes: added global toast notifications for mutating API success/failure and timeouts, plus a shell-level “Publishing config to edge...” indicator for domain/DNS/origin/SSL-affecting invalidations. Existing local loading states and duplicate-submit prevention remain in place.
+  - Changed files: `dash/src/lib/ui/notifications.ts`, `dash/src/components/ui/NotificationToasts.vue`, `dash/src/components/ui/PublishingIndicator.vue`, `dash/src/components/layout/AppShell.vue`, `dash/src/lib/api/client.ts`, `dash/src/lib/data/invalidation.ts`, `dash/src/lib/data/invalidation.test.ts`.
+  - Local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts src/lib/data/polling.test.ts src/lib/api/client.test.ts)` passed with `12 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Remaining blocker: toast wording is intentionally generic (`Action queued`, `Changes saved`, `Deleted`) and can be made action-specific in a later polish pass.
 
 ### Tests
 
@@ -998,6 +1006,8 @@ The dashboard renders routed views but there is no visible global data invalidat
   - Notes: subscribed tabs refetch on invalidation and existing tab mounts still call `load()`.
   - Local validation run: `(cd dash && npm run typecheck)` passed.
   - Local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts)` passed with `2 passed`.
+  - Follow-up local validation run: `(cd dash && npm test -- --run src/lib/data/invalidation.test.ts src/lib/data/polling.test.ts src/lib/api/client.test.ts)` passed with `12 passed`.
+  - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
   - Manual validation still required: run browser/dashboard workflow against a stack to verify visible no-refresh behavior after DNS create/delete, nameserver verify, origin health check, and SSL request.
 
 ### IDE Prompt

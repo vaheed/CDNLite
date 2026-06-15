@@ -92,6 +92,7 @@ import { runtimeConfig } from '@/lib/config/env';
 import { domainsApi } from '@/lib/api/domains';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
+import { useVisibilityPolling } from '@/lib/data/polling';
 import type { Domain, NameserverVerification, Severity } from '@/types';
 import DomainOverviewTab from './domain-tabs/DomainOverviewTab.vue';
 import DomainDnsTab from './domain-tabs/DomainDnsTab.vue';
@@ -276,5 +277,8 @@ watch(() => route.params.tab, (tab) => {
   if (tab && !tabs.some((item) => item.key === tab)) router.replace(`/domains/${domainId.value}/overview`);
 });
 useInvalidationListener(() => [queryKeys.domain(domainId.value)], load);
+useVisibilityPolling(load, 15000, {
+  enabled: () => Boolean(domain.value) && ['pending_nameserver', 'active', 'error'].includes(String(domain.value?.status)),
+});
 onMounted(load);
 </script>

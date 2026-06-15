@@ -97,13 +97,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { sslApi } from '@/lib/api/ssl';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
+import { useVisibilityPolling } from '@/lib/data/polling';
 import type { AcmeStatus, SslCertificate, SslJob } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
@@ -121,7 +122,6 @@ const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' 
 const manual = reactive({ hostname: '', certificate_pem: '', private_key_pem: '' });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
 const rows = computed(() => certificates.value.map(c => ({ ...c, expiry: c.not_after ? formatDate(c.not_after) : '' })));
-let pollTimer: number | undefined;
 
 async function load() {
   const [certs, current, acme] = await Promise.all([
@@ -187,23 +187,22 @@ function jobBadgeStatus(value: string) { return value === 'issued' ? 'healthy' :
 function isActiveJob(job: SslJob) { return ['queued', 'checking_dns', 'creating_order', 'validating_challenge', 'issuing', 'installing'].includes(job.status); }
 function newestActiveJob(jobs: SslJob[]) { return jobs.find(isActiveJob) ?? null; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
-function startPolling() {
-  window.clearInterval(pollTimer);
-  pollTimer = window.setInterval(async () => {
-    if (activeJob.value && isActiveJob(activeJob.value)) {
-      activeJob.value = await sslApi.job(props.domainId, activeJob.value.id);
-      if (!isActiveJob(activeJob.value)) {
-        await load();
-      }
-      return;
+async function pollSslProgress() {
+  if (activeJob.value && isActiveJob(activeJob.value)) {
+    activeJob.value = await sslApi.job(props.domainId, activeJob.value.id);
+    if (!isActiveJob(activeJob.value)) {
+      await load();
     }
-    const next = await sslApi.acmeStatus(props.domainId);
-    status.value = next;
-    activeJob.value = newestActiveJob(next.jobs ?? []);
-  }, 3000);
+    return;
+  }
+  const next = await sslApi.acmeStatus(props.domainId);
+  status.value = next;
+  activeJob.value = newestActiveJob(next.jobs ?? []);
 }
-watch(() => props.domainId, async () => { await load(); startPolling(); });
+watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainSsl(props.domainId)], load);
-onMounted(async () => { await load(); startPolling(); });
-onBeforeUnmount(() => window.clearInterval(pollTimer));
+useVisibilityPolling(pollSslProgress, 3000, {
+  enabled: () => Boolean(activeJob.value && isActiveJob(activeJob.value)),
+});
+onMounted(load);
 </script>
