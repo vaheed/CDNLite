@@ -539,20 +539,20 @@ The edge currently routes to one selected origin and forwards `Host: $host` to t
 
 ### Tests
 
-- [ ] HTTP origin by IP returns 200 through edge.
+- [x] HTTP origin by IP returns 200 through edge.
 - [ ] HTTPS origin with SNI returns 200.
 - [ ] Origin requiring its own Host header returns 200 when `preserve_host=false`.
 - [ ] Origin requiring CDN Host header returns 200 when `preserve_host=true`.
-- [ ] Invalid origin returns 502 with request_id and detailed log/metric.
+- [x] Invalid origin returns 502 with request_id and detailed log/metric.
   - Local validation run: `php -l core/app/Modules/Proxy/Services/OriginHealthService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php && php -l core/app/Modules/Proxy/Http/Controllers/OriginController.php && php -l core/public_index.php` passed.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py` passed with `4 passed`.
   - Local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
-  - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
+  - User-reported manual validation on 2026-06-15: full lightweight/backend test run passed with `177 passed in 44.37s`; `ci/smoke.sh` completed with `[2026-06-15T07:41:22Z] PASS: smoke checks completed`; `ci/e2e.sh` completed with `[2026-06-15T07:44:20Z] PASS: e2e checks completed`.
   - Local validation run: `pytest -q core/tests/test_edge_phase3_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_origin_health_phase19_contract.py` passed.
   - Follow-up local validation run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Proxy/Services/ConfigService.php` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_dns_reconciler_contract.py core/tests/test_origin_record_refactor_contract.py core/tests/test_edge_phase3_contract.py core/tests/test_origin_health_phase19_contract.py core/tests/test_phase0_repro_contract.py` passed with `29 passed`.
   - Follow-up local validation run: `bash -n ci/phase0_repro.sh && bash -n ci/e2e.sh` passed.
-  - Manual validation still required: run the Phase 0 repro and edge routing smoke/e2e commands against a disposable stack; Codex did not run Docker, smoke, or e2e tests per user instruction.
+  - Remaining blocker: dedicated HTTPS/SNI and preserve-host runtime scenarios are still unchecked unless they are explicitly covered by the current e2e fixture; add targeted e2e cases before closing those two checklist items.
 
 ### IDE Prompt
 
