@@ -13,7 +13,6 @@ RUN apt-get update \
     && printf "Package: pdns-*\nPin: origin repo.powerdns.com\nPin-Priority: 600\n" > /etc/apt/preferences.d/auth-50 \
     && apt-get update \
     && apt-get install -y --no-install-recommends pdns-server pdns-backend-pgsql pdns-backend-geoip \
-    && apt-get purge -y --auto-remove curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY entrypoint.sh /usr/local/bin/cdnlite-pdns-auth-entrypoint.sh

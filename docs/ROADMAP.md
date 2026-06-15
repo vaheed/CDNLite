@@ -999,9 +999,9 @@ The dashboard renders routed views but there is no visible global data invalidat
   - Changed files: `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainOverviewTab.vue`, `dash/src/views/OverviewView.vue`, `dash/src/views/DomainDetailView.test.ts`.
   - Follow-up local validation run: `(cd dash && npm run typecheck)` passed.
   - Follow-up local validation run: `(cd dash && npm test -- --run src/views/DomainDetailView.test.ts src/lib/api/domains.test.ts)` passed with `3 passed`.
-  - Follow-up operations fix: changed the rebuilt `pdns-auth` image healthcheck from `pdns_control rping` to the authoritative-server readiness check `pdns_control ping`.
+  - Follow-up operations fix: changed the rebuilt `pdns-auth` image healthcheck from brittle `pdns_control` control-socket checks to the actual PowerDNS HTTP API readiness endpoint `GET /api/v1/servers/localhost` with `X-API-Key`. The image now keeps `curl` because the healthcheck validates the API surface CDNLite depends on.
   - Follow-up operations fix: removed the fixed 60-second `pdns-auth` healthcheck grace period and removed `pdns-auth: service_healthy` from core/dashboard startup chains. Backend and dashboard now wait only for the core PostgreSQL dependency; DNS-specific services retry until PowerDNS is ready, and Poweradmin still waits for PowerDNS because it is a PowerDNS UI.
-  - Changed files: `infra/dnsgeo/docker/pdns-auth/healthcheck.sh`, `docker-compose.yml`, `deploy/dnsgeo/docker-compose.yml`, `deploy/generate-deployment.sh`.
+  - Changed files: `infra/dnsgeo/docker/pdns-auth/healthcheck.sh`, `infra/dnsgeo/docker/pdns-auth/Dockerfile`, `docker-compose.yml`, `deploy/dnsgeo/docker-compose.yml`, `deploy/generate-deployment.sh`.
   - Follow-up local validation run: `bash -n infra/dnsgeo/docker/pdns-auth/healthcheck.sh && bash -n deploy/generate-deployment.sh` passed.
   - Follow-up local validation run: `docker compose config --quiet` passed.
   - Follow-up local validation run: `docker compose -f deploy/dnsgeo/docker-compose.yml config --quiet` passed with expected unset-env warnings in this sandbox.
