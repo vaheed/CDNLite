@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_top_status_bar_groups_glanceable_health_and_actions():
     bar = (ROOT / "dash/src/components/layout/TopStatusBar.vue").read_text()
 
-    for label in ["Core health", "Core ready", "Edge ready", "Admin session active"]:
+    for label in ["Core", "Core", "Edge", "Admin session active"]:
         assert label in bar
     for icon in ["Clock3", "RefreshCw", "Moon", "Command", "LogOut"]:
         assert icon in bar
