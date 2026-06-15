@@ -1061,6 +1061,16 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/activity/requests:
+    get:
+      tags: [Analytics, Operations]
+      summary: Recent edge request diagnostics
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
   /api/v1/domains/{domainId}/security/events:
     get:
       tags: [Analytics, Operations]

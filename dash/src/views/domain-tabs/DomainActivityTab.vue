@@ -11,6 +11,27 @@
     <LoadingSkeleton v-else-if="loading" />
     <template v-else>
       <section class="panel-section space-y-4">
+        <div class="section-heading"><div><h2>Recent edge requests</h2><p>Request, cache, router, and origin forwarding details captured from edge metrics.</p></div></div>
+        <EmptyState v-if="!requests.length" title="No request details" message="No edge request metrics have been ingested for this domain yet." />
+        <HorizontalScrollFrame v-else :watch-key="requests.length">
+          <table class="w-full min-w-[960px] text-left text-sm">
+            <thead class="table-head"><tr><th>Time</th><th>Request</th><th>Status</th><th>Cache</th><th>Origin</th><th>Upstream</th><th>Request ID</th></tr></thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-white/5">
+              <tr v-for="request in requests" :key="request.id">
+                <td class="table-cell whitespace-nowrap">{{ formatDate(request.ts) }}</td>
+                <td class="table-cell"><b>{{ request.method || 'GET' }}</b> <span class="font-mono text-xs">{{ request.host }}{{ request.path }}</span></td>
+                <td class="table-cell">{{ request.status }}</td>
+                <td class="table-cell">{{ request.cache_status || 'UNKNOWN' }}</td>
+                <td class="table-cell"><span class="font-mono text-xs">{{ request.origin_id || 'none' }}</span><span v-if="request.origin_host" class="block text-xs text-slate-500">{{ request.origin_host }}</span></td>
+                <td class="table-cell">{{ request.upstream_status || 'none' }}<span v-if="request.upstream_response_time_ms !== null && request.upstream_response_time_ms !== undefined" class="block text-xs text-slate-500">{{ request.upstream_response_time_ms }} ms</span><span v-if="request.router_error" class="block text-xs text-rose-600">{{ request.router_error }}</span></td>
+                <td class="table-cell"><button class="button-secondary px-3 py-1.5 text-xs" @click="selected=request">{{ request.request_id || 'View JSON' }}</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </HorizontalScrollFrame>
+      </section>
+
+      <section class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Security events</h2><p>WAF, rate-limit, and Geo decisions for this domain.</p></div></div>
         <EmptyState v-if="!security.items.length" title="No security events" message="No domain security events match the selected period." />
         <HorizontalScrollFrame v-else :watch-key="security.items.length">
@@ -68,13 +89,14 @@ import { auditLogApi } from '@/lib/api/auditLog';
 import { securityEventsApi } from '@/lib/api/securityEvents';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
+import { usageApi } from '@/lib/api/usage';
 import { formatDate } from '@/lib/utils/format';
-import type { AuditEntry, PaginatedResult, SecurityEvent } from '@/types';
+import type { AuditEntry, PaginatedResult, RequestActivity, SecurityEvent } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
 const loading = ref(true);
 const error = ref('');
-const selected = ref<AuditEntry | SecurityEvent | null>(null);
+const selected = ref<AuditEntry | RequestActivity | SecurityEvent | null>(null);
 const search = ref('');
 const fromInput = ref('');
 const toInput = ref('');
@@ -84,6 +106,7 @@ const auditLimit = ref(25);
 const auditOffset = ref(0);
 const security = ref<PaginatedResult<SecurityEvent>>({ items: [], total: 0, limit: 25, offset: 0 });
 const audit = ref<PaginatedResult<AuditEntry>>({ items: [], total: 0, limit: 25, offset: 0 });
+const requests = ref<RequestActivity[]>([]);
 
 watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainActivity(props.domainId), queryKeys.auditLog()], load);
@@ -95,7 +118,8 @@ async function load() {
   const from = toEpoch(fromInput.value);
   const to = toEpoch(toInput.value);
   try {
-    [security.value, audit.value] = await Promise.all([
+    [requests.value, security.value, audit.value] = await Promise.all([
+      usageApi.recentRequests(props.domainId, { limit: 50 }),
       securityEventsApi.list({ domain_id: props.domainId, search: search.value, from, to, limit: securityLimit.value, offset: securityOffset.value }),
       auditLogApi.list({ domain_id: props.domainId, search: search.value, from, to, limit: auditLimit.value, offset: auditOffset.value }),
     ]);

@@ -1041,13 +1041,19 @@ For each domain action:
 
 ### Backend Tasks
 
-1. Extend edge `metrics.lua` to write enriched fields.
-2. Extend collector ingest schema:
+1. [x] Extend edge `metrics.lua` to write enriched fields.
+  - Notes: already completed in Phase 3A. Edge metrics include request id, host, method, path, redacted query, cache status, router error, origin id/role/host, upstream status/time/address, request time, and security fields.
+2. [x] Extend collector ingest schema:
    - add columns or create `request_events` table.
-3. Add activity API:
+  - Notes: added additive migration `000004_usage_request_diagnostics.sql` and mirrored it into `schema.sql`. `usage_rollups` now persists request/origin/router/upstream diagnostics emitted by the edge.
+  - Changed files: `core/database/migrations/000004_usage_request_diagnostics.sql`, `core/database/schema.sql`, `core/app/Modules/Collector/Services/CollectorService.php`.
+3. [x] Add activity API:
    - `GET /domains/{id}/activity?from=&to=&type=&cursor=&limit=`
    - response includes mixed timeline: product events + request summaries + recent errors.
-4. Add summary API:
+  - Notes: added `GET /api/v1/domains/{domainId}/activity/requests` for recent edge request/origin diagnostics. The existing Activity tab still combines security and audit logs separately.
+  - Changed files: `core/app/Modules/Collector/Http/Controllers/CollectorController.php`, `core/public_index.php`, `docs/api/api.md`, `docs/public/api/openapi.yaml`.
+  - Remaining blocker: the full mixed timeline endpoint with cursor/type filters is not implemented yet.
+4. [ ] Add summary API:
    - total requests;
    - forwarded edge requests;
    - cache hit/miss ratio;
@@ -1057,15 +1063,17 @@ For each domain action:
    - top origins;
    - top edge nodes;
    - recent origin errors.
-5. Retention and privacy:
+  - Remaining blocker: existing analytics/cache summaries remain; new top-path/top-origin/recent-error summary API is not implemented.
+5. [ ] Retention and privacy:
    - keep raw detailed events short retention;
    - aggregate long-term metrics;
    - redact query strings and sensitive headers;
    - avoid storing full IP unless user explicitly configures retention.
+  - Notes: query strings are stored from the already-redacted edge metric object. Full retention policy and configurable IP storage were not added.
 
 ### Dashboard Tasks
 
-1. Replace minimal Activity page with:
+1. [ ] Replace minimal Activity page with:
    - KPI cards;
    - timeline;
    - filters by event type;
@@ -1073,17 +1081,31 @@ For each domain action:
    - DNS/SSL/action events;
    - edge forwarding table;
    - per-edge request table.
-2. Add request-id search:
+  - Notes: added a Recent edge requests table with status, cache, origin id/host, upstream status/time, router error, and request id JSON details.
+  - Changed files: `dash/src/types.ts`, `dash/src/lib/api/usage.ts`, `dash/src/views/domain-tabs/DomainActivityTab.vue`.
+  - Remaining blocker: KPI cards, mixed timeline, filters for request fields, recent-error panels, and export are still pending.
+2. [ ] Add request-id search:
    - paste request id from 502 page and find exact event.
-3. Add “Export CSV/JSON” for current filter.
+  - Remaining blocker: request id is visible and opens JSON, but search by request id is not implemented.
+3. [ ] Add “Export CSV/JSON” for current filter.
 
 ### Tests
 
-- Request through edge appears in activity within one ingest cycle.
-- 502 request shows selected origin and upstream/router error.
-- DNS add and SSL request appear in timeline.
-- Activity filters work.
-- Sensitive query params are redacted.
+- [ ] Request through edge appears in activity within one ingest cycle.
+  - Manual validation required after rebuilding/migrating the stack and sending edge traffic.
+- [ ] 502 request shows selected origin and upstream/router error.
+  - Manual validation required with `EDGE_LOG_SMOKE_DOWN_HOST=<host-routed-to-down-origin> ./ci/edge_log_smoke.sh` plus Activity page inspection after metrics ingest.
+- [ ] DNS add and SSL request appear in timeline.
+  - Notes: DNS/SSL audit events exist, but the full mixed timeline is still pending.
+- [ ] Activity filters work.
+  - Notes: existing security/audit filters remain; request table filters/search are pending.
+- [x] Sensitive query params are redacted.
+  - Notes: persisted request details use `metrics.lua` redacted query output and contract coverage verifies the persistence path.
+  - Local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Modules/Collector/Http/Controllers/CollectorController.php && php -l core/public_index.php` passed.
+  - Local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_ssl_jobs_phase4_contract.py core/tests/test_edge_error_page_contract.py core/tests/test_edge_phase3_contract.py` passed with `14 passed`.
+  - Local validation run: `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"` passed.
+  - Local validation run: `(cd dash && npm run typecheck && npm test -- --run src/lib/data/invalidation.test.ts)` passed.
+  - User-reported manual validation on 2026-06-15: `184 passed in 45.97s`; smoke completed with `[2026-06-15T08:19:56Z] PASS: smoke checks completed`; e2e completed with `[2026-06-15T08:22:47Z] PASS: e2e checks completed`.
 
 ### IDE Prompt
 

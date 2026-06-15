@@ -521,6 +521,7 @@ Settings tips:
 | `POST` | `/api/v1/usage/recalculate` | Rebuild minute/hour/day aggregates. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
+| `GET` | `/api/v1/domains/{domainId}/activity/requests` | Recent edge request and origin diagnostics. |
 | `GET` | `/api/v1/domains/{domainId}/security/events` | Domain security event list. |
 
 Analytics tips:

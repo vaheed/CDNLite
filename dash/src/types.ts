@@ -107,6 +107,15 @@ export interface DnsOperations {
 }
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: UsagePoint[]; }
+export interface RequestActivity {
+  id: Id; ts: number; request_id?: string | null; domain_id: Id; edge_node_id: string;
+  host?: string | null; method?: string | null; path?: string | null; query_redacted?: Record<string, unknown>;
+  client_country?: string | null; status: number; bytes_in: number; bytes_out: number;
+  cache_status?: string | null; origin_id?: string | null; origin_host?: string | null;
+  upstream_status?: string | null; upstream_response_time_ms?: number | null;
+  upstream_addr?: string | null; request_time_ms?: number | null; router_error?: string | null;
+  security_event_type?: string | null; rule_id?: string | null;
+}
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }
 export interface CacheAnalytics { rows?: CacheAnalyticsRow[]; total_requests?: number; bytes_out?: number; hit?: number; miss?: number; expired?: number; stale?: number; bypass?: number; unknown?: number; hit_ratio?: number; }
 export interface SecurityEvent { id: Id; domain_id?: Id; domain_name?: string; actor_id?: string | null; edge_id?: string | null; type?: string; decision?: string; action?: string; severity?: Severity | string; timestamp?: number | string; created_at?: number | string; payload?: unknown; details?: Record<string, unknown> | null; }
