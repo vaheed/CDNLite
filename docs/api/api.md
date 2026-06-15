@@ -202,6 +202,7 @@ Operational APIs are designed for dashboards and reports. Use them for human-fac
 | `POST` | `/api/v1/domains/{domainId}/nameservers/verify` | Immediately verify registrar delegation and return trace details. |
 | `POST` | `/api/v1/domains/{domainId}/verify-nameservers` | Backward-compatible alias for immediate nameserver verification. |
 | `POST` | `/api/v1/domains/{domainId}/nameservers/force-verify` | Admin-session-only override that marks delegation verified with an audit reason. |
+| `POST` | `/api/v1/domains/{domainId}/nameservers/reseed-expected` | Admin-session-only action that replaces expected nameservers from current platform settings without deleting the domain. |
 | `POST` | `/api/v1/domains/{domainId}/activate` | Activate domain after verification or override. |
 
 Create request:
@@ -241,6 +242,7 @@ Tips:
 - Create the domain first, then add origins and DNS records. This keeps error messages focused.
 - Use `nameservers/verify` to run an immediate DNS resolver check. Responses include `expected_nameservers`, `observed_nameservers`, `matched_nameservers`, `missing_nameservers`, `checked_at`, `status`, and `resolver_errors`.
 - Use `nameservers/force-verify` only as an operator override. It requires a browser admin session token, rejects generic API tokens, requires `{ "reason": "..." }`, writes `domain.nameserver.force_verify` to audit history, invalidates edge config, and reconciles DNS.
+- Use `nameservers/reseed-expected` after changing `platform.nameservers`; it requires an admin session, updates this domain's expected nameserver rows from current settings, preserves observed matches, writes `domain.nameserver.reseed_expected`, invalidates edge config, and reconciles DNS.
 - Avoid changing the domain hostname after traffic is live; create a new domain entry and migrate instead.
 
 ## DNS And Routing

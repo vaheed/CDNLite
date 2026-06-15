@@ -95,6 +95,23 @@ class DomainController
         ];
     }
 
+    public function reseedExpectedNameservers(string $domainId, string $actor): ?array
+    {
+        try {
+            $result = (new DomainVerificationService())->reseedExpectedNameservers($domainId, $actor);
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage(), 'status' => 422];
+        }
+        if ($result === null) {
+            return null;
+        }
+        $data = array_merge((array) $result['domain'], (array) $result['verification']);
+        return [
+            'data' => $data,
+            'verification' => $result['verification'],
+        ];
+    }
+
     public function activate(string $domainId, array $input): ?array
     {
         try {

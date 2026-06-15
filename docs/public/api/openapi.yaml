@@ -294,6 +294,22 @@ paths:
           $ref: "#/components/responses/Error"
         "422":
           $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/nameservers/reseed-expected:
+    post:
+      tags: [Domains]
+      summary: Re-seed expected nameservers from platform settings
+      description: Requires a browser admin session bearer token. Updates this domain's expected nameserver rows from current platform nameserver settings without deleting the domain.
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/NameserverVerificationObject"
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/activate:
     post:
       tags: [Domains]
@@ -1450,6 +1466,8 @@ components:
           items:
             type: string
         forced_verified:
+          type: boolean
+        reseeded_expected:
           type: boolean
         reason:
           type: string

@@ -319,9 +319,15 @@ The repository has a real verification service, but the user-facing refresh/forc
    - expose partial vs not configured clearly.
   - Notes: trace and normalization are implemented for the existing resolver path, including resolver exception capture. Additional authoritative/public resolver fallback remains a future enhancement because the current runtime uses `dns_get_record(DNS_NS)` directly.
   - Remaining blocker: no separate public/authoritative resolver fallback was added in this pass.
-- [ ] Add admin action to re-seed expected nameservers from current settings without deleting domain:
+- [x] Add admin action to re-seed expected nameservers from current settings without deleting domain:
    - useful if platform nameservers changed after domain creation.
-  - Remaining blocker: not implemented yet; expected nameserver reseeding needs its own safe API and dashboard control.
+  - Notes: added admin-session-only `POST /api/v1/domains/{domainId}/nameservers/reseed-expected`. It replaces expected nameserver rows from current `platform.nameservers`, preserves observed overlap, recalculates domain nameserver/lifecycle status, invalidates edge config, runs DNS reconciliation, and writes `domain.nameserver.reseed_expected`.
+  - Changed files: `core/app/Modules/Domains/Services/DomainVerificationService.php`, `core/app/Modules/Domains/Http/Controllers/DomainController.php`, `core/public_index.php`, `dash/src/lib/api/domains.ts`, `dash/src/types.ts`, `dash/src/views/DomainDetailView.vue`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `README.md`, `docs/setup.md`, `core/tests/test_nameserver_force_verify_contract.py`.
+  - Local validation run: `php -l core/app/Modules/Domains/Services/DomainVerificationService.php && php -l core/app/Modules/Domains/Http/Controllers/DomainController.php && php -l core/public_index.php` passed.
+  - Local validation run: `pytest -q core/tests/test_nameserver_force_verify_contract.py` passed with `3 passed`.
+  - Local validation run: `(cd dash && npm run typecheck)` passed.
+  - Local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
+  - Manual validation still required: after stack rebuild, change `platform.nameservers` on a disposable setup, call the re-seed endpoint or use the dashboard button, then confirm expected nameservers update without deleting the domain.
 
 ### Dashboard Tasks
 

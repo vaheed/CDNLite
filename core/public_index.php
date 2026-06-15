@@ -364,6 +364,14 @@ $router->add('POST', '/api/v1/domains/{domainId}/nameservers/force-verify', stat
     $result = $domainController->forceVerifyNameservers((string) $p['domainId'], $req->body, (string) $user['username']);
     return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/nameservers/reseed-expected', static function (Request $req, array $p) use ($domainController, $adminAuth): array {
+    $user = $adminAuth->userForToken(bearerToken());
+    if ($user === null) {
+        return Response::json(['error' => 'admin_session_required'], 403);
+    }
+    $result = $domainController->reseedExpectedNameservers((string) $p['domainId'], (string) $user['username']);
+    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/activate', static function (Request $req, array $p) use ($domainController): array {
     $result = $domainController->activate((string) $p['domainId'], $req->body);
     return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));

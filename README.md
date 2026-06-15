@@ -112,6 +112,16 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/force-verify" \
 
 Force verification activates the domain, invalidates the edge snapshot, triggers
 DNS reconciliation, and writes `domain.nameserver.force_verify` to audit history.
+If platform nameservers change after a domain is created, an admin-session token
+can re-seed that domain's expected nameserver rows without deleting it:
+
+```bash
+curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/reseed-expected" \
+  -H "Authorization: Bearer $ADMIN_SESSION"
+```
+
+The re-seed action preserves observed matches where hostnames overlap, invalidates
+edge config, reconciles DNS, and writes `domain.nameserver.reseed_expected`.
 
 ## Development And Validation
 

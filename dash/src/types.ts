@@ -36,6 +36,7 @@ export interface NameserverVerification {
   status: string;
   resolver_errors: string[];
   forced_verified?: boolean;
+  reseeded_expected?: boolean;
   reason?: string;
 }
 export type DomainNameserverVerification = Domain & NameserverVerification;

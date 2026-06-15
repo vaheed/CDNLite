@@ -24,6 +24,7 @@
         <div class="flex shrink-0 flex-wrap gap-2">
           <button class="button-secondary" :disabled="loading" @click="load"><RefreshCw class="h-4 w-4" /> Refresh</button>
           <button class="button-secondary" :disabled="nameserverBusy" @click="refreshNameservers"><RefreshCw class="h-4 w-4" /> Refresh nameservers now</button>
+          <button class="button-secondary" :disabled="nameserverBusy" @click="reseedExpectedNameservers">Re-seed expected NS</button>
           <button class="button-primary" :disabled="nameserverBusy" @click="forceVerifyNameservers">Force verify as admin</button>
           <ReportExportButton title="Domain detail" :data="{ domain }" />
         </div>
@@ -221,6 +222,15 @@ async function forceVerifyNameservers() {
   });
 }
 
+async function reseedExpectedNameservers() {
+  if (!window.confirm('Replace this domain’s expected nameservers with the current platform nameserver settings?')) return;
+  await runNameserverAction(async () => {
+    const result = await domainsApi.reseedExpectedNameservers(domainId.value);
+    applyNameserverResult(result);
+    nameserverMessage.value = 'Expected nameservers re-seeded from current platform settings.';
+  });
+}
+
 async function runNameserverAction(action: () => Promise<void>) {
   nameserverBusy.value = true;
   nameserverError.value = false;
@@ -247,6 +257,7 @@ function applyNameserverResult(result: Domain & NameserverVerification) {
     status: result.status,
     resolver_errors: result.resolver_errors ?? [],
     forced_verified: result.forced_verified,
+    reseeded_expected: result.reseeded_expected,
     reason: result.reason,
   };
 }

@@ -97,6 +97,12 @@ does not wait for the scheduler and shows expected, observed, matched, missing,
 and resolver error details. Operators logged in with an admin session can use
 **Force verify as admin** with a reason; the override is audited, activates the
 domain, invalidates edge config, and reconciles DNS.
+If you update `platform.nameservers` after domains already exist, use **Re-seed
+expected NS** on each affected domain or call
+`POST /api/v1/domains/{domainId}/nameservers/reseed-expected` with an admin
+session token. This updates expected delegation rows from current settings,
+preserves already observed overlaps, invalidates edge config, reconciles DNS,
+and writes an audit event without deleting the domain.
 
 Fresh local reset:
 

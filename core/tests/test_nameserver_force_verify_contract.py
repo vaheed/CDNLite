@@ -44,3 +44,30 @@ def test_force_verify_requires_admin_session_and_audits_reason():
     assert "forced_verified" in service
     assert "UPDATE config_state SET active_snapshot_version = NULL" in service
     assert "(new DnsReconciler())->reconcile()" in service
+
+
+def test_reseed_expected_nameservers_is_admin_only_and_audited():
+    service = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
+    controller = read("core/app/Modules/Domains/Http/Controllers/DomainController.php")
+    routes = read("core/public_index.php")
+    dashboard = read("dash/src/views/DomainDetailView.vue")
+    api = read("dash/src/lib/api/domains.ts")
+    docs = read("docs/api/api.md")
+    openapi = read("docs/public/api/openapi.yaml")
+
+    assert "/api/v1/domains/{domainId}/nameservers/reseed-expected" in routes
+    assert "$adminAuth->userForToken(bearerToken())" in routes
+    assert "admin_session_required" in routes
+    assert "reseedExpectedNameservers" in controller
+    assert "SettingsRepository" in service
+    assert "platform.nameservers" in service
+    assert "DELETE FROM domain_nameservers WHERE domain_id" in service
+    assert "domain.nameserver.reseed_expected" in service
+    assert "reseeded_expected" in service
+    assert "UPDATE config_state SET active_snapshot_version = NULL" in service
+    assert "(new DnsReconciler())->reconcile()" in service
+
+    assert "reseedExpectedNameservers" in api
+    assert "Re-seed expected NS" in dashboard
+    assert "nameservers/reseed-expected" in docs
+    assert "/api/v1/domains/{domainId}/nameservers/reseed-expected" in openapi

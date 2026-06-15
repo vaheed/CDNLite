@@ -3,8 +3,10 @@
 namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
+use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\AuditLog;
 use App\Support\Database;
+use App\Support\Uuid;
 
 class DomainVerificationService
 {
@@ -144,6 +146,93 @@ class DomainVerificationService
                 'resolver_errors' => [],
                 'forced_verified' => true,
                 'reason' => $reason,
+            ],
+        ];
+    }
+
+    public function reseedExpectedNameservers(string $domainId, string $actor): ?array
+    {
+        $domain = (new DomainService())->find($domainId);
+        if ($domain === null) {
+            return null;
+        }
+
+        $expected = $this->normalize((array) (new SettingsRepository())->value('platform.nameservers', 'hostnames'));
+        if ($expected === []) {
+            throw new \RuntimeException('platform_nameservers_not_configured');
+        }
+
+        $previousRows = (array) ($domain['nameservers'] ?? []);
+        $previousObserved = [];
+        foreach ($previousRows as $row) {
+            $hostname = $this->normalize([(string) ($row['hostname'] ?? '')])[0] ?? '';
+            if ($hostname !== '' && (bool) ($row['observed'] ?? false)) {
+                $previousObserved[$hostname] = true;
+            }
+        }
+
+        $now = time();
+        $matched = array_values(array_filter($expected, static fn (string $hostname): bool => isset($previousObserved[$hostname])));
+        $missing = array_values(array_diff($expected, $matched));
+        $status = $missing === [] ? 'verified' : 'partial';
+        $lifecycle = $status === 'verified' ? 'active' : 'pending_nameserver';
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $delete = $pdo->prepare('DELETE FROM domain_nameservers WHERE domain_id = :domain_id');
+            $delete->execute(['domain_id' => $domainId]);
+
+            $insert = $pdo->prepare(
+                'INSERT INTO domain_nameservers (id, domain_id, hostname, expected, observed, last_checked_at)
+                 VALUES (:id, :domain_id, :hostname, true, :observed, :checked)'
+            );
+            foreach ($expected as $hostname) {
+                $insert->execute([
+                    'id' => Uuid::v4(),
+                    'domain_id' => $domainId,
+                    'hostname' => $hostname,
+                    'observed' => isset($previousObserved[$hostname]) ? 1 : 0,
+                    'checked' => isset($previousObserved[$hostname]) ? $now : null,
+                ]);
+            }
+
+            $update = $pdo->prepare(
+                'UPDATE domains SET nameserver_status = :nameserver_status, status = :status,
+                 updated_at = :updated_at WHERE id = :id'
+            );
+            $update->execute([
+                'nameserver_status' => $status,
+                'status' => $lifecycle,
+                'updated_at' => $now,
+                'id' => $domainId,
+            ]);
+            $pdo->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+
+        (new DnsReconciler())->reconcile();
+        $updated = (new DomainService())->find($domainId);
+        AuditLog::write('domain.nameserver.reseed_expected', 'domain', $domainId, $domainId, $domain, [
+            'domain' => $updated,
+            'expected_nameservers' => $expected,
+            'previous_nameservers' => $previousRows,
+        ], $actor);
+
+        return [
+            'domain' => $updated,
+            'verification' => [
+                'expected_nameservers' => $expected,
+                'observed_nameservers' => $matched,
+                'matched_nameservers' => $matched,
+                'missing_nameservers' => $missing,
+                'checked_at' => $now,
+                'status' => $status,
+                'resolver_errors' => [],
+                'reseeded_expected' => true,
             ],
         ];
     }

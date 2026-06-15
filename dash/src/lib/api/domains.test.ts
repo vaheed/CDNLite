@@ -9,8 +9,7 @@ describe('domainsApi onboarding', () => {
     vi.mocked(api.post).mockResolvedValue({ id: 'domain-1' });
     await domainsApi.verifyNameservers('domain-1');
     await domainsApi.activate('domain-1', true);
-    expect(api.post).toHaveBeenNthCalledWith(1, '/api/v1/domains/domain-1/verify-nameservers');
+    expect(api.post).toHaveBeenNthCalledWith(1, '/api/v1/domains/domain-1/nameservers/verify');
     expect(api.post).toHaveBeenNthCalledWith(2, '/api/v1/domains/domain-1/activate', { override: true });
   });
 });
-
