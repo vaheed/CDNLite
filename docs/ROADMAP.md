@@ -1163,6 +1163,7 @@ For each domain action:
   - Follow-up local validation run: OpenAPI YAML parsed with `python3 -c "import pathlib, yaml; yaml.safe_load(pathlib.Path('docs/public/api/openapi.yaml').read_text())"`.
   - Follow-up local validation run: `php -l core/app/Modules/Collector/Services/CollectorService.php && php -l core/app/Console/Commands/CdnUsagePruneCommand.php && php -l core/artisan` passed.
   - Follow-up local validation run: `pytest -q core/tests/test_phase6_activity_diagnostics_contract.py core/tests/test_ssl_jobs_phase4_contract.py` passed with `7 passed`.
+  - User-reported manual validation on 2026-06-15: full lightweight/backend test run passed with `191 passed in 44.28s`; `ci/smoke.sh` completed with `[2026-06-15T13:48:35Z] PASS: smoke checks completed`; `ci/e2e.sh` completed with `[2026-06-15T13:51:32Z] PASS: e2e checks completed`.
   - Remaining blockers: manual runtime validation is still required to confirm edge traffic appears in Activity within one ingest cycle and a 502 can be found by request id after rebuilding/migrating the stack. Codex did not run Docker, smoke, or e2e tests per user instruction.
 
 ### IDE Prompt
@@ -1202,6 +1203,7 @@ Any DNS, origin, SSL, domain, WAF, cache, redirect, or header change must invali
 - Changed files: `core/app/Modules/Domains/Services/DomainService.php`, `core/app/Modules/Dns/Services/DnsService.php`, `core/app/Modules/Dns/Services/GeoRoutingService.php`, `core/tests/test_phase7_config_invalidation_contract.py`, `docs/ROADMAP.md`.
 - Local validation run: `php -l core/app/Modules/Domains/Services/DomainService.php && php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Dns/Services/GeoRoutingService.php` passed.
 - Local validation run: `pytest -q core/tests/test_phase7_config_invalidation_contract.py core/tests/test_phase6_activity_diagnostics_contract.py` passed with `5 passed`.
+- User-reported manual validation on 2026-06-15: full lightweight/backend test run passed with `191 passed in 44.28s`; smoke passed at `2026-06-15T13:48:35Z`; e2e passed at `2026-06-15T13:51:32Z`.
 - Manual validation still required: run a disposable stack, mutate a domain/DNS/geo route, then confirm `cdn:edge:sync-config` publishes a new snapshot and edge pulls it.
 
 **Prompt**
@@ -1223,6 +1225,7 @@ DNS create/update may fail or partially publish under strict PowerDNS mode. Retu
 - Local validation run: `pytest -q core/tests/test_phase7_config_invalidation_contract.py` passed with `2 passed`.
 - Local validation run: `(cd dash && npm test -- --run src/lib/api/client.test.ts)` passed with `7 passed`.
 - Local validation run: `(cd dash && npm run typecheck)` passed.
+- User-reported manual validation on 2026-06-15: full lightweight/backend test run passed with `191 passed in 44.28s`; smoke passed at `2026-06-15T13:48:35Z`; e2e passed at `2026-06-15T13:51:32Z`.
 - Remaining blocker: dashboard still does not have a dedicated per-row retry button in the DNS tab; operators can retry through `cdn:dns:reconcile`, PowerDNS force sync, or existing DNS operations controls.
 
 **Prompt**
