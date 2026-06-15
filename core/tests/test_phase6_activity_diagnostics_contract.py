@@ -112,3 +112,18 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     assert "recent origin errors missing 502 request" in e2e
     assert "phase6-secret" in e2e
     assert "activity lookup leaked sensitive query parameter value" in e2e
+
+
+def test_terminal_backup_502_paths_emit_activity_metrics():
+    nginx = read("edge/openresty/nginx.conf")
+
+    for location in (
+        "location @cdnlite_backup {",
+        "location @cdnlite_backup_noverify {",
+        "location @cdnlite_tls_backup {",
+        "location @cdnlite_tls_backup_noverify {",
+    ):
+        start = nginx.index(location)
+        block = nginx[start:nginx.index("proxy_set_header Host", start)]
+        assert "log_by_lua_block" in block
+        assert "metrics.on_log()" in block
