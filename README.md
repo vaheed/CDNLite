@@ -7,9 +7,6 @@
 
 CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL database, Vue admin dashboard, OpenResty/Lua edge proxy, and signed shell-based edge agent. It is useful for CDN learning, local labs, small private edge deployments, and testing CDN operations workflows.
 
-Edge HTTP and HTTPS responses remove the OpenResty/Nginx `Server` header and
-suppress version tokens, including on generated 5xx error pages.
-
 ![CDNLite screenshot](docs/ScreenShot.png)
 
 ## Table Of Contents
