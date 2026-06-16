@@ -16,6 +16,10 @@
         <div v-if="loading" class="text-sm text-slate-500">Loading settings...</div>
         <template v-else-if="group">
           <SettingsSection :fields="group.fields" :values="draft" @change="setValue" />
+          <div v-if="showAnycastWarning" role="alert" class="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+            <p class="font-semibold">Static anycast bypass is active</p>
+            <p class="mt-1 leading-6">When anycast IPv4 or IPv6 is set, CDNLite never uses Lua, country routing, or continent routing for that shared proxy address family. The proxy host always returns the configured anycast IP.</p>
+          </div>
           <div class="flex flex-wrap items-center gap-3">
             <button class="button-primary" :disabled="!dirty || saving" @click="save">{{ saving ? 'Saving...' : 'Save changes' }}</button>
             <button v-if="active === 'platform.powerdns'" class="button-secondary" :disabled="testing" @click="testPowerDns">{{ testing ? 'Testing...' : 'Test PowerDNS connection' }}</button>
@@ -62,6 +66,9 @@ const testing = ref(false);
 const message = ref('');
 const messageOk = ref(true);
 const dirty = computed(() => Object.keys(changed.value).length > 0);
+const showAnycastWarning = computed(() => active.value === 'platform.edge_dns' && (
+  String(draft.value.anycast_ipv4 ?? '').trim() !== '' || String(draft.value.anycast_ipv6 ?? '').trim() !== ''
+));
 
 async function load() {
   loading.value = true;

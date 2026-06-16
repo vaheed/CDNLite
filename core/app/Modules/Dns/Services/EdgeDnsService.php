@@ -39,8 +39,19 @@ class EdgeDnsService
         $rrsets = [
             $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
         ];
+        $staticAnycast = $this->staticAnycastIps();
 
         foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
+            if ($staticAnycast[$family] !== '') {
+                $rrsets[] = $this->desired(
+                    $this->proxyLabel(),
+                    $type,
+                    $ttl,
+                    [$staticAnycast[$family]],
+                    'shared_proxy_static_anycast:' . $type
+                );
+                continue;
+            }
             $targets = array_merge($pool['anycast'][$family], $pool['unicast'][$family]);
             $content = $this->health->luaRecord($type, $targets);
             if ($content === null) {
@@ -79,6 +90,7 @@ class EdgeDnsService
         return [
             'cdn_zone' => $this->cdnZone(),
             'proxy_host' => $this->proxyHost(),
+            'static_anycast' => $this->staticAnycastIps(),
             'active_edge_nodes' => $pool['nodes'],
             'generated_edge_hostnames' => [$this->proxyHost() . '.'],
             'customer_records' => [],
@@ -98,6 +110,7 @@ class EdgeDnsService
         return [
             'cdn_zone' => $this->cdnZone(),
             'proxy_host' => $this->proxyHost(),
+            'static_anycast' => $this->staticAnycastIps(),
             'powerdns_enabled' => $this->powerDns->isEnabled(),
             'records' => $this->desiredRrsets(),
             'edge_state' => $pool['nodes'],
@@ -210,6 +223,14 @@ class EdgeDnsService
     private function proxyLabel(): string
     {
         return substr($this->proxyHost(), 0, -strlen('.' . $this->cdnZone()));
+    }
+
+    private function staticAnycastIps(): array
+    {
+        return [
+            'ipv4' => trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv4')),
+            'ipv6' => trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv6')),
+        ];
     }
 
     private function ttl(): int

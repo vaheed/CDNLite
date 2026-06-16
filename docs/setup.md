@@ -158,7 +158,13 @@ Core settings:
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
 | `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
 | `CDNLITE_CDN_ZONE` | Authoritative zone containing stable site targets and the shared proxy record. |
-| `CDNLITE_CDN_PROXY_HOST` | Shared Lua A/AAAA hostname, and must be inside `CDNLITE_CDN_ZONE`. |
+| `CDNLITE_CDN_PROXY_HOST` | Shared proxy hostname, and must be inside `CDNLITE_CDN_ZONE`. |
+
+Static proxy anycast IPs are configured in the admin dashboard under
+Settings -> Edge DNS / Anycast as `anycast_ipv4` and `anycast_ipv6`. These are
+database-backed settings, not environment variables. When set, the shared proxy
+host publishes plain A/AAAA records for the configured families and bypasses
+DNSGeo Lua, country routing, and continent routing for those families.
 
 The DNS initializer creates only the PowerDNS/Poweradmin schemas and service
 roles. It does not create sample zones. GeoIP bootstrap uses only the reserved
@@ -324,9 +330,10 @@ deletion, persisted failure state, and recovery. Static Lua answers are used
 only for deterministic documentation-range CI fixtures.
 
 Core and the DNS reconciler receive the same CDN zone, proxy hostname, and TTL
-settings. Shared edge-pool Lua records use edge IP, country, and continent data
-from Core and fall back to the first eligible edge IP. Recreate both services
-after changing CDN DNS values.
+settings. By default, shared edge-pool Lua records use edge IP, country, and
+continent data from Core and fall back to the first eligible edge IP. Static
+proxy anycast settings replace those Lua records with plain A/AAAA records for
+the configured families. Recreate both services after changing CDN DNS values.
 
 Dashboard validation uses typechecking, unit tests, a production build, and
 manual operator QA. Browser automation is intentionally outside the release

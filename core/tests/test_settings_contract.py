@@ -78,4 +78,7 @@ def test_dashboard_has_all_settings_tabs_and_secret_editor():
     for label in ["PowerDNS", "Nameservers", "Edge DNS", "Cache Defaults", "Analytics", "Security"]:
         assert label in view
     assert "Test PowerDNS connection" in view
+    assert "Static anycast bypass is active" in view
+    assert "never uses Lua, country routing, or continent routing" in view
+    assert "showAnycastWarning" in view
     assert "••••• (configured)" in secret

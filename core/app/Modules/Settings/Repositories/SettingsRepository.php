@@ -30,6 +30,8 @@ class SettingsRepository
             'health_port' => ['env' => 'CDNLITE_EDGE_HEALTH_PORT', 'type' => 'int', 'default' => 443, 'description' => 'Shared proxy health-check port.'],
             'cdn_zone' => ['env' => 'CDNLITE_CDN_ZONE', 'type' => 'string', 'default' => 'cdn.example.net', 'description' => 'Authoritative CDN routing zone.'],
             'proxy_host' => ['env' => 'CDNLITE_CDN_PROXY_HOST', 'type' => 'string', 'default' => 'proxy.cdn.example.net', 'description' => 'Shared CDN proxy hostname.'],
+            'anycast_ipv4' => ['type' => 'ipv4_optional', 'default' => '', 'description' => 'Static anycast IPv4 for the shared proxy host. When set, proxy DNS publishes a plain A record and bypasses DNSGeo Lua for IPv4.'],
+            'anycast_ipv6' => ['type' => 'ipv6_optional', 'default' => '', 'description' => 'Static anycast IPv6 for the shared proxy host. When set, proxy DNS publishes a plain AAAA record and bypasses DNSGeo Lua for IPv6.'],
         ],
         'platform.cache' => [
             'default_ttl' => ['env' => 'CDNLITE_CACHE_DEFAULT_TTL', 'type' => 'string', 'default' => '60s', 'description' => 'Default proxy cache TTL.'],
@@ -240,6 +242,8 @@ class SettingsRepository
             'bool' => $this->normalizeBool($value),
             'int' => $this->normalizeInt($value),
             'list' => $this->normalizeList($value),
+            'ipv4_optional' => $this->normalizeOptionalIp($value, FILTER_FLAG_IPV4),
+            'ipv6_optional' => $this->normalizeOptionalIp($value, FILTER_FLAG_IPV6),
             default => is_scalar($value) ? trim((string) $value) : throw new \InvalidArgumentException('must_be_string'),
         };
     }
@@ -266,6 +270,21 @@ class SettingsRepository
         $items = array_values(array_filter(array_map(static fn ($item): string => trim((string) $item), $items)));
         if ($items === []) throw new \InvalidArgumentException('must_not_be_empty');
         return $items;
+    }
+
+    private function normalizeOptionalIp(mixed $value, int $flag): string
+    {
+        if (!is_scalar($value) && $value !== null) {
+            throw new \InvalidArgumentException('must_be_string');
+        }
+        $ip = trim((string) ($value ?? ''));
+        if ($ip === '') {
+            return '';
+        }
+        if (filter_var($ip, FILTER_VALIDATE_IP, $flag) === false) {
+            throw new \InvalidArgumentException($flag === FILTER_FLAG_IPV4 ? 'must_be_ipv4' : 'must_be_ipv6');
+        }
+        return $ip;
     }
 
     private function decode(string $value): mixed

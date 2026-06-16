@@ -65,7 +65,9 @@ Settings changes should be followed by readiness checks and, where relevant, con
 Open `DNS Operations` to inspect the PowerDNS API connection, API-key presence,
 CDN zone, shared proxy hostname, mandatory apex `ALIAS` mode, and bundled
 DNSGeo capabilities. The page lists convergence and errors per zone and shows
-the complete desired RRset preview.
+the complete desired RRset preview. Static proxy anycast IPv4/IPv6 values are
+managed from `Settings` under Edge DNS / Anycast; when set, the shared proxy
+host publishes plain A/AAAA records for those families instead of DNSGeo Lua.
 
 Use `Dry run` to calculate desired records without writing PowerDNS. Use
 `Force sync now` to run the advisory-locked reconciler immediately. Poweradmin

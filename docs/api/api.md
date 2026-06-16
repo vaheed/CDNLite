@@ -513,6 +513,7 @@ Settings tips:
 
 - Validate settings payloads before saving when building custom admin tooling.
 - Test PowerDNS after changing API URL, server ID, or API key.
+- `platform.edge_dns.anycast_ipv4` and `platform.edge_dns.anycast_ipv6` are optional static proxy anycast IPs. When set, the shared proxy host publishes plain A/AAAA records for those families and bypasses DNSGeo Lua routing.
 - Record the actor when settings are changed through automation so audit trails remain useful.
 
 ## Analytics

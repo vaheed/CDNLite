@@ -32,6 +32,10 @@ class DnsOperationsService
                 'api_key_configured' => (bool) ($powerDns['api_key']['configured'] ?? false),
                 'cdn_zone' => (string) $edgeDns['cdn_zone'],
                 'cdn_proxy_host' => (string) $edgeDns['proxy_host'],
+                'static_anycast' => [
+                    'ipv4' => (string) ($edgeDns['anycast_ipv4'] ?? ''),
+                    'ipv6' => (string) ($edgeDns['anycast_ipv6'] ?? ''),
+                ],
                 'apex_proxy_mode' => 'ALIAS',
                 'bundled_dnsgeo' => true,
                 'poweradmin_url' => (string) (getenv('CDNLITE_POWERADMIN_URL') ?: 'http://localhost:9191'),

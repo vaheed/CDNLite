@@ -43,6 +43,8 @@ def test_edge_network_dashboard_contract():
     assert 'title="Nodes"' in view
     assert ">Pools<" in view
     assert ">Platform DNS<" in view
+    assert "Static proxy anycast" in view
+    assert "staticAnycastSummary" in view
     assert "has no public IP" in view
     assert "/api/v1/edges/pools" in api
     assert "/api/v1/edges/dns" in api

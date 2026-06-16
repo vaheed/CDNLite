@@ -971,15 +971,12 @@ EOF
 write_platform_settings_sql() {
   local out="$1/scripts/platform-settings-bootstrap.sql"
   mkdir -p "$1/scripts"
-  local now_ms pdns_api_key_esc pdns_api_base_esc pdns_api_url_esc ns1_esc ns2_esc cdn_zone_esc proxy_host_esc edge_base_esc edge_prefix_esc poweradmin_esc
+  local now_ms pdns_api_key_esc pdns_api_url_esc ns1_esc ns2_esc cdn_zone_esc proxy_host_esc
   now_ms="$(date +%s)000"
   pdns_api_key_esc="$(sql_escape "$PDNS_API_KEY")"
   pdns_api_url_esc="$(sql_escape "http://pdns-auth:8081")"
-  pdns_api_base_esc="$(sql_escape "http://pdns-auth:8081/api/v1")"
   ns1_esc="$(sql_escape "$DNS_NS1")"; ns2_esc="$(sql_escape "$DNS_NS2")"
   cdn_zone_esc="$(sql_escape "$CDN_ZONE")"; proxy_host_esc="$(sql_escape "$CDN_PROXY_HOST")"
-  edge_base_esc="$(sql_escape "$DNS_BASE_DOMAIN")"; edge_prefix_esc="$(sql_escape "$EDGE_ZONE_PREFIX")"
-  poweradmin_esc="$(sql_escape "$PA_APPLICATION_URL")"
   cat > "$out" <<EOF
 DO \$\$
 BEGIN
@@ -989,16 +986,14 @@ BEGIN
       ('platform.powerdns.enabled','platform.powerdns','true'::jsonb,false,'Generated: enable PowerDNS publishing','generator',${now_ms}),
       ('platform.powerdns.strict','platform.powerdns','true'::jsonb,false,'Generated: fail closed if PowerDNS sync fails','generator',${now_ms}),
       ('platform.powerdns.api_url','platform.powerdns','"${pdns_api_url_esc}"'::jsonb,false,'Generated: internal PowerDNS API URL','generator',${now_ms}),
-      ('platform.powerdns.api_base','platform.powerdns','"${pdns_api_base_esc}"'::jsonb,false,'Generated: internal PowerDNS API base','generator',${now_ms}),
       ('platform.powerdns.api_key','platform.powerdns','"${pdns_api_key_esc}"'::jsonb,true,'Generated: PowerDNS API key','generator',${now_ms}),
       ('platform.powerdns.server_id','platform.powerdns','"localhost"'::jsonb,false,'Generated: PowerDNS server id','generator',${now_ms}),
-      ('platform.powerdns.zone_kind','platform.powerdns','"Native"'::jsonb,false,'Generated: PowerDNS zone kind','generator',${now_ms}),
-      ('platform.poweradmin.url','platform.powerdns','"${poweradmin_esc}"'::jsonb,false,'Generated: Poweradmin operator URL','generator',${now_ms}),
+      ('platform.powerdns.zone_kind','platform.powerdns','"NATIVE"'::jsonb,false,'Generated: PowerDNS zone kind','generator',${now_ms}),
       ('platform.nameservers.hostnames','platform.nameservers','["${ns1_esc}","${ns2_esc}"]'::jsonb,false,'Generated: authoritative nameservers','generator',${now_ms}),
-      ('platform.cdn.zone','platform.edge_dns','"${cdn_zone_esc}"'::jsonb,false,'Generated: shared CDN zone','generator',${now_ms}),
-      ('platform.cdn.proxy_host','platform.edge_dns','"${proxy_host_esc}"'::jsonb,false,'Generated: shared CDN proxy host','generator',${now_ms}),
-      ('platform.edge_dns.base_domain','platform.edge_dns','"${edge_base_esc}"'::jsonb,false,'Generated: edge base domain','generator',${now_ms}),
-      ('platform.edge_dns.zone_prefix','platform.edge_dns','"${edge_prefix_esc}"'::jsonb,false,'Generated: edge hostname prefix','generator',${now_ms})
+      ('platform.edge_dns.cdn_zone','platform.edge_dns','"${cdn_zone_esc}"'::jsonb,false,'Generated: shared CDN zone','generator',${now_ms}),
+      ('platform.edge_dns.proxy_host','platform.edge_dns','"${proxy_host_esc}"'::jsonb,false,'Generated: shared CDN proxy host','generator',${now_ms}),
+      ('platform.edge_dns.anycast_ipv4','platform.edge_dns','""'::jsonb,false,'Generated: optional static proxy anycast IPv4','generator',${now_ms}),
+      ('platform.edge_dns.anycast_ipv6','platform.edge_dns','""'::jsonb,false,'Generated: optional static proxy anycast IPv6','generator',${now_ms})
       ON CONFLICT (key) DO UPDATE SET
         group_name = EXCLUDED.group_name,
         value_json = EXCLUDED.value_json,

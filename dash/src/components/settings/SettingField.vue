@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-const props = defineProps<{ modelValue: unknown; label: string; description?: string | null; type: 'string' | 'bool' | 'int' | 'list' }>();
+const props = defineProps<{ modelValue: unknown; label: string; description?: string | null; type: 'string' | 'bool' | 'int' | 'list' | 'ipv4_optional' | 'ipv6_optional' }>();
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>();
 const displayValue = computed(() => Array.isArray(props.modelValue) ? props.modelValue.join(', ') : String(props.modelValue ?? ''));
 function onInput(event: Event) {

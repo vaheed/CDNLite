@@ -22,6 +22,22 @@ def test_control_plane_envs_define_canonical_cdn_targets():
         assert "CDNLITE_CDN_PROXY_HOST=proxy.cdn.CHANGE_ME_DOMAIN" in env
 
 
+def test_deployment_generator_seeds_current_edge_dns_settings():
+    generator = (ROOT / "deploy" / "generate-deployment.sh").read_text()
+
+    assert "platform.edge_dns.cdn_zone" in generator
+    assert "platform.edge_dns.proxy_host" in generator
+    assert "platform.edge_dns.anycast_ipv4" in generator
+    assert "platform.edge_dns.anycast_ipv6" in generator
+    assert '"NATIVE"' in generator
+    assert "platform.cdn.zone" not in generator
+    assert "platform.cdn.proxy_host" not in generator
+    assert "platform.powerdns.api_base" not in generator
+    assert "platform.poweradmin.url" not in generator
+    assert "platform.edge_dns.base_domain" not in generator
+    assert "platform.edge_dns.zone_prefix" not in generator
+
+
 def test_dashboard_uses_dashboard_image_and_healthcheck():
     for name in ("core", "starter"):
         compose = (ROOT / "deploy" / name / "docker-compose.yml").read_text()

@@ -98,6 +98,12 @@
         </div>
 
         <p v-if="dns?.synced_at" class="-mt-3 mb-4 text-xs text-slate-400">Last synchronized {{ formatDate(dns.synced_at) }}</p>
+        <div v-if="staticAnycastSummary.length" class="mb-4 rounded-lg border border-cyan-200 bg-cyan-50/70 p-3 text-xs text-cyan-900 dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-100">
+          <div class="font-semibold">Static proxy anycast</div>
+          <div class="mt-1 space-y-1">
+            <code v-for="item in staticAnycastSummary" :key="item" class="block break-all">{{ item }}</code>
+          </div>
+        </div>
         <div v-if="!dns?.records.length" class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
           <div class="grid h-11 w-11 place-items-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 dark:bg-white/[0.05] dark:ring-white/10"><Database class="h-5 w-5" /></div>
           <h3 class="mt-4 text-sm font-semibold text-slate-900 dark:text-white">No DNS records generated</h3>
@@ -172,6 +178,10 @@ const showAllDnsRecords = ref(false);
 const dnsPreviewLimit = 3;
 const hasHiddenDnsRecords = computed(() => (dns.value?.records.length ?? 0) > dnsPreviewLimit);
 const visibleDnsRecords = computed(() => showAllDnsRecords.value ? dns.value?.records ?? [] : (dns.value?.records ?? []).slice(0, dnsPreviewLimit));
+const staticAnycastSummary = computed(() => [
+  dns.value?.static_anycast?.ipv4 ? `A ${dns.value.static_anycast.ipv4}` : '',
+  dns.value?.static_anycast?.ipv6 ? `AAAA ${dns.value.static_anycast.ipv6}` : '',
+].filter(Boolean));
 const rows = computed(() => edges.value.map(edge => ({
   ...edge,
   public_ip: edge.public_ip || edge.public_ipv4 || edge.public_ipv6 || '',

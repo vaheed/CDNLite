@@ -114,6 +114,14 @@ def test_edge_state_and_shared_proxy_contract():
     assert "e.anycast_enabled AS anycast" in schema
     assert "ORDER BY anycast DESC" in service
     assert "array_merge($pool['anycast'][$family], $pool['unicast'][$family])" in service
+    assert "'anycast_ipv4'" in settings
+    assert "'anycast_ipv6'" in settings
+    assert "normalizeOptionalIp" in settings
+    assert "FILTER_FLAG_IPV4" in settings
+    assert "FILTER_FLAG_IPV6" in settings
+    assert "staticAnycastIps()" in service
+    assert "'shared_proxy_static_anycast:' . $type" in service
+    assert "$this->health->luaRecord($type, $targets)" in service
     assert "CDNLITE_CDN_ZONE" in settings
     assert "CDNLITE_CDN_PROXY_HOST" in settings
     assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings
