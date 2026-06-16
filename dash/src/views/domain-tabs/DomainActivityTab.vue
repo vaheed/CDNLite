@@ -37,6 +37,7 @@
             <p v-if="item.summary" class="mt-1 text-sm text-slate-500">{{ item.summary }}</p>
           </button>
         </div>
+        <PaginationControls :total="timeline.total" :limit="timelineLimit" :offset="timelineOffset" @update:limit="setTimelineLimit" @update:offset="setTimelineOffset" />
       </section>
 
       <section class="grid gap-4 xl:grid-cols-3">
@@ -54,7 +55,7 @@
         </div>
       </section>
 
-      <section class="panel-section space-y-4">
+      <section v-if="showErrorSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Recent origin errors</h2><p>Latest 5xx, router, and upstream failures for quick request-id correlation.</p></div></div>
         <EmptyState v-if="!summary?.recent_origin_errors?.length" title="No recent origin errors" message="No origin or router failures match this period." />
         <HorizontalScrollFrame v-else :watch-key="summary.recent_origin_errors.length">
@@ -74,14 +75,14 @@
         </HorizontalScrollFrame>
       </section>
 
-      <section class="panel-section space-y-4">
+      <section v-if="showRequestSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Recent edge requests</h2><p>Request, cache, router, and origin forwarding details captured from edge metrics.</p></div></div>
-        <EmptyState v-if="!requests.length" title="No request details" message="No edge request metrics have been ingested for this domain yet." />
-        <HorizontalScrollFrame v-else :watch-key="requests.length">
+        <EmptyState v-if="!requests.items.length" title="No request details" message="No edge request metrics have been ingested for this domain yet." />
+        <HorizontalScrollFrame v-else :watch-key="requests.items.length">
           <table class="w-full min-w-[960px] text-left text-sm">
             <thead class="table-head"><tr><th>Time</th><th>Request</th><th>Status</th><th>Cache</th><th>Origin</th><th>Upstream</th><th>Request ID</th></tr></thead>
             <tbody class="divide-y divide-slate-100 dark:divide-white/5">
-              <tr v-for="request in requests" :key="request.id">
+              <tr v-for="request in requests.items" :key="request.id">
                 <td class="table-cell whitespace-nowrap">{{ formatDate(request.ts) }}</td>
                 <td class="table-cell"><b>{{ request.method || 'GET' }}</b> <span class="font-mono text-xs">{{ request.host }}{{ request.path }}</span></td>
                 <td class="table-cell">{{ request.status }}</td>
@@ -93,9 +94,10 @@
             </tbody>
           </table>
         </HorizontalScrollFrame>
+        <PaginationControls :total="requests.total" :limit="requestsLimit" :offset="requestsOffset" @update:limit="setRequestsLimit" @update:offset="setRequestsOffset" />
       </section>
 
-      <section class="panel-section space-y-4">
+      <section v-if="showSecuritySections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Security events</h2><p>WAF, rate-limit, and Geo decisions for this domain.</p></div></div>
         <EmptyState v-if="!security.items.length" title="No security events" message="No domain security events match the selected period." />
         <HorizontalScrollFrame v-else :watch-key="security.items.length">
@@ -115,7 +117,7 @@
         <PaginationControls :total="security.total" :limit="securityLimit" :offset="securityOffset" @update:limit="setSecurityLimit" @update:offset="setSecurityOffset" />
       </section>
 
-      <section class="panel-section space-y-4">
+      <section v-if="showAuditSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Change log</h2><p>Administrative and automated changes scoped to this domain.</p></div></div>
         <EmptyState v-if="!audit.items.length" title="No changes" message="No domain changes match the selected period." />
         <HorizontalScrollFrame v-else :watch-key="audit.items.length">
@@ -143,7 +145,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import DetailsDrawer from '@/components/ui/DetailsDrawer.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
@@ -168,15 +170,23 @@ const requestIdSearch = ref('');
 const requestLookupBusy = ref(false);
 const fromInput = ref('');
 const toInput = ref('');
+const timelineLimit = ref(25);
+const timelineOffset = ref(0);
+const requestsLimit = ref(25);
+const requestsOffset = ref(0);
 const securityLimit = ref(25);
 const securityOffset = ref(0);
 const auditLimit = ref(25);
 const auditOffset = ref(0);
 const security = ref<PaginatedResult<SecurityEvent>>({ items: [], total: 0, limit: 25, offset: 0 });
 const audit = ref<PaginatedResult<AuditEntry>>({ items: [], total: 0, limit: 25, offset: 0 });
-const requests = ref<RequestActivity[]>([]);
+const requests = ref<PaginatedResult<RequestActivity>>({ items: [], total: 0, limit: 25, offset: 0 });
 const summary = ref<ActivitySummary | null>(null);
-const timeline = ref<ActivityTimeline>({ items: [], total: 0, limit: 100, cursor: null });
+const timeline = ref<ActivityTimeline>({ items: [], total: 0, limit: 25, offset: 0, cursor: null });
+const showRequestSections = computed(() => typeFilter.value === '' || typeFilter.value === 'request' || typeFilter.value === 'error');
+const showErrorSections = computed(() => typeFilter.value === '' || typeFilter.value === 'error');
+const showSecuritySections = computed(() => typeFilter.value === '' || typeFilter.value === 'security');
+const showAuditSections = computed(() => typeFilter.value === '' || typeFilter.value === 'audit');
 
 watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainActivity(props.domainId), queryKeys.auditLog()], load);
@@ -191,8 +201,8 @@ async function load() {
   try {
     [summary.value, timeline.value, requests.value, security.value, audit.value] = await Promise.all([
       usageApi.activitySummary(props.domainId, { from, to }),
-      usageApi.activityTimeline(props.domainId, { search: search.value, type: typeFilter.value, from, to, limit: 100 }),
-      usageApi.recentRequests(props.domainId, { limit: 50 }),
+      usageApi.activityTimeline(props.domainId, { search: search.value, type: typeFilter.value, from, to, limit: timelineLimit.value, offset: timelineOffset.value }),
+      usageApi.recentRequests(props.domainId, { search: search.value, type: typeFilter.value, from, to, limit: requestsLimit.value, offset: requestsOffset.value }),
       securityEventsApi.list({ domain_id: props.domainId, search: search.value, from, to, limit: securityLimit.value, offset: securityOffset.value }),
       auditLogApi.list({ domain_id: props.domainId, search: search.value, from, to, limit: auditLimit.value, offset: auditOffset.value }),
     ]);
@@ -202,8 +212,12 @@ async function load() {
     loading.value = false;
   }
 }
-function applyFilters() { securityOffset.value = 0; auditOffset.value = 0; void load(); }
+function applyFilters() { timelineOffset.value = 0; requestsOffset.value = 0; securityOffset.value = 0; auditOffset.value = 0; void load(); }
 function clearFilters() { search.value = ''; typeFilter.value = ''; fromInput.value = ''; toInput.value = ''; applyFilters(); }
+function setTimelineLimit(value: number) { timelineLimit.value = value; timelineOffset.value = 0; void load(); }
+function setTimelineOffset(value: number) { timelineOffset.value = value; void load(); }
+function setRequestsLimit(value: number) { requestsLimit.value = value; requestsOffset.value = 0; void load(); }
+function setRequestsOffset(value: number) { requestsOffset.value = value; void load(); }
 function setSecurityLimit(value: number) { securityLimit.value = value; securityOffset.value = 0; void load(); }
 function setSecurityOffset(value: number) { securityOffset.value = value; void load(); }
 function setAuditLimit(value: number) { auditLimit.value = value; auditOffset.value = 0; void load(); }

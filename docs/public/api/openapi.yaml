@@ -1112,9 +1112,14 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DomainId"
         - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ActivityType"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
-          $ref: "#/components/responses/GenericArray"
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/activity:
     get:
       tags: [Analytics, Operations]
@@ -1122,6 +1127,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/DomainId"
         - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/ActivityType"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
@@ -1230,6 +1240,13 @@ components:
       required: false
       schema:
         type: string
+    ActivityType:
+      name: type
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [request, error, audit, security]
     From:
       name: from
       in: query

@@ -43,6 +43,10 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert "$this->durationMs($item['upstream_response_time'] ?? null)" in collector
     assert "public function recentRequests(string $domainId" in collector
     assert "public function activityTimeline(string $domainId" in collector
+    assert "countTimelineRequests" in collector
+    assert "countTimelineAudit" in collector
+    assert "$type === '' || $type === 'audit' || $type === 'security'" in collector
+    assert "$type === 'error'" in collector
     assert "public function activitySummary(string $domainId" in collector
     assert "public function findRequest(string $domainId, string $requestId)" in collector
     assert "castRequestActivity" in collector
@@ -71,6 +75,8 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "export interface RequestActivity" in types
     assert "Recent edge requests" in activity
     assert "Activity timeline" in activity
+    assert "setTimelineOffset" in activity
+    assert "setRequestsOffset" in activity
     assert "Request-id lookup" in activity
     assert "Recent origin errors" in activity
     assert "Export JSON" in activity

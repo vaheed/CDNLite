@@ -121,7 +121,7 @@ export interface ActivityTimelineItem {
   id: string; type: 'request' | 'error' | 'audit' | 'security' | string; ts: number;
   title: string; summary?: string | null; request_id?: string | null; details: unknown;
 }
-export interface ActivityTimeline { items: ActivityTimelineItem[]; total: number; limit: number; cursor?: string | null; }
+export interface ActivityTimeline { items: ActivityTimelineItem[]; total: number; limit: number; offset: number; cursor?: string | null; }
 export interface ActivitySummary {
   total_requests: number; forwarded_requests: number; bytes_in: number; bytes_out: number;
   cache_hit_ratio: number; status_counts: Record<string, number>;

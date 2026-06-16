@@ -45,7 +45,11 @@ def test_domain_activity_has_filtered_independent_streams():
     activity = read("dash/src/views/domain-tabs/DomainActivityTab.vue")
 
     assert "key: 'activity'" in detail
-    assert activity.count("<PaginationControls") == 2
+    assert activity.count("<PaginationControls") == 4
+    assert "timelineOffset" in activity
+    assert "requestsOffset" in activity
     assert "securityEventsApi.list({ domain_id: props.domainId" in activity
     assert "auditLogApi.list({ domain_id: props.domainId" in activity
+    assert "type: typeFilter.value" in activity
+    assert "showAuditSections" in activity
     assert "Search details" in activity

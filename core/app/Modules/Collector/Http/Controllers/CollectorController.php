@@ -83,7 +83,11 @@ class CollectorController
         if (isset($query['limit']) && is_string($query['limit']) && ctype_digit($query['limit'])) {
             $limit = (int) $query['limit'];
         }
-        return ['data' => $this->service->recentRequests($domainId, $limit)];
+        $offset = 0;
+        if (isset($query['offset']) && is_string($query['offset']) && ctype_digit($query['offset'])) {
+            $offset = (int) $query['offset'];
+        }
+        return ['data' => $this->service->recentRequests($domainId, $limit, $offset, $query)];
     }
 
     public function activityTimeline(string $domainId, array $query): array

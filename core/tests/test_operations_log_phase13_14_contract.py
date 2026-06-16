@@ -54,6 +54,8 @@ def test_domain_activity_view_is_paginated_and_domain_scoped():
     assert "DomainActivityTab" in detail
     assert "key: 'activity'" in detail
     assert "domain_id: props.domainId" in activity
-    assert activity.count("<PaginationControls") == 2
+    assert activity.count("<PaginationControls") == 4
+    assert "timelineOffset" in activity
+    assert "requestsOffset" in activity
     assert "Search details" in activity
     assert "Rows" in pagination

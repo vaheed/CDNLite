@@ -222,9 +222,20 @@ class CollectorService
         ];
     }
 
-    public function recentRequests(string $domainId, int $limit = 100): array
+    public function recentRequests(string $domainId, int $limit = 100, int $offset = 0, array $filters = []): array
     {
         $limit = max(1, min(250, $limit));
+        $offset = max(0, $offset);
+        $type = isset($filters['type']) ? trim((string) $filters['type']) : '';
+        if ($type !== '' && !in_array($type, ['request', 'error'], true)) {
+            return ['items' => [], 'total' => 0, 'limit' => $limit, 'offset' => $offset];
+        }
+        $from = isset($filters['from']) && is_numeric($filters['from']) ? (int) $filters['from'] : null;
+        $to = isset($filters['to']) && is_numeric($filters['to']) ? (int) $filters['to'] : null;
+        $search = isset($filters['search']) ? trim((string) $filters['search']) : '';
+        [$where, $params] = $this->timelineRequestWhere($domainId, null, $from, $to, $search, $type === 'error');
+        $count = Database::pdo()->prepare('SELECT COUNT(*) FROM usage_rollups WHERE ' . implode(' AND ', $where));
+        $count->execute($params);
         $stmt = Database::pdo()->prepare(
             "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
                     query_redacted, client_country, status, bytes_in, bytes_out,
@@ -232,20 +243,31 @@ class CollectorService
                     upstream_response_time_ms, upstream_addr, request_time_ms,
                     router_error, security_event_type, rule_id
              FROM usage_rollups
-             WHERE domain_id=:domain_id
+             WHERE " . implode(' AND ', $where) . "
              ORDER BY ts DESC, id DESC
-             LIMIT {$limit}"
+             LIMIT :limit OFFSET :offset"
         );
-        $stmt->execute([':domain_id' => $domainId]);
-        return array_map([$this, 'castRequestActivity'], $stmt->fetchAll());
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $stmt->execute();
+        return [
+            'items' => array_map([$this, 'castRequestActivity'], $stmt->fetchAll()),
+            'total' => (int) $count->fetchColumn(),
+            'limit' => $limit,
+            'offset' => $offset,
+        ];
     }
 
     /**
-     * @return array{items: array<int,array<string,mixed>>, total:int, limit:int, cursor:?string}
+     * @return array{items: array<int,array<string,mixed>>, total:int, limit:int, offset:int, cursor:?string}
      */
     public function activityTimeline(string $domainId, array $filters = []): array
     {
         $limit = max(1, min(250, (int) ($filters['limit'] ?? 100)));
+        $offset = max(0, (int) ($filters['offset'] ?? 0));
         $type = isset($filters['type']) ? trim((string) $filters['type']) : '';
         $cursor = isset($filters['cursor']) && ctype_digit((string) $filters['cursor']) ? (int) $filters['cursor'] : null;
         $from = isset($filters['from']) && is_numeric($filters['from']) ? (int) $filters['from'] : null;
@@ -253,8 +275,10 @@ class CollectorService
         $search = isset($filters['search']) ? trim((string) $filters['search']) : '';
 
         $items = [];
+        $total = 0;
         if ($type === '' || $type === 'request' || $type === 'error') {
-            foreach ($this->timelineRequests($domainId, $limit, $cursor, $from, $to, $search, $type === 'error') as $row) {
+            $total += $this->countTimelineRequests($domainId, $cursor, $from, $to, $search, $type === 'error');
+            foreach ($this->timelineRequests($domainId, $limit + $offset, $cursor, $from, $to, $search, $type === 'error') as $row) {
                 $request = $this->castRequestActivity($row);
                 $items[] = [
                     'id' => 'request:' . $request['id'],
@@ -268,7 +292,8 @@ class CollectorService
             }
         }
         if ($type === '' || $type === 'audit' || $type === 'security') {
-            foreach ($this->timelineAudit($domainId, $limit, $cursor, $from, $to, $search, $type) as $row) {
+            $total += $this->countTimelineAudit($domainId, $cursor, $from, $to, $search, $type);
+            foreach ($this->timelineAudit($domainId, $limit + $offset, $cursor, $from, $to, $search, $type) as $row) {
                 $event = (string) ($row['event'] ?? '');
                 $items[] = [
                     'id' => 'audit:' . (string) $row['id'],
@@ -292,13 +317,14 @@ class CollectorService
         }
 
         usort($items, static fn (array $a, array $b): int => ($b['ts'] <=> $a['ts']) ?: strcmp((string) $b['id'], (string) $a['id']));
-        $items = array_slice($items, 0, $limit);
+        $items = array_slice($items, $offset, $limit);
         $nextCursor = count($items) === $limit ? (string) min(array_map(static fn (array $item): int => (int) $item['ts'], $items)) : null;
 
         return [
             'items' => $items,
-            'total' => count($items),
+            'total' => $total,
             'limit' => $limit,
+            'offset' => $offset,
             'cursor' => $nextCursor,
         ];
     }
@@ -708,6 +734,31 @@ class CollectorService
 
     private function timelineRequests(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): array
     {
+        [$where, $params] = $this->timelineRequestWhere($domainId, $cursor, $from, $to, $search, $errorsOnly);
+        $sql = "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                       query_redacted, client_country, status, bytes_in, bytes_out,
+                       cache_status, origin_id, origin_host, upstream_status,
+                       upstream_response_time_ms, upstream_addr, request_time_ms,
+                       router_error, security_event_type, rule_id
+                FROM usage_rollups
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY ts DESC, id DESC
+                LIMIT {$limit}";
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    private function countTimelineRequests(string $domainId, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): int
+    {
+        [$where, $params] = $this->timelineRequestWhere($domainId, $cursor, $from, $to, $search, $errorsOnly);
+        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM usage_rollups WHERE ' . implode(' AND ', $where));
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    private function timelineRequestWhere(string $domainId, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): array
+    {
         $where = ['domain_id = :domain_id'];
         $params = [':domain_id' => $domainId];
         if ($cursor !== null) {
@@ -730,21 +781,31 @@ class CollectorService
             $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
             $params[':search'] = '%' . $search . '%';
         }
-        $sql = "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
-                       query_redacted, client_country, status, bytes_in, bytes_out,
-                       cache_status, origin_id, origin_host, upstream_status,
-                       upstream_response_time_ms, upstream_addr, request_time_ms,
-                       router_error, security_event_type, rule_id
-                FROM usage_rollups
+        return [$where, $params];
+    }
+
+    private function timelineAudit(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, string $type): array
+    {
+        [$where, $params] = $this->timelineAuditWhere($domainId, $cursor, $from, $to, $search, $type);
+        $sql = "SELECT id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at
+                FROM audit_log
                 WHERE " . implode(' AND ', $where) . "
-                ORDER BY ts DESC, id DESC
+                ORDER BY created_at DESC, id DESC
                 LIMIT {$limit}";
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
-    private function timelineAudit(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, string $type): array
+    private function countTimelineAudit(string $domainId, ?int $cursor, ?int $from, ?int $to, string $search, string $type): int
+    {
+        [$where, $params] = $this->timelineAuditWhere($domainId, $cursor, $from, $to, $search, $type);
+        $stmt = Database::pdo()->prepare('SELECT COUNT(*) FROM audit_log WHERE ' . implode(' AND ', $where));
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
+
+    private function timelineAuditWhere(string $domainId, ?int $cursor, ?int $from, ?int $to, string $search, string $type): array
     {
         $where = ['domain_id = :domain_id'];
         $params = [':domain_id' => $domainId];
@@ -769,14 +830,7 @@ class CollectorService
             $where[] = '(details_json ILIKE :search OR event ILIKE :search OR action ILIKE :search OR resource_type ILIKE :search OR resource_id ILIKE :search)';
             $params[':search'] = '%' . $search . '%';
         }
-        $sql = "SELECT id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at
-                FROM audit_log
-                WHERE " . implode(' AND ', $where) . "
-                ORDER BY created_at DESC, id DESC
-                LIMIT {$limit}";
-        $stmt = Database::pdo()->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
+        return [$where, $params];
     }
 
     private function applyTimeFilters(array &$where, array &$params, array $filters, string $column): void
