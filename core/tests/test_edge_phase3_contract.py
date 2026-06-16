@@ -136,6 +136,10 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     assert "cookie = true" in edge_log
     assert "signature = true" in edge_log
     assert "function M.redacted_query()" in edge_log
+    assert "local function safe_var(name)" in edge_log
+    assert "local function safe_ctx(name)" in edge_log
+    assert "local function safe_method()" in edge_log
+    assert "pcall(function()" in edge_log
 
 
 def test_origin_diagnostic_and_route_debug_api_contract():

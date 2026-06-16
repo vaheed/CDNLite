@@ -59,6 +59,46 @@ local function redacted_query()
   return out
 end
 
+local function safe_var(name)
+  local ok, value = pcall(function()
+    return ngx.var[name]
+  end)
+  if not ok or value == nil then
+    return ''
+  end
+  return value
+end
+
+local function safe_ctx(name)
+  local ok, value = pcall(function()
+    return ngx.ctx[name]
+  end)
+  if not ok or value == nil then
+    return ''
+  end
+  return value
+end
+
+local function safe_method()
+  local ok, value = pcall(function()
+    return ngx.req.get_method()
+  end)
+  if not ok or value == nil then
+    return ''
+  end
+  return value
+end
+
+local function first_non_empty(...)
+  local values = { ... }
+  for _, value in ipairs(values) do
+    if value ~= nil and value ~= '' then
+      return value
+    end
+  end
+  return ''
+end
+
 function M.redacted_query()
   return redacted_query()
 end
@@ -70,14 +110,14 @@ function M.event(level, event, fields)
   end
 
   local row = {
-    ts = ngx.var.time_iso8601 or tostring(os.time()),
+    ts = first_non_empty(safe_var('time_iso8601'), tostring(os.time())),
     level = level,
     event = tostring(event or 'edge_event'),
-    request_id = tostring(ngx.ctx.request_id or ngx.var.request_id or ''),
+    request_id = tostring(first_non_empty(safe_ctx('request_id'), safe_var('request_id'))),
     edge_node_id = identity.get(),
-    host = tostring(ngx.var.host or ''),
-    method = tostring(ngx.req.get_method() or ''),
-    path = tostring(ngx.var.uri or ''),
+    host = tostring(safe_var('host')),
+    method = tostring(safe_method()),
+    path = tostring(safe_var('uri')),
   }
   for key, value in pairs(fields or {}) do
     row[key] = redact_value(key, value)
