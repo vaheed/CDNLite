@@ -213,6 +213,8 @@ services:
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge-local-1}
       EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-auto}
       EDGE_REGION: ${EDGE_REGION:-local}
+      EDGE_COUNTRY: ${EDGE_COUNTRY:-}
+      EDGE_CONTINENT: ${EDGE_CONTINENT:-}
       EDGE_VERSION: ${EDGE_VERSION:-v1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}

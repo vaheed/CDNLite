@@ -81,7 +81,11 @@ cd deploy/edge
 cp .env.example .env
 ```
 
-Fill `EDGE_ID`, `EDGE_TOKEN`, `CORE_URL`, `EDGE_HOSTNAME`, and `EDGE_REGION` from Steps 1 and 3. Start the POP and check the proxy:
+Fill `EDGE_ID`, `EDGE_TOKEN`, `CORE_URL`, `EDGE_HOSTNAME`, and `EDGE_REGION`
+from Steps 1 and 3. Set `EDGE_COUNTRY` to the POP country code, such as `IR` or
+`US`, and set `EDGE_CONTINENT` to the continent code, such as `AS`, `EU`, or
+`NA`, when the POP should participate in GeoDNS routing. Start the POP and check
+the proxy:
 
 ```bash
 docker compose up -d

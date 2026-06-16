@@ -166,6 +166,59 @@ def test_requested_multiple_ip_country_record_shape():
     )
 
 
+def test_continent_routes_are_added_after_country_routes():
+    record = build_record([
+        {
+            "ip": "185.142.97.17",
+            "country": "IR",
+            "continent": "AS",
+        },
+        {
+            "ip": "2.2.2.2",
+            "country": "US",
+            "continent": "NA",
+        },
+        {
+            "ip": "2.2.2.3",
+            "country": "US",
+            "continent": "NA",
+        },
+        {
+            "ip": "3.3.3.3",
+            "country": "DE",
+            "continent": "EU",
+        },
+    ])
+
+    assert "country('US') then return {'2.2.2.2','2.2.2.3'}" in record
+    assert "country('IR') then return '185.142.97.17'" in record
+    assert "continent('EU') then return '3.3.3.3'" in record
+    assert record.index("country('US')") < record.index("continent('EU')")
+    assert "else return '185.142.97.17' end" in record
+
+
+def test_duplicate_continent_returns_all_edges_for_that_continent():
+    record = build_record([
+        {
+            "ip": "1.1.1.1",
+            "country": "",
+            "continent": "EU",
+        },
+        {
+            "ip": "4.4.4.4",
+            "country": "",
+            "continent": "EU",
+        },
+    ])
+
+    assert record == (
+        'A ";'
+        "if continent('EU') then return {'1.1.1.1','4.4.4.4'} "
+        "else return '1.1.1.1' end"
+        '"'
+    )
+
+
 def test_invalid_ips_are_ignored():
     record = build_record([
         {

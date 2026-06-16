@@ -27,12 +27,12 @@ class EdgeHealthRecordBuilder
     }
 
     /**
-     * @param list<array{ip:string, country:?string}> $targets
+     * @param list<array{ip:string, country:?string, continent:?string}> $targets
      */
     private function geoLua(array $targets): string
     {
         $fallbackIp = $targets[0]['ip'];
-        $routes = $this->groupTargetsByCountry($targets);
+        $routes = $this->groupTargetsByRoute($targets);
 
         if ($routes === []) {
             return $this->luaString($fallbackIp);
@@ -45,8 +45,9 @@ class EdgeHealthRecordBuilder
             $keyword = $first ? 'if' : 'elseif';
 
             $branches[] = sprintf(
-                "%s country(%s) then return %s",
+                "%s %s(%s) then return %s",
                 $keyword,
+                $route['type'],
                 $this->luaString($route['code']),
                 $this->luaAnswer($route['ips'])
             );
@@ -60,26 +61,39 @@ class EdgeHealthRecordBuilder
     }
 
     /**
-     * @param list<array{ip:string, country:?string}> $targets
-     * @return list<array{code:string, ips:list<string>}>
+     * @param list<array{ip:string, country:?string, continent:?string}> $targets
+     * @return list<array{type:string, code:string, ips:list<string>}>
      */
-    private function groupTargetsByCountry(array $targets): array
+    private function groupTargetsByRoute(array $targets): array
     {
         $countries = [];
+        $continents = [];
 
         foreach ($targets as $target) {
             $country = $target['country'];
-            if ($country === null) {
-                continue;
+            if ($country !== null) {
+                $countries[$country][$target['ip']] = $target['ip'];
             }
 
-            $countries[$country][$target['ip']] = $target['ip'];
+            $continent = $target['continent'];
+            if ($continent !== null) {
+                $continents[$continent][$target['ip']] = $target['ip'];
+            }
         }
 
         $routes = [];
 
         foreach ($countries as $code => $ips) {
             $routes[] = [
+                'type' => 'country',
+                'code' => $code,
+                'ips' => array_values($ips),
+            ];
+        }
+
+        foreach ($continents as $code => $ips) {
+            $routes[] = [
+                'type' => 'continent',
                 'code' => $code,
                 'ips' => array_values($ips),
             ];
@@ -90,7 +104,7 @@ class EdgeHealthRecordBuilder
 
     /**
      * @param list<string|array<string, mixed>> $targets
-     * @return list<array{ip:string, country:?string}>
+     * @return list<array{ip:string, country:?string, continent:?string}>
      */
     private function validTargets(string $dnsType, array $targets): array
     {
@@ -102,9 +116,11 @@ class EdgeHealthRecordBuilder
             if (is_array($target)) {
                 $ip = trim((string) ($target['ip'] ?? ''));
                 $country = $this->countryFromTarget($target);
+                $continent = $this->continentFromTarget($target);
             } else {
                 $ip = trim((string) $target);
                 $country = null;
+                $continent = null;
             }
 
             if ($ip === '') {
@@ -124,6 +140,7 @@ class EdgeHealthRecordBuilder
             $valid[] = [
                 'ip' => $ip,
                 'country' => $country,
+                'continent' => $continent,
             ];
         }
 
@@ -139,6 +156,20 @@ class EdgeHealthRecordBuilder
 
         if (preg_match('/^[A-Z]{2}$/', $country) === 1) {
             return $country;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $target
+     */
+    private function continentFromTarget(array $target): ?string
+    {
+        $continent = strtoupper(trim((string) ($target['continent'] ?? '')));
+
+        if (in_array($continent, ['AF', 'AN', 'AS', 'EU', 'NA', 'OC', 'SA'], true)) {
+            return $continent;
         }
 
         return null;

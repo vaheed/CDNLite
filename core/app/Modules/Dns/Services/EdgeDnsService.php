@@ -154,6 +154,7 @@ class EdgeDnsService
                 $target = [
                     'ip' => $ip,
                     'country' => (string) $row['country'],
+                    'continent' => (string) $row['continent'],
                 ];
                 if ($bucket === 'anycast') {
                     $anycast[$family][] = $target;
@@ -167,6 +168,7 @@ class EdgeDnsService
                 'ip_family' => (string) $row['ip_family'],
                 'region' => (string) $row['region'],
                 'country' => (string) $row['country'],
+                'continent' => (string) $row['continent'],
                 'anycast' => (bool) $row['anycast'],
                 'healthy' => true,
                 'last_check_at' => (int) $row['last_check_at'],

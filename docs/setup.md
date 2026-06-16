@@ -324,9 +324,9 @@ deletion, persisted failure state, and recovery. Static Lua answers are used
 only for deterministic documentation-range CI fixtures.
 
 Core and the DNS reconciler receive the same CDN zone, proxy hostname, and TTL
-settings. Shared edge-pool Lua records use edge IP and country data from Core
-and fall back to the first eligible edge IP. Recreate both services after
-changing CDN DNS values.
+settings. Shared edge-pool Lua records use edge IP, country, and continent data
+from Core and fall back to the first eligible edge IP. Recreate both services
+after changing CDN DNS values.
 
 Dashboard validation uses typechecking, unit tests, a production build, and
 manual operator QA. Browser automation is intentionally outside the release
