@@ -67,6 +67,7 @@ class ConfigService
                 'backup_origin' => $backupOrigin,
                 'origins' => $origins,
                 'geo_origins' => $this->buildGeoOrigins($record['geo_origins'] ?? []),
+                'cache' => $this->rules->getDomainCacheSettings((string) $domain['id']),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
                 'dns_records' => $records,

@@ -100,6 +100,7 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     proxy = read("edge/openresty/lua/proxy.lua")
     metrics = read("edge/openresty/lua/metrics.lua")
     edge_log = read("edge/openresty/lua/edge_log.lua")
+    rules = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
 
     assert "edge_log.info('origin_selected'" in router
     assert "edge_log.warn('router_error'" in router
@@ -113,6 +114,10 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     assert "ngx.var.target_domain_id" in proxy
     assert "ngx.var.target_origin_host" in proxy
     assert "ngx.var.target_backup_origin_host" in proxy
+    assert "cache_settings.default_edge_ttl_seconds" in proxy
+    assert "cache_settings.cache_authorized_requests" in proxy
+    assert "ngx.header['X-Accel-Expires'] = tostring(edge_ttl)" in proxy
+    assert "setDomainCacheSettings" in rules and "invalidateConfigSnapshot" in rules.split("public function setDomainCacheSettings", 1)[1].split("public function createCachePurgeRequest", 1)[0]
     assert "ngx.var.target_backup_origin_host_header" in proxy
     assert "edge_log.debug('proxy_forward'" in proxy
 

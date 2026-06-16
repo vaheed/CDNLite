@@ -301,6 +301,7 @@ function M.handle()
   ngx.ctx.backup_origin = backup_meta
   ngx.ctx.origin_scheme = ngx.ctx.origin.scheme
   ngx.ctx.cache_rule = match_cache_rule(cfg, host)
+  ngx.ctx.cache_settings = domain.cache or {}
   edge_log.info('origin_selected', {
     domain_id = tostring(domain.domain_id or ''),
     origin_id = tostring(ngx.ctx.origin.id or ''),

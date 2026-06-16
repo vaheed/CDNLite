@@ -19,11 +19,14 @@ function M.forward(domain)
 
   local cache_bypass = false
   local cache_no_store = false
+  local cache_settings = ngx.ctx.cache_settings or {}
   local method = ngx.req.get_method()
   local cache_rule = ngx.ctx.cache_rule
-  local rule_ttl = nil
+  local edge_ttl = nil
   if cache_rule and tonumber(cache_rule.ttl_seconds) and tonumber(cache_rule.ttl_seconds) > 0 then
-    rule_ttl = math.floor(tonumber(cache_rule.ttl_seconds))
+    edge_ttl = math.floor(tonumber(cache_rule.ttl_seconds))
+  elseif cache_settings.enabled ~= false and tonumber(cache_settings.default_edge_ttl_seconds) and tonumber(cache_settings.default_edge_ttl_seconds) > 0 then
+    edge_ttl = math.floor(tonumber(cache_settings.default_edge_ttl_seconds))
   end
 
   if method ~= 'GET' and method ~= 'HEAD' then
@@ -31,12 +34,12 @@ function M.forward(domain)
     cache_no_store = true
   end
 
-  if not rule_ttl then
+  if cache_settings.enabled == false or not edge_ttl then
     cache_bypass = true
     cache_no_store = true
   end
 
-  if ngx.var.http_authorization and ngx.var.http_authorization ~= '' then
+  if cache_settings.cache_authorized_requests ~= true and ngx.var.http_authorization and ngx.var.http_authorization ~= '' then
     cache_bypass = true
     cache_no_store = true
   end
@@ -61,10 +64,8 @@ function M.forward(domain)
   ngx.var.target_backup_origin_tls_verify = tostring((ngx.ctx.backup_origin or {}).tls_verify or 'verify')
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'
-  if rule_ttl and not cache_no_store then
-    ngx.header['X-Accel-Expires'] = tostring(rule_ttl)
-  else
-    ngx.header['X-Accel-Expires'] = '0'
+  if edge_ttl and not cache_no_store then
+    ngx.header['X-Accel-Expires'] = tostring(edge_ttl)
   end
   identity.apply()
   ngx.header['X-CDNLITE-Domain'] = tostring(domain.domain_id)

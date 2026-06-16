@@ -508,6 +508,7 @@ class TrafficRulesService
         ];
         $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,updated_at=:updated_at WHERE domain_id=:domain_id');
         $u->execute($payload);
+        $this->invalidateConfigSnapshot();
         return $this->getDomainCacheSettings($domainId);
     }
     public function createCachePurgeRequest(string $domainId, array $in): array {

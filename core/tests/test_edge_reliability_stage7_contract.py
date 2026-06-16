@@ -13,6 +13,7 @@ def test_stage7_schema_and_request_id_contract():
     nginx = (repo_root / "edge" / "openresty" / "nginx.conf").read_text()
 
     assert "'schema_version' => 1" in config_service
+    assert "'cache' => $this->rules->getDomainCacheSettings" in config_service
     assert "EXPECTED_SCHEMA_VERSION = 1" in loader
     assert "config_schema_unsupported" in loader
     assert "decoded.schema_version == nil" in loader
@@ -21,6 +22,7 @@ def test_stage7_schema_and_request_id_contract():
     assert "os.getenv('EDGE_ID')" in identity
     assert "request_id" in metrics
     assert "cache_status" in metrics
+    assert "proxy_ignore_headers X-Accel-Expires;" in nginx
     assert "security_event_type" in metrics
     assert "security_action" in metrics
     assert "blocked_by_waf" in router
