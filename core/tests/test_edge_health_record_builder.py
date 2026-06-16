@@ -38,7 +38,6 @@ def test_multiple_edges_keep_primary_and_backup_selectors():
 
     assert "{'185.142.95.17','185.142.95.18'}" in record
     assert "selector='pickclosest'" in record
-    assert "backupSelector='empty'" in record
     assert "failOnIncompleteCheck=false" in record
 
 
@@ -47,4 +46,3 @@ def test_single_edge_url_check_omits_selectors():
 
     assert "{timeout=1, interval=10, minimumFailures=2}" in record
     assert "selector=" not in record
-    assert "backupSelector=" not in record

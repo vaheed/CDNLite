@@ -90,9 +90,8 @@ class EdgeHealthRecordBuilder
         }
 
         return sprintf(
-            "{selector='%s', backupSelector='%s', timeout=%d, interval=%d, minimumFailures=%d, failOnIncompleteCheck=false}",
+            "{selector='%s', timeout=%d, interval=%d, minimumFailures=%d, failOnIncompleteCheck=false}",
             $this->selector('CDNLITE_EDGE_SELECTOR', 'pickclosest'),
-            $this->selector('CDNLITE_EDGE_BACKUP_SELECTOR', 'empty'),
             $this->envInt('CDNLITE_EDGE_HEALTH_TIMEOUT', 1),
             $this->envInt('CDNLITE_EDGE_HEALTH_INTERVAL', 10),
             $this->envInt('CDNLITE_EDGE_HEALTH_MIN_FAILURES', 2)
