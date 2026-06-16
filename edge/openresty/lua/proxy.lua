@@ -22,10 +22,11 @@ function M.forward(domain)
   local cache_settings = ngx.ctx.cache_settings or {}
   local method = ngx.req.get_method()
   local cache_rule = ngx.ctx.cache_rule
+  local cache_rules_enabled = ngx.ctx.cache_rules_enabled == true
   local edge_ttl = nil
   if cache_rule and tonumber(cache_rule.ttl_seconds) and tonumber(cache_rule.ttl_seconds) > 0 then
     edge_ttl = math.floor(tonumber(cache_rule.ttl_seconds))
-  elseif cache_settings.enabled ~= false and tonumber(cache_settings.default_edge_ttl_seconds) and tonumber(cache_settings.default_edge_ttl_seconds) > 0 then
+  elseif not cache_rules_enabled and cache_settings.enabled ~= false and tonumber(cache_settings.default_edge_ttl_seconds) and tonumber(cache_settings.default_edge_ttl_seconds) > 0 then
     edge_ttl = math.floor(tonumber(cache_settings.default_edge_ttl_seconds))
   end
 

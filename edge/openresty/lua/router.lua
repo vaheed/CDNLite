@@ -61,8 +61,10 @@ local function match_cache_rule(cfg, host)
   local path = ngx.var.uri or '/'
   local best = nil
   local best_len = -1
+  local has_host_rules = false
   for _, rule in ipairs(rules) do
     if rule and rule.host == host and rule.enabled and type(rule.path_prefix) == 'string' then
+      has_host_rules = true
       local prefix = rule.path_prefix
       if path:sub(1, #prefix) == prefix and #prefix > best_len then
         best = rule
@@ -70,7 +72,7 @@ local function match_cache_rule(cfg, host)
       end
     end
   end
-  return best
+  return best, has_host_rules
 end
 
 local function match_redirect_rule(cfg, host)
@@ -300,7 +302,7 @@ function M.handle()
   ngx.ctx.backup_upstream = backup_upstream
   ngx.ctx.backup_origin = backup_meta
   ngx.ctx.origin_scheme = ngx.ctx.origin.scheme
-  ngx.ctx.cache_rule = match_cache_rule(cfg, host)
+  ngx.ctx.cache_rule, ngx.ctx.cache_rules_enabled = match_cache_rule(cfg, host)
   ngx.ctx.cache_settings = domain.cache or {}
   edge_log.info('origin_selected', {
     domain_id = tostring(domain.domain_id or ''),

@@ -150,10 +150,11 @@ The edge runtime bypasses cache storage and lookup when request risk is high:
 - `Cache-Control: no-cache` or `no-store` sets cache bypass.
 
 When domain cache is enabled, ordinary `GET`/`HEAD` responses use the domain
-default edge TTL even when no path-specific cache rule exists. Cache rules only
-override TTL for matching paths. Upstream `X-Accel-Expires` is ignored at the
-CDNLite edge so origin-local nginx directives do not accidentally disable CDN
-caching for an entire site.
+default edge TTL while no path-specific cache rules exist. Once one or more
+cache rules are enabled for a host, those rules become an allowlist: matching
+paths use their rule TTL and non-matching paths bypass cache. Upstream
+`X-Accel-Expires` is ignored at the CDNLite edge so origin-local nginx
+directives do not accidentally disable CDN caching for an entire site.
 
 Edge access logs are JSON lines on stdout and edge diagnostics are emitted to
 stderr. They include request ids and safe routing metadata, but must not include

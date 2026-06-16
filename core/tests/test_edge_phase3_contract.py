@@ -116,6 +116,8 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     assert "ngx.var.target_backup_origin_host" in proxy
     assert "cache_settings.default_edge_ttl_seconds" in proxy
     assert "cache_settings.cache_authorized_requests" in proxy
+    assert "not cache_rules_enabled" in proxy
+    assert "has_host_rules" in router
     assert "ngx.header['X-Accel-Expires'] = tostring(edge_ttl)" in proxy
     assert "setDomainCacheSettings" in rules and "invalidateConfigSnapshot" in rules.split("public function setDomainCacheSettings", 1)[1].split("public function createCachePurgeRequest", 1)[0]
     assert "ngx.var.target_backup_origin_host_header" in proxy

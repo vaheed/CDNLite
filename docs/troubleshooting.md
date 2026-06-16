@@ -155,7 +155,7 @@ curl -i http://localhost:8081/path \
   -H 'Cache-Control: no-cache'
 ```
 
-Cache bypass is expected for non-`GET`/`HEAD` requests, `Authorization` headers, and explicit request-side no-cache/no-store headers. With domain cache enabled, ordinary `GET`/`HEAD` responses use the default edge TTL even without a path cache rule; cache rules only override TTL for matching paths. Origin `X-Accel-Expires: 0` is ignored by the edge cache.
+Cache bypass is expected for non-`GET`/`HEAD` requests, `Authorization` headers, and explicit request-side no-cache/no-store headers. With domain cache enabled and no cache rules, ordinary `GET`/`HEAD` responses use the default edge TTL. Once cache rules exist for a host, matching paths use their rule TTL and non-matching paths bypass cache. Origin `X-Accel-Expires: 0` is ignored by the edge cache.
 
 ## Debugging Analytics
 
