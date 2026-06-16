@@ -5,134 +5,250 @@ namespace App\Modules\Dns\Services;
 class EdgeHealthRecordBuilder
 {
     /**
-     * @param list<string> $ips
+     * Build simple PowerDNS LUA geo record.
+     *
+     * No ifportup.
+     * No pickclosest.
+     *
+     * Fallback is always the first healthy edge IP.
+     *
+     * @param list<string|array<string, mixed>> $targets
      */
-    public function luaRecord(string $dnsType, array $ips): ?string
+    public function luaRecord(string $dnsType, array $targets): ?string
     {
-        $dnsType = strtoupper($dnsType);
-        $ips = $this->validIps($dnsType, $ips);
-        $mode = strtolower((string) (getenv('CDNLITE_EDGE_HEALTH_MODE') ?: 'ifportup'));
-        if (!in_array($mode, ['ifportup', 'ifurlup', 'static'], true)) {
-            $mode = 'ifportup';
+        $dnsType = strtoupper(trim($dnsType));
+
+        if (!in_array($dnsType, ['A', 'AAAA'], true)) {
+            return null;
         }
 
-        $lua = match ($mode) {
-            'static' => $this->staticLua($ips),
-            'ifurlup' => $this->ifUrlUpLua($ips),
-            default => $this->ifPortUpLua($ips),
-        };
+        $targets = $this->validTargets($dnsType, $targets);
 
-        return $dnsType . ' "' . str_replace('"', '\"', $lua) . '"';
+        if ($targets === []) {
+            return null;
+        }
+
+        $lua = $this->geoLua($targets);
+
+        return $dnsType . ' "' . $this->escapePowerDnsContent($lua) . '"';
     }
 
     /**
-     * @param list<string> $ips
+     * @param list<array{ip:string, route_type:?string, route_code:?string}> $targets
      */
-    private function ifPortUpLua(array $ips): string
+    private function geoLua(array $targets): string
     {
-        if ($ips === []) {
-            return '{}';
-        }
-        return sprintf(
-            'ifportup(%d, %s, %s)',
-            $this->envInt('CDNLITE_EDGE_HEALTH_PORT', 80),
-            $this->luaList($ips),
-            $this->luaOptions(count($ips))
-        );
-    }
+        $fallbackIp = $targets[0]['ip'];
+        $routes = $this->groupTargetsByRoute($targets);
 
-    /**
-     * @param list<string> $ips
-     */
-    private function ifUrlUpLua(array $ips): string
-    {
-        if ($ips === []) {
-            return '{}';
-        }
-        $port = $this->envInt('CDNLITE_EDGE_HEALTH_PORT', 80);
-        $path = (string) (getenv('CDNLITE_EDGE_HEALTH_URL') ?: '/cdn-health');
-        if (!str_starts_with($path, '/')) {
-            $path = '/' . $path;
+        if ($routes === []) {
+            return $this->luaString($fallbackIp);
         }
 
-        $urls = [];
-        foreach ($ips as $ip) {
-            $host = str_contains($ip, ':') ? '[' . $ip . ']' : $ip;
-            $urls[] = 'http://' . $host . ':' . $port . $path;
-        }
+        $branches = [];
+        $first = true;
 
-        return sprintf('ifurlup(%s, %s)', $this->luaList($urls), $this->luaOptions(count($ips)));
-    }
+        foreach ($routes as $route) {
+            $keyword = $first ? 'if' : 'elseif';
+            $function = $route['type'] === 'continent' ? 'continent' : 'country';
 
-    /**
-     * @param list<string> $ips
-     */
-    private function staticLua(array $ips): string
-    {
-        if ($ips === []) {
-            return '{}';
-        }
-        if (count($ips) === 1) {
-            return "'" . $ips[0] . "'";
-        }
-        return $this->luaList($ips);
-    }
+            /*
+             * If multiple edges have the same country/continent,
+             * return the first one in that group.
+             */
+            $ip = $route['ips'][0];
 
-    private function luaOptions(int $targetCount): string
-    {
-        if ($targetCount === 1) {
-            return sprintf(
-                '{timeout=%d, interval=%d, minimumFailures=%d}',
-                $this->envInt('CDNLITE_EDGE_HEALTH_TIMEOUT', 1),
-                $this->envInt('CDNLITE_EDGE_HEALTH_INTERVAL', 10),
-                $this->envInt('CDNLITE_EDGE_HEALTH_MIN_FAILURES', 2)
+            $branches[] = sprintf(
+                "%s %s(%s) then return %s",
+                $keyword,
+                $function,
+                $this->luaString($route['code']),
+                $this->luaString($ip)
             );
+
+            $first = false;
         }
 
-        return sprintf(
-            "{selector='%s', timeout=%d, interval=%d, minimumFailures=%d, failOnIncompleteCheck=false}",
-            $this->selector('CDNLITE_EDGE_SELECTOR', 'pickclosest'),
-            $this->envInt('CDNLITE_EDGE_HEALTH_TIMEOUT', 1),
-            $this->envInt('CDNLITE_EDGE_HEALTH_INTERVAL', 10),
-            $this->envInt('CDNLITE_EDGE_HEALTH_MIN_FAILURES', 2)
-        );
-    }
+        $branches[] = 'else return ' . $this->luaString($fallbackIp) . ' end';
 
-    private function selector(string $key, string $default): string
-    {
-        $value = strtolower((string) (getenv($key) ?: $default));
-        return in_array($value, ['pickclosest', 'hashed', 'random', 'all', 'empty'], true) ? $value : $default;
+        return ';' . implode(' ', $branches);
     }
 
     /**
-     * @param list<string> $items
+     * Countries are checked before continents.
+     *
+     * @param list<array{ip:string, route_type:?string, route_code:?string}> $targets
+     * @return list<array{type:string, code:string, ips:list<string>}>
      */
-    private function luaList(array $items): string
+    private function groupTargetsByRoute(array $targets): array
     {
-        return '{' . implode(',', array_map(static fn(string $item): string => "'" . str_replace("'", "\\'", $item) . "'", $items)) . '}';
+        $countries = [];
+        $continents = [];
+
+        foreach ($targets as $target) {
+            $routeType = $target['route_type'];
+            $routeCode = $target['route_code'];
+
+            if ($routeType === null || $routeCode === null) {
+                continue;
+            }
+
+            if ($routeType === 'country') {
+                $countries[$routeCode][$target['ip']] = $target['ip'];
+                continue;
+            }
+
+            if ($routeType === 'continent') {
+                $continents[$routeCode][$target['ip']] = $target['ip'];
+            }
+        }
+
+        $routes = [];
+
+        foreach ($countries as $code => $ips) {
+            $routes[] = [
+                'type' => 'country',
+                'code' => $code,
+                'ips' => array_values($ips),
+            ];
+        }
+
+        foreach ($continents as $code => $ips) {
+            $routes[] = [
+                'type' => 'continent',
+                'code' => $code,
+                'ips' => array_values($ips),
+            ];
+        }
+
+        return $routes;
     }
 
     /**
-     * @param list<string> $ips
-     * @return list<string>
+     * @param list<string|array<string, mixed>> $targets
+     * @return list<array{ip:string, route_type:?string, route_code:?string}>
      */
-    private function validIps(string $dnsType, array $ips): array
+    private function validTargets(string $dnsType, array $targets): array
     {
         $flag = $dnsType === 'AAAA' ? FILTER_FLAG_IPV6 : FILTER_FLAG_IPV4;
         $valid = [];
-        foreach ($ips as $ip) {
-            $ip = trim($ip);
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP, $flag) !== false) {
-                $valid[$ip] = $ip;
+        $seen = [];
+
+        foreach ($targets as $target) {
+            if (is_array($target)) {
+                $ip = trim((string) ($target['ip'] ?? ''));
+                $route = $this->routeFromTarget($target);
+            } else {
+                $ip = trim((string) $target);
+                $route = [null, null];
             }
+
+            if ($ip === '') {
+                continue;
+            }
+
+            if (filter_var($ip, FILTER_VALIDATE_IP, $flag) === false) {
+                continue;
+            }
+
+            if (isset($seen[$ip])) {
+                continue;
+            }
+
+            $seen[$ip] = true;
+
+            $valid[] = [
+                'ip' => $ip,
+                'route_type' => $route[0],
+                'route_code' => $route[1],
+            ];
         }
-        ksort($valid);
-        return array_values($valid);
+
+        return $valid;
     }
 
-    private function envInt(string $key, int $default): int
+    /**
+     * Priority:
+     *
+     * 1. country column: IR, US, DE, ...
+     * 2. continent column: EU, AS, NA, ...
+     * 3. region string: iran, us, eu, europe, ...
+     *
+     * @param array<string, mixed> $target
+     * @return array{0:?string, 1:?string}
+     */
+    private function routeFromTarget(array $target): array
     {
-        $value = getenv($key);
-        return $value === false || !is_numeric($value) ? $default : max(0, (int) $value);
+        $country = strtoupper(trim((string) ($target['country'] ?? '')));
+
+        if (preg_match('/^[A-Z]{2}$/', $country) === 1) {
+            return ['country', $country];
+        }
+
+        $continent = strtoupper(trim((string) ($target['continent'] ?? '')));
+
+        if ($this->isContinentCode($continent)) {
+            return ['continent', $continent];
+        }
+
+        $region = strtoupper(trim((string) ($target['region'] ?? '')));
+        $region = str_replace(['-', '_', ' '], '', $region);
+
+        $aliases = [
+            'IRAN' => 'IR',
+            'PERSIA' => 'IR',
+
+            'USA' => 'US',
+            'UNITEDSTATES' => 'US',
+            'UNITEDSTATESOFAMERICA' => 'US',
+            'AMERICA' => 'US',
+
+            'EUROPE' => 'EU',
+            'EUROPEANUNION' => 'EU',
+
+            'ASIA' => 'AS',
+            'NORTHAMERICA' => 'NA',
+            'SOUTHAMERICA' => 'SA',
+            'AFRICA' => 'AF',
+            'OCEANIA' => 'OC',
+            'AUSTRALIA' => 'OC',
+            'ANTARCTICA' => 'AN',
+        ];
+
+        $code = $aliases[$region] ?? $region;
+
+        if ($this->isContinentCode($code)) {
+            return ['continent', $code];
+        }
+
+        if (preg_match('/^[A-Z]{2}$/', $code) === 1) {
+            return ['country', $code];
+        }
+
+        return [null, null];
+    }
+
+    private function isContinentCode(string $code): bool
+    {
+        return in_array($code, ['AF', 'AN', 'AS', 'EU', 'NA', 'OC', 'SA'], true);
+    }
+
+    private function luaString(string $value): string
+    {
+        return "'" . strtr($value, [
+            "\\" => "\\\\",
+            "'" => "\\'",
+            "\n" => "\\n",
+            "\r" => "\\r",
+            "\t" => "\\t",
+        ]) . "'";
+    }
+
+    private function escapePowerDnsContent(string $lua): string
+    {
+        return strtr($lua, [
+            "\\" => "\\\\",
+            '"' => '\\"',
+        ]);
     }
 }
