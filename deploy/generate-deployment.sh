@@ -992,8 +992,8 @@ BEGIN
       ('platform.nameservers.hostnames','platform.nameservers','["${ns1_esc}","${ns2_esc}"]'::jsonb,false,'Generated: authoritative nameservers','generator',${now_ms}),
       ('platform.edge_dns.cdn_zone','platform.edge_dns','"${cdn_zone_esc}"'::jsonb,false,'Generated: shared CDN zone','generator',${now_ms}),
       ('platform.edge_dns.proxy_host','platform.edge_dns','"${proxy_host_esc}"'::jsonb,false,'Generated: shared CDN proxy host','generator',${now_ms}),
-      ('platform.edge_dns.anycast_ipv4','platform.edge_dns','""'::jsonb,false,'Generated: optional static proxy anycast IPv4','generator',${now_ms}),
-      ('platform.edge_dns.anycast_ipv6','platform.edge_dns','""'::jsonb,false,'Generated: optional static proxy anycast IPv6','generator',${now_ms})
+      ('platform.edge_dns.anycast_ipv4','platform.edge_dns','[]'::jsonb,false,'Generated: optional static proxy anycast IPv4 addresses','generator',${now_ms}),
+      ('platform.edge_dns.anycast_ipv6','platform.edge_dns','[]'::jsonb,false,'Generated: optional static proxy anycast IPv6 addresses','generator',${now_ms})
       ON CONFLICT (key) DO UPDATE SET
         group_name = EXCLUDED.group_name,
         value_json = EXCLUDED.value_json,

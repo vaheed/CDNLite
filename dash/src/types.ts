@@ -99,11 +99,11 @@ export interface EdgePoolMember { id: Id; edge_id: string; hostname: string; sta
 export interface EdgePool { id: Id; name: string; mode: 'geo' | 'anycast'; description?: string | null; members: EdgePoolMember[]; created_at: number; updated_at: number; }
 export interface EdgeDnsRecord { zone_name: string; rrset_name: string; rrset_type: string; ttl: number; records: string[]; source: string; }
 export interface EdgeDnsState { edge_id: string; ip: string; ip_family: 'A' | 'AAAA'; region: string; anycast: boolean; healthy: boolean; last_check_at: number; }
-export interface EdgeDnsStatus { cdn_zone: string; proxy_host: string; static_anycast?: { ipv4: string; ipv6: string }; powerdns_enabled: boolean; records: EdgeDnsRecord[]; edge_state: EdgeDnsState[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
+export interface EdgeDnsStatus { cdn_zone: string; proxy_host: string; static_anycast?: { ipv4: string[]; ipv6: string[] }; powerdns_enabled: boolean; records: EdgeDnsRecord[]; edge_state: EdgeDnsState[]; warnings: Array<{ edge_id: string; error: string }>; effective_hash?: string | null; synced_at?: number | null; }
 export interface DnsZoneStatus { zone_name: string; status: string; pending_changes: number; desired_rrsets: number; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; desired_hash?: string | null; applied_hash?: string | null; converged: boolean; }
 export interface DomainDnsStatus { zone: string; status: string; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; pending_changes: number; converged: boolean; }
 export interface DnsOperations {
-  setup: { enabled: boolean; configured: boolean; api_url: string; server_id: string; api_key_configured: boolean; cdn_zone: string; cdn_proxy_host: string; static_anycast?: { ipv4: string; ipv6: string }; apex_proxy_mode: 'ALIAS'; bundled_dnsgeo: boolean; poweradmin_url: string; api: { ok?: boolean; error?: string } };
+  setup: { enabled: boolean; configured: boolean; api_url: string; server_id: string; api_key_configured: boolean; cdn_zone: string; cdn_proxy_host: string; static_anycast?: { ipv4: string[]; ipv6: string[] }; apex_proxy_mode: 'ALIAS'; bundled_dnsgeo: boolean; poweradmin_url: string; api: { ok?: boolean; error?: string } };
   dnsgeo: { powerdns_auth: boolean; postgresql: boolean; mmdb: boolean; edns_subnet_processing: boolean; lua_records: boolean; alias_expansion: boolean; resolver_configured: boolean; resolver: string; api_publicly_exposed: boolean };
 }
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }
@@ -154,7 +154,7 @@ export interface OpsDiagnostic {
   offlineEdges: number; recentPurges: number;
 }
 
-export interface SettingFieldDefinition { type: 'string' | 'bool' | 'int' | 'list' | 'ipv4_optional' | 'ipv6_optional'; secret: boolean; description?: string | null; }
+export interface SettingFieldDefinition { type: 'string' | 'bool' | 'int' | 'list' | 'ipv4_list_optional' | 'ipv6_list_optional'; secret: boolean; description?: string | null; }
 export interface SecretSettingValue { configured: boolean; updated_at?: number | null; }
 export interface SettingsAuditEntry { id: Id; key: string; actor?: string | null; old_value: unknown; new_value: unknown; created_at: number; }
 export interface SettingsGroup {

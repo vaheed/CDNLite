@@ -179,8 +179,8 @@ const dnsPreviewLimit = 3;
 const hasHiddenDnsRecords = computed(() => (dns.value?.records.length ?? 0) > dnsPreviewLimit);
 const visibleDnsRecords = computed(() => showAllDnsRecords.value ? dns.value?.records ?? [] : (dns.value?.records ?? []).slice(0, dnsPreviewLimit));
 const staticAnycastSummary = computed(() => [
-  dns.value?.static_anycast?.ipv4 ? `A ${dns.value.static_anycast.ipv4}` : '',
-  dns.value?.static_anycast?.ipv6 ? `AAAA ${dns.value.static_anycast.ipv6}` : '',
+  ...asList(dns.value?.static_anycast?.ipv4).map(ip => `A ${ip}`),
+  ...asList(dns.value?.static_anycast?.ipv6).map(ip => `AAAA ${ip}`),
 ].filter(Boolean));
 const rows = computed(() => edges.value.map(edge => ({
   ...edge,
@@ -232,6 +232,12 @@ const chart = computed(() => ({
     ],
   }],
 }));
+
+function asList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map(item => String(item).trim()).filter(Boolean)
+    : String(value ?? '').trim() === '' ? [] : [String(value).trim()];
+}
 
 async function load() {
   [edges.value, pools.value, dns.value] = await Promise.all([

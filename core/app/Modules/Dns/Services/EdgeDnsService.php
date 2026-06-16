@@ -42,12 +42,12 @@ class EdgeDnsService
         $staticAnycast = $this->staticAnycastIps();
 
         foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
-            if ($staticAnycast[$family] !== '') {
+            if ($staticAnycast[$family] !== []) {
                 $rrsets[] = $this->desired(
                     $this->proxyLabel(),
                     $type,
                     $ttl,
-                    [$staticAnycast[$family]],
+                    $staticAnycast[$family],
                     'shared_proxy_static_anycast:' . $type
                 );
                 continue;
@@ -228,9 +228,22 @@ class EdgeDnsService
     private function staticAnycastIps(): array
     {
         return [
-            'ipv4' => trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv4')),
-            'ipv6' => trim((string) $this->settings->value('platform.edge_dns', 'anycast_ipv6')),
+            'ipv4' => $this->settingIpList('anycast_ipv4'),
+            'ipv6' => $this->settingIpList('anycast_ipv6'),
         ];
+    }
+
+    private function settingIpList(string $name): array
+    {
+        $value = $this->settings->value('platform.edge_dns', $name);
+        if (is_array($value)) {
+            return array_values(array_filter(array_map(
+                static fn (mixed $ip): string => trim((string) $ip),
+                $value
+            )));
+        }
+        $value = trim((string) $value);
+        return $value === '' ? [] : [$value];
     }
 
     private function ttl(): int

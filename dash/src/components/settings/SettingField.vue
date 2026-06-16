@@ -9,11 +9,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-const props = defineProps<{ modelValue: unknown; label: string; description?: string | null; type: 'string' | 'bool' | 'int' | 'list' | 'ipv4_optional' | 'ipv6_optional' }>();
+const props = defineProps<{ modelValue: unknown; label: string; description?: string | null; type: 'string' | 'bool' | 'int' | 'list' | 'ipv4_list_optional' | 'ipv6_list_optional' }>();
 const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>();
 const displayValue = computed(() => Array.isArray(props.modelValue) ? props.modelValue.join(', ') : String(props.modelValue ?? ''));
 function onInput(event: Event) {
   const value = (event.target as HTMLInputElement).value;
-  emit('update:modelValue', props.type === 'int' ? Number(value) : props.type === 'list' ? value.split(',').map((item) => item.trim()).filter(Boolean) : value);
+  emit('update:modelValue', props.type === 'int' ? Number(value) : ['list', 'ipv4_list_optional', 'ipv6_list_optional'].includes(props.type) ? value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean) : value);
 }
 </script>

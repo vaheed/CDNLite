@@ -162,9 +162,11 @@ Core settings:
 
 Static proxy anycast IPs are configured in the admin dashboard under
 Settings -> Edge DNS / Anycast as `anycast_ipv4` and `anycast_ipv6`. These are
-database-backed settings, not environment variables. When set, the shared proxy
-host publishes plain A/AAAA records for the configured families and bypasses
-DNSGeo Lua, country routing, and continent routing for those families.
+database-backed settings, not environment variables. Enter one or more IPs per
+family separated by commas, spaces, or new lines. When set, the shared proxy
+host publishes plain A/AAAA records containing all configured addresses for the
+configured families and bypasses DNSGeo Lua, country routing, and continent
+routing for those families.
 
 The DNS initializer creates only the PowerDNS/Poweradmin schemas and service
 roles. It does not create sample zones. GeoIP bootstrap uses only the reserved

@@ -80,5 +80,6 @@ def test_dashboard_has_all_settings_tabs_and_secret_editor():
     assert "Test PowerDNS connection" in view
     assert "Static anycast bypass is active" in view
     assert "never uses Lua, country routing, or continent routing" in view
+    assert "configured anycast IPs" in view
     assert "showAnycastWarning" in view
     assert "••••• (configured)" in secret

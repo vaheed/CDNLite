@@ -33,8 +33,8 @@ class DnsOperationsService
                 'cdn_zone' => (string) $edgeDns['cdn_zone'],
                 'cdn_proxy_host' => (string) $edgeDns['proxy_host'],
                 'static_anycast' => [
-                    'ipv4' => (string) ($edgeDns['anycast_ipv4'] ?? ''),
-                    'ipv6' => (string) ($edgeDns['anycast_ipv6'] ?? ''),
+                    'ipv4' => array_values((array) ($edgeDns['anycast_ipv4'] ?? [])),
+                    'ipv6' => array_values((array) ($edgeDns['anycast_ipv6'] ?? [])),
                 ],
                 'apex_proxy_mode' => 'ALIAS',
                 'bundled_dnsgeo' => true,

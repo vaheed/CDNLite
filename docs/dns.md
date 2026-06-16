@@ -75,12 +75,14 @@ proxy.cdn.example.net. LUA AAAA <healthy IPv6 pool>
 
 Admins can override either address family from the dashboard under
 Settings -> Edge DNS / Anycast by setting `anycast_ipv4` and/or
-`anycast_ipv6`. When a static anycast IP is configured, the shared proxy host
-publishes a plain `A` or `AAAA` rrset for that family and completely bypasses
-DNSGeo Lua, country routing, and continent routing for that family. CDNLite
-continues to keep customer zones stable: proxied apex records still point by
-`ALIAS` to the stable site target, and proxied subdomains still point by
-`CNAME` to the stable site target.
+`anycast_ipv6`. Each setting accepts one or more comma-, space-, or
+newline-separated IP addresses, such as `203.0.113.10, 203.0.113.11`. When
+static anycast IPs are configured, the shared proxy host publishes plain `A` or
+`AAAA` rrsets containing all configured addresses for that family and
+completely bypasses DNSGeo Lua, country routing, and continent routing for that
+family. CDNLite continues to keep customer zones stable: proxied apex records
+still point by `ALIAS` to the stable site target, and proxied subdomains still
+point by `CNAME` to the stable site target.
 
 Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host.
 Proxied customer apex records are always published as `ALIAS` to that stable
