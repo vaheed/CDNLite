@@ -62,7 +62,9 @@ CDNLITE_CDN_PROXY_HOST=proxy.cdn.example.net
 Core reads the fresh-install `edge_state` view as the single DNS routing source.
 An address is eligible only when its edge is enabled for DNS, online, healthy,
 and has a heartbeat newer than 90 seconds. Anycast addresses are ordered before
-regional unicast addresses, and both groups use stable IP ordering.
+regional unicast addresses. Core keeps edge ordering from `edge_state`, writes
+each target IP with the edge country into the PowerDNS Lua record, and uses the
+first eligible edge IP as the final fallback answer.
 
 The CDN zone contains one shared pair of Lua rrsets:
 

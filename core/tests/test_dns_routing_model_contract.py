@@ -76,7 +76,8 @@ def test_local_development_edges_are_selectable():
 
 def test_powerdns_lua_records_are_expressions_not_chunks():
     builder = read("core/app/Modules/Dns/Services/EdgeHealthRecordBuilder.php")
-    assert "'ifportup(%d, %s, %s)'" in builder
-    assert "'ifurlup(%s, %s)'" in builder
+    assert "country(" in builder
+    assert "ifportup" not in builder
+    assert "ifurlup" not in builder
     assert "return ifportup" not in builder
     assert "return ifurlup" not in builder

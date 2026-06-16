@@ -31,33 +31,27 @@ echo $builder->luaRecord($argv[1], json_decode($argv[2], true));
     return result.stdout
 
 
-def test_simple_country_and_continent_geo_record():
+def test_simple_country_geo_record():
     record = build_record([
         {
             "ip": "185.142.97.17",
-            "region": "iran",
             "country": "IR",
-            "continent": "AS",
         },
         {
             "ip": "1.1.1.1",
-            "region": "eu",
-            "country": "",
-            "continent": "EU",
+            "country": "DE",
         },
         {
             "ip": "2.2.2.2",
-            "region": "us",
             "country": "US",
-            "continent": "NA",
         },
     ])
 
     assert record == (
         'A ";'
         "if country('IR') then return '185.142.97.17' "
+        "elseif country('DE') then return '1.1.1.1' "
         "elseif country('US') then return '2.2.2.2' "
-        "elseif continent('EU') then return '1.1.1.1' "
         "else return '185.142.97.17' end"
         '"'
     )
@@ -67,21 +61,15 @@ def test_fallback_is_always_first_edge_ip():
     record = build_record([
         {
             "ip": "3.3.3.3",
-            "region": "fallback",
             "country": "",
-            "continent": "",
         },
         {
             "ip": "185.142.97.17",
-            "region": "iran",
             "country": "IR",
-            "continent": "AS",
         },
         {
             "ip": "1.1.1.1",
-            "region": "eu",
-            "country": "",
-            "continent": "EU",
+            "country": "DE",
         },
     ])
 
@@ -92,15 +80,11 @@ def test_no_port_check_and_no_selectors_are_generated():
     record = build_record([
         {
             "ip": "185.142.97.17",
-            "region": "iran",
             "country": "IR",
-            "continent": "AS",
         },
         {
             "ip": "1.1.1.1",
-            "region": "eu",
-            "country": "",
-            "continent": "EU",
+            "country": "DE",
         },
     ])
 
@@ -114,76 +98,83 @@ def test_no_port_check_and_no_selectors_are_generated():
     assert "minimumFailures=" not in record
 
 
-def test_region_aliases_work_when_country_and_continent_are_empty():
+def test_country_must_come_from_edge_country_field():
     record = build_record([
         {
             "ip": "185.142.97.17",
             "region": "iran",
             "country": "",
-            "continent": "",
         },
         {
             "ip": "1.1.1.1",
-            "region": "eu",
-            "country": "",
-            "continent": "",
-        },
-        {
-            "ip": "2.2.2.2",
-            "region": "us",
-            "country": "",
-            "continent": "",
+            "region": "fallback",
+            "country": "DE",
         },
     ])
 
-    assert "country('IR') then return '185.142.97.17'" in record
-    assert "country('US') then return '2.2.2.2'" in record
-    assert "continent('EU') then return '1.1.1.1'" in record
+    assert "iran" not in record
+    assert "country('IR')" not in record
+    assert "country('DE') then return '1.1.1.1'" in record
 
 
-def test_country_routes_are_before_continent_routes():
+def test_duplicate_country_returns_all_edges_for_that_country():
     record = build_record([
         {
             "ip": "1.1.1.1",
-            "region": "eu",
-            "country": "",
-            "continent": "EU",
+            "country": "DE",
         },
         {
             "ip": "4.4.4.4",
-            "region": "germany",
             "country": "DE",
-            "continent": "EU",
         },
         {
             "ip": "5.5.5.5",
-            "region": "france",
             "country": "FR",
-            "continent": "EU",
         },
     ])
 
-    de_index = record.index("country('DE')")
-    fr_index = record.index("country('FR')")
-    eu_index = record.index("continent('EU')")
+    assert "country('DE') then return {'1.1.1.1','4.4.4.4'}" in record
+    assert "country('FR') then return '5.5.5.5'" in record
 
-    assert de_index < eu_index
-    assert fr_index < eu_index
+
+def test_requested_multiple_ip_country_record_shape():
+    record = build_record([
+        {
+            "ip": "185.142.97.17",
+            "country": "IR",
+        },
+        {
+            "ip": "2.2.2.2",
+            "country": "US",
+        },
+        {
+            "ip": "2.2.2.3",
+            "country": "US",
+        },
+        {
+            "ip": "2.2.2.4",
+            "country": "US",
+        },
+    ])
+
+    assert record == (
+        'A ";'
+        "if country('IR') then return '185.142.97.17' "
+        "elseif country('US') then return {'2.2.2.2','2.2.2.3','2.2.2.4'} "
+        "else return '185.142.97.17' end"
+        '"'
+    )
 
 
 def test_invalid_ips_are_ignored():
     record = build_record([
         {
             "ip": "bad-ip",
-            "region": "iran",
             "country": "IR",
-            "continent": "AS",
         },
         {
             "ip": "185.142.97.17",
-            "region": "iran",
             "country": "IR",
-            "continent": "AS",
         },
     ])
 
@@ -196,15 +187,11 @@ def test_aaaa_uses_ipv6_only():
         [
             {
                 "ip": "185.142.97.17",
-                "region": "iran",
                 "country": "IR",
-                "continent": "AS",
             },
             {
                 "ip": "2001:4860:4860::8888",
-                "region": "us",
                 "country": "US",
-                "continent": "NA",
             },
         ],
         dns_type="AAAA",

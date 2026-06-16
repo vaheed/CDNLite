@@ -41,8 +41,8 @@ class EdgeDnsService
         ];
 
         foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
-            $ips = array_merge($pool['anycast'][$family], $pool['unicast'][$family]);
-            $content = $this->health->luaRecord($type, $ips);
+            $targets = array_merge($pool['anycast'][$family], $pool['unicast'][$family]);
+            $content = $this->health->luaRecord($type, $targets);
             if ($content === null) {
                 continue;
             }
@@ -139,6 +139,7 @@ class EdgeDnsService
         $warnings = [];
         $anycast = ['ipv4' => [], 'ipv6' => []];
         $unicast = ['ipv4' => [], 'ipv6' => []];
+        $seen = ['anycast' => ['ipv4' => [], 'ipv6' => []], 'unicast' => ['ipv4' => [], 'ipv6' => []]];
 
         foreach ($rows as $row) {
             if (!(bool) $row['healthy']) {
@@ -148,31 +149,35 @@ class EdgeDnsService
             $ip = trim((string) $row['ip']);
             $family = (string) $row['ip_family'] === 'AAAA' ? 'ipv6' : 'ipv4';
             $bucket = (bool) $row['anycast'] ? 'anycast' : 'unicast';
-            if ($bucket === 'anycast') {
-                $anycast[$family][$ip] = $ip;
-            } else {
-                $unicast[$family][$ip] = $ip;
+            if (!isset($seen[$bucket][$family][$ip])) {
+                $seen[$bucket][$family][$ip] = true;
+                $target = [
+                    'ip' => $ip,
+                    'country' => (string) $row['country'],
+                ];
+                if ($bucket === 'anycast') {
+                    $anycast[$family][] = $target;
+                } else {
+                    $unicast[$family][] = $target;
+                }
             }
             $nodes[] = [
                 'edge_id' => (string) $row['edge_id'],
                 'ip' => $ip,
                 'ip_family' => (string) $row['ip_family'],
                 'region' => (string) $row['region'],
+                'country' => (string) $row['country'],
                 'anycast' => (bool) $row['anycast'],
                 'healthy' => true,
                 'last_check_at' => (int) $row['last_check_at'],
             ];
         }
 
-        foreach (['ipv4', 'ipv6'] as $family) {
-            ksort($anycast[$family]);
-            ksort($unicast[$family]);
-        }
         return [
             'nodes' => $nodes,
             'warnings' => $warnings,
-            'anycast' => ['ipv4' => array_values($anycast['ipv4']), 'ipv6' => array_values($anycast['ipv6'])],
-            'unicast' => ['ipv4' => array_values($unicast['ipv4']), 'ipv6' => array_values($unicast['ipv6'])],
+            'anycast' => $anycast,
+            'unicast' => $unicast,
         ];
     }
 
