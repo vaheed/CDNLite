@@ -234,6 +234,8 @@ docker compose exec core php artisan cdn:settings:test-powerdns
 
 Checklist:
 
+- `ssl-scheduler` is running and not started with `CDNLITE_SCHEDULER_IDLE=1`.
+- `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` is set to an interactive value such as `30`.
 - ACME directory is staging for tests.
 - Contact email is set.
 - DNS propagation seconds are realistic.

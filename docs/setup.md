@@ -152,6 +152,7 @@ Core settings:
 | `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
 | `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
 | `CDNLITE_ACME_*` | ACME directory, contact email, propagation delay, and polling. |
+| `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` | Seconds between SSL scheduler loops for queued issuance and renewals; default `30`. |
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |

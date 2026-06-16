@@ -296,6 +296,7 @@ CDNLITE_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
 CDNLITE_ACME_CONTACT_EMAIL=${ACME_EMAIL}
 CDNLITE_ACME_DNS_PROPAGATION_SECONDS=30
 CDNLITE_ACME_POLL_ATTEMPTS=30
+CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS=30
 CDNLITE_ADMIN_SESSION_TTL_SECONDS=28800
 CDNLITE_CORS_ALLOWED_ORIGINS=${DASHBOARD_PUBLIC_URL}
 CDNLITE_BOOTSTRAP_ADMIN_USER=1
@@ -582,7 +583,7 @@ services:
       postgres:
         condition: service_healthy
     env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep 3600; done"]
+    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep \"$${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}\"; done"]
     networks: [cdnlite-internal]
 
   origin-health-scheduler:

@@ -46,6 +46,8 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     renewals = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
     issuer = read("core/app/Modules/Proxy/Services/AcmeIssuerService.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    command = read("core/app/Console/Commands/CdnSslRenewDueCommand.php")
+    compose = read("docker-compose.yml")
 
     for event in [
         "ssl.validation_pending",
@@ -53,6 +55,12 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
         "ssl.failed",
     ]:
         assert event in renewals
+    assert "public function processQueuedJobs" in renewals
+    assert "WHERE status='queued'" in renewals
+    assert "'queued_issuance'" in renewals
+    assert "processQueuedJobs()" in command
+    assert "renewDue()" in command
+    assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30" in compose
     assert "ssl.dns_challenge_created" in issuer
     assert "AuditLog::write('ssl.dns_challenge_created'" in issuer
     assert "private function updateActiveJobs" in renewals

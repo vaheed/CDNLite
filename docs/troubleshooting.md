@@ -41,7 +41,8 @@ Use this order during incidents:
 | Dashboard reports `edge_not_healthy` after startup | The edge has not completed a successful signed heartbeat in the last 90 seconds. | Check `edge-agent` logs and run the heartbeat script; HTTP failures now make the script fail instead of being treated as success. |
 | Security-event push reports a missing `.payload` file | Two agent/manual push attempts overlapped while sharing the same queue. | Update to the queue-locking agent script; concurrent attempts now leave the active sender in control. |
 | DNS publishing fails | PowerDNS URL/key/server ID wrong or DNSGeo is unhealthy. | Run `docker compose ps`, inspect `pdns-auth`, and run `cdn:settings:test-powerdns`. |
-| SSL issuance stuck | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
+| SSL issuance stuck at `Queued` / `5%` | `ssl-scheduler` is not running or cannot reach Core/PostgreSQL/ACME. | Start `ssl-scheduler`, check its logs, and keep `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` low enough for interactive requests. |
+| SSL issuance stuck during validation | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
 | Cache assertions are flaky in tests | Default TTL too long for e2e timing. | Use `CDNLITE_CACHE_DEFAULT_TTL=1s` in e2e. |
 | Usage analytics are empty | Edge metrics queue not pushed or domain filter mismatch. | Check `METRIC_PATH`, agent logs, collector endpoint, and domain names. |
 | Config snapshot rollback appears ignored | Edge has not pulled the active version yet. | Run the edge agent config pull or wait for the polling loop, then inspect `edge-sync-status.json`. |

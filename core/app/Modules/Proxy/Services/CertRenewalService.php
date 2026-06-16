@@ -46,6 +46,24 @@ class CertRenewalService
         return ['checked_at' => $now, 'attempted' => count($results), 'results' => $results];
     }
 
+    public function processQueuedJobs(?int $limit = null): array
+    {
+        $limit = max(1, min(50, $limit ?? (int) (getenv('CDNLITE_SSL_JOB_BATCH_SIZE') ?: 10)));
+        $stmt = Database::pdo()->prepare(
+            "SELECT * FROM ssl_jobs
+             WHERE status='queued'
+             ORDER BY created_at ASC
+             LIMIT {$limit}"
+        );
+        $stmt->execute();
+
+        $results = [];
+        foreach ($stmt->fetchAll() as $job) {
+            $results[] = $this->processQueuedJob((array) $job);
+        }
+        return ['attempted' => count($results), 'results' => $results];
+    }
+
     public function request(string $domainId, array $hostnames = []): array
     {
         $this->certificates->requestSslCertificate($domainId, $hostnames);
@@ -83,6 +101,42 @@ class CertRenewalService
             'history' => $history->fetchAll(),
             'jobs' => $this->certificates->listSslJobs($domainId),
         ];
+    }
+
+    private function processQueuedJob(array $job): array
+    {
+        $jobId = (string) $job['id'];
+        $domainId = (string) $job['domain_id'];
+        $hostnames = $this->jobHostnames($job);
+        $now = time();
+        $claim = Database::pdo()->prepare(
+            "UPDATE ssl_jobs
+             SET status='checking_dns',progress_percent=20,message='Checking DNS validation prerequisites.',updated_at=:updated_at
+             WHERE id=:id AND status='queued'"
+        );
+        $claim->execute([':updated_at' => $now, ':id' => $jobId]);
+        if ($claim->rowCount() !== 1) {
+            return ['job_id' => $jobId, 'status' => 'skipped', 'reason' => 'job_already_claimed'];
+        }
+
+        $result = $this->issue($domainId, $hostnames, 'queued_issuance');
+        return ['job_id' => $jobId, 'domain_id' => $domainId] + $result;
+    }
+
+    private function jobHostnames(array $job): array
+    {
+        $decoded = json_decode((string) ($job['hostnames_json'] ?? '[]'), true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+        $hostnames = [];
+        foreach ($decoded as $hostname) {
+            $h = strtolower(trim((string) $hostname));
+            if ($h !== '') {
+                $hostnames[] = $h;
+            }
+        }
+        return array_values(array_unique($hostnames));
     }
 
     private function issue(string $domainId, array $hostnames, string $action): array

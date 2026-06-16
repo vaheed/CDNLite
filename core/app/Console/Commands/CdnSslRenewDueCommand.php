@@ -9,9 +9,12 @@ class CdnSslRenewDueCommand
 {
     public function __invoke(array $argv): int
     {
-        $result = (new CertRenewalService())->renewDue();
+        $service = new CertRenewalService();
+        $queued = $service->processQueuedJobs();
+        $renewals = $service->renewDue();
+        $result = ['queued' => $queued, 'renewals' => $renewals];
         CommandIO::printJson($result);
-        foreach ($result['results'] as $item) {
+        foreach (array_merge($queued['results'], $renewals['results']) as $item) {
             if (($item['status'] ?? null) === 'error') {
                 return 1;
             }

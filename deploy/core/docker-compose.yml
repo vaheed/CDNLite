@@ -98,7 +98,8 @@ services:
       CDNLITE_ACME_DNS_PROPAGATION_SECONDS: ${CDNLITE_ACME_DNS_PROPAGATION_SECONDS}
       CDNLITE_ACME_POLL_ATTEMPTS: ${CDNLITE_ACME_POLL_ATTEMPTS}
       CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep 3600; done"]
+      CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS: ${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep \"$${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}\"; done"]
     networks:
       - internal
 
