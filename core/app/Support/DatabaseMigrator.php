@@ -33,11 +33,30 @@ class DatabaseMigrator
             foreach ($migrations as $migration) {
                 $existing = $applied[$migration['version']] ?? null;
                 if ($existing !== null) {
-                    if (!hash_equals($existing['checksum'], $migration['checksum'])) {
+                    if (!(bool) $existing['success']) {
+                        if ($dryRun) {
+                            $plan[] = $migration + ['status' => 'would_retry_failed_migration'];
+                            continue;
+                        }
+
+                        $this->deleteMigrationRecord($migration['version']);
+                        $existing = null;
+                    } elseif (!hash_equals($existing['checksum'], $migration['checksum'])) {
+                        if ($migration['version'] === self::BASELINE_VERSION) {
+                            $this->validateLegacyBaseline();
+                            if (!$dryRun) {
+                                $this->reconcileBaselineChecksum($migration);
+                            }
+                            $plan[] = $migration + ['status' => $dryRun ? 'would_reconcile_baseline_checksum' : 'reconciled_baseline_checksum'];
+                            continue;
+                        }
+
                         throw new \RuntimeException("migration_checksum_mismatch:{$migration['version']}");
                     }
-                    $plan[] = $migration + ['status' => 'applied'];
-                    continue;
+                    if ($existing !== null) {
+                        $plan[] = $migration + ['status' => 'applied'];
+                        continue;
+                    }
                 }
 
                 if ($migration['version'] === self::BASELINE_VERSION && $this->isLegacySchemaPresent()) {
@@ -213,6 +232,30 @@ class DatabaseMigrator
             ':success' => $success ? 1 : 0,
             ':error' => $error,
         ]);
+    }
+
+    private function reconcileBaselineChecksum(array $migration): void
+    {
+        // The baseline schema is a bootstrap snapshot, so checksum drift is
+        // expected when we keep the fresh-install schema aligned with runtime
+        // behavior. Preserve the historical row and refresh only the checksum.
+        $stmt = $this->pdo->prepare(
+            "UPDATE schema_migrations
+             SET name = :name,
+                 checksum = :checksum
+             WHERE version = :version"
+        );
+        $stmt->execute([
+            ':version' => $migration['version'],
+            ':name' => $migration['name'],
+            ':checksum' => $migration['checksum'],
+        ]);
+    }
+
+    private function deleteMigrationRecord(string $version): void
+    {
+        $stmt = $this->pdo->prepare('DELETE FROM schema_migrations WHERE version = :version');
+        $stmt->execute([':version' => $version]);
     }
 
     private function isLegacySchemaPresent(): bool

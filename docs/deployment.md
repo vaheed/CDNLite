@@ -39,6 +39,10 @@ EDGE_PUBLIC_IP=198.51.100.20 \
 deploy/generate-split-deployment.sh --auto --output ./generated
 ```
 
+Set `EDGE_PUBLIC_IP` only if you want the edge agent to advertise a specific
+public address. When it is left unset, the agent keeps the public IP blank so
+manual heartbeat updates are not overwritten.
+
 Add `--with-replica` to include `deploy/powerdns-replica`. The generator refuses
 to replace an existing output directory unless `--force` is supplied. It
 validates each generated Compose project when Docker Compose is available; use

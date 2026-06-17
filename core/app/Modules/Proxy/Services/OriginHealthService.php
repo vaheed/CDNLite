@@ -121,6 +121,12 @@ class OriginHealthService
             'role' => array_key_exists('role', $input) ? (string) $input['role'] : (string) ($existing['role'] ?? 'origin'),
             'weight' => (int) ($input['weight'] ?? $existing['weight'] ?? 1),
             'enabled' => array_key_exists('enabled', $input) ? !empty($input['enabled']) : (bool) $existing['enabled'],
+            // DNS-linked origin edits should recover fast after a transient
+            // outage. Reset health so the edge can route to the repaired origin
+            // immediately instead of waiting for the next health probe.
+            'health_status' => array_key_exists('health_status', $input) ? (string) $input['health_status'] : (string) ($existing['health_status'] ?? 'unknown'),
+            'last_check_at' => array_key_exists('last_check_at', $input) ? ($input['last_check_at'] === null ? null : (int) $input['last_check_at']) : ($existing['last_check_at'] === null ? null : (int) $existing['last_check_at']),
+            'last_error' => array_key_exists('last_error', $input) ? ($input['last_error'] === null ? null : (string) $input['last_error']) : ($existing['last_error'] === null ? null : (string) $existing['last_error']),
         ];
         if ($patch['host_header'] === '') {
             $patch['host_header'] = $patch['host'];
@@ -135,7 +141,8 @@ class OriginHealthService
                 'UPDATE domain_origins SET scheme=:scheme,host=:host,port=:port,host_header=:host_header,sni=:sni,
                  tls_verify=:tls_verify,preserve_host=:preserve_host,role=:role,weight=:weight,is_primary=:is_primary,
                  health_check_path=:health_check_path,health_check_interval_seconds=:health_check_interval_seconds,
-                 health_check_timeout_seconds=:health_check_timeout_seconds,enabled=:enabled,updated_at=:updated_at
+                 health_check_timeout_seconds=:health_check_timeout_seconds,health_status=:health_status,
+                 last_check_at=:last_check_at,last_error=:last_error,enabled=:enabled,updated_at=:updated_at
                  WHERE domain_id=:domain_id AND id=:id'
             )->execute([
                 ':domain_id' => $domainId,
@@ -153,6 +160,9 @@ class OriginHealthService
                 ':health_check_path' => $patch['health_check_path'],
                 ':health_check_interval_seconds' => $patch['health_check_interval_seconds'],
                 ':health_check_timeout_seconds' => $patch['health_check_timeout_seconds'],
+                ':health_status' => $patch['health_status'],
+                ':last_check_at' => $patch['last_check_at'],
+                ':last_error' => $patch['last_error'],
                 ':enabled' => (int) $patch['enabled'],
                 ':updated_at' => $now,
             ]);
@@ -293,7 +303,10 @@ class OriginHealthService
             return $scheme;
         }
 
-        return (string) ($record['origin_tls_verify'] ?? 'ignore') === 'ignore' ? 'https' : 'http';
+        // Fresh installs should favor the plain HTTP path unless the user
+        // explicitly picked HTTPS. That keeps naked-IP and legacy backends
+        // working without hidden TLS assumptions.
+        return 'http';
     }
 
     private function findForDnsRecord(string $domainId, string $dnsRecordId): ?array

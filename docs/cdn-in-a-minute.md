@@ -116,7 +116,7 @@ DOMAIN_ID=replace-with-domain-id
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/origins" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"host":"origin.example.com","scheme":"https","port":443,"role":"primary","enabled":true}'
+  -d '{"host":"origin.example.com","scheme":"http","port":80,"role":"origin","enabled":true}'
 ```
 
 ## Step 8 - Verify End-To-End
@@ -138,7 +138,8 @@ docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson
 ```
 
 For host-header or TLS/SNI origin issues, verify the origin's `host_header`,
-`sni`, `scheme`, `port`, and `preserve_host` settings.
+`sni`, `scheme`, `port`, and `preserve_host` settings. If you do not set a
+scheme explicitly, the origin stays on HTTP/80 by default.
 
 ## Next Steps
 

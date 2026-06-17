@@ -122,6 +122,9 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
 
 def test_terminal_502_paths_emit_activity_metrics():
     nginx = read("edge/openresty/nginx.conf")
+    error_page = read("edge/openresty/lua/error_page.lua")
+    proxy = read("edge/openresty/lua/proxy.lua")
+    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
 
     assert "location @cdnlite_backup" not in nginx
     assert "location @cdnlite_tls_backup" not in nginx
@@ -135,3 +138,24 @@ def test_terminal_502_paths_emit_activity_metrics():
         block = nginx[start:nginx.index("proxy_set_header Host", start)]
         assert "log_by_lua_block" in block
         assert "metrics.on_log()" in block
+
+    error_page_start = nginx.index("location = /__cdnlite_error_page {")
+    error_page_block = nginx[error_page_start:nginx.index("location / {", error_page_start)]
+    assert "log_by_lua_block" in error_page_block
+    assert "metrics.on_log()" in error_page_block
+    assert "restore_activity_context()" in error_page
+    assert "ngx.ctx.domain_id" in error_page
+    assert "ngx.ctx.origin = {" in error_page
+    assert "X-CDNLite-Domain-Id" in proxy
+    assert "X-CDNLite-Origin-Id" in proxy
+    assert "X-CDNLite-Origin-Host" in proxy
+    assert "X-CDNLite-Origin-Role" in proxy
+    assert "X-CDNLite-Origin-Tls-Verify" in proxy
+    assert "cdnlite_request_context" in nginx
+    assert "dict:set" in proxy
+    assert "dict:get" in error_page
+    assert 'headers["X-CDNLite-Domain-Id"]' in error_page
+    assert 'headers["X-CDNLite-Origin-Id"]' in error_page
+    assert 'headers["X-CDNLite-Origin-Host"]' in error_page
+    assert "domainIdFromItem" in collector
+    assert "SELECT id FROM domains WHERE domain = :host OR name = :host LIMIT 1" in collector

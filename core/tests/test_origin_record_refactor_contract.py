@@ -76,6 +76,8 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins
+    assert "'health_status' => array_key_exists('health_status', $input)" in origins
+    assert "return 'http';" in origins
     assert "public function create" in origins
 
 
@@ -113,4 +115,5 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     assert "'preserve_host'" in config
     assert "'source' => 'geo_origin'" in config
     assert "'scheme' => (string) ($origin['scheme']" in config
+    assert "Geo origins should not silently assume TLS" in config
     assert "'origin_pool_size'" in config

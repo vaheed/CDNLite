@@ -27,6 +27,11 @@ function M.on_header()
 end
 
 function M.on_log()
+  if ngx.ctx.metrics_logged then
+    return
+  end
+  ngx.ctx.metrics_logged = true
+
   local bytes_in = tonumber(ngx.var.request_length) or 0
   local bytes_out = tonumber(ngx.var.bytes_sent) or 0
   local row = {

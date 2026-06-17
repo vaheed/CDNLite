@@ -65,6 +65,17 @@ the expected CDNLite tables already exist, it validates required tables and mark
 `000001_baseline_schema.sql` as applied. If required tables are missing, the
 command fails with `legacy_schema_incompatible` and does not mark the baseline.
 
+If the baseline row already exists but its checksum no longer matches the
+current bootstrap snapshot, the migrator refreshes the stored checksum after it
+verifies the legacy schema is still present. This keeps existing installs booting
+cleanly when the baseline file changes for fresh installs, while later
+migrations continue to fail on checksum drift.
+
+If a migration row exists with `success = false`, the migrator treats it as a
+retryable failed attempt. On the next run it clears that row and executes the
+migration again, which is safe because the previous attempt was rolled back
+before the failure row was recorded.
+
 ## Safety Rules
 
 - Migrations run under a PostgreSQL advisory lock.

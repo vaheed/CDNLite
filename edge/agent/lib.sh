@@ -30,24 +30,9 @@ cdnlite_public_ip() {
     return 0
   fi
 
-  for endpoint in \
-    "https://api.ipify.org" \
-    "https://ifconfig.me/ip" \
-    "https://checkip.amazonaws.com"
-  do
-    detected="$(curl -fsS --max-time 3 "$endpoint" 2>/dev/null | cdnlite_first_valid_ip || true)"
-    if [ "$detected" != "" ]; then
-      printf '%s' "$detected"
-      return 0
-    fi
-  done
-
-  detected="$(hostname -i 2>/dev/null | tr ' ' '\n' | cdnlite_first_valid_ip || true)"
-  if [ "$detected" != "" ]; then
-    printf '%s' "$detected"
-    return 0
-  fi
-
+  # Do not guess a public IP for private/self-hosted installs. Leaving this
+  # empty keeps the node stable unless the operator explicitly configures
+  # EDGE_PUBLIC_IP.
   printf ''
 }
 

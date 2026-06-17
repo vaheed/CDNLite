@@ -27,7 +27,7 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/origins" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"host":"origin.example.test","scheme":"https","port":443,"role":"primary","enabled":true}'
+  -d '{"host":"origin.example.test","scheme":"http","port":80,"role":"origin","enabled":true}'
 ```
 
 ## CLI Domain Workflow

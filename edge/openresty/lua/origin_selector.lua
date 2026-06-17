@@ -69,7 +69,10 @@ local function choose_origin(origins, seed)
     pool = unknown
   end
   if #pool == 0 then
-    return nil
+    -- If every origin is marked unhealthy, keep one last-resort target so the
+    -- cache layer can still attempt a fetch and fall back to stale content.
+    -- Healthy and unknown origins always win first.
+    pool = origins
   end
   if #pool == 1 then
     return pool[1]

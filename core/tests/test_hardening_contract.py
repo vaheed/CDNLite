@@ -73,6 +73,8 @@ if (!empty($existing)) {
 if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
   $pdo->exec("INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING");
 }
+$pdo->exec("ALTER TABLE domain_origins DROP CONSTRAINT IF EXISTS domain_origins_role_check");
+$pdo->exec("ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_role_check CHECK (role IN ('origin'))");
 '''
     run_php_with_deadlock_retry(script, TEST_ENV)
 

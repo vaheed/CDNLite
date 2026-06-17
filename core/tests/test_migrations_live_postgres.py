@@ -174,3 +174,57 @@ def test_migrations_adopt_legacy_schema_without_reimporting_baseline(temp_databa
         "SELECT version, success, error FROM schema_migrations WHERE version = '000001'",
     )
     assert rows == [{"version": "000001", "success": True, "error": None}]
+
+
+def test_migrations_reconcile_baseline_checksum_without_reapplying_schema(temp_database):
+    first = run_artisan("cdn:db:migrate", temp_database)
+    assert first["ok"] is True
+
+    run_exec(
+        temp_database,
+        "UPDATE schema_migrations SET checksum = 'deadbeef' WHERE version = '000001'",
+    )
+
+    dry_run = run_artisan("cdn:db:migrate --dry-run", temp_database)
+    applied = run_artisan("cdn:db:migrate", temp_database)
+    rows = run_query(
+        temp_database,
+        "SELECT version, checksum, success FROM schema_migrations WHERE version = '000001'",
+    )
+
+    assert dry_run["ok"] is True
+    assert dry_run["migrations"][0]["status"] == "would_reconcile_baseline_checksum"
+    assert applied["ok"] is True
+    assert applied["migrations"][0]["status"] == "reconciled_baseline_checksum"
+    assert rows[0]["version"] == "000001"
+    assert rows[0]["checksum"] == first["migrations"][0]["checksum"]
+    assert rows[0]["success"] is True
+
+
+def test_migrations_retry_failed_migration_rows(temp_database):
+    first = run_artisan("cdn:db:migrate", temp_database)
+    assert first["ok"] is True
+
+    run_exec(
+        temp_database,
+        """
+UPDATE schema_migrations
+SET checksum = 'deadbeef', success = FALSE, error = 'simulated failure'
+WHERE version = '000003'
+""".strip(),
+    )
+
+    dry_run = run_artisan("cdn:db:migrate --dry-run", temp_database)
+    applied = run_artisan("cdn:db:migrate", temp_database)
+    rows = run_query(
+        temp_database,
+        "SELECT version, success, error FROM schema_migrations WHERE version = '000003'",
+    )
+    dry_run_row = next(item for item in dry_run["migrations"] if item["version"] == "000003")
+    applied_row = next(item for item in applied["migrations"] if item["version"] == "000003")
+
+    assert dry_run["ok"] is True
+    assert dry_run_row["status"] == "would_retry_failed_migration"
+    assert applied["ok"] is True
+    assert applied_row["status"] == "applied_now"
+    assert rows == [{"version": "000003", "success": True, "error": None}]

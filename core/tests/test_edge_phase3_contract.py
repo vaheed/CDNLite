@@ -76,6 +76,8 @@ def test_phase3_e2e_covers_https_sni_and_preserve_host_runtime_cases():
     origin_mock = read("ci/origin-mock/nginx.conf")
 
     assert '"origin_sni":"$ssl_server_name"' in origin_mock
+    assert "origin-http-80-default" in e2e
+    assert '"origin_scheme":"http"' in e2e
     assert "origin-https-sni" in e2e
     assert '"origin_sni":"phase3-sni.local"' in e2e
     assert "origin-host-header-own" in e2e

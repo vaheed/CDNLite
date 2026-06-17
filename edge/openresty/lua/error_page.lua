@@ -1,5 +1,6 @@
 local M = {}
 local identity = require('identity')
+local cjson = require('cjson.safe')
 
 local function h(v)
   local s = tostring(v or "")
@@ -112,6 +113,45 @@ local function safe_context_value(name)
   return tostring(value)
 end
 
+local function restore_activity_context()
+  -- Internal redirects can drop the routing context that the collector needs.
+  -- Put the key fields back onto `ngx.ctx` so the error-page metric is still
+  -- attributable to the original domain and origin. We prefer request headers
+  -- because they survive more redirect paths than Lua context or Nginx vars.
+  local headers = ngx.req.get_headers()
+  local ctx_key = tostring(ngx.ctx.request_id or ngx.var.request_id or "")
+  local shared_context = nil
+  if ctx_key ~= "" then
+    local dict = ngx.shared.cdnlite_request_context
+    if dict then
+      shared_context = dict:get(ctx_key)
+    end
+  end
+  if shared_context and shared_context ~= "" then
+    shared_context = cjson.decode(shared_context)
+  end
+
+  if not ngx.ctx.domain_id or ngx.ctx.domain_id == "" then
+    local domain_id = ngx.var.target_domain_id or headers["X-CDNLite-Domain-Id"] or headers["x-cdnlite-domain-id"] or (type(shared_context) == "table" and shared_context.domain_id or "") or ""
+    if domain_id ~= "" then
+      ngx.ctx.domain_id = domain_id
+    end
+  end
+
+  local origin_id = tostring(ngx.var.target_origin_id or headers["X-CDNLite-Origin-Id"] or headers["x-cdnlite-origin-id"] or (type(shared_context) == "table" and shared_context.origin and shared_context.origin.id or "") or "")
+  local origin_host = tostring(ngx.var.target_origin_host or headers["X-CDNLite-Origin-Host"] or headers["x-cdnlite-origin-host"] or (type(shared_context) == "table" and shared_context.origin and shared_context.origin.host or "") or "")
+  local origin_role = tostring((ngx.ctx.origin or {}).role or headers["X-CDNLite-Origin-Role"] or headers["x-cdnlite-origin-role"] or (type(shared_context) == "table" and shared_context.origin and shared_context.origin.role or "") or "origin")
+  local origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or headers["X-CDNLite-Origin-Tls-Verify"] or headers["x-cdnlite-origin-tls-verify"] or (type(shared_context) == "table" and shared_context.origin and shared_context.origin.tls_verify or "") or "ignore")
+  if origin_id ~= "" or origin_host ~= "" then
+    ngx.ctx.origin = {
+      id = origin_id,
+      host = origin_host,
+      role = origin_role,
+      tls_verify = origin_tls_verify,
+    }
+  end
+end
+
 function M.render(code)
   local info = details(code)
   local reqid = ngx.ctx.request_id or ngx.var.request_id
@@ -139,6 +179,7 @@ function M.render(code)
   ngx.header['X-CDNLITE-Request-Id'] = reqid
   identity.apply()
   ngx.header.content_type = "text/html; charset=utf-8"
+  restore_activity_context()
   ngx.say([[
 <!doctype html>
 <html lang="en">
@@ -215,6 +256,12 @@ function M.render(code)
   </main>
 </body>
 </html>]])
+
+  -- Emit the activity row directly from the error page path.
+  -- Some 5xx responses are produced through an internal redirect, so we
+  -- record them here instead of depending only on the log phase.
+  local metrics = require('metrics')
+  metrics.on_log()
 end
 
 return M

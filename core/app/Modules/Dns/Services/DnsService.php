@@ -406,7 +406,22 @@ class DnsService
     private function reconcile(?string $domainId = null): void
     {
         $this->invalidateConfigSnapshot();
-        $result = (new DnsReconciler())->reconcile();
+        // Reconcile can lose a race with a brief PowerDNS restart or another
+        // in-flight sync. Keep the retry window tiny so user writes stay fast,
+        // but give transient failures one more chance to clear before we fail
+        // a strict deployment.
+        $result = ['ok' => false, 'error' => 'powerdns_reconcile_failed'];
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $result = (new DnsReconciler())->reconcile();
+            if (($result['ok'] ?? false) === true) {
+                break;
+            }
+            $error = (string) ($result['error'] ?? 'powerdns_reconcile_failed');
+            if (!in_array($error, ['powerdns_reconcile_partial_failure', 'dns_reconciler_busy'], true) || $attempt === 3) {
+                break;
+            }
+            usleep(250000 * $attempt);
+        }
         if (($result['ok'] ?? false) !== true) {
             AuditLog::write('dns.reconcile.failed', 'dns', 'powerdns', $domainId, null, [
                 'error' => (string) ($result['error'] ?? 'powerdns_reconcile_failed'),

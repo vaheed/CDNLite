@@ -452,7 +452,7 @@ class ConfigService
                 'port' => $scheme === 'https' ? 443 : 80,
                 'host_header' => $host,
                 'sni' => $host,
-            'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
+                'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
                 'health_status' => (string) ($record['origin_status'] ?? 'pending'),
                 'status' => (string) ($record['origin_status'] ?? 'pending'),
             ];
@@ -482,7 +482,9 @@ class ConfigService
             return $scheme;
         }
 
-        return (string) ($record['origin_tls_verify'] ?? 'ignore') === 'ignore' ? 'https' : 'http';
+        // Keep DNS-linked origins compatible with plain HTTP by default.
+        // Users can opt into HTTPS explicitly when the backend really serves it.
+        return 'http';
     }
 
     private function buildGeoOrigins(array $geoOrigins): array
@@ -501,8 +503,10 @@ class ConfigService
                 'role' => 'origin',
                 'source' => 'geo_origin',
                 'host' => $host,
-                'scheme' => (string) ($origin['scheme'] ?? (((string) ($origin['tls_verify'] ?? 'ignore') === 'ignore') ? 'https' : 'http')),
-                'port' => (int) ($origin['port'] ?? (((string) ($origin['tls_verify'] ?? 'ignore') === 'ignore') ? 443 : 80)),
+                // Geo origins should not silently assume TLS. Mirror the
+                // explicit scheme when present, otherwise stay on HTTP/80.
+                'scheme' => (string) ($origin['scheme'] ?? 'http'),
+                'port' => (int) ($origin['port'] ?? (((string) ($origin['scheme'] ?? 'http') === 'https') ? 443 : 80)),
                 'host_header' => (string) ($origin['host_header'] ?? $host),
                 'sni' => (string) ($origin['sni'] ?? $host),
                 'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),

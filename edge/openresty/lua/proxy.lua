@@ -1,6 +1,7 @@
 local M = {}
 local identity = require('identity')
 local edge_log = require('edge_log')
+local cjson = require('cjson.safe')
 
 local function header_has_cache_directive(value)
   if not value then
@@ -57,6 +58,28 @@ function M.forward(domain)
   ngx.var.target_origin_id = tostring((ngx.ctx.origin or {}).id or '')
   ngx.var.target_origin_host = tostring((ngx.ctx.origin or {}).host or '')
   ngx.var.target_origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'ignore')
+  -- Keep the routing context on the request itself so the error page can
+  -- recover it even when an internal redirect clears Lua state.
+  ngx.req.set_header('X-CDNLite-Domain-Id', tostring(domain.domain_id or ''))
+  ngx.req.set_header('X-CDNLite-Origin-Id', tostring((ngx.ctx.origin or {}).id or ''))
+  ngx.req.set_header('X-CDNLite-Origin-Host', tostring((ngx.ctx.origin or {}).host or ''))
+  ngx.req.set_header('X-CDNLite-Origin-Role', tostring((ngx.ctx.origin or {}).role or 'origin'))
+  ngx.req.set_header('X-CDNLite-Origin-Tls-Verify', tostring((ngx.ctx.origin or {}).tls_verify or 'ignore'))
+  local request_context = cjson.encode({
+    domain_id = tostring(domain.domain_id or ''),
+    origin = {
+      id = tostring((ngx.ctx.origin or {}).id or ''),
+      host = tostring((ngx.ctx.origin or {}).host or ''),
+      role = tostring((ngx.ctx.origin or {}).role or 'origin'),
+      tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'ignore'),
+    },
+  })
+  if request_context then
+    local dict = ngx.shared.cdnlite_request_context
+    if dict and ngx.ctx.request_id and ngx.ctx.request_id ~= '' then
+      dict:set(tostring(ngx.ctx.request_id), request_context, 60)
+    end
+  end
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'
   if edge_ttl and not cache_no_store then

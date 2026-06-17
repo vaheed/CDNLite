@@ -305,8 +305,8 @@ Example:
 ```json
 {
   "host": "origin.example.com",
-  "scheme": "https",
-  "port": 443,
+  "scheme": "http",
+  "port": 80,
   "host_header": "origin.example.com",
   "sni": "origin.example.com",
   "tls_verify": "ignore",
@@ -323,6 +323,8 @@ Origin tips:
   `dns_record_id`; manual origins use `source: "manual"`.
 - Duplicate manual origin hosts are allowed as separate rows because routing
   identity is the origin id, not only host and scheme.
+- When the scheme is omitted for a DNS-linked origin, CDNLite keeps the
+  backend on plain HTTP/80 unless you explicitly set `scheme: "https"`.
 - Edge routing uses the explicit `scheme`, `host`, and `port`. It sends
   `host_header` to the origin by default, uses `sni` for upstream TLS, and only
   preserves the CDN hostname when `preserve_host` is true.
@@ -335,7 +337,7 @@ Origin tips:
   origin CDNLite would select for `{ "host": "www.example.com", "path": "/",
   "country": "US" }`. The response is admin-safe and does not expose origin
   secrets or request headers.
-- The edge may emit `X-CDNLITE-Origin: primary|backup`; capture this header in incident reports.
+- The edge emits `X-CDNLITE-Origin: origin`; capture this header in incident reports.
   Edge access logs and metrics also include `request_id`, `origin_id`,
   upstream status/time, and router errors for 5xx diagnosis.
 
@@ -464,7 +466,7 @@ Usage ingest request:
 }
 ```
 
-Edge proxy responses include an origin marker such as `X-CDNLITE-Origin: primary|backup` when upstream failover state is known.
+Edge proxy responses include an origin marker such as `X-CDNLITE-Origin: origin` for routed requests.
 
 Edge endpoint notes:
 

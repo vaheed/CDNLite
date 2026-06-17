@@ -25,7 +25,10 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     dns_controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
 
     assert "private function invalidateConfigSnapshot" in dns_service
-    assert "$this->invalidateConfigSnapshot();\n        $result = (new DnsReconciler())->reconcile();" in dns_service
+    assert "DnsReconciler" in dns_service
+    assert "for ($attempt = 1; $attempt <= 3; $attempt++)" in dns_service
+    assert "dns_reconciler_busy" in dns_service
+    assert "usleep(250000 * $attempt)" in dns_service
     assert "AuditLog::write('dns.reconcile.failed'" in dns_service
     assert "'local_state_saved' => true" in dns_service
     assert "private function invalidateConfigSnapshot" in geo_service

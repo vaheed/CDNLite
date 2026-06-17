@@ -10,6 +10,8 @@ class CollectorService
     private ?bool $usageRollupCacheColumnsAvailable = null;
     /** @var array<string,bool> */
     private array $knownDomainIds = [];
+    /** @var array<string,string> */
+    private array $knownDomainHostIds = [];
     /** @var array<string,int> */
     private array $bucketSeconds = [
         'minute' => 60,
@@ -70,8 +72,8 @@ class CollectorService
         $skippedUnknownDomains = 0;
         try {
             foreach ($items as $item) {
-                $domainId = (string) ($item['domain_id'] ?? '');
-                if (!$this->domainExists($domainId)) {
+                $domainId = $this->domainIdFromItem($item);
+                if ($domainId === '' || !$this->domainExists($domainId)) {
                     $skippedUnknownDomains++;
                     continue;
                 }
@@ -902,5 +904,40 @@ class CollectorService
         $stmt->execute([':domain_id' => $domainId]);
         $this->knownDomainIds[$domainId] = $stmt->fetchColumn() !== false;
         return $this->knownDomainIds[$domainId];
+    }
+
+    /**
+     * Prefer the explicit domain_id from the edge metric, but fall back to the
+     * request host when internal redirects drop the original routing context.
+     */
+    private function domainIdFromItem(array $item): string
+    {
+        $domainId = trim((string) ($item['domain_id'] ?? ''));
+        if ($domainId !== '') {
+            return $domainId;
+        }
+
+        $host = trim((string) ($item['host'] ?? ''));
+        if ($host === '') {
+            return '';
+        }
+
+        if (array_key_exists($host, $this->knownDomainHostIds)) {
+            return $this->knownDomainHostIds[$host];
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT id FROM domains WHERE domain = :host OR name = :host LIMIT 1'
+        );
+        $stmt->execute([':host' => $host]);
+        $resolved = $stmt->fetchColumn();
+        if (!is_string($resolved) || trim($resolved) === '') {
+            $this->knownDomainHostIds[$host] = '';
+            return '';
+        }
+
+        $this->knownDomainIds[$resolved] = true;
+        $this->knownDomainHostIds[$host] = $resolved;
+        return $resolved;
     }
 }

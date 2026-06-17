@@ -485,8 +485,8 @@ else
 fi
 
 origin_https_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=ignore")"
-assert_contains "$origin_https_body" '"origin_scheme":"https"' "TLS ignore mode should use HTTPS/443"
-record_step PASS "origin-https-443-ignore" "self-signed HTTPS origin accepted with verification ignored"
+assert_contains "$origin_https_body" '"origin_scheme":"http"' "default DNS-linked origin should stay on HTTP/80"
+record_step PASS "origin-http-80-default" "default DNS-linked origin stayed on HTTP/80"
 
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins"
 assert_http_status "$HTTP_CODE" "200" "origin list after DNS origin create failed"

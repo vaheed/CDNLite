@@ -9,6 +9,7 @@ def test_migrations_are_the_supported_upgrade_path():
     baseline = ROOT / "core/database/migrations/000001_baseline_schema.sql"
     assert baseline.is_file()
     assert "CREATE TABLE IF NOT EXISTS domains" in baseline.read_text()
+    assert (ROOT / "core/database/migrations/000005_origin_pool_defaults.sql").is_file()
 
 
 def test_schema_application_is_explicit_and_serialized_at_container_start():
@@ -39,6 +40,8 @@ def test_migrator_supports_legacy_baseline_adoption_and_checksum_validation():
     assert "checksum" in migrator
     assert "migration_checksum_mismatch" in migrator
     assert "adopted_legacy_baseline" in migrator
+    assert "reconciled_baseline_checksum" in migrator
+    assert "would_retry_failed_migration" in migrator
     assert "legacy_schema_incompatible" in migrator
 
 
