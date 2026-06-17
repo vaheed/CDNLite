@@ -27,7 +27,7 @@
 
 ## Origins
 
-- Configure primary and backup origins when availability matters.
+- Configure multiple enabled origins when availability matters.
 - Run manual health checks after adding origins.
 - Keep origin shield headers secret and rotate if exposed.
 - Prefer HTTPS origins when possible.
@@ -88,7 +88,7 @@
 ## Origin Design
 
 - Use a health-check path that exercises the application, not just the load balancer.
-- Keep backup origins warm enough to accept sudden traffic.
+- Keep enough enabled origins warm enough to accept sudden traffic.
 - Use clear names for origins so incident notes can say exactly which origin served traffic.
 - Document whether the origin expects the original host header or an origin-specific host.
 

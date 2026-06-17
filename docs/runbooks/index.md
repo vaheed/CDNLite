@@ -32,7 +32,7 @@ Write down:
 ## Add A Domain
 
 1. Create the domain.
-2. Add at least one primary origin.
+2. Add at least one origin.
 3. Add DNS records.
 4. Verify nameserver delegation.
 5. Activate the domain.
@@ -137,8 +137,8 @@ Decision tree:
 2. Does the request include the expected `Host` header?
 3. Is the host present in `config.json`?
 4. Is the domain active and proxied?
-5. Is the primary origin healthy?
-6. Is a backup origin available?
+5. Is at least one origin healthy?
+6. Are other enabled origins available if failover is needed?
 7. Is a WAF/IP/rate-limit rule blocking the request?
 
 Commands:
@@ -158,7 +158,7 @@ Fix patterns:
 | --- | --- |
 | Unknown host | Activate domain and pull config. |
 | Config missing | Fix edge auth, then pull config. |
-| Origin unhealthy | Restore origin or promote backup. |
+| Origin unhealthy | Restore the origin or disable it until health recovers. |
 | Rule block | Disable or narrow the rule. |
 | Cache stale | Purge URL/prefix or wait for TTL. |
 

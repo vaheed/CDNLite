@@ -26,20 +26,13 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert "proxy_ssl_verify on;" in nginx
     assert "proxy_ssl_verify off;" in nginx
     assert "@cdnlite_noverify" in nginx
-    assert "@cdnlite_backup_noverify" in nginx
     assert "@cdnlite_tls_noverify" in nginx
-    assert "@cdnlite_tls_backup_noverify" in nginx
     assert "ngx.var.target_origin_tls_verify == 'ignore'" in nginx
     assert "set $target_origin_id '';" in nginx
     assert nginx.count("set $target_origin_id '';") == 2
     assert "set $target_domain_id '';" in nginx
     assert nginx.count("set $target_domain_id '';") == 2
     assert "set $target_origin_host '';" in nginx
-    assert "set $target_backup_origin_host '';" in nginx
-    assert "set $target_backup_origin_id '';" in nginx
-    assert nginx.count("set $target_backup_origin_id '';") == 2
-    assert "primary_origin_unavailable" in nginx
-    assert "missing_backup_origin" not in nginx
     assert "env CDNLITE_EDGE_LOG_LEVEL;" in nginx
     assert "CDNLITE_EDGE_LOG_FORMAT: ${CDNLITE_EDGE_LOG_FORMAT:-json}" in compose
     assert "CDNLITE_EDGE_LOG_LEVEL: ${CDNLITE_EDGE_LOG_LEVEL:-info}" in compose
@@ -67,15 +60,15 @@ def test_edge_log_smoke_script_covers_docker_visible_diagnostics():
 def test_origin_selector_returns_routing_metadata_without_silent_guessing():
     selector = read("edge/openresty/lua/origin_selector.lua")
 
-    assert "local function first_enabled_by_role" in selector
-    assert "local selected = selected_origin(domain, country, role)" in selector
+    assert "candidate_origins" in selector
+    assert "choose_origin" in selector
     assert "scheme == 'http' or scheme == 'https'" in selector
     assert "scheme ~= 'auto'" in selector
     assert "invalid_origin_scheme" in selector
     assert "host_header = origin.host" in selector
     assert "origin.preserve_host == true" in selector
     assert "sni = origin_sni(origin, host_header)" in selector
-    assert "tls_verify = tostring(origin.tls_verify or 'verify')" in selector
+    assert "tls_verify = tostring(origin.tls_verify or 'ignore')" in selector
 
 
 def test_phase3_e2e_covers_https_sni_and_preserve_host_runtime_cases():
@@ -104,23 +97,20 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
 
     assert "edge_log.info('origin_selected'" in router
     assert "edge_log.warn('router_error'" in router
-    assert "ngx.ctx.origin = scheme_or_error or {}" in router
-    assert "type(backup_meta) ~= 'table'" in router
-    assert "ngx.ctx.backup_origin = backup_meta" in router
+    assert "ngx.ctx.origin = origin_meta or {}" in router
+    assert "ngx.ctx.backup_origin" not in router
 
     assert "ngx.var.target_origin_host_header" in proxy
     assert "ngx.var.target_origin_sni" in proxy
     assert "ngx.var.target_origin_id" in proxy
     assert "ngx.var.target_domain_id" in proxy
     assert "ngx.var.target_origin_host" in proxy
-    assert "ngx.var.target_backup_origin_host" in proxy
     assert "cache_settings.default_edge_ttl_seconds" in proxy
     assert "cache_settings.cache_authorized_requests" in proxy
     assert "not cache_rules_enabled" in proxy
     assert "has_host_rules" in router
     assert "ngx.header['X-Accel-Expires'] = tostring(edge_ttl)" in proxy
     assert "setDomainCacheSettings" in rules and "invalidateConfigSnapshot" in rules.split("public function setDomainCacheSettings", 1)[1].split("public function createCachePurgeRequest", 1)[0]
-    assert "ngx.var.target_backup_origin_host_header" in proxy
     assert "edge_log.debug('proxy_forward'" in proxy
 
     assert "router_error" in metrics
@@ -163,7 +153,7 @@ def test_origin_diagnostic_and_route_debug_api_contract():
 
     assert "public function debugRoute(string $domainId, array $input): array" in config
     assert "selected_origin" in config
-    assert "backup_origin" in config
+    assert "origin_pool_size" in config
     assert "cache_rules_count" in config
     assert "router_error" in config
 

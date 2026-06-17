@@ -24,13 +24,13 @@ CDNLite is a compact CDN platform for learning, local experimentation, and small
 
 ## What It Does
 
-CDNLite lets operators register domains, manage DNS records, define origins, configure cache and traffic rules, issue or import SSL certificates, publish config snapshots, and observe edge traffic. The edge proxy reads generated JSON config and handles host-based routing, caching, redirect decisions, WAF/rate-limit/IP/header rules, origin failover, TLS material, metrics, and security events.
+CDNLite lets operators register domains, manage DNS records, define origins, configure cache and traffic rules, issue or import SSL certificates, publish config snapshots, and observe edge traffic. The edge proxy reads generated JSON config and handles host-based routing, caching, redirect decisions, WAF/rate-limit/IP/header rules, origin selection and health-based failover, TLS material, metrics, and security events.
 
 ## Key Features
 
 - Domain lifecycle management with nameserver verification and activation.
 - DNS records with proxy toggles, DNS-only records, anycast routing, and Geo DNS route previews.
-- Multi-origin support with primary/backup origins and scheduled health checks.
+- Multi-origin support with independent origins and scheduled health checks.
 - Cache settings, cache rules, and purge request history.
 - Redirects, page rules, WAF rules, rate limits, custom headers, and IP access rules.
 - SSL automation, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.

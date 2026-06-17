@@ -288,30 +288,25 @@ function M.handle()
     return false, 'rate_limited'
   end
   local country = request_country()
-  local upstream, scheme_or_error = origin_selector.select(domain, country, 'primary')
+  local upstream, origin_meta = origin_selector.select(domain, country, tostring(ngx.ctx.request_id or ngx.var.request_id or ngx.var.uri or ''))
   if not upstream then
-    edge_log.error('router_error', { domain_id = tostring(domain.domain_id or ''), router_error = tostring(scheme_or_error or 'missing_origin') })
-    return false, scheme_or_error
-  end
-  local backup_upstream, backup_meta = origin_selector.select(domain, country, 'backup')
-  if type(backup_meta) ~= 'table' then
-    backup_meta = {}
+    edge_log.error('router_error', { domain_id = tostring(domain.domain_id or ''), router_error = tostring(origin_meta or 'no_healthy_origin') })
+    return false, origin_meta or 'no_healthy_origin'
   end
   ngx.ctx.upstream = upstream
-  ngx.ctx.origin = scheme_or_error or {}
-  ngx.ctx.backup_upstream = backup_upstream
-  ngx.ctx.backup_origin = backup_meta
+  ngx.ctx.origin = origin_meta or {}
   ngx.ctx.origin_scheme = ngx.ctx.origin.scheme
+  ngx.ctx.origin_pool_size = #(domain.origins or {})
   ngx.ctx.cache_rule, ngx.ctx.cache_rules_enabled = match_cache_rule(cfg, host)
   ngx.ctx.cache_settings = domain.cache or {}
   edge_log.info('origin_selected', {
     domain_id = tostring(domain.domain_id or ''),
     origin_id = tostring(ngx.ctx.origin.id or ''),
-    origin_role = tostring(ngx.ctx.origin.role or ''),
+    origin_source = tostring(ngx.ctx.origin.source or ''),
     origin_scheme = tostring(ngx.ctx.origin.scheme or ''),
     origin_host = tostring(ngx.ctx.origin.host or ''),
     origin_port = tostring(ngx.ctx.origin.port or ''),
-    backup_origin_id = tostring((ngx.ctx.backup_origin or {}).id or ''),
+    origin_pool_size = tostring(ngx.ctx.origin_pool_size or ''),
   })
   return proxy.forward(domain)
 end

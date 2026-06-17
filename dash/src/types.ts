@@ -46,7 +46,7 @@ export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'upda
 export interface DnsRecord {
   id: Id; type: string; name: string; content: string; ttl?: number; priority?: number | null;
   proxied?: boolean; geo_policy_id?: Id | null; status?: string;
-  effective_status?: 'active' | 'disabled'; disabled_reason?: string | null; backup_origin_added?: boolean;
+  effective_status?: 'active' | 'disabled'; disabled_reason?: string | null;
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
   origin_status?: string; geo_origins?: Record<string, { host: string; scheme?: 'http' | 'https'; port?: 80 | 443 | number; tls_verify?: 'verify' | 'ignore' }>;

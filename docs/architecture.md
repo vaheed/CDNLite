@@ -78,7 +78,7 @@ Client request
   -> Lua router reads /var/lib/cdnlite/config.json
   -> host/domain lookup chooses origin and rules
   -> redirects, WAF, rate limit, IP, cache, and headers are evaluated
-  -> request proxies to primary origin or backup origin
+  -> request proxies to a selected healthy origin from the origin pool
   -> metrics/security events are appended to local queue files
   -> edge agent later pushes queues to core
 ```

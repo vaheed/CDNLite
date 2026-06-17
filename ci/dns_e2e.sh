@@ -200,14 +200,15 @@ record_step PASS "raw-zone-model" "raw zones contain ALIAS, CNAME, unproxied A, 
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"192.0.2.11","ttl":60,"proxied":true,"origin_host":"origin-backup"}'
-assert_http_status "$HTTP_CODE" "201" "duplicate proxied target should become a backup origin"
-assert_eq "$(json_get "$HTTP_BODY" '.data.id')" "$APEX_ID" "backup create must return the existing public record"
-assert_eq "$(json_get "$HTTP_BODY" '.data.backup_origin_added')" "true" "backup conversion marker missing"
-assert_eq "$(db_query "SELECT COUNT(*) FROM dns_records WHERE domain_id='${DOMAIN_ID}' AND name='@';")" "1" \
-  "backup origin must not create a duplicate public DNS record"
-assert_eq "$(db_query "SELECT COUNT(*) FROM domain_origins WHERE domain_id='${DOMAIN_ID}' AND is_primary=false AND host='origin-backup' AND enabled=true;")" "1" \
-  "duplicate proxied target was not stored as an enabled backup origin"
-record_step PASS "duplicate-proxy-becomes-backup" "second proxied apex target folded into domain_origins"
+assert_http_status "$HTTP_CODE" "201" "duplicate proxied target should create a second origin record"
+if [[ "$(json_get "$HTTP_BODY" '.data.id')" == "$APEX_ID" ]]; then
+  fail "second proxied target must not reuse the first DNS record"
+fi
+assert_eq "$(db_query "SELECT COUNT(*) FROM dns_records WHERE domain_id='${DOMAIN_ID}' AND name='@';")" "2" \
+  "duplicate proxied target should create a second public DNS record row"
+assert_eq "$(db_query "SELECT COUNT(*) FROM domain_origins WHERE domain_id='${DOMAIN_ID}' AND host='origin-backup' AND enabled=true;")" "1" \
+  "second proxied target was not stored as an enabled origin"
+record_step PASS "duplicate-proxy-becomes-second-origin" "second proxied apex target stored as its own origin"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":60,\"priority\":10,\"proxied\":false}"

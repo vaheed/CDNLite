@@ -2,19 +2,19 @@
   <section class="space-y-5">
     <div class="section-heading mb-0">
       <div><h2>Origins</h2><p>Monitor DNS-linked and manually added origin health for this domain.</p></div>
-      <button class="button-primary" @click="startCreate"><Plus class="h-4 w-4" /> Add backup</button>
+      <button class="button-primary" @click="startCreate"><Plus class="h-4 w-4" /> Add origin</button>
     </div>
 
     <div v-if="message" role="status" class="notice-info">{{ message }}</div>
 
     <form v-if="editing" class="panel-section" @submit.prevent="save">
       <div class="section-heading">
-        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge retries the first enabled backup when the primary returns 502, 503, or 504.</p></div>
+        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge chooses from enabled origins and avoids unhealthy ones.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
       <div class="help-panel">
         <div class="help-item"><b>Host examples</b><span>Use origin.example.com or 192.0.2.10. Do not include http://, https://, or a path.</span></div>
-        <div class="help-item"><b>Primary vs backup</b><span>Keep one healthy primary. DNS-linked origins stay visible here and backups are used after primary failures.</span></div>
+        <div class="help-item"><b>Independent origins</b><span>Add as many backend addresses as you need for the same site. The edge balances between healthy ones automatically.</span></div>
         <div class="help-item"><b>Health checks</b><span>Use a lightweight path such as /health that returns 200 without expensive work.</span></div>
       </div>
       <div class="grid gap-4 md:grid-cols-3">
@@ -22,15 +22,11 @@
         <label class="md:col-span-2"><span class="field-label">Host</span><input v-model="form.host" class="input" placeholder="origin.example.com" /><span class="field-description">Hostname or IP only, without protocol or path.</span></label>
         <label><span class="field-label">Host header</span><input v-model="form.host_header" class="input" placeholder="origin.example.com" /><span class="field-description">Leave blank to send the origin host.</span></label>
         <label><span class="field-label">SNI</span><input v-model="form.sni" class="input" placeholder="origin.example.com" /><span class="field-description">Leave blank to use the origin host for TLS SNI.</span></label>
-        <label><span class="field-label">TLS verify</span><select v-model="form.tls_verify" class="input"><option value="verify">Verify</option><option value="ignore">Ignore</option></select><span class="field-description">Ignore only for private/test origins.</span></label>
+        <label><span class="field-label">TLS verify</span><select v-model="form.tls_verify" class="input"><option value="ignore">Off</option><option value="verify">On</option></select><span class="field-description">Off is the safe default for plain HTTP and self-signed HTTPS origins.</span></label>
         <label><span class="field-label">Health path</span><input v-model="form.health_check_path" class="input" placeholder="/health" /><span class="field-description">Must begin with / and should be cheap for the origin to serve.</span></label>
         <label><span class="field-label">Timeout</span><input v-model.number="form.health_check_timeout_seconds" class="input" type="number" min="1" max="60" /><span class="field-description">Use 5 seconds for most origins; raise only for slower backends.</span></label>
       </div>
       <div class="mt-5 grid gap-3 md:grid-cols-2">
-        <label class="setting-row">
-          <span><b>Primary</b><small>Primary origins are tried first.</small></span>
-          <input v-model="form.is_primary" class="toggle" type="checkbox" />
-        </label>
         <label class="setting-row">
           <span><b>Enabled</b><small>Disabled origins are ignored by the edge.</small></span>
           <input v-model="form.enabled" class="toggle" type="checkbox" />
@@ -67,7 +63,7 @@
       <div class="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900/70">
         <div class="flex flex-col gap-1 border-b border-slate-200 px-4 py-4 dark:border-white/10 sm:px-5">
           <h3 class="font-semibold tracking-tight text-slate-950 dark:text-white">Origin route list</h3>
-          <p class="text-sm text-slate-500 dark:text-slate-400">Readable upstream list with role, health, routing, and quick actions.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Readable upstream list with health, routing, and quick actions.</p>
         </div>
         <div class="divide-y divide-slate-100 dark:divide-white/[0.06]">
           <article v-for="row in rows" :key="row.id" class="relative grid gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(260px,.8fr)_minmax(210px,auto)] xl:items-center">
@@ -75,7 +71,7 @@
             <div class="min-w-0 pl-3">
               <div class="flex flex-wrap items-center gap-2">
                 <span :class="originDotClass(row)" class="h-2.5 w-2.5 rounded-full" aria-hidden="true" />
-                <StatusBadge :status="row.is_primary ? 'info' : 'unknown'" :label="row.is_primary ? 'Primary' : 'Backup'" />
+                <StatusBadge status="info" label="Origin" />
                 <StatusBadge :status="row.source === 'dns_record' ? 'info' : 'unknown'" :label="sourceLabel(row)" />
                 <StatusBadge :status="row.enabled ? 'healthy' : 'unknown'" :label="row.enabled ? 'Enabled' : 'Disabled'" />
               </div>
@@ -144,9 +140,8 @@ const form = reactive({
   port: 80,
   host_header: '',
   sni: '',
-  tls_verify: 'verify' as 'verify' | 'ignore',
+  tls_verify: 'ignore' as 'verify' | 'ignore',
   preserve_host: false,
-  is_primary: false,
   health_check_path: '/',
   health_check_interval_seconds: 30,
   health_check_timeout_seconds: 5,
@@ -165,7 +160,7 @@ const originProtocol = computed<'http' | 'https'>({
   },
 });
 
-function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'verify', preserve_host: false, is_primary: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
+function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'ignore', preserve_host: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
 function healthSeverity(status: string): Severity { if (status === 'healthy') return 'healthy'; if (status === 'unhealthy') return 'critical'; return 'unknown'; }
 function healthLabel(status: unknown) { const value = String(status ?? 'unknown'); return value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' '); }
 function originUrl(row: DomainOrigin) { return `${row.scheme}://${row.host}:${row.port}`; }
@@ -193,13 +188,16 @@ function originDetails(row: DomainOrigin) {
 function formatTime(value: number) { return new Date(value * 1000).toLocaleString(); }
 async function load() { loading.value = true; try { rows.value = await originsApi.list(props.domainId); } finally { loading.value = false; } }
 function startCreate() { editingId.value = ''; reset(); editing.value = true; }
-function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'verify'), preserve_host: Boolean(row.preserve_host), is_primary: Boolean(row.is_primary), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
+function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'ignore'), preserve_host: Boolean(row.preserve_host), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
 async function save() {
   error.value = '';
   const host = form.host.trim();
   if (!host) { error.value = 'Origin host is required.'; return; }
   if (/^https?:\/\//i.test(host) || host.includes('/')) { error.value = 'Enter a hostname or IP only, without protocol or path.'; return; }
   form.port = form.scheme === 'https' ? 443 : 80;
+  if (form.scheme === 'http') {
+    form.tls_verify = 'ignore';
+  }
   if (!form.health_check_path.startsWith('/')) { error.value = 'Health check path must start with /.'; return; }
   saving.value = true;
   try {

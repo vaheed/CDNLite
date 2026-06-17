@@ -152,7 +152,7 @@ class ReadinessService
             'origin_health',
             'warning',
             sprintf('%d enabled origin%s unhealthy', $unhealthy, $unhealthy === 1 ? ' is' : 's are'),
-            'Check the origin or configure a backup origin',
+            'Check the origin or review the origin pool',
             '/domains'
         );
     }

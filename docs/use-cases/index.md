@@ -13,7 +13,7 @@ Useful views:
 
 ## Local CDN Lab
 
-Use `origin-http` and `origin-tls` from Compose to test routing, TLS, cache, redirects, and backup origin behavior without touching real infrastructure.
+Use `origin-http` and `origin-tls` from Compose to test routing, TLS, cache, redirects, and multiple independent origin targets without touching real infrastructure.
 
 Validation:
 
@@ -98,19 +98,18 @@ What to observe:
 | Add a WAF log rule | How security events flow from edge to dashboard. |
 | Roll back a config snapshot | How edge config is recovered without database rollback. |
 
-## Blue-Green Origin Migration
+## Multi-Origin Migration
 
-Use CDNLite origins to test a new origin while the old origin remains available.
+Use CDNLite origins to test a new backend while the current one remains available.
 
-1. Add the current origin as primary.
-2. Add the new origin as backup.
+1. Add the current backend as an origin.
+2. Add the new backend as another origin for the same host.
 3. Run health checks on both.
 4. Send staging traffic with a dedicated test hostname.
-5. Promote the new origin to primary during a low-traffic window.
-6. Watch `X-CDNLITE-Origin`, origin health, error rate, and cache hit ratio.
-7. Keep the old origin as backup until the migration is stable.
+5. Watch `X-CDNLITE-Origin`, origin health, error rate, and cache hit ratio.
+6. Keep both origins enabled until the migration is stable.
 
-Rollback is simple: make the old origin primary again and rebuild/pull config.
+Rollback is simple: disable the new origin and rebuild/pull config.
 
 ## Incident Response Drill
 

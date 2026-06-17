@@ -1626,8 +1626,6 @@ components:
           type: string
           enum: [record_disabled, nameservers_not_verified]
           nullable: true
-        backup_origin_added:
-          type: boolean
       additionalProperties: true
     DnsRecordRequest:
       type: object

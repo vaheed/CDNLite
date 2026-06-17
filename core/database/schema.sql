@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS dns_records (
   public_type TEXT NULL,
   public_content TEXT NULL,
   origin_host TEXT NULL,
-  origin_tls_verify TEXT NOT NULL DEFAULT 'verify',
+  origin_tls_verify TEXT NOT NULL DEFAULT 'ignore',
   origin_scheme TEXT NULL,
   origin_status TEXT NOT NULL DEFAULT 'pending',
   geo_origins_json TEXT NULL,
@@ -193,16 +193,16 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   dns_record_id TEXT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
   source TEXT NOT NULL DEFAULT 'manual',
-  role TEXT NOT NULL DEFAULT 'backup',
+  role TEXT NOT NULL DEFAULT 'origin',
   weight INTEGER NOT NULL DEFAULT 1,
   scheme TEXT NOT NULL DEFAULT 'http',
   host TEXT NOT NULL,
   port INTEGER NOT NULL DEFAULT 80,
   host_header TEXT NULL,
   sni TEXT NULL,
-  tls_verify TEXT NOT NULL DEFAULT 'verify',
+  tls_verify TEXT NOT NULL DEFAULT 'ignore',
   preserve_host BOOLEAN NOT NULL DEFAULT false,
-  is_primary BOOLEAN NOT NULL DEFAULT true,
+  is_primary BOOLEAN NOT NULL DEFAULT false,
   health_check_path TEXT NOT NULL DEFAULT '/',
   health_check_interval_seconds INTEGER NOT NULL DEFAULT 30,
   health_check_timeout_seconds INTEGER NOT NULL DEFAULT 5,
@@ -215,15 +215,11 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   CHECK (scheme IN ('http', 'https')),
   CHECK (port IN (80, 443)),
   CHECK (source IN ('manual', 'dns_record', 'imported')),
-  CHECK (role IN ('primary', 'backup')),
+  CHECK (role IN ('origin')),
   CHECK (tls_verify IN ('verify', 'ignore')),
   CHECK (weight BETWEEN 1 AND 10000),
   CHECK (health_status IN ('healthy', 'unhealthy', 'unknown'))
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS domain_origins_one_primary_idx
-  ON domain_origins (domain_id)
-  WHERE is_primary = true;
 
 CREATE INDEX IF NOT EXISTS domain_origins_dns_record_idx
   ON domain_origins (dns_record_id)

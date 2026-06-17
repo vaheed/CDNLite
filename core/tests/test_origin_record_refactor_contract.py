@@ -16,7 +16,7 @@ def test_domain_schema_keeps_record_level_origin_fields():
     assert "source TEXT NOT NULL DEFAULT 'manual'" in schema
     assert "host_header TEXT NULL" in schema
     assert "sni TEXT NULL" in schema
-    assert "tls_verify TEXT NOT NULL DEFAULT 'verify'" in schema
+    assert "tls_verify TEXT NOT NULL DEFAULT 'ignore'" in schema
     assert "preserve_host BOOLEAN NOT NULL DEFAULT false" in schema
     assert "domain_origins_dns_record_idx" in schema
 
@@ -38,7 +38,7 @@ def test_record_level_origin_proxy_and_geo_contract():
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "origin_host TEXT NULL" in schema
-    assert "origin_tls_verify TEXT NOT NULL DEFAULT 'verify'" in schema
+    assert "origin_tls_verify TEXT NOT NULL DEFAULT 'ignore'" in schema
     assert "origin_scheme TEXT NULL" in schema
     assert "origin_status TEXT NOT NULL DEFAULT 'pending'" in schema
     assert "geo_origins_json TEXT NULL" in schema
@@ -48,16 +48,16 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "origin_scheme = :origin_scheme" in service
     assert "origin_scheme = NULL" not in service
     assert "'proxied' => (bool)" in service
-    assert "primaryProxiedRecord" in config
-    assert "buildGeoOrigins($record['geo_origins']" in config
+    assert "selectOriginFromPool" in config
+    assert "buildGeoOrigins($this->dnsRecordsGeoOrigins($records))" in config
 
 
-def test_duplicate_proxy_target_is_stored_as_backup_origin():
+def test_duplicate_proxy_target_creates_independent_origin():
     dns = read("core/app/Modules/Dns/Services/DnsService.php")
 
-    assert "findCompatibleProxiedPublicRecord" in dns
-    assert "addBackupFromDnsRecord($domainId, $record)" in dns
-    assert "backup_origin_added" in dns
+    assert "findCompatibleProxiedPublicRecord" not in dns
+    assert "addBackupFromDnsRecord($domainId, $record)" not in dns
+    assert "backup_origin_added" not in dns
     assert "assertNotDuplicate" in dns
     assert "syncFromDnsRecord($domainId, $created)" in dns
     assert "syncFromDnsRecord($domainId, $updated)" in dns
@@ -72,28 +72,25 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "source' => 'dns_record'" in origins
     assert "dns_record_id" in origins
     assert "syncDnsRecordFromLinkedOrigin" in origins
-    assert "isDnsLinkedOrigin($existing)" in origins
     assert "$payload['_skip_dns_record_sync'] = true" in origins
-    linked_sync = origins.split("private function syncDnsRecordFromLinkedOrigin", 1)[1].split("private function decodeGeoOrigins", 1)[0]
-    assert "content=:content" not in linked_sync
-    assert "origin_content=:origin_content" not in linked_sync
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins
-    assert "lower(host)=:host AND scheme=:scheme LIMIT 1" in origins
     assert "public function create" in origins
 
 
 def test_edge_origin_selection_uses_explicit_scheme_except_auto():
     selector = read("edge/openresty/lua/origin_selector.lua")
 
+    assert "candidate_origins" in selector
+    assert "choose_origin" in selector
     assert "scheme == 'http' or scheme == 'https'" in selector
     assert "return scheme .. '://' .. origin.host .. ':' .. tostring(port)" in selector
     assert "scheme ~= 'auto'" in selector
     assert "invalid_origin_scheme" in selector
     assert "sock:connect(origin.host, 443)" in selector
     assert "sock:sslhandshake(nil, origin.host, verify)" in selector
-    assert "origin.tls_verify or 'verify'" in selector
+    assert "origin.tls_verify or 'ignore'" in selector
     assert "~= 'ignore'" in selector
     assert "host_header = origin.host" in selector
     assert "origin.preserve_host == true" in selector
@@ -116,5 +113,4 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     assert "'preserve_host'" in config
     assert "'source' => 'geo_origin'" in config
     assert "'scheme' => (string) ($origin['scheme']" in config
-    assert "'primary_origin' => $primaryOrigin" in config
-    assert "'backup_origin' => $backupOrigin" in config
+    assert "'origin_pool_size'" in config

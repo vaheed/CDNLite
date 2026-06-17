@@ -78,7 +78,7 @@ docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:readiness:check
 ```
 
-If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. A backup origin is optional: on a primary-only site, `primary_origin_unavailable` means the selected primary origin could not serve the request, so check its host, port, host header, TLS/SNI, firewall, and health status.
+If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. If the edge returns `no_healthy_origin`, check the enabled backend addresses, their host, port, host header, TLS/SNI, firewall, and health status.
 
 ## Debugging API Calls
 

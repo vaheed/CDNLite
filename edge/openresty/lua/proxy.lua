@@ -51,18 +51,12 @@ function M.forward(domain)
   end
 
   ngx.var.target_upstream = upstream
-  ngx.var.target_backup_upstream = tostring(ngx.ctx.backup_upstream or '')
   ngx.var.target_domain_id = tostring(domain.domain_id or '')
   ngx.var.target_origin_host_header = tostring((ngx.ctx.origin or {}).host_header or ngx.var.host or '')
   ngx.var.target_origin_sni = tostring((ngx.ctx.origin or {}).sni or (ngx.ctx.origin or {}).host or ngx.var.host or '')
   ngx.var.target_origin_id = tostring((ngx.ctx.origin or {}).id or '')
   ngx.var.target_origin_host = tostring((ngx.ctx.origin or {}).host or '')
-  ngx.var.target_origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'verify')
-  ngx.var.target_backup_origin_host_header = tostring((ngx.ctx.backup_origin or {}).host_header or ngx.var.target_origin_host_header or '')
-  ngx.var.target_backup_origin_sni = tostring((ngx.ctx.backup_origin or {}).sni or ngx.var.target_origin_sni or '')
-  ngx.var.target_backup_origin_id = tostring((ngx.ctx.backup_origin or {}).id or '')
-  ngx.var.target_backup_origin_host = tostring((ngx.ctx.backup_origin or {}).host or '')
-  ngx.var.target_backup_origin_tls_verify = tostring((ngx.ctx.backup_origin or {}).tls_verify or 'verify')
+  ngx.var.target_origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'ignore')
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'
   if edge_ttl and not cache_no_store then
@@ -70,12 +64,12 @@ function M.forward(domain)
   end
   identity.apply()
   ngx.header['X-CDNLITE-Domain'] = tostring(domain.domain_id)
-  ngx.header['X-CDNLITE-Origin'] = 'primary'
+  ngx.header['X-CDNLITE-Origin'] = 'origin'
   ngx.header['X-CDNLITE-Request-Id'] = tostring(ngx.ctx.request_id or ngx.var.request_id or '')
   edge_log.debug('proxy_forward', {
     domain_id = tostring(domain.domain_id or ''),
     origin_id = tostring(ngx.var.target_origin_id or ''),
-    origin_role = tostring((ngx.ctx.origin or {}).role or 'primary'),
+    origin_role = tostring((ngx.ctx.origin or {}).role or 'origin'),
     upstream = upstream,
   })
   return true

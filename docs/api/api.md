@@ -298,7 +298,7 @@ DNS tips:
 | `DELETE` | `/api/v1/domains/{domainId}/origins/{originId}` | Delete origin. |
 | `POST` | `/api/v1/domains/{domainId}/origins/{originId}/check` | Run manual health check. |
 | `POST` | `/api/v1/domains/{domainId}/origins/{originId}/test` | Run a non-mutating origin diagnostic with DNS, TCP, TLS, and HTTP timing details. |
-| `POST` | `/api/v1/domains/{domainId}/route-debug` | Preview the selected origin, backup origin, cache/rule counts, and SSL state for a host/path/country using the active config snapshot. |
+| `POST` | `/api/v1/domains/{domainId}/route-debug` | Preview the selected origin, origin pool size, cache/rule counts, and SSL state for a host/path/country using the active config snapshot. |
 
 Example:
 
@@ -309,16 +309,16 @@ Example:
   "port": 443,
   "host_header": "origin.example.com",
   "sni": "origin.example.com",
-  "tls_verify": "verify",
+  "tls_verify": "ignore",
   "preserve_host": false,
-  "role": "primary",
+  "role": "origin",
   "enabled": true
 }
 ```
 
 Origin tips:
 
-- Configure at least one enabled primary origin before sending traffic.
+- Configure at least one enabled origin before sending traffic.
 - Proxied DNS records create visible origins with `source: "dns_record"` and
   `dns_record_id`; manual origins use `source: "manual"`.
 - Duplicate manual origin hosts are allowed as separate rows because routing
@@ -326,7 +326,7 @@ Origin tips:
 - Edge routing uses the explicit `scheme`, `host`, and `port`. It sends
   `host_header` to the origin by default, uses `sni` for upstream TLS, and only
   preserves the CDN hostname when `preserve_host` is true.
-- Add a backup origin before aggressive cache or WAF changes, so edge failover has somewhere to go.
+- Add another enabled origin before aggressive cache or WAF changes, so the edge has more than one healthy option.
 - Use the manual health-check route after every origin update.
 - Use the non-mutating origin diagnostic route when debugging 502s. It reports
   DNS resolution, TCP connect, TLS handshake, HTTP status, timing, configured

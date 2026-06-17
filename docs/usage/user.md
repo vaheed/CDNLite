@@ -63,8 +63,8 @@ Example records:
 ## Configure Origins
 
 1. Open `Origins`.
-2. Add the primary origin host, scheme, and enabled state.
-3. Add backup origins for failover.
+2. Add each backend address for the same host as its own origin.
+3. Leave TLS verification off unless you explicitly need certificate validation.
 4. Run manual health checks after changes.
 5. Watch readiness warnings for failed or stale origin checks.
 
@@ -111,13 +111,14 @@ The dashboard can export Markdown reports for operational snapshots. Use these f
 
 - Use copy buttons for domain IDs, tokens, and diagnostics output.
 - Use table horizontal controls when narrow screens hide columns.
-- Keep browser dev tools for secondary diagnostics; the dashboard surfaces primary API errors in alerts and field messages.
+- Keep browser dev tools for secondary diagnostics; the dashboard surfaces API errors in alerts and field messages.
 - Treat edge developer tools as local/private helpers only.
 For proxied records, the DNS table shows the exact public record CDNLite owns:
 
 - apex `@` publishes `ALIAS site-<domain-id>.<cdn-zone>.`
 - subdomains publish `CNAME site-<domain-id>.<cdn-zone>.`
 - the private origin remains visible separately and is never presented as the public DNS answer
+- each proxied host can have multiple independent origin addresses
 - the zone banner reports pending, synced, or failed state, the last successful sync, and the last error
 # Domain History
 

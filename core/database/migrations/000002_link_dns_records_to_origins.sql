@@ -3,11 +3,11 @@
 
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS dns_record_id TEXT NULL;
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
-ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'backup';
+ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'origin';
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS weight INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS host_header TEXT NULL;
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS sni TEXT NULL;
-ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS tls_verify TEXT NOT NULL DEFAULT 'verify';
+ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS tls_verify TEXT NOT NULL DEFAULT 'ignore';
 ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS preserve_host BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
@@ -33,7 +33,7 @@ BEGIN
   ) THEN
     ALTER TABLE domain_origins
       ADD CONSTRAINT domain_origins_role_check
-      CHECK (role IN ('primary', 'backup'));
+      CHECK (role IN ('origin'));
   END IF;
 
   IF NOT EXISTS (
@@ -57,10 +57,10 @@ $$;
 UPDATE domain_origins
 SET
   source = COALESCE(NULLIF(source, ''), 'manual'),
-  role = CASE WHEN is_primary THEN 'primary' ELSE COALESCE(NULLIF(role, ''), 'backup') END,
+  role = COALESCE(NULLIF(role, ''), 'origin'),
   host_header = COALESCE(NULLIF(host_header, ''), host),
   sni = COALESCE(NULLIF(sni, ''), host),
-  tls_verify = COALESCE(NULLIF(tls_verify, ''), 'verify'),
+  tls_verify = COALESCE(NULLIF(tls_verify, ''), 'ignore'),
   preserve_host = COALESCE(preserve_host, false),
   weight = COALESCE(weight, 1);
 

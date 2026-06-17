@@ -45,7 +45,7 @@ function M.on_log()
     cache_status = cache_status(),
     router_error = tostring(ngx.ctx.router_error or ''),
     origin_id = tostring((ngx.ctx.origin or {}).id or ngx.var.target_origin_id or ''),
-    origin_role = tostring((ngx.ctx.origin or {}).role or ''),
+    origin_role = tostring((ngx.ctx.origin or {}).role or 'origin'),
     origin_host = tostring((ngx.ctx.origin or {}).host or ngx.var.target_origin_host or ''),
     upstream_status = tostring(ngx.var.upstream_status or ''),
     upstream_response_time = tostring(ngx.var.upstream_response_time or ''),

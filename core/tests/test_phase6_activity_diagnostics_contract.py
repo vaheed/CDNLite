@@ -120,14 +120,16 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     assert "activity lookup leaked sensitive query parameter value" in e2e
 
 
-def test_terminal_backup_502_paths_emit_activity_metrics():
+def test_terminal_502_paths_emit_activity_metrics():
     nginx = read("edge/openresty/nginx.conf")
 
+    assert "location @cdnlite_backup" not in nginx
+    assert "location @cdnlite_tls_backup" not in nginx
+
     for location in (
-        "location @cdnlite_backup {",
-        "location @cdnlite_backup_noverify {",
-        "location @cdnlite_tls_backup {",
-        "location @cdnlite_tls_backup_noverify {",
+        "location / {",
+        "location @cdnlite_noverify {",
+        "location @cdnlite_tls_noverify {",
     ):
         start = nginx.index(location)
         block = nginx[start:nginx.index("proxy_set_header Host", start)]

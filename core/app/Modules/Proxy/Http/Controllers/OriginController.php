@@ -76,9 +76,9 @@ class OriginController
             }
         }
         if (array_key_exists('role', $body)) {
-            $role = Validator::enum($body, 'role', ['primary', 'backup']);
+            $role = Validator::enum($body, 'role', ['origin']);
             if (($role['ok'] ?? false) !== true) {
-                return ['error' => 'invalid_field', 'field' => 'role', 'detail' => 'must_be_primary_or_backup', 'status' => 422];
+                return ['error' => 'invalid_field', 'field' => 'role', 'detail' => 'must_be_origin', 'status' => 422];
             }
         }
         foreach (['host_header', 'sni'] as $field) {

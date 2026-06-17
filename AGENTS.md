@@ -49,11 +49,18 @@ shared-record updates.
 ## Change Discipline
 
 - Prefer deterministic desired-state reconciliation over one-off writes.
+- Before adding new behavior, safely remove dead, duplicated, or shadowed code paths when they are no longer needed.
 - Do not remove current security, dashboard, edge, DNS, or observability features
   merely to simplify the code.
 - Keep API clients, OpenAPI, dashboard types, and backend contracts aligned.
 - Document every user-visible endpoint, command, environment variable, setup,
   and operational change in the same change.
+- Add human-readable comments in PHP, Lua, shell, and config files whenever the
+  logic is not immediately obvious. Favor short, direct comments that help a
+  teammate or another agent troubleshoot the code later.
+- Keep the product presentation and UX aligned with a polished self-hosted
+  enterprise edge platform: simple defaults, clear diagnostics, and no forced
+  terminology that exposes internal implementation details.
 - Do not add placeholder code or TODO-only documentation.
 - Do not claim production readiness without relevant smoke, e2e, and stress
   results.
@@ -84,8 +91,14 @@ bash -n ci/powerdns_dns_checks.sh
 (cd docs && npm ci && npm run docs:build)
 ```
 
-For practical runtime changes, start the root stack and run smoke/e2e. Run the
-destructive DNS stress test only against an explicitly disposable environment.
+For practical runtime changes, start the root stack and run smoke/e2e. Treat
+manual verification as a user-approved fallback only when a task is too heavy
+or too time-consuming to finish safely in one pass. Run the destructive DNS
+stress test only against an explicitly disposable environment.
+
+When a change affects runtime behavior, CI, deployment, or onboarding, update
+the matching docs, deploy scripts, and setup/upgrade guidance in the same
+change.
 
 ## Final Handoff
 

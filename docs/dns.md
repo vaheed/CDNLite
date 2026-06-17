@@ -195,8 +195,8 @@ delegation no longer matches. Set
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` to change that interval.
 
 Adding another proxied A/AAAA target at a hostname that already has a proxied
-record does not create a second public CNAME or ALIAS. CDNLite keeps the existing
-record and adds the new target as an enabled backup origin.
+record creates another origin row for the same host. CDNLite keeps the public
+ALIAS or CNAME stable and balances between the enabled origin targets.
 
 At the zone apex, the PowerDNS `ALIAS` used for proxying may coexist with normal
 apex records such as `MX`, `TXT`, and `CAA`. A real `CNAME` remains exclusive.

@@ -44,7 +44,7 @@ local function details(code)
       origin_status = "Unavailable",
       owner_tips = {
         "Check origin capacity, maintenance mode, and health checks.",
-        "Verify backup origins are enabled and healthy.",
+        "Verify the enabled origins are healthy.",
         "Review recent deploys or firewall changes.",
       },
     },
@@ -57,7 +57,7 @@ local function details(code)
       owner_tips = {
         "Check origin latency, upstream dependencies, and timeout settings.",
         "Look for slow requests using the request ID.",
-        "Consider adding a healthy backup origin.",
+        "Consider adding another healthy origin.",
       },
     },
   }

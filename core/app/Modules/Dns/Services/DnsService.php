@@ -98,27 +98,13 @@ class DnsService
             'proxied' => (bool) ($input['proxied'] ?? false),
             'geo_policy_id' => $input['geo_policy_id'] ?? null,
             'origin_host' => trim((string) ($input['origin_host'] ?? $originContent)),
-            'origin_tls_verify' => (string) ($input['origin_tls_verify'] ?? 'verify'),
+            'origin_tls_verify' => (string) ($input['origin_tls_verify'] ?? 'ignore'),
             'origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
             'geo_origins' => $input['geo_origins'] ?? [],
             'routing_policy' => (string) ($input['routing_policy'] ?? 'standard'),
         ];
         $this->assertRoutingAvailable($record);
         $public = $this->customerDns->publicRecordFor($domain, $record);
-        $existingPublicRecord = $this->findCompatibleProxiedPublicRecord(
-            $domainId,
-            (string) $input['name'],
-            (string) $public['type'],
-            (string) $public['content'],
-            (bool) $record['proxied'],
-            (string) $input['status']
-        );
-        if ($existingPublicRecord !== null) {
-            $this->origins->addBackupFromDnsRecord($domainId, $record);
-            $existingPublicRecord['backup_origin_added'] = true;
-            $this->reconcile($domainId);
-            return $existingPublicRecord;
-        }
         $this->assertNotDuplicate(
             $domainId,
             null,
@@ -450,7 +436,7 @@ class DnsService
         $row['public_content'] = (string) ($row['public_content'] ?: $row['content']);
         $row['geo_policy_id'] = $row['geo_policy_id'] === null ? null : (string) $row['geo_policy_id'];
         $row['origin_host'] = $row['origin_host'] === null ? null : (string) $row['origin_host'];
-        $row['origin_tls_verify'] = (string) ($row['origin_tls_verify'] ?? 'verify');
+        $row['origin_tls_verify'] = (string) ($row['origin_tls_verify'] ?? 'ignore');
         $row['origin_scheme'] = $row['origin_scheme'] === null ? null : (string) $row['origin_scheme'];
         $row['origin_status'] = (string) ($row['origin_status'] ?? 'pending');
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
@@ -506,43 +492,6 @@ class DnsService
         if ($stmt->fetchColumn() !== false) {
             throw new \RuntimeException('dns_record_duplicate');
         }
-    }
-
-    private function findCompatibleProxiedPublicRecord(
-        string $domainId,
-        string $name,
-        string $publicType,
-        string $publicContent,
-        bool $proxied,
-        string $status
-    ): ?array {
-        if (!$proxied || $status !== 'active') {
-            return null;
-        }
-        $type = strtoupper(trim($publicType));
-        if (!in_array($type, ['ALIAS', 'CNAME'], true)) {
-            return null;
-        }
-
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM dns_records
-             WHERE domain_id = :domain_id
-               AND status = \'active\'
-               AND proxied = true
-               AND LOWER(name) = :name
-               AND UPPER(public_type) = :public_type
-               AND public_content = :public_content
-             ORDER BY created_at ASC, id ASC
-             LIMIT 1'
-        );
-        $stmt->execute([
-            ':domain_id' => $domainId,
-            ':name' => strtolower(trim($name)),
-            ':public_type' => $type,
-            ':public_content' => trim($publicContent),
-        ]);
-        $row = $stmt->fetch();
-        return $row === false ? null : $this->castRow((array) $row);
     }
 
     private function assertCompatiblePublicRecord(
@@ -611,6 +560,9 @@ class DnsService
         $next['status'] = (string) ($next['status'] ?? 'active');
         if (!in_array($next['status'], ['active', 'disabled'], true)) {
             throw new \RuntimeException('invalid_dns_record_status');
+        }
+        if (!array_key_exists('origin_tls_verify', $next) || $next['origin_tls_verify'] === '') {
+            $next['origin_tls_verify'] = 'ignore';
         }
         return $next;
     }

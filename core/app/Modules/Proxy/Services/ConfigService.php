@@ -38,16 +38,10 @@ class ConfigService
                 continue;
             }
             $records = $this->dns->listByDomain((string) $domain['id']);
-            $record = $this->primaryProxiedRecord($records);
-            if ($record === null) {
-                continue;
-            }
-            $originHost = trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? ''));
-            if ($originHost === '') {
+            if (!array_filter($records, static fn (array $record): bool => !empty($record['proxied']) && ($record['status'] ?? 'active') === 'active')) {
                 continue;
             }
             $configuredOrigins = $this->origins->list((string) $domain['id']);
-            $configuredPrimaryBackup = $this->origins->primaryAndBackupForDomain((string) $domain['id']);
             $origins = $this->originsForSnapshot($configuredOrigins);
             if ($origins === []) {
                 $origins = $this->originsFromDnsRecords($records);
@@ -55,18 +49,11 @@ class ConfigService
             if ($origins === []) {
                 continue;
             }
-            $primaryOrigin = $this->snapshotOriginFromConfigured($configuredPrimaryBackup['primary'] ?? null)
-                ?? $this->firstOriginByRole($origins, 'primary')
-                ?? $origins[0];
-            $backupOrigin = $this->snapshotOriginFromConfigured($configuredPrimaryBackup['backup'] ?? null)
-                ?? $this->firstOriginByRole($origins, 'backup');
             $hosts[$domain['domain']] = [
                 'domain_id' => (string) $domain['id'],
-                'origin' => $primaryOrigin,
-                'primary_origin' => $primaryOrigin,
-                'backup_origin' => $backupOrigin,
+                'origin' => $origins[0],
                 'origins' => $origins,
-                'geo_origins' => $this->buildGeoOrigins($record['geo_origins'] ?? []),
+                'geo_origins' => $this->buildGeoOrigins($this->dnsRecordsGeoOrigins($records)),
                 'cache' => $this->rules->getDomainCacheSettings((string) $domain['id']),
                 'cache_rules' => ['enabled' => false, 'rules' => []],
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
@@ -286,9 +273,8 @@ class ConfigService
             static fn (mixed $origin): bool => is_array($origin) && !empty($origin['enabled'])
         ));
         if ($origin === null) {
-            $origin = $this->firstOriginByRole($origins, 'primary') ?? $origins[0] ?? null;
+            $origin = $this->selectOriginFromPool($origins, $host . '|' . $path);
         }
-        $backupOrigin = $this->firstOriginByRole($origins, 'backup');
 
         return [
             'configured' => true,
@@ -300,7 +286,7 @@ class ConfigService
             'snapshot_version' => (int) ($snapshot['version'] ?? $payload['version'] ?? 0),
             'selected_origin' => $origin,
             'selected_origin_source' => $origin === null ? null : $originSource,
-            'backup_origin' => $backupOrigin,
+            'origin_pool_size' => count($origins),
             'cache_rules_count' => count($domainConfig['cache_rules']['rules'] ?? []),
             'waf_rules_count' => count($payload['waf_rules'] ?? []),
             'rate_limits_count' => count($payload['rate_limits'] ?? []),
@@ -410,7 +396,7 @@ class ConfigService
             'id' => (string) $origin['id'],
             'dns_record_id' => $origin['dns_record_id'] ?? null,
             'source' => (string) ($origin['source'] ?? 'manual'),
-            'role' => (string) ($origin['role'] ?? (!empty($origin['is_primary']) ? 'primary' : 'backup')),
+            'role' => (string) ($origin['role'] ?? 'origin'),
             'weight' => (int) ($origin['weight'] ?? 1),
             'enabled' => (bool) ($origin['enabled'] ?? true),
             'host' => (string) $origin['host'],
@@ -418,19 +404,11 @@ class ConfigService
             'port' => (int) $origin['port'],
             'host_header' => (string) ($origin['host_header'] ?? $origin['host']),
             'sni' => (string) ($origin['sni'] ?? $origin['host']),
-            'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+            'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
             'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
-    }
-
-    private function snapshotOriginFromConfigured(?array $origin): ?array
-    {
-        if ($origin === null || empty($origin['enabled'])) {
-            return null;
-        }
-        return $this->originForSnapshot($origin);
     }
 
     private function originsForSnapshot(array $origins): array
@@ -443,21 +421,11 @@ class ConfigService
             $out[] = $this->originForSnapshot($origin);
         }
         usort($out, static function (array $a, array $b): int {
-            $role = ['primary' => 0, 'backup' => 1];
-            return [$role[$a['role']] ?? 2, $b['weight'], $a['id']]
-                <=> [$role[$b['role']] ?? 2, $a['weight'], $b['id']];
+            $health = ['healthy' => 0, 'unknown' => 1, 'unhealthy' => 2];
+            return [$health[$a['health_status']] ?? 1, $a['weight'], $a['id']]
+                <=> [$health[$b['health_status']] ?? 1, $b['weight'], $b['id']];
         });
         return $out;
-    }
-
-    private function firstOriginByRole(array $origins, string $role): ?array
-    {
-        foreach ($origins as $origin) {
-            if (($origin['role'] ?? '') === $role) {
-                return $origin;
-            }
-        }
-        return null;
     }
 
     private function originsFromDnsRecords(array $records): array
@@ -476,7 +444,7 @@ class ConfigService
                 'id' => (string) ($record['id'] ?? ''),
                 'dns_record_id' => (string) ($record['id'] ?? ''),
                 'source' => 'dns_record',
-                'role' => $origins === [] ? 'primary' : 'backup',
+                'role' => 'origin',
                 'weight' => 1,
                 'enabled' => true,
                 'scheme' => $scheme,
@@ -484,27 +452,27 @@ class ConfigService
                 'port' => $scheme === 'https' ? 443 : 80,
                 'host_header' => $host,
                 'sni' => $host,
-                'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'verify'),
+            'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
                 'health_status' => (string) ($record['origin_status'] ?? 'pending'),
                 'status' => (string) ($record['origin_status'] ?? 'pending'),
             ];
         }
+        usort($origins, static function (array $a, array $b): int {
+            $health = ['healthy' => 0, 'unknown' => 1, 'unhealthy' => 2];
+            return [$health[$a['health_status']] ?? 1, $a['weight'], $a['id']]
+                <=> [$health[$b['health_status']] ?? 1, $b['weight'], $b['id']];
+        });
         return $origins;
     }
 
-    private function primaryProxiedRecord(array $records): ?array
+    private function dnsRecordsGeoOrigins(array $records): array
     {
         foreach ($records as $record) {
-            if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active' && ($record['name'] ?? '') === '@') {
-                return $record;
+            if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active' && is_array($record['geo_origins'] ?? null)) {
+                return $record['geo_origins'];
             }
         }
-        foreach ($records as $record) {
-            if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active') {
-                return $record;
-            }
-        }
-        return null;
+        return [];
     }
 
     private function schemeForDnsRecord(array $record): string
@@ -514,7 +482,7 @@ class ConfigService
             return $scheme;
         }
 
-        return (string) ($record['origin_tls_verify'] ?? 'verify') === 'ignore' ? 'https' : 'http';
+        return (string) ($record['origin_tls_verify'] ?? 'ignore') === 'ignore' ? 'https' : 'http';
     }
 
     private function buildGeoOrigins(array $geoOrigins): array
@@ -530,18 +498,42 @@ class ConfigService
             }
             $out[strtoupper(trim($key))] = [
                 'id' => (string) ($origin['id'] ?? 'geo-' . strtoupper(trim($key))),
-                'role' => 'primary',
+                'role' => 'origin',
                 'source' => 'geo_origin',
                 'host' => $host,
-                'scheme' => (string) ($origin['scheme'] ?? (((string) ($origin['tls_verify'] ?? 'verify') === 'ignore') ? 'https' : 'http')),
-                'port' => (int) ($origin['port'] ?? (((string) ($origin['tls_verify'] ?? 'verify') === 'ignore') ? 443 : 80)),
+                'scheme' => (string) ($origin['scheme'] ?? (((string) ($origin['tls_verify'] ?? 'ignore') === 'ignore') ? 'https' : 'http')),
+                'port' => (int) ($origin['port'] ?? (((string) ($origin['tls_verify'] ?? 'ignore') === 'ignore') ? 443 : 80)),
                 'host_header' => (string) ($origin['host_header'] ?? $host),
                 'sni' => (string) ($origin['sni'] ?? $host),
-                'tls_verify' => (string) ($origin['tls_verify'] ?? 'verify'),
+                'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
                 'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
             ];
         }
         ksort($out);
         return $out;
+    }
+
+    private function selectOriginFromPool(array $origins, string $seed): ?array
+    {
+        if ($origins === []) {
+            return null;
+        }
+        $healthy = [];
+        $unknown = [];
+        foreach ($origins as $origin) {
+            $status = (string) ($origin['health_status'] ?? 'unknown');
+            if ($status === 'healthy') {
+                $healthy[] = $origin;
+            } elseif ($status !== 'unhealthy') {
+                $unknown[] = $origin;
+            }
+        }
+        $pool = $healthy !== [] ? $healthy : ($unknown !== [] ? $unknown : $origins);
+        if (count($pool) === 1) {
+            return $pool[0];
+        }
+        $hash = function_exists('crc32') ? (int) sprintf('%u', crc32($seed)) : abs((int) crc32($seed));
+        $index = $hash % count($pool);
+        return $pool[$index] ?? $pool[0];
     }
 }

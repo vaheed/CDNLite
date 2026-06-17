@@ -116,7 +116,7 @@ const countryOptions = [
   { code: 'IN', name: 'India' }, { code: 'SG', name: 'Singapore' }, { code: 'JP', name: 'Japan' },
   { code: 'AU', name: 'Australia' }, { code: 'BR', name: 'Brazil' }, { code: 'ZA', name: 'South Africa' },
 ];
-const form = reactive({ type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false, origin_scheme: 'http' as OriginScheme });
+const form = reactive({ type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: false, geo_enabled: false, origin_scheme: 'http' as OriginScheme });
 const columns = [
   { key: 'type', label: 'Type' }, { key: 'name', label: 'Name' }, { key: 'content', label: 'Content / origin' },
   { key: 'proxied', label: 'Proxy status' }, { key: 'ttl', label: 'TTL' }, { key: 'status', label: 'Status' }, { key: 'actions', label: '' },
@@ -128,7 +128,7 @@ async function load() {
   records.value = result.map((record) => ({ ...record, geo_origins_count: Object.keys(record.geo_origins ?? {}).filter((key) => key !== 'DEFAULT').length }));
 }
 function reset() {
-  Object.assign(form, { type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: true, geo_enabled: false, origin_scheme: 'http' });
+  Object.assign(form, { type: 'A', name: '@', content: '', ttl: 300, priority: 10, proxied: false, geo_enabled: false, origin_scheme: 'http' });
   geoOrigins.value = [];
   error.value = '';
 }
@@ -147,10 +147,10 @@ function edit(value: Record<string, unknown>) {
   error.value = '';
   editing.value = true;
 }
-function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', scheme: form.origin_scheme, verify_tls: true }); }
+function addGeoOrigin() { geoOrigins.value.push({ country_code: '', host: '', scheme: form.origin_scheme, verify_tls: false }); }
 function geoOriginPayload() {
   const origins: Record<string, { host: string; scheme: OriginScheme; port: 80 | 443; tls_verify: 'verify' | 'ignore' }> = {};
-  if (form.content.trim()) origins.DEFAULT = { host: form.content.trim(), ...originProtocolPayload(form.origin_scheme), tls_verify: 'verify' };
+  if (form.content.trim()) origins.DEFAULT = { host: form.content.trim(), ...originProtocolPayload(form.origin_scheme), tls_verify: 'ignore' };
   if (form.geo_enabled) {
     for (const origin of geoOrigins.value) origins[origin.country_code] = { host: origin.host.trim(), ...originProtocolPayload(origin.scheme), tls_verify: origin.verify_tls ? 'verify' : 'ignore' };
   }
@@ -167,7 +167,7 @@ async function save() {
     const payload = {
       type: form.type, name: form.name.trim(), content: form.content.trim(), ttl: Number(form.ttl),
       priority: form.type === 'MX' ? Number(form.priority) : null, proxied: form.proxied,
-      origin_host: form.content.trim(), origin_scheme: form.origin_scheme, origin_tls_verify: 'verify' as const,
+      origin_host: form.content.trim(), origin_scheme: form.origin_scheme, origin_tls_verify: 'ignore' as const,
       geo_origins: geoOriginPayload(), routing_policy: 'standard' as const,
     };
     if (editingId.value) await dnsApi.update(props.domainId, editingId.value, payload);

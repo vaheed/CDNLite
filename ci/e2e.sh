@@ -375,7 +375,7 @@ record_step PASS "domain-activate" "domain activated with development override"
 
 api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
-assert_http_status "$HTTP_CODE" "201" "primary proxied DNS create failed"
+assert_http_status "$HTTP_CODE" "201" "proxied DNS create failed"
 PRIMARY_DNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
 DNS_IDS+=("$PRIMARY_DNS_ID")
 record_step PASS "dns-origin-create" "record-level origin, proxy, TLS mode, and geo origins stored"
@@ -490,14 +490,14 @@ record_step PASS "origin-https-443-ignore" "self-signed HTTPS origin accepted wi
 
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins"
 assert_http_status "$HTTP_CODE" "200" "origin list after DNS origin create failed"
-PRIMARY_ORIGIN_ID="$(jq -r --arg rid "$PRIMARY_DNS_ID" '.data[] | select(.dns_record_id == $rid and .is_primary == true) | .id' <<<"$HTTP_BODY" | head -n1)"
+PRIMARY_ORIGIN_ID="$(jq -r --arg rid "$PRIMARY_DNS_ID" '.data[] | select(.dns_record_id == $rid) | .id' <<<"$HTTP_BODY" | head -n1)"
 if [[ -z "$PRIMARY_ORIGIN_ID" || "$PRIMARY_ORIGIN_ID" == "null" ]]; then
-  fail "primary DNS-linked origin not found for ${PRIMARY_DNS_ID}"
+  fail "DNS-linked origin not found for ${PRIMARY_DNS_ID}"
 fi
-record_step PASS "origin-primary-linked-row" "origin_id=${PRIMARY_ORIGIN_ID}"
+record_step PASS "origin-linked-row" "origin_id=${PRIMARY_ORIGIN_ID}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
-  '{"scheme":"https","host":"origin-tls","port":443,"host_header":"origin-tls","sni":"phase3-sni.local","tls_verify":"ignore","preserve_host":false,"is_primary":true,"enabled":true}'
+  '{"scheme":"https","host":"origin-tls","port":443,"host_header":"origin-tls","sni":"phase3-sni.local","tls_verify":"ignore","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "HTTPS/SNI origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 origin_sni_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=sni")"
@@ -506,7 +506,7 @@ assert_contains "$origin_sni_body" '"origin_sni":"phase3-sni.local"' "edge shoul
 record_step PASS "origin-https-sni" "HTTPS origin returned 200 with configured SNI"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
-  '{"scheme":"http","host":"origin-http","port":80,"host_header":"origin-http","sni":"origin-http","tls_verify":"verify","preserve_host":false,"is_primary":true,"enabled":true}'
+  '{"scheme":"http","host":"origin-http","port":80,"host_header":"origin-http","sni":"origin-http","tls_verify":"verify","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "own-host-header origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 origin_own_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=own-host")"
@@ -515,7 +515,7 @@ assert_contains "$origin_own_host_body" '"origin_host":"origin-http"' "preserve_
 record_step PASS "origin-host-header-own" "origin received its own Host header with preserve_host=false"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
-  "{\"scheme\":\"http\",\"host\":\"origin-http\",\"port\":80,\"host_header\":\"origin-http\",\"sni\":\"origin-http\",\"tls_verify\":\"verify\",\"preserve_host\":true,\"is_primary\":true,\"enabled\":true}"
+  "{\"scheme\":\"http\",\"host\":\"origin-http\",\"port\":80,\"host_header\":\"origin-http\",\"sni\":\"origin-http\",\"tls_verify\":\"verify\",\"preserve_host\":true,\"enabled\":true}"
 assert_http_status "$HTTP_CODE" "200" "preserve CDN host origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 origin_cdn_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=cdn-host")"
