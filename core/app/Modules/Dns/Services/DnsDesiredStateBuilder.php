@@ -73,7 +73,6 @@ class DnsDesiredStateBuilder
         foreach ($stmt->fetchAll() as $row) {
             $zone = rtrim(strtolower((string) $row['domain']), '.') . '.';
             $rrsets[] = $this->rrset($zone, '@', 'NS', 300, $this->records->nameservers(), 'customer_zone_nameservers');
-            $rrsets[] = $this->rrset($zone, '@', 'SOA', 300, [$this->records->soa($zone)], 'customer_zone_soa');
         }
         return $rrsets;
     }

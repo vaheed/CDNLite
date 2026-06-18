@@ -8,14 +8,17 @@ A PostgreSQL advisory lock prevents overlapping runs. Each run compares desired 
 the live PowerDNS zone, sends one batch PATCH per changed zone, verifies the write, and
 deletes rrsets that were previously owned by CDNLite but are no longer desired.
 
-Every domain saved in Core has a PowerDNS zone immediately. Before nameserver
-verification succeeds, that customer zone contains only CDNLite's platform
-`NS` and `SOA` rrsets. Users can create DNS records during onboarding, but those
-records stay in PostgreSQL and are not published until the domain is active and
-its authoritative nameservers verify against the configured platform
-nameservers. If verification later fails because the domain was delegated away,
-Core keeps the domain and all DNS records in PostgreSQL, marks the domain
-pending, and reconciliation withdraws every non-`NS`/`SOA` rrset from PowerDNS.
+Every domain saved in Core is part of desired DNS immediately. In strict
+PowerDNS mode the API writes the authority zone before returning; in non-strict
+mode the local write returns quickly and the scheduled reconciler converges the
+zone. Before nameserver verification succeeds, that customer zone contains only
+CDNLite's platform `NS` plus the PowerDNS-created `SOA`. Users can create DNS
+records during onboarding, but those records stay in PostgreSQL and are not
+published until the domain is active and its authoritative nameservers verify
+against the configured platform nameservers. If verification later fails
+because the domain was delegated away, Core keeps the domain and all DNS
+records in PostgreSQL, marks the domain pending, and reconciliation withdraws
+every non-`NS`/`SOA` rrset from PowerDNS.
 
 Use `CDNLITE_SYNC_INTERVAL_SECONDS` to set the scheduled convergence interval (default:
 `30`). `php artisan cdn:powerdns:dry-run` previews desired rrsets, while

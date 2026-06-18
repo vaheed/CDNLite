@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
+use App\Modules\Dns\Services\PowerDnsService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\AuditLog;
@@ -65,7 +66,7 @@ class DomainService
 
         AuditLog::write('domain.create', 'domain', $id, $id, null, $domain);
         $this->invalidateConfigSnapshot();
-        (new DnsReconciler())->reconcile();
+        $this->reconcileDns($id);
         return $domain;
     }
 
@@ -130,7 +131,7 @@ class DomainService
         $updated = $this->find($domainId);
         AuditLog::write('domain.update', 'domain', $domainId, $domainId, $existing, $updated);
         $this->invalidateConfigSnapshot();
-        (new DnsReconciler())->reconcile();
+        $this->reconcileDns($domainId);
         return $updated;
     }
 
@@ -146,7 +147,7 @@ class DomainService
         $deleted = $stmt->rowCount() > 0;
         if ($deleted) {
             $this->invalidateConfigSnapshot();
-            (new DnsReconciler())->reconcile();
+            $this->reconcileDns($domainId);
         }
         return $deleted;
     }
@@ -189,6 +190,35 @@ class DomainService
     private function invalidateConfigSnapshot(): void
     {
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+    }
+
+    private function reconcileDns(string $domainId): void
+    {
+        $powerDns = new PowerDnsService();
+        if (!$powerDns->isEnabled()) {
+            return;
+        }
+
+        // Non-strict installs keep the database write fast and let the
+        // scheduled reconciler converge PowerDNS. Strict installs still fail
+        // the API request when the authority zone cannot be written.
+        if (!$powerDns->isStrict()) {
+            AuditLog::write('dns.reconcile.queued', 'dns', 'powerdns', $domainId, null, [
+                'local_state_saved' => true,
+                'strict' => false,
+            ], 'system');
+            return;
+        }
+
+        $result = (new DnsReconciler())->reconcile();
+        if (($result['ok'] ?? false) !== true) {
+            AuditLog::write('dns.reconcile.failed', 'dns', 'powerdns', $domainId, null, [
+                'error' => (string) ($result['error'] ?? 'powerdns_reconcile_failed'),
+                'local_state_saved' => true,
+                'strict' => true,
+            ], 'system');
+            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_reconcile_failed'));
+        }
     }
 
 }

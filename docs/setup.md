@@ -96,7 +96,10 @@ away, CDNLite marks it pending and withdraws its DNS records and edge config.
 The PowerDNS zone itself is created as soon as the domain is saved and remains
 present with only platform `NS` and `SOA` records while nameserver verification
 is pending or lost. User DNS records remain stored in Core and are republished
-after nameserver verification succeeds again.
+after nameserver verification succeeds again. In non-strict PowerDNS mode,
+domain mutations return after saving Core state and the scheduled reconciler
+converges PowerDNS; strict mode fails the API request if the authority zone
+cannot be written.
 The dashboard domain detail page also has **Refresh nameservers now**, which
 does not wait for the scheduler and shows expected, observed, matched, missing,
 and resolver error details. Operators logged in with an admin session can use

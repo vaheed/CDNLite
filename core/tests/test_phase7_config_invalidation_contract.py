@@ -16,7 +16,9 @@ def test_domain_mutations_invalidate_config_before_reconcile():
     assert "AuditLog::write('domain.create'" in service
     assert "AuditLog::write('domain.update'" in service
     assert "AuditLog::write('domain.delete'" in service
-    assert "$this->invalidateConfigSnapshot();\n        (new DnsReconciler())->reconcile();" in service
+    assert "$this->invalidateConfigSnapshot();\n        $this->reconcileDns(" in service
+    assert "private function reconcileDns" in service
+    assert "(new DnsReconciler())->reconcile();" in service
 
 
 def test_dns_and_geo_route_mutations_invalidate_config():
