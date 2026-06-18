@@ -32,8 +32,8 @@ class AcmeIssuerService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((int) $domain['proxy_enabled'] !== 1 || (string) $domain['status'] !== 'active') {
-            throw new \DomainException('domain_proxy_must_be_active');
+        if ((string) $domain['status'] !== 'active') {
+            throw new \DomainException('domain_must_be_active');
         }
 
         $targets = $this->targetHostnames($domain, $hostnames);
@@ -297,7 +297,7 @@ class AcmeIssuerService
 
     private function targetHostnames(array $domain, array $hostnames): array
     {
-        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
+        $targets = $hostnames === [] ? $this->defaultManagedSslHostnames((string) $domain['domain']) : $hostnames;
         $out = [];
         foreach ($targets as $hostname) {
             $h = strtolower(trim((string) $hostname));
@@ -321,6 +321,15 @@ class AcmeIssuerService
         }
         $suffix = '.' . $zone;
         return '_acme-challenge.' . substr($host, 0, -strlen($suffix));
+    }
+
+    private function defaultManagedSslHostnames(string $domain): array
+    {
+        $domain = strtolower(trim($domain));
+        if ($domain === '') {
+            return [];
+        }
+        return [$domain, '*.' . $domain];
     }
 
     private function hostnameBelongsToZone(string $hostname, string $zoneDomain): bool

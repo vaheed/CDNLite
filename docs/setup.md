@@ -91,7 +91,8 @@ auto-migration is enabled. Durable DNS state is reconciled after mutations and b
 
 The `nameserver-scheduler` runs `php artisan cdn:domains:verify-all` every
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` seconds (default `86400`). A verified
-domain activates automatically. If its authoritative nameservers later move
+domain activates automatically and queues managed ACME DNS-01 SSL for the apex
+hostname and wildcard hostname. If its authoritative nameservers later move
 away, CDNLite marks it pending and withdraws its DNS records and edge config.
 The PowerDNS zone itself is created as soon as the domain is saved and remains
 present with only platform `NS` and `SOA` records while nameserver verification
@@ -157,7 +158,7 @@ Core settings:
 | `CDNLITE_ORIGIN_SHIELD_SECRET` | Default origin shield secret. |
 | `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
 | `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
-| `CDNLITE_ACME_*` | ACME directory, contact email, propagation delay, and polling. |
+| `CDNLITE_ACME_*` | ACME directory, contact email, propagation delay, and polling for automatic apex and wildcard certificates. |
 | `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` | Seconds between SSL scheduler loops for queued issuance and renewals; default `30`. |
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |

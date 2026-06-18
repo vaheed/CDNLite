@@ -187,7 +187,7 @@ class TrafficRulesService
         $now = time();
         Database::pdo()->prepare(
             'INSERT INTO domain_ssl_settings (domain_id,force_https,min_tls_version,auto_renew,created_at,updated_at)
-             VALUES (:domain_id,false,:min_tls_version,false,:created_at,:updated_at)'
+             VALUES (:domain_id,false,:min_tls_version,true,:created_at,:updated_at)'
         )->execute([':domain_id' => $domainId, ':min_tls_version' => '1.2', ':created_at' => $now, ':updated_at' => $now]);
         return $this->getSslSettings($domainId);
     }
@@ -259,11 +259,11 @@ class TrafficRulesService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((int) $domain['proxy_enabled'] !== 1 || (string) $domain['status'] !== 'active') {
-            throw new \DomainException('domain_proxy_must_be_active');
+        if ((string) $domain['status'] !== 'active') {
+            throw new \DomainException('domain_must_be_active');
         }
 
-        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
+        $targets = $hostnames === [] ? $this->defaultManagedSslHostnames((string) $domain['domain']) : $hostnames;
         $now = time();
         foreach ($targets as $hostname) {
             $h = strtolower(trim((string) $hostname));
@@ -292,7 +292,7 @@ class TrafficRulesService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        $targets = $hostnames === [] ? [(string) $domain['domain']] : $hostnames;
+        $targets = $hostnames === [] ? $this->defaultManagedSslHostnames((string) $domain['domain']) : $hostnames;
         $normalized = [];
         foreach ($targets as $hostname) {
             $h = strtolower(trim((string) $hostname));
@@ -346,6 +346,21 @@ class TrafficRulesService
             'message' => $job['message'],
             'job' => $job,
         ];
+    }
+    public function ensureManagedWildcardSslJob(string $domainId): ?array {
+        $domain = $this->domainForSsl($domainId);
+        if ($domain === null || (string) $domain['status'] !== 'active') {
+            return null;
+        }
+        $hostnames = $this->defaultManagedSslHostnames((string) $domain['domain']);
+        if ($this->hasActiveManagedCertificate($domainId, $hostnames) || $this->hasActiveSslJob($domainId, $hostnames)) {
+            return null;
+        }
+        $settings = $this->getSslSettings($domainId);
+        if (empty($settings['auto_renew'])) {
+            $this->setSslSettings($domainId, ['auto_renew' => true]);
+        }
+        return $this->requestSslJob($domainId, $hostnames);
     }
     public function getSslJob(string $domainId, string $jobId): ?array {
         $s = Database::pdo()->prepare('SELECT * FROM ssl_jobs WHERE domain_id=:domain_id AND id=:id LIMIT 1');
@@ -457,6 +472,50 @@ class TrafficRulesService
             ];
         }
         return $out;
+    }
+    private function defaultManagedSslHostnames(string $domain): array {
+        $domain = strtolower(trim($domain));
+        if ($domain === '') {
+            return [];
+        }
+        return [$domain, '*.' . $domain];
+    }
+    private function hasActiveManagedCertificate(string $domainId, array $hostnames): bool {
+        if ($hostnames === []) {
+            return false;
+        }
+        $placeholders = implode(',', array_fill(0, count($hostnames), '?'));
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(DISTINCT hostname) FROM ssl_certificates
+             WHERE domain_id=? AND hostname IN ({$placeholders})
+               AND provider='acme' AND status='active' AND not_after>?
+               AND certificate_pem IS NOT NULL AND private_key_pem IS NOT NULL"
+        );
+        $stmt->execute(array_merge([$domainId], $hostnames, [time()]));
+        return (int) $stmt->fetchColumn() === count($hostnames);
+    }
+    private function hasActiveSslJob(string $domainId, array $hostnames): bool {
+        $wanted = array_values(array_unique(array_map(static fn (string $hostname): string => strtolower(trim($hostname)), $hostnames)));
+        sort($wanted);
+        $stmt = Database::pdo()->prepare(
+            "SELECT hostnames_json FROM ssl_jobs
+             WHERE domain_id=:domain_id
+               AND status IN ('queued','checking_dns','creating_order','validating_challenge','issuing','installing')
+             ORDER BY created_at DESC"
+        );
+        $stmt->execute([':domain_id' => $domainId]);
+        foreach ($stmt->fetchAll() as $row) {
+            $decoded = json_decode((string) ($row['hostnames_json'] ?? '[]'), true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            $current = array_values(array_unique(array_map(static fn ($hostname): string => strtolower(trim((string) $hostname)), $decoded)));
+            sort($current);
+            if ($current === $wanted) {
+                return true;
+            }
+        }
+        return false;
     }
     public function getDomainCacheSettings(string $domainId): array {
         $s = Database::pdo()->prepare('SELECT * FROM domain_cache_settings WHERE domain_id=:domain_id LIMIT 1');

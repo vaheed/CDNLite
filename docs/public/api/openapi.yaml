@@ -917,7 +917,7 @@ paths:
   /api/v1/domains/{domainId}/ssl/request:
     post:
       tags: [SSL]
-      summary: Queue SSL flow
+      summary: Queue managed SSL flow for apex and wildcard hostnames by default
       parameters:
         - $ref: "#/components/parameters/DomainId"
       requestBody:

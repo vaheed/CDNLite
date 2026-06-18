@@ -4,6 +4,24 @@ local edge_log = require('edge_log')
 
 local M = {}
 
+local function matches_hostname(cert_hostname, sni)
+  if cert_hostname == sni then
+    return true
+  end
+  if string.sub(cert_hostname, 1, 2) ~= '*.' then
+    return false
+  end
+  local suffix = string.sub(cert_hostname, 3)
+  if string.sub(sni, -#suffix) ~= suffix then
+    return false
+  end
+  if string.sub(sni, -#suffix - 1, -#suffix - 1) ~= '.' then
+    return false
+  end
+  local label = string.sub(sni, 1, #sni - #suffix - 1)
+  return label ~= '' and not string.find(label, '%.')
+end
+
 function M.apply()
   local sni, err = ssl.server_name()
   if not sni or sni == '' then
@@ -14,7 +32,8 @@ function M.apply()
   local cfg = loader.load()
   local certs = cfg.ssl_certificates or {}
   for _, c in ipairs(certs) do
-    if c and type(c.hostname) == 'string' and string.lower(c.hostname) == sni then
+    local cert_hostname = c and type(c.hostname) == 'string' and string.lower(c.hostname) or ''
+    if matches_hostname(cert_hostname, sni) then
       local cert, cert_err = ssl.parse_pem_cert(c.certificate_pem or '')
       if not cert then
         edge_log.error('tls_certificate_parse_failed', { hostname = sni, error = tostring(cert_err or 'unknown') })
@@ -39,7 +58,7 @@ function M.apply()
       if not okk then
         edge_log.error('tls_set_key_failed', { hostname = sni, error = tostring(setk_err or 'unknown') })
       end
-      edge_log.info('tls_certificate_selected', { hostname = sni })
+      edge_log.info('tls_certificate_selected', { hostname = sni, certificate_hostname = cert_hostname })
       return
     end
   end

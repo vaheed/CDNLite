@@ -32,6 +32,8 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
 
     assert "public function requestSslJob" in service
     assert "INSERT INTO ssl_jobs" in service
+    assert "defaultManagedSslHostnames" in service
+    assert "'*.' . $domain" in service
     assert "AuditLog::write('ssl.requested'" in service
     assert "'job_id' => $job['id']" in service
     assert "public function getSslJob" in service
@@ -64,6 +66,8 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "ssl.dns_challenge_created" in issuer
     assert "AuditLog::write('ssl.dns_challenge_created'" in issuer
     assert "private function updateActiveJobs" in renewals
+    assert "defaultManagedSslHostnames" in renewals
+    assert "defaultManagedSslHostnames" in issuer
     assert "UPDATE ssl_jobs" in renewals
     assert "'checking_dns'" in renewals
     assert "'validating_challenge'" in renewals
@@ -73,6 +77,21 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "safeErrorMessage" in renewals
     store_certificate = service.split("public function storeIssuedSslCertificate", 1)[1].split("private function domainForSsl", 1)[0]
     assert "invalidateConfigSnapshot" in store_certificate
+
+
+def test_wildcard_ssl_is_automatic_after_dns_verification():
+    verification = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    schema = read("core/database/schema.sql")
+    edge_tls = read("edge/openresty/lua/tls_cert.lua")
+
+    assert "queueManagedWildcardSsl($domainId)" in verification
+    assert "ensureManagedWildcardSslJob" in service
+    assert "hasActiveSslJob" in service
+    assert "hasActiveManagedCertificate" in service
+    assert "DEFAULT true" in schema
+    assert "matches_hostname" in edge_tls
+    assert "certificate_hostname = cert_hostname" in edge_tls
 
 
 def test_dashboard_polls_ssl_job_progress():

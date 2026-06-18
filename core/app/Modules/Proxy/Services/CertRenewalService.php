@@ -149,7 +149,7 @@ class CertRenewalService
             if ($hostname === false) {
                 throw new \OutOfBoundsException('domain_not_found');
             }
-            $targets = [(string) $hostname];
+            $targets = $this->defaultManagedSslHostnames((string) $hostname);
         }
 
         $now = time();
@@ -307,5 +307,14 @@ class CertRenewalService
             return 'ssl_issuance_failed';
         }
         return preg_replace('/[^a-z0-9_]+/', '_', $message) ?: 'ssl_issuance_failed';
+    }
+
+    private function defaultManagedSslHostnames(string $domain): array
+    {
+        $domain = strtolower(trim($domain));
+        if ($domain === '') {
+            return [];
+        }
+        return [$domain, '*.' . $domain];
     }
 }

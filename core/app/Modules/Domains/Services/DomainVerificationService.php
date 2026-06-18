@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
+use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\AuditLog;
 use App\Support\Database;
@@ -80,6 +81,9 @@ class DomainVerificationService
         if ($reconcile) {
             (new DnsReconciler())->reconcile();
         }
+        if ($status === 'verified') {
+            $this->queueManagedWildcardSsl($domainId);
+        }
         $updated = (new DomainService())->find($domainId);
         return [
             'domain' => $updated,
@@ -127,6 +131,7 @@ class DomainVerificationService
         }
 
         (new DnsReconciler())->reconcile();
+        $this->queueManagedWildcardSsl($domainId);
         $updated = (new DomainService())->find($domainId);
         AuditLog::write('domain.nameserver.force_verify', 'domain', $domainId, $domainId, $domain, [
             'domain' => $updated,
@@ -261,5 +266,18 @@ class DomainVerificationService
             static fn (mixed $hostname): string => strtolower(rtrim(trim((string) $hostname), '.')),
             $hostnames
         ))));
+    }
+
+    private function queueManagedWildcardSsl(string $domainId): void
+    {
+        try {
+            (new TrafficRulesService())->ensureManagedWildcardSslJob($domainId);
+        } catch (\Throwable $e) {
+            AuditLog::write('ssl.auto_request_failed', 'ssl', null, $domainId, null, [
+                'domain_id' => $domainId,
+                'error' => $e->getMessage(),
+                'created_at' => time(),
+            ], 'system');
+        }
     }
 }

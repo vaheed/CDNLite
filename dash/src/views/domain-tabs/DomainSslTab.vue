@@ -158,7 +158,7 @@ const showManualImport = ref(false);
 const manualMessage = ref('');
 const manualError = ref(false);
 const lastJobStatuses = new Map<string, string>();
-const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: false });
+const settings = reactive({ force_https: false, min_tls_version: '1.2' as '1.2' | '1.3', auto_renew: true });
 const manual = reactive({ hostname: '', certificate_pem: '', private_key_pem: '' });
 const columns = [{ key: 'hostname', label: 'Hostname' }, { key: 'status', label: 'Status' }, { key: 'issuer', label: 'Issuer' }, { key: 'expiry', label: 'Expiry' }, { key: 'last_error', label: 'Error' }];
 const rows = computed(() => certificates.value.map(c => ({ ...c, expiry: c.not_after ? formatDate(c.not_after) : '' })));
