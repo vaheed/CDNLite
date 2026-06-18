@@ -13,87 +13,85 @@
     <div v-if="message" role="status" class="notice-info">{{ message }}</div>
     <div v-if="error" class="state-error">{{ error }}</div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="profile in profiles" :key="profile.profile_key" class="panel-section flex min-h-60 flex-col">
-        <div class="flex items-start justify-between gap-3">
+    <div class="panel-section overflow-hidden p-0">
+      <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
+        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">One-click profiles</h3>
+      </div>
+      <div class="divide-y divide-slate-200 dark:divide-white/10">
+        <div v-for="profile in profiles" :key="profile.profile_key" class="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(220px,1fr)_160px_220px] lg:items-center">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ profile.name }}</h4>
+              <StatusBadge :status="profile.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(profile.status)" />
+              <StatusBadge :status="riskStatus(profile.risk)" :label="riskLabel(profile.risk)" />
+            </div>
+            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ profile.summary }}</p>
+            <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ profileIntentNames(profile).join(', ') }}</p>
+          </div>
+          <div class="text-sm text-slate-600 dark:text-slate-300">
+            <span class="font-medium text-slate-800 dark:text-slate-100">{{ profile.intent_keys.length }}</span>
+            protection outcomes
+            <span v-if="profile.profile?.updated_at" class="mt-1 block text-xs text-slate-500">Last applied {{ formatDate(profile.profile.updated_at) }}</span>
+          </div>
           <div>
-            <h3 class="text-base font-semibold text-slate-950 dark:text-white">{{ profile.name }}</h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ profile.summary }}</p>
+            <StatusBadge status="info" :label="profile.profile?.id ? 'Managed preset' : 'Ready to apply'" />
           </div>
-          <StatusBadge :status="profile.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(profile.status)" />
-        </div>
-
-        <div class="mt-4 flex flex-wrap gap-2">
-          <StatusBadge :status="riskStatus(profile.risk)" :label="riskLabel(profile.risk)" />
-          <StatusBadge status="info" :label="`${profile.intent_keys.length} intents`" />
-        </div>
-
-        <dl class="mt-4 space-y-3 text-sm">
-          <div>
-            <dt class="text-xs font-semibold uppercase text-slate-500">Protection outcomes</dt>
-            <dd class="mt-1 leading-6 text-slate-700 dark:text-slate-300">{{ profileIntentNames(profile).join(', ') }}</dd>
+          <div class="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
+            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Preview ${profile.name}`" @click="previewProfile(profile)">
+              <Eye class="h-4 w-4" /> Preview
+            </button>
+            <button v-if="profile.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Apply ${profile.name}`" @click="applyProfile(profile)">
+              <ShieldCheck class="h-4 w-4" /> Apply
+            </button>
+            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Disable ${profile.name}`" @click="disableProfile(profile)">
+              <ShieldOff class="h-4 w-4" /> Disable
+            </button>
           </div>
-          <div v-if="profile.profile?.updated_at">
-            <dt class="text-xs font-semibold uppercase text-slate-500">Last applied</dt>
-            <dd class="mt-1 text-slate-700 dark:text-slate-300">{{ formatDate(profile.profile.updated_at) }}</dd>
-          </div>
-        </dl>
-
-        <div class="mt-auto grid gap-2 pt-5 sm:flex sm:flex-wrap">
-          <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Preview ${profile.name}`" @click="previewProfile(profile)">
-            <Eye class="h-4 w-4" /> Preview
-          </button>
-          <button v-if="profile.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Apply ${profile.name}`" @click="applyProfile(profile)">
-            <ShieldCheck class="h-4 w-4" /> Apply
-          </button>
-          <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Disable ${profile.name}`" @click="disableProfile(profile)">
-            <ShieldOff class="h-4 w-4" /> Disable
-          </button>
         </div>
-      </article>
+      </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <article v-for="intent in intents" :key="intent.intent_key" class="panel-section flex min-h-72 flex-col">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-950 dark:text-white">{{ intent.name }}</h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ intent.summary }}</p>
+    <div class="panel-section overflow-hidden p-0">
+      <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
+        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Individual protections</h3>
+      </div>
+      <div class="divide-y divide-slate-200 dark:divide-white/10">
+        <div v-for="intent in intents" :key="intent.intent_key" class="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.6fr)_190px_minmax(180px,0.8fr)_260px] lg:items-center">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ intent.name }}</h4>
+              <StatusBadge :status="intent.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(intent.status)" />
+              <StatusBadge :status="riskStatus(intent.risk)" :label="riskLabel(intent.risk)" />
+            </div>
+            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ intent.summary }}</p>
           </div>
-          <StatusBadge :status="intent.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(intent.status)" />
+          <div class="flex flex-wrap gap-2">
+            <StatusBadge status="info" :label="modeLabel(intent.recommended_mode)" />
+            <StatusBadge status="unknown" :label="ruleCountLabel(intent)" />
+          </div>
+          <div class="min-w-0 text-xs text-slate-500 dark:text-slate-400">
+            <template v-if="intent.generated_rules.length">
+              <span class="font-semibold uppercase">Advanced rules</span>
+              <span class="mt-1 block truncate font-mono">{{ intent.generated_rules.map((rule) => rule.template_key).slice(0, 2).join(', ') }}</span>
+            </template>
+            <template v-else>Preview before enabling</template>
+          </div>
+          <div class="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
+            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Preview ${intent.name}`" @click="preview(intent)">
+              <Eye class="h-4 w-4" /> Preview
+            </button>
+            <button v-if="intent.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Enable ${intent.name}`" @click="enable(intent)">
+              <ShieldCheck class="h-4 w-4" /> Enable
+            </button>
+            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Disable ${intent.name}`" @click="disable(intent)">
+              <ShieldOff class="h-4 w-4" /> Disable
+            </button>
+            <button v-if="intent.intent" class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Undo ${intent.name}`" @click="undo(intent)">
+              <Undo2 class="h-4 w-4" /> Undo
+            </button>
+          </div>
         </div>
-
-        <div class="mt-4 flex flex-wrap gap-2">
-          <StatusBadge :status="riskStatus(intent.risk)" :label="riskLabel(intent.risk)" />
-          <StatusBadge status="info" :label="modeLabel(intent.recommended_mode)" />
-          <StatusBadge status="unknown" :label="ruleCountLabel(intent)" />
-        </div>
-
-        <div v-if="intent.generated_rules.length" class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-          <p class="text-xs font-semibold uppercase text-slate-500">Advanced rules</p>
-          <ul class="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-            <li v-for="rule in intent.generated_rules.slice(0, 3)" :key="`${rule.rule_table}:${rule.rule_id ?? rule.template_key}`" class="flex justify-between gap-3">
-              <span class="font-medium">{{ humanize(rule.rule_table) }}</span>
-              <span class="truncate text-right font-mono">{{ rule.template_key }}</span>
-            </li>
-          </ul>
-        </div>
-
-        <div class="mt-auto grid gap-2 pt-5 sm:flex sm:flex-wrap">
-          <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Preview ${intent.name}`" @click="preview(intent)">
-            <Eye class="h-4 w-4" /> Preview
-          </button>
-          <button v-if="intent.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Enable ${intent.name}`" @click="enable(intent)">
-            <ShieldCheck class="h-4 w-4" /> Enable
-          </button>
-          <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Disable ${intent.name}`" @click="disable(intent)">
-            <ShieldOff class="h-4 w-4" /> Disable
-          </button>
-          <button v-if="intent.intent" class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Undo ${intent.name}`" @click="undo(intent)">
-            <Undo2 class="h-4 w-4" /> Undo
-          </button>
-        </div>
-      </article>
+      </div>
     </div>
 
     <div v-if="profilePreviewResult || previewResult" class="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" :aria-labelledby="previewTitleId" @click.self="closePreview">

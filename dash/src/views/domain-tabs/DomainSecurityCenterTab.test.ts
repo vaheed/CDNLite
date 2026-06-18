@@ -119,11 +119,13 @@ describe('DomainSecurityCenterTab', () => {
     protectionApiMock.undoIntent.mockResolvedValue({ intent: { id: 'intent-login', intent_key: 'login_shield', name: 'Login Shield', status: 'enabled' }, rules: [] });
   });
 
-  it('shows beginner protection cards with safe and risky labels', async () => {
+  it('shows beginner protection rows with safe and risky labels', async () => {
     const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
 
     await waitFor(() => expect(view.getByText('Basic Website')).toBeInTheDocument());
     await waitFor(() => expect(view.getByText('Common Exploit Protection')).toBeInTheDocument());
+    expect(view.getByText('One-click profiles')).toBeInTheDocument();
+    expect(view.getByText('Individual protections')).toBeInTheDocument();
     expect(view.getAllByText('Safe').length).toBeGreaterThan(0);
     expect(view.getAllByText('Needs review').length).toBeGreaterThan(0);
     expect(view.getAllByText('2 generated rules').length).toBeGreaterThan(0);
