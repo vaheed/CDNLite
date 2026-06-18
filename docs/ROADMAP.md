@@ -591,6 +591,10 @@ Phase 8: Add the Simple/Advanced protection contract. Create models that link pr
 
 ## Phase 9 — Security Center
 
+### Status
+
+Partially completed.
+
 ### Goal
 
 Create the main beginner-friendly domain security page.
@@ -650,11 +654,25 @@ Suggested cards:
 
 ### Tests
 
-- Preview returns generated rule list.
-- Enable creates rules, audit events, and invalidates config.
-- Disable disables rules and invalidates config.
-- Undo restores previous state.
-- Dashboard shows safe/risky labels.
+- [x] Preview returns generated rule list.
+- [x] Enable creates rules, audit events, and invalidates config.
+- [x] Disable disables rules and invalidates config.
+- [x] Undo restores previous state.
+- [x] Dashboard shows safe/risky labels.
+- [x] Dashboard exposes Security Center cards for existing protection intents.
+- [x] Smoke/e2e verify the built dashboard contains Security Center and protection intent APIs.
+- [ ] Add backend templates for API shield, smart rate limiting, bot shield, and emergency protection.
+- [ ] Add full browser e2e coverage for clicking Security Center cards in a running dashboard.
+
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `dash/src/lib/api/protection.ts`, `dash/src/types.ts`, `dash/src/views/DomainDetailView.vue`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.vue`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.test.ts`, `core/tests/test_phase9_security_center_contract.py`, `ci/smoke.sh`, `ci/e2e.sh`, `docs/api/api.md`, `docs/use-cases/index.md`, `docs/ROADMAP.md`.
+- Behavior added: each domain now has a Security Center tab that lists available simple protection intents, shows safe/review labels and generated-rule footprint, previews generated technical rules without mutating state, and can enable, disable, or undo existing intent-backed protections. Advanced WAF, Rate Limits, Cache, Headers, and IP Access views remain the technical inspection and override surfaces.
+- Tests added/updated: focused Vue coverage for Security Center preview/enable/disable/undo, backend contract coverage for dashboard/API/docs/smoke/e2e wiring, smoke and e2e bundle checks for Security Center and protection intent API strings.
+- Validation commands run: `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts src/views/DomainDetailView.test.ts` in `dash/`; `npm test` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `pytest -q core/tests/test_phase8_protection_contract.py`; `find core -name '*.php' -print0 | xargs -0 -n1 php -l`; `docker compose config --quiet`; `npm run docs:build` in `docs/`.
+- Commands not run and why: live `ci/smoke.sh` and `ci/e2e.sh` were updated but not run against a live root stack in this pass.
+- Remaining blockers: API shield, smart rate limiting, bot shield, and emergency protection need real backend templates before their Security Center cards can be enabled; browser-driven Security Center e2e still needs a running UI automation layer.
 
 ### IDE Prompt
 

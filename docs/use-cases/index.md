@@ -55,6 +55,10 @@ Watch:
 - Edge logs.
 - Audit log entries for rule changes.
 
+## Simple Protection Setup
+
+Use a domain's Security Center when the operator wants outcomes such as common exploit protection, login protection, or static asset performance without writing WAF, rate-limit, or cache rules by hand. The Security Center previews generated technical rules before enabling an intent, while the advanced tabs remain available for advanced inspection, detach, edit, and override workflows.
+
 ## Certificate Workflow Testing
 
 Use staging ACME directory values, the bundled PowerDNS stack or a controlled DNS provider, and a test domain. Validate DNS-01 challenge publishing before using production ACME.

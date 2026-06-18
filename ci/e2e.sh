@@ -411,6 +411,12 @@ asset_headers="$(docker compose exec -T dashboard wget -S -qO- "http://127.0.0.1
 assert_contains "$asset_headers" "Cache-Control: public, immutable" "dashboard asset should use immutable cache headers"
 record_step PASS "dashboard-static-asset-cache" "Vue dashboard static asset cache headers verified"
 
+dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1${asset_path}")"
+assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include Security Center tab"
+assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
+assert_contains "$dashboard_asset" "Preview only shows the technical rules" "dashboard bundle should include intent preview copy"
+record_step PASS "dashboard-security-center-bundle" "Security Center tab and Protection intent APIs are present in the built dashboard"
+
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated"}'
 assert_http_status "$HTTP_CODE" "200" "domain update failed"
 updated_name="$(json_get "$HTTP_BODY" '.data.name')"

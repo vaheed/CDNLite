@@ -47,6 +47,15 @@ dashboard_index="$(docker compose exec -T dashboard wget -qO- http://127.0.0.1/)
 assert_contains "$dashboard_index" '<div id="app">' "dashboard index should contain Vue app mount"
 record_step PASS "dashboard-index" "dashboard SPA index served"
 
+dashboard_asset_path="$(printf '%s\n' "$dashboard_index" | sed -n 's/.*src="\([^"]*\/assets\/index-[^"]*\.js\)".*/\1/p' | head -n1)"
+if [[ -z "$dashboard_asset_path" ]]; then
+  fail "dashboard JS asset path missing from index"
+fi
+dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1${dashboard_asset_path}")"
+assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include the Security Center tab"
+assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
+record_step PASS "dashboard-security-center-bundle" "Security Center and Protection intent APIs are present in the dashboard bundle"
+
 ./ci/agent_flow_checks.sh >/dev/null
 record_step PASS "agent-flow-checks" "config and metrics failure handling verified"
 
