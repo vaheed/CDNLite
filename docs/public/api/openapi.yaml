@@ -634,10 +634,30 @@ paths:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:
     $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed:
+    post:
+      tags: [Traffic Rules]
+      summary: Detach a managed rate-limit rule
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/waf-rules:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/waf-rules/{ruleId}:
     $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed:
+    post:
+      tags: [Traffic Rules]
+      summary: Detach a managed WAF rule
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/headers:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/headers/{ruleId}:

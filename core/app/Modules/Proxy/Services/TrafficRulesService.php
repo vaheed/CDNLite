@@ -98,7 +98,7 @@ class TrafficRulesService
             'pattern' => (string)($in['pattern'] ?? ''),
             'action' => $action,
             'description' => isset($in['description']) ? (string) $in['description'] : null,
-        ]);
+        ] + $this->managedRulePayload($in));
     }
     public function updateWaf(string $domainId, string $id, array $in): ?array { return $this->update('waf_rules', $domainId, $id, $in); }
     public function deleteWaf(string $domainId, string $id): bool { return $this->delete('waf_rules', $domainId, $id); }
@@ -113,7 +113,7 @@ class TrafficRulesService
             'header_name' => (string) ($in['header_name'] ?? ''),
             'header_value' => array_key_exists('header_value', $in) ? (string) $in['header_value'] : null,
             'path_pattern' => (string) ($in['path_pattern'] ?? '/*'),
-        ]);
+        ] + $this->managedRulePayload($in));
     }
     public function updateHeaderRule(string $domainId, string $id, array $in): ?array { $this->assertHeaderRule($in, true); return $this->update('domain_header_rules', $domainId, $id, $in); }
     public function deleteHeaderRule(string $domainId, string $id): bool { return $this->delete('domain_header_rules', $domainId, $id); }
@@ -126,13 +126,13 @@ class TrafficRulesService
             'rule_type' => (string) ($in['rule_type'] ?? 'block'),
             'cidr' => (string) ($in['cidr'] ?? ''),
             'description' => array_key_exists('description', $in) ? (string) $in['description'] : null,
-        ]);
+        ] + $this->managedRulePayload($in));
     }
     public function updateIpRule(string $domainId, string $id, array $in): ?array { $this->assertIpRule($in, true); return $this->update('domain_ip_rules', $domainId, $id, $in); }
     public function deleteIpRule(string $domainId, string $id): bool { return $this->delete('domain_ip_rules', $domainId, $id); }
 
     public function listCacheRules(string $domainId): array { return $this->listRows('cache_rules', $domainId); }
-    public function createCacheRule(string $domainId, array $in): array { return $this->insert('cache_rules', $domainId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)]); }
+    public function createCacheRule(string $domainId, array $in): array { return $this->insert('cache_rules', $domainId, ['enabled'=>!empty($in['enabled']),'path_prefix'=>(string)($in['path_prefix'] ?? '/'),'ttl_seconds'=>(int)($in['ttl_seconds'] ?? 60)] + $this->managedRulePayload($in)); }
     public function updateCacheRule(string $domainId, string $id, array $in): ?array { return $this->update('cache_rules', $domainId, $id, $in); }
     public function deleteCacheRule(string $domainId, string $id): bool { return $this->delete('cache_rules', $domainId, $id); }
     public function listPageRules(string $domainId): array { return $this->listRows('page_rules', $domainId); }
@@ -611,7 +611,7 @@ class TrafficRulesService
         return array_map([$this, 'cast'], $s->fetchAll());
     }
     public function createRateLimit(string $domainId, array $in): array {
-        return $this->insert('rate_limit_rules', $domainId, $this->rateLimitPayload($in));
+        return $this->insert('rate_limit_rules', $domainId, $this->rateLimitPayload($in) + $this->managedRulePayload($in));
     }
     public function updateRateLimit(string $domainId, string $id, array $in): ?array {
         return $this->update('rate_limit_rules', $domainId, $id, $this->rateLimitPayload($in, true));
@@ -619,23 +619,59 @@ class TrafficRulesService
     public function deleteRateLimit(string $domainId, string $id): bool {
         return $this->delete('rate_limit_rules', $domainId, $id);
     }
+    public function detachManagedRule(string $domainId, string $ruleType, string $id): ?array {
+        $table = match ($ruleType) {
+            'waf_rule', 'waf' => 'waf_rules',
+            'rate_limit', 'rate-limit' => 'rate_limit_rules',
+            'cache_rule', 'cache' => 'cache_rules',
+            'header_rule', 'header' => 'domain_header_rules',
+            'ip_rule', 'ip' => 'domain_ip_rules',
+            default => throw new \InvalidArgumentException('invalid_rule_type'),
+        };
+        $q = Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1");
+        $q->execute([':id' => $id, ':domain' => $domainId]);
+        $before = $q->fetch();
+        if (!$before) {
+            return null;
+        }
+
+        $now = time();
+        Database::pdo()->prepare(
+            "UPDATE {$table}
+             SET profile_id=NULL,intent_id=NULL,template_key=NULL,managed_by=NULL,user_modified=false,last_generated_at=NULL,last_applied_at=NULL,updated_at=:updated_at
+             WHERE id=:id AND domain_id=:domain"
+        )->execute([':updated_at' => $now, ':id' => $id, ':domain' => $domainId]);
+        Database::pdo()->prepare('UPDATE managed_rule_links SET detached_at=:detached_at,updated_at=:updated_at WHERE rule_table=:rule_table AND rule_id=:rule_id AND detached_at IS NULL')
+            ->execute([':detached_at' => $now, ':updated_at' => $now, ':rule_table' => $table, ':rule_id' => $id]);
+        $r = Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id");
+        $r->execute([':id' => $id]);
+        $updated = $this->cast((array) $r->fetch());
+        AuditLog::write('protection_rule.detach', $this->auditResource($table), $id, $domainId, $this->cast((array) $before), $updated);
+        $this->invalidateConfigSnapshot();
+        return $updated;
+    }
     private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
     private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
         $sql="INSERT INTO {$table} (id,domain_id,{$names},created_at,updated_at) VALUES (:id,:domain_id,{$bind},:created_at,:updated_at)";
         $p=[':id'=>$id,':domain_id'=>$domainId,':created_at'=>$now,':updated_at'=>$now]; foreach($in as $k=>$v){$p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $s=Database::pdo()->prepare($sql); $s->execute($p); $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $q->execute([':id'=>$id]); $created=$this->cast((array)$q->fetch());
+        $this->storeManagedRuleLink($table, $domainId, $id, $created);
         AuditLog::write($this->auditResource($table).'.create', $this->auditResource($table), $id, $domainId, null, $created);
         $this->invalidateConfigSnapshot();
         return $created;
     }
     private function update(string $table, string $domainId, string $id, array $in): ?array {
         $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); $before=$q->fetch(); if(!$before){return null;}
+        if (($before['managed_by'] ?? null) !== null && !array_key_exists('user_modified', $in)) {
+            $this->markUserModifiedForManagedRule($in);
+        }
         $sets=[]; $p=[':id'=>$id,':domain'=>$domainId,':u'=>time()];
         foreach($in as $k=>$v){$sets[]="{$k}=:{$k}"; $p[':'.$k]=is_bool($v)?(int)$v:$v;}
         $sets[]='updated_at=:u';
         $s=Database::pdo()->prepare("UPDATE {$table} SET ".implode(',', $sets)." WHERE id=:id AND domain_id=:domain"); $s->execute($p);
         $r=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id"); $r->execute([':id'=>$id]); $updated=$this->cast((array)$r->fetch());
+        $this->syncManagedRuleLink($table, $domainId, $id, $updated);
         AuditLog::write($this->auditResource($table).'.update', $this->auditResource($table), $id, $domainId, $this->cast((array)$before), $updated);
         $this->invalidateConfigSnapshot();
         return $updated;
@@ -649,6 +685,71 @@ class TrafficRulesService
     }
     private function invalidateConfigSnapshot(): void {
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+    }
+    private function managedRulePayload(array $in): array {
+        $payload = [];
+        foreach (['profile_id', 'intent_id', 'template_key', 'managed_by'] as $key) {
+            if (array_key_exists($key, $in)) {
+                $payload[$key] = $in[$key] === null ? null : (string) $in[$key];
+            }
+        }
+        if (array_key_exists('user_modified', $in)) {
+            $payload['user_modified'] = !empty($in['user_modified']);
+        }
+        $now = time();
+        if (array_key_exists('last_generated_at', $in)) {
+            $payload['last_generated_at'] = $in['last_generated_at'] === null ? null : (int) $in['last_generated_at'];
+        } elseif (($payload['managed_by'] ?? null) !== null) {
+            $payload['last_generated_at'] = $now;
+        }
+        if (array_key_exists('last_applied_at', $in)) {
+            $payload['last_applied_at'] = $in['last_applied_at'] === null ? null : (int) $in['last_applied_at'];
+        } elseif (($payload['managed_by'] ?? null) !== null) {
+            $payload['last_applied_at'] = $now;
+        }
+        return $payload;
+    }
+    private function storeManagedRuleLink(string $table, string $domainId, string $id, array $rule): void {
+        if (($rule['managed_by'] ?? null) === null || ($rule['template_key'] ?? null) === null) {
+            return;
+        }
+        $now = time();
+        Database::pdo()->prepare(
+            'INSERT INTO managed_rule_links
+             (id,domain_id,profile_id,intent_id,rule_table,rule_id,template_key,managed_by,user_modified,last_generated_at,last_applied_at,created_at,updated_at)
+             VALUES (:id,:domain_id,:profile_id,:intent_id,:rule_table,:rule_id,:template_key,:managed_by,:user_modified,:last_generated_at,:last_applied_at,:created_at,:updated_at)
+             ON CONFLICT (rule_table, rule_id) WHERE detached_at IS NULL
+             DO UPDATE SET profile_id=EXCLUDED.profile_id,intent_id=EXCLUDED.intent_id,template_key=EXCLUDED.template_key,managed_by=EXCLUDED.managed_by,user_modified=EXCLUDED.user_modified,last_generated_at=EXCLUDED.last_generated_at,last_applied_at=EXCLUDED.last_applied_at,updated_at=EXCLUDED.updated_at'
+        )->execute([
+            ':id' => Uuid::v4(),
+            ':domain_id' => $domainId,
+            ':profile_id' => $rule['profile_id'] ?? null,
+            ':intent_id' => $rule['intent_id'] ?? null,
+            ':rule_table' => $table,
+            ':rule_id' => $id,
+            ':template_key' => (string) $rule['template_key'],
+            ':managed_by' => (string) $rule['managed_by'],
+            ':user_modified' => !empty($rule['user_modified']) ? 1 : 0,
+            ':last_generated_at' => $rule['last_generated_at'] ?? null,
+            ':last_applied_at' => $rule['last_applied_at'] ?? null,
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]);
+    }
+    private function syncManagedRuleLink(string $table, string $domainId, string $id, array $rule): void {
+        if (($rule['managed_by'] ?? null) === null) {
+            return;
+        }
+        $this->storeManagedRuleLink($table, $domainId, $id, $rule);
+    }
+    private function markUserModifiedForManagedRule(array &$in): void {
+        $managedKeys = ['profile_id', 'intent_id', 'template_key', 'managed_by', 'last_generated_at', 'last_applied_at'];
+        foreach (array_keys($in) as $key) {
+            if (!in_array($key, $managedKeys, true)) {
+                $in['user_modified'] = true;
+                return;
+            }
+        }
     }
     private function auditResource(string $table): string {
         return match ($table) {
@@ -706,9 +807,9 @@ class TrafficRulesService
                 $payload[$key] = $key === 'enabled' ? !empty($value) : ($key === 'priority' || $key === 'requests_per_minute' ? (int) $value : (string) $value);
             }
         }
-        return $payload;
+        return $payload + $this->managedRulePayload($in);
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https', 'auto_renew'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function castSslJob(array $r): array {
         foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
             if (isset($r[$i]) && $r[$i] !== null) {

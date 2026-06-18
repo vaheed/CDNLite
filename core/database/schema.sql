@@ -506,6 +506,13 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules (
   key_type TEXT NOT NULL DEFAULT 'ip',
   requests_per_minute INTEGER NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
+  profile_id TEXT NULL,
+  intent_id TEXT NULL,
+  template_key TEXT NULL,
+  managed_by TEXT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
@@ -520,6 +527,13 @@ CREATE TABLE IF NOT EXISTS waf_rules (
   pattern TEXT NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
   description TEXT NULL,
+  profile_id TEXT NULL,
+  intent_id TEXT NULL,
+  template_key TEXT NULL,
+  managed_by TEXT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
@@ -534,6 +548,13 @@ CREATE TABLE IF NOT EXISTS domain_header_rules (
   header_name TEXT NOT NULL,
   header_value TEXT NULL,
   path_pattern TEXT NOT NULL DEFAULT '/*',
+  profile_id TEXT NULL,
+  intent_id TEXT NULL,
+  template_key TEXT NULL,
+  managed_by TEXT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   CHECK (operation IN ('set', 'remove', 'append'))
@@ -549,6 +570,13 @@ CREATE TABLE IF NOT EXISTS domain_ip_rules (
   rule_type TEXT NOT NULL,
   cidr TEXT NOT NULL,
   description TEXT NULL,
+  profile_id TEXT NULL,
+  intent_id TEXT NULL,
+  template_key TEXT NULL,
+  managed_by TEXT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   CHECK (rule_type IN ('allow', 'block'))
@@ -563,10 +591,128 @@ CREATE TABLE IF NOT EXISTS cache_rules (
   enabled BOOLEAN NOT NULL DEFAULT true,
   path_prefix TEXT NOT NULL,
   ttl_seconds INTEGER NOT NULL,
+  profile_id TEXT NULL,
+  intent_id TEXT NULL,
+  template_key TEXT NULL,
+  managed_by TEXT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS protection_profiles (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  profile_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  settings_json TEXT NOT NULL DEFAULT '{}',
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS protection_intents (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  profile_id TEXT NULL REFERENCES protection_profiles(id) ON DELETE SET NULL,
+  intent_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'enabled',
+  mode TEXT NOT NULL DEFAULT 'recommended',
+  settings_json TEXT NOT NULL DEFAULT '{}',
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS managed_rule_links (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  profile_id TEXT NULL REFERENCES protection_profiles(id) ON DELETE SET NULL,
+  intent_id TEXT NULL REFERENCES protection_intents(id) ON DELETE SET NULL,
+  rule_table TEXT NOT NULL,
+  rule_id TEXT NOT NULL,
+  template_key TEXT NOT NULL,
+  managed_by TEXT NOT NULL,
+  user_modified BOOLEAN NOT NULL DEFAULT false,
+  detached_at BIGINT NULL,
+  last_generated_at BIGINT NULL,
+  last_applied_at BIGINT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profile_change_history (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  profile_id TEXT NULL REFERENCES protection_profiles(id) ON DELETE SET NULL,
+  intent_id TEXT NULL REFERENCES protection_intents(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  reason TEXT NULL,
+  before_json TEXT NULL,
+  after_json TEXT NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profile_rollback_points (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  profile_id TEXT NULL REFERENCES protection_profiles(id) ON DELETE SET NULL,
+  intent_id TEXT NULL REFERENCES protection_intents(id) ON DELETE SET NULL,
+  label TEXT NOT NULL,
+  snapshot_json TEXT NOT NULL,
+  created_at BIGINT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS protection_profiles_domain_key_idx
+  ON protection_profiles(domain_id, profile_key);
+CREATE INDEX IF NOT EXISTS protection_intents_domain_key_idx
+  ON protection_intents(domain_id, intent_key, status);
+CREATE UNIQUE INDEX IF NOT EXISTS managed_rule_links_rule_idx
+  ON managed_rule_links(rule_table, rule_id)
+  WHERE detached_at IS NULL;
+
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS template_key TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
+
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS template_key TEXT NULL;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
+ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
+
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS template_key TEXT NULL;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
+ALTER TABLE domain_ip_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
+
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS template_key TEXT NULL;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
+ALTER TABLE cache_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
+
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS template_key TEXT NULL;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
+ALTER TABLE domain_header_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
 
 CREATE TABLE IF NOT EXISTS domain_cache_settings (
   domain_id TEXT PRIMARY KEY REFERENCES domains(id) ON DELETE CASCADE,

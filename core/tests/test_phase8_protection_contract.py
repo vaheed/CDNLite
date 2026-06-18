@@ -1,0 +1,79 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def read(path: str) -> str:
+    return (ROOT / path).read_text()
+
+
+def test_phase8_schema_links_simple_protection_to_advanced_rules():
+    schema = read("core/database/schema.sql")
+    migration = read("core/database/migrations/000006_protection_contract.sql")
+
+    for table in (
+        "protection_profiles",
+        "protection_intents",
+        "managed_rule_links",
+        "profile_change_history",
+        "profile_rollback_points",
+    ):
+        assert f"CREATE TABLE IF NOT EXISTS {table}" in schema
+        assert f"CREATE TABLE IF NOT EXISTS {table}" in migration
+
+    for technical_table in (
+        "waf_rules",
+        "rate_limit_rules",
+        "domain_ip_rules",
+        "cache_rules",
+        "domain_header_rules",
+    ):
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS profile_id" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS intent_id" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS template_key" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS managed_by" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS user_modified" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS last_generated_at" in schema
+        assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS last_applied_at" in schema
+
+
+def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    routes = read("core/public_index.php")
+
+    assert "managedRulePayload" in service
+    assert "markUserModifiedForManagedRule" in service
+    assert "detachManagedRule" in service
+    assert "protection_rule.detach" in service
+    assert "'profile_id'" in service
+    assert "'intent_id'" in service
+    assert "'template_key'" in service
+    assert "'managed_by'" in service
+    assert "'user_modified'" in service
+
+    assert "detachManagedRule" in controller
+    assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed" in routes
+    assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed" in routes
+
+
+def test_phase8_advanced_dashboard_and_docs_expose_managed_state():
+    types = read("dash/src/types.ts")
+    waf = read("dash/src/views/domain-tabs/DomainWafTab.vue")
+    rate_limits = read("dash/src/views/domain-tabs/DomainRateLimitsTab.vue")
+    rules_tab = read("dash/src/views/domain-tabs/DomainRulesTab.vue")
+    api = read("docs/api/api.md")
+    openapi = read("docs/public/api/openapi.yaml")
+
+    for field in ("profile_id", "intent_id", "template_key", "managed_by", "user_modified"):
+        assert field in types
+
+    assert "Managed by" in rules_tab
+    assert "Customized by user" in rules_tab
+    assert "detachManaged" in waf
+    assert "detachManaged" in rate_limits
+
+    assert "detach-managed" in api
+    assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed:" in openapi
+    assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed:" in openapi

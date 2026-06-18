@@ -66,12 +66,13 @@ export interface GeoRoute { id?: Id; country_code?: string | null; edge_country_
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }
 export interface CacheSettings { enabled: boolean; default_edge_ttl_seconds: number; default_browser_ttl_seconds: number | null; cache_query_string_mode: string; respect_origin_cache_control: boolean; cache_authorized_requests: boolean; stale_if_error_seconds: number; }
-export interface CacheRule { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
+export interface ManagedRuleMetadata { profile_id?: Id | null; intent_id?: Id | null; template_key?: string | null; managed_by?: string | null; user_modified?: boolean; last_generated_at?: number | null; last_applied_at?: number | null; }
+export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
-export interface WafRule { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
-export interface RateLimitRule { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
-export interface HeaderRule { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
-export interface IpRule { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
+export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
+export interface RateLimitRule extends ManagedRuleMetadata { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
+export interface HeaderRule extends ManagedRuleMetadata { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
+export interface IpRule extends ManagedRuleMetadata { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
 export interface DomainOrigin {
   id: Id; domain_id: Id; scheme: 'http' | 'https'; host: string; port: 80 | 443 | number;
   dns_record_id?: Id | null; source?: 'manual' | 'dns_record' | 'imported' | string; role?: 'primary' | 'backup' | string;

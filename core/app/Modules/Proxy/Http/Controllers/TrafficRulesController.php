@@ -91,6 +91,14 @@ class TrafficRulesController
     public function deleteRateLimit(string $domainId, string $id): array {
         return $this->service->deleteRateLimit($domainId, $id) ? ['ok' => true] : ['error' => 'rate_limit_not_found', 'status' => 404];
     }
+    public function detachManagedRule(string $domainId, string $ruleType, string $id): array {
+        try {
+            $rule = $this->service->detachManagedRule($domainId, $ruleType, $id);
+        } catch (\InvalidArgumentException) {
+            return ['error' => 'invalid_rule_type', 'status' => 422];
+        }
+        return $rule ? ['data' => $rule] : ['error' => 'rule_not_found', 'status' => 404];
+    }
     private function validateRateLimit(array $body, bool $partial): ?array {
         if ($partial && $body === []) {
             return ['error' => 'invalid_request', 'detail' => 'at_least_one_field_required', 'status' => 422];

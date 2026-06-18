@@ -431,10 +431,12 @@ $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Req
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->listRateLimits((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRateLimit((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed', static fn (Request $req, array $p) => Response::json($rulesController->detachManagedRule((string) $p['domainId'], 'rate_limit', (string) $p['ruleId'])), auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRateLimit((string) $p['domainId'], (string) $p['ruleId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->createWaf((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/waf-rules', static fn (Request $req, array $p) => Response::json($rulesController->listWaf((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->updateWaf((string) $p['domainId'], (string) $p['wafId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed', static fn (Request $req, array $p) => Response::json($rulesController->detachManagedRule((string) $p['domainId'], 'waf_rule', (string) $p['ruleId'])), auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/waf-rules/{wafId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteWaf((string) $p['domainId'], (string) $p['wafId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/headers', static function (Request $req, array $p) use ($rulesController): array {
     $result = $rulesController->createHeaderRule((string) $p['domainId'], $req->body);

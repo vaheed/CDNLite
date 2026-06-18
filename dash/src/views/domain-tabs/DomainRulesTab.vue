@@ -40,7 +40,14 @@
     <DataTable v-else :title="title" :rows="rows" :columns="columns">
       <template #enabled="{ row }"><button class="rounded-full focus:outline-none focus:ring-4 focus:ring-cyan-500/20" :aria-label="`${row.enabled ? 'Disable' : 'Enable'} rule`" @click="toggle(row)"><StatusBadge :status="row.enabled ? 'healthy' : 'disabled'" :label="row.enabled ? 'Enabled' : 'Disabled'" /></button></template>
       <template #action="{ value }"><StatusBadge :status="String(value) === 'allow' ? 'healthy' : String(value) === 'log' ? 'info' : 'critical'" :label="humanize(String(value))" /></template>
-      <template #actions="{ row }"><div class="flex gap-2"><button class="button-secondary px-2 py-1 text-xs" @click="startEdit(row)">Edit</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this rule?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
+      <template #managed_by="{ row }">
+        <div v-if="row.managed_by" class="flex flex-wrap gap-1">
+          <StatusBadge status="info" :label="`Managed by ${humanize(String(row.managed_by))}`" />
+          <StatusBadge v-if="row.user_modified" status="warning" label="Customized by user" />
+        </div>
+        <span v-else class="text-xs text-slate-400">Manual</span>
+      </template>
+      <template #actions="{ row }"><div class="flex gap-2"><button class="button-secondary px-2 py-1 text-xs" @click="startEdit(row)">Edit</button><button v-if="row.managed_by && detachManaged" class="button-secondary px-2 py-1 text-xs" @click="detach(row)">Detach</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this rule?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
     </DataTable>
   </section>
 </template>
@@ -53,7 +60,7 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 type Field = { key: string; label: string; type?: 'text' | 'number' | 'checkbox' | 'textarea'; options?: string[]; default: string | number | boolean; placeholder?: string; help?: string };
 type HelpItem = { title: string; body: string };
-const props = defineProps<{ domainId: string; title: string; summary: string; fields: Field[]; columns: Array<{ key: string; label: string }>; helpItems?: HelpItem[]; list: () => Promise<unknown[]>; create: (input: Record<string, unknown>) => Promise<unknown>; update: (id: string, input: Record<string, unknown>) => Promise<unknown>; remove: (id: string) => Promise<unknown> }>();
+const props = defineProps<{ domainId: string; title: string; summary: string; fields: Field[]; columns: Array<{ key: string; label: string }>; helpItems?: HelpItem[]; list: () => Promise<unknown[]>; create: (input: Record<string, unknown>) => Promise<unknown>; update: (id: string, input: Record<string, unknown>) => Promise<unknown>; remove: (id: string) => Promise<unknown>; detachManaged?: (id: string) => Promise<unknown> }>();
 const rows = ref<Record<string, unknown>[]>([]); const loading = ref(false); const saving = ref(false); const editing = ref(false); const editingId = ref(''); const message = ref(''); const form = reactive<Record<string, any>>({});
 const booleanFields = computed(() => props.fields.filter((field) => field.type === 'checkbox'));
 const nonBooleanFields = computed(() => props.fields.filter((field) => field.type !== 'checkbox'));
@@ -68,5 +75,6 @@ function startEdit(row: Record<string, unknown>) { editingId.value = String(row.
 async function save() { saving.value = true; try { if (editingId.value) await props.update(editingId.value, payload()); else await props.create(payload()); editing.value = false; message.value = `${props.title} saved.`; await load(); } catch (error) { message.value = error instanceof Error ? error.message : 'Unable to save rule.'; } finally { saving.value = false; } }
 async function toggle(row: Record<string, unknown>) { await props.update(String(row.id), { enabled: !row.enabled }); await load(); }
 async function remove(row: Record<string, unknown>) { await props.remove(String(row.id)); message.value = `${props.title} deleted.`; await load(); }
+async function detach(row: Record<string, unknown>) { if (!props.detachManaged) return; await props.detachManaged(String(row.id)); message.value = 'Rule detached from managed protection.'; await load(); }
 watch(() => props.domainId, load); onMounted(() => { reset(); load(); });
 </script>
