@@ -359,6 +359,8 @@ Rule responses follow the same `{ "data": ... }` pattern and use `422` for valid
 
 Protection intents are the beginner/simple API layer. Preview does not mutate stored rules and returns the exact WAF, rate-limit, or cache rules that enable would create. Enable creates real advanced rules, writes audit and profile history, stores a rollback point, and invalidates edge config. Disable turns generated rules off instead of deleting them, then writes audit/history and invalidates config. Undo restores the latest rollback point. User-modified managed rules return `409 user_modified_rule_conflict` unless the caller sends an explicit overwrite confirmation.
 
+The dashboard exposes these APIs through each domain's Security Center tab. That tab is the simple-mode entry point for outcome-based protection, while the WAF, Rate Limits, Cache, Headers, and IP Access tabs remain the advanced inspection and override surfaces for generated rules.
+
 Traffic-rule rollout strategy:
 
 1. Add rules disabled or in log-only mode where supported.

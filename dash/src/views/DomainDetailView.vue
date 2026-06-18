@@ -99,7 +99,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   Activity, BarChart3, Database, FileClock, Gauge, Globe2, LockKeyhole,
-  ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, SlidersHorizontal,
+  ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, ShieldHalf, SlidersHorizontal,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
@@ -124,6 +124,7 @@ import DomainHeadersTab from './domain-tabs/DomainHeadersTab.vue';
 import DomainIpRulesTab from './domain-tabs/DomainIpRulesTab.vue';
 import DomainOriginsTab from './domain-tabs/DomainOriginsTab.vue';
 import DomainActivityTab from './domain-tabs/DomainActivityTab.vue';
+import DomainSecurityCenterTab from './domain-tabs/DomainSecurityCenterTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -147,6 +148,7 @@ const mainTabs = [
   { key: 'page-rules', label: 'Page Rules', icon: RefreshCw, component: DomainPageRulesTab },
 ];
 const wafTabs = [
+  { key: 'security', label: 'Security Center', icon: ShieldHalf, component: DomainSecurityCenterTab },
   { key: 'waf', label: 'WAF', icon: ShieldCheck, component: DomainWafTab },
   { key: 'ip-access', label: 'IP Access', icon: ListFilter, component: DomainIpRulesTab },
   { key: 'headers', label: 'Headers', icon: SlidersHorizontal, component: DomainHeadersTab },

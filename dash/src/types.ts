@@ -67,6 +67,25 @@ export interface RedirectRule { id: Id; enabled: boolean; source_path: string; t
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }
 export interface CacheSettings { enabled: boolean; default_edge_ttl_seconds: number; default_browser_ttl_seconds: number | null; cache_query_string_mode: string; respect_origin_cache_control: boolean; cache_authorized_requests: boolean; stale_if_error_seconds: number; }
 export interface ManagedRuleMetadata { profile_id?: Id | null; intent_id?: Id | null; template_key?: string | null; managed_by?: string | null; user_modified?: boolean; last_generated_at?: number | null; last_applied_at?: number | null; }
+export type ProtectionRisk = 'safe' | 'moderate' | 'risky' | string;
+export interface ProtectionIntentRecord {
+  id: Id; domain_id?: Id; profile_id?: Id | null; intent_key: string; name: string; status: string; mode?: string;
+  settings?: Record<string, unknown>; created_at?: number; updated_at?: number;
+}
+export interface ProtectionGeneratedRule {
+  rule_table: string; rule_id?: Id; template_key: string; payload?: Record<string, unknown>;
+  enabled?: boolean; user_modified?: boolean; managed_by?: string | null;
+}
+export interface ProtectionIntentSummary {
+  intent_key: string; name: string; summary: string; risk: ProtectionRisk; recommended_mode: string;
+  status: string; intent?: ProtectionIntentRecord | null; generated_rules: ProtectionGeneratedRule[];
+}
+export interface ProtectionIntentPreview {
+  intent_key: string; name: string; mode: string; risk: ProtectionRisk; rules: ProtectionGeneratedRule[]; mutates: boolean;
+}
+export interface ProtectionIntentMutationResult {
+  intent: ProtectionIntentRecord; rules: ProtectionGeneratedRule[]; rollback_point_id?: Id;
+}
 export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
