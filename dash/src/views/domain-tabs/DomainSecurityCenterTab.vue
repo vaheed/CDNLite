@@ -28,6 +28,17 @@
           <StatusBadge status="info" :label="`${profile.intent_keys.length} intents`" />
         </div>
 
+        <dl class="mt-4 space-y-3 text-sm">
+          <div>
+            <dt class="text-xs font-semibold uppercase text-slate-500">Protection outcomes</dt>
+            <dd class="mt-1 leading-6 text-slate-700 dark:text-slate-300">{{ profileIntentNames(profile).join(', ') }}</dd>
+          </div>
+          <div v-if="profile.profile?.updated_at">
+            <dt class="text-xs font-semibold uppercase text-slate-500">Last applied</dt>
+            <dd class="mt-1 text-slate-700 dark:text-slate-300">{{ formatDate(profile.profile.updated_at) }}</dd>
+          </div>
+        </dl>
+
         <div class="mt-auto grid gap-2 pt-5 sm:flex sm:flex-wrap">
           <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Preview ${profile.name}`" @click="previewProfile(profile)">
             <Eye class="h-4 w-4" /> Preview
@@ -101,6 +112,16 @@
         </div>
 
         <div class="min-h-0 overflow-auto p-4 sm:p-5">
+          <div v-if="profilePreviewResult" class="mb-4 grid gap-3 md:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <p class="text-xs font-semibold uppercase text-slate-500">Before</p>
+              <p class="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{{ previewBeforeLabel }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <p class="text-xs font-semibold uppercase text-slate-500">After</p>
+              <p class="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{{ previewAfterLabel }}</p>
+            </div>
+          </div>
           <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10">
             <table class="min-w-[760px] text-left text-sm">
               <thead class="table-head">
@@ -157,9 +178,15 @@ const busyKey = ref('');
 const message = ref('');
 const error = ref('');
 const previewTitleId = 'security-center-preview-title';
+const previewedProfileStatus = ref<string | null>(null);
 
 const previewTitle = computed(() => `${profilePreviewResult.value?.name ?? previewResult.value?.name ?? 'Protection'} preview`);
 const previewRisk = computed(() => profilePreviewResult.value?.risk ?? previewResult.value?.risk ?? 'safe');
+const previewBeforeLabel = computed(() => statusLabel(previewedProfileStatus.value ?? 'available') + ' profile');
+const previewAfterLabel = computed(() => {
+  const count = profilePreviewResult.value?.intent_keys.length ?? 0;
+  return `Applies ${count} protection ${count === 1 ? 'outcome' : 'outcomes'}`;
+});
 
 async function load() {
   loading.value = true;
@@ -182,6 +209,7 @@ async function previewProfile(profile: ProtectionProfileSummary) {
   await runProfileAction(profile, async () => {
     profilePreviewResult.value = await protectionApi.previewProfile(props.domainId, profile.profile_key);
     previewResult.value = null;
+    previewedProfileStatus.value = profile.status;
     message.value = `${profile.name} preview loaded.`;
   }, false);
 }
@@ -261,6 +289,7 @@ async function runProfileAction(profile: ProtectionProfileSummary, action: () =>
 function closePreview() {
   profilePreviewResult.value = null;
   previewResult.value = null;
+  previewedProfileStatus.value = null;
 }
 
 function statusLabel(status: string) {
@@ -305,6 +334,23 @@ function expectedRuleCount(intentKey: string) {
 
 function humanize(value: string) {
   return value.replaceAll('_', ' ');
+}
+
+function profileIntentNames(profile: ProtectionProfileSummary) {
+  return profile.intent_keys.map((intentKey) => {
+    const intent = intents.value.find((item) => item.intent_key === intentKey);
+    return intent?.name ?? titleize(intentKey);
+  });
+}
+
+function formatDate(value: number | string) {
+  const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return date.toLocaleString();
+}
+
+function titleize(value: string) {
+  return humanize(value).replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function ruleEffect(rule: ProtectionGeneratedRule) {

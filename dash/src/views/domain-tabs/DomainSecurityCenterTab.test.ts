@@ -58,7 +58,7 @@ const availableProfiles = [
     risk: 'moderate',
     intent_keys: ['common_exploits', 'login_shield', 'bot_shield', 'static_asset_performance'],
     status: 'enabled',
-    profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'enabled' },
+    profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'enabled', updated_at: 1710000000 },
   },
 ];
 
@@ -109,6 +109,15 @@ describe('DomainSecurityCenterTab', () => {
     expect(view.getByText('2 generated rules')).toBeInTheDocument();
   });
 
+  it('shows profile bundle details and last applied status', async () => {
+    const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
+
+    await waitFor(() => expect(view.getByText('Basic Website')).toBeInTheDocument());
+    expect(view.getByText('Common Exploit Protection, Static Asset Performance')).toBeInTheDocument();
+    expect(view.getByText('Common Exploit Protection, Login Shield, Bot Shield, Static Asset Performance')).toBeInTheDocument();
+    expect(view.getByText(/Last applied/)).toBeInTheDocument();
+  });
+
   it('previews, applies, and disables one-click profiles', async () => {
     const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
 
@@ -117,6 +126,10 @@ describe('DomainSecurityCenterTab', () => {
     await waitFor(() => expect(protectionApiMock.previewProfile).toHaveBeenCalledWith('domain-1', 'basic_website'));
     expect(view.getByRole('dialog', { name: /basic website preview/i })).toBeInTheDocument();
     expect(view.getByText('waf_path_traversal')).toBeInTheDocument();
+    expect(view.getByText('Before')).toBeInTheDocument();
+    expect(view.getByText('Available profile')).toBeInTheDocument();
+    expect(view.getByText('After')).toBeInTheDocument();
+    expect(view.getByText('Applies 2 protection outcomes')).toBeInTheDocument();
 
     await fireEvent.click(view.getByRole('button', { name: /apply basic website/i }));
     expect(protectionApiMock.applyProfile).toHaveBeenCalledWith('domain-1', 'basic_website');

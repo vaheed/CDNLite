@@ -773,6 +773,15 @@ Emergency Protection:
 - Profile apply composes the existing protection intent engine, stores profile ownership on generated rules, writes profile/audit history, creates rollback points, and preserves user-modified rule conflict checks with `confirm_overwrite`.
 - Smoke checks verify profile schema and dashboard profile API references. E2E now lists, previews, applies, and disables the Basic Website profile against live PostgreSQL-backed rules.
 
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `dash/src/views/domain-tabs/DomainSecurityCenterTab.vue`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.test.ts`, `docs/ROADMAP.md`.
+- Behavior added: Security Center profile cards now show the protection outcomes bundled into each one-click profile, display the last-applied timestamp for enabled profiles, and show a before/after summary in profile previews before the user applies a preset.
+- Tests added/updated: focused Vue coverage for one-click profile bundle details, last-applied status, and before/after preview copy.
+- Validation commands run: `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `pytest -q core/tests/test_phase10_protection_profiles_contract.py`; `npm run docs:build` in `docs/`; `docker compose config --quiet`.
+- Remaining blockers: full browser e2e coverage for clicking one-click profile cards in a running dashboard; broader profile tests for every preset beyond the existing API/e2e Basic Website flow.
+
 ### IDE Prompt
 
 ```text
