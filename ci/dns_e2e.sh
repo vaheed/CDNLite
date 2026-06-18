@@ -163,10 +163,13 @@ assert_http_status "$HTTP_CODE" "200" "forced DNS sync failed"
 assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "true" "forced DNS sync should report success"
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
 assert_http_status "$HTTP_CODE" "200" "pre-verification DNS list failed"
-assert_eq "$(jq -r '[.data[].effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
+assert_eq "$(jq -r '[.data[] | select(.readonly != true) | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
   "records must remain effectively disabled before nameserver verification"
-assert_eq "$(jq -r '[.data[].disabled_reason] | unique | join(",")' <<<"$HTTP_BODY")" "nameservers_not_verified" \
+assert_eq "$(jq -r '[.data[] | select(.readonly != true) | .disabled_reason] | unique | join(",")' <<<"$HTTP_BODY")" "nameservers_not_verified" \
   "pre-verification records must explain the nameserver dependency"
+if ! jq -e '.data[] | select(.readonly == true and .managed_by == "platform_nameservers" and .type == "NS")' <<<"$HTTP_BODY" >/dev/null; then
+  fail "platform NS records must remain visible as readonly managed DNS records"
+fi
 preverify_zone_code="$(curl -sS -o /tmp/dns-e2e-preverify-zone.json -w '%{http_code}' \
   -H "X-API-Key: ${PDNS_API_KEY}" \
   "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_ZONE}")"
@@ -246,7 +249,7 @@ if jq -e '.rrsets[] | select(.type != "SOA" and .type != "NS")' <<<"$customer_zo
   fail "customer rrsets remain published after nameserver delegation loss"
 fi
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
-assert_eq "$(jq -r '[.data[].effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
+assert_eq "$(jq -r '[.data[] | select(.readonly != true) | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "disabled" \
   "records must become effectively disabled after delegation loss"
 record_step PASS "delegation-loss-withdrawal" "daily verifier disabled domain and reconciler withdrew all customer rrsets"
 
@@ -259,7 +262,7 @@ customer_zone="$(zone_json "$TEST_ZONE")"
 assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS did not republish"
 assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX did not republish"
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
-assert_eq "$(jq -r '[.data[] | select(.status == "active") | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "active" \
+assert_eq "$(jq -r '[.data[] | select(.readonly != true and .status == "active") | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "active" \
   "desired-active records did not reactivate after delegation restoration"
 record_step PASS "delegation-restoration" "all desired-active records republished after verification was restored"
 

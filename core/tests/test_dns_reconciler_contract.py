@@ -41,6 +41,14 @@ def test_domain_dns_list_includes_readonly_platform_nameservers():
     assert "ShieldCheck" in tab
 
 
+def test_dns_e2e_filters_readonly_nameservers_from_user_record_status_checks():
+    e2e = read("ci/dns_e2e.sh")
+
+    assert 'select(.readonly != true) | .effective_status' in e2e
+    assert 'select(.readonly != true) | .disabled_reason' in e2e
+    assert 'select(.readonly == true and .managed_by == "platform_nameservers" and .type == "NS")' in e2e
+
+
 def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
     controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
     service = read("core/app/Modules/Dns/Services/DnsService.php")
