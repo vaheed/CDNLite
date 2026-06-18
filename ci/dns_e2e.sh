@@ -170,8 +170,11 @@ assert_eq "$(jq -r '[.data[].disabled_reason] | unique | join(",")' <<<"$HTTP_BO
 preverify_zone_code="$(curl -sS -o /tmp/dns-e2e-preverify-zone.json -w '%{http_code}' \
   -H "X-API-Key: ${PDNS_API_KEY}" \
   "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_ZONE}")"
-assert_eq "$preverify_zone_code" "404" "pending domain must not publish a customer PowerDNS zone"
-record_step PASS "preverification-records-disabled" "records are stored but unpublished before delegation verification"
+assert_eq "$preverify_zone_code" "200" "pending domain zone should exist with authority records only"
+if jq -e '.rrsets[] | select(.type != "SOA" and .type != "NS")' /tmp/dns-e2e-preverify-zone.json >/dev/null; then
+  fail "pending domain published user rrsets before nameserver verification"
+fi
+record_step PASS "preverification-records-disabled" "records are stored while PowerDNS keeps only NS/SOA before delegation verification"
 
 # dns_get_record cannot resolve the private test.local delegation through Docker's
 # system resolver, so seed the state that a successful resolver check persists.

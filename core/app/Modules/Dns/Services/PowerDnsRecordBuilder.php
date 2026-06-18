@@ -13,7 +13,8 @@ class PowerDnsRecordBuilder
 
     public function soa(string $baseDomain): string
     {
-        $ns = $this->fqdn('ns1.' . $baseDomain);
+        $nameservers = $this->nameservers();
+        $ns = $nameservers[0] ?? $this->fqdn('ns1.local');
         $hostmaster = 'hostmaster.' . rtrim(strtolower($baseDomain), '.') . '.';
         $serial = gmdate('Ymd') . '01';
         return "{$ns} {$hostmaster} {$serial} 3600 600 604800 60";

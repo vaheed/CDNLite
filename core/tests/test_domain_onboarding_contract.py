@@ -44,6 +44,23 @@ def test_nameserver_lifecycle_is_automatic_and_scheduled():
     assert "CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS" in compose
 
 
+def test_pending_domains_keep_authority_zone_without_user_records():
+    builder = (ROOT / "core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php").read_text()
+    verification = (ROOT / "core/app/Modules/Domains/Services/DomainVerificationService.php").read_text()
+    e2e = (ROOT / "ci/dns_e2e.sh").read_text()
+
+    assert "customerZoneAuthorityRrsets" in builder
+    assert "'SELECT domain FROM domains ORDER BY domain'" in builder
+    assert "'customer_zone_nameservers'" in builder
+    assert "'customer_zone_soa'" in builder
+    assert "AND d.nameserver_status = 'verified'" in builder
+    assert "AND d.status = 'active'" in builder
+    assert "UPDATE domains SET nameserver_status = :nameserver_status, status = :status" in verification
+    assert "DELETE FROM dns_records" not in verification
+    assert "pending domain zone should exist with authority records only" in e2e
+    assert "customer rrsets remain published after nameserver delegation loss" in e2e
+
+
 def test_domain_updates_audit_defined_before_and_after_states():
     service = (ROOT / "core/app/Modules/Domains/Services/DomainService.php").read_text()
 

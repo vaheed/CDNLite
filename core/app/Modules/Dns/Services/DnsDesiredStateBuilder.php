@@ -8,13 +8,15 @@ class DnsDesiredStateBuilder
 {
     public function __construct(
         private DnsPublishingPlanner $planner = new DnsPublishingPlanner(),
-        private EdgeDnsService $edgeDns = new EdgeDnsService()
+        private EdgeDnsService $edgeDns = new EdgeDnsService(),
+        private PowerDnsRecordBuilder $records = new PowerDnsRecordBuilder()
     ) {
     }
 
     public function build(): array
     {
         $rrsets = $this->edgeDns->desiredRrsets();
+        $rrsets = array_merge($rrsets, $this->customerZoneAuthorityRrsets());
         $stmt = Database::pdo()->query(
             "SELECT r.*, d.id AS site_id, d.domain
              FROM dns_records r
@@ -62,6 +64,18 @@ class DnsDesiredStateBuilder
         }
         ksort($grouped);
         return array_values($grouped);
+    }
+
+    private function customerZoneAuthorityRrsets(): array
+    {
+        $stmt = Database::pdo()->query('SELECT domain FROM domains ORDER BY domain');
+        $rrsets = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $zone = rtrim(strtolower((string) $row['domain']), '.') . '.';
+            $rrsets[] = $this->rrset($zone, '@', 'NS', 300, $this->records->nameservers(), 'customer_zone_nameservers');
+            $rrsets[] = $this->rrset($zone, '@', 'SOA', 300, [$this->records->soa($zone)], 'customer_zone_soa');
+        }
+        return $rrsets;
     }
 
     public function persist(array $rrsets): int
