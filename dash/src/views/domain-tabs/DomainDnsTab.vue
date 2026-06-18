@@ -80,7 +80,7 @@
       <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : `${row.type} ${row.content}` }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Published by CDNLite; private origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
       <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
       <template #status="{ row }"><StatusBadge :status="row.effective_status === 'active' ? 'healthy' : 'warning'" :label="row.effective_status === 'active' ? 'Active' : row.disabled_reason === 'nameservers_not_verified' ? 'Waiting for NS' : 'Disabled'" /></template>
-      <template #actions="{ row }"><div class="flex gap-2"><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
+      <template #actions="{ row }"><div class="flex gap-2"><button class="button-secondary h-9 px-3 text-xs" @click="reconcile(row)">Retry sync</button><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
     </DataTable>
     <EmptyState v-else title="No DNS records" message="Add your first DNS record to begin routing traffic." />
   </section>
@@ -185,6 +185,15 @@ async function remove(value: Record<string, unknown>) {
     await load();
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to delete DNS record.';
+  }
+}
+async function reconcile(value: Record<string, unknown>) {
+  error.value = '';
+  try {
+    await dnsApi.reconcileRecord(props.domainId, String(value.id));
+    await load();
+  } catch (caught) {
+    error.value = caught instanceof Error ? caught.message : 'Unable to retry DNS sync.';
   }
 }
 function isApex(name: string) { return ['', '@'].includes(name.trim().replace(/\.$/, '').toLowerCase()); }

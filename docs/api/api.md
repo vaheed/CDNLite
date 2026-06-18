@@ -253,6 +253,7 @@ Tips:
 | `POST` | `/api/v1/domains/{domainId}/dns/records` | Create record. |
 | `PATCH` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Update record. |
 | `DELETE` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Delete record. |
+| `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile` | Retry PowerDNS reconciliation for one record. |
 | `GET` | `/api/v1/domains/{domainId}/routing` | Show domain routing settings. |
 | `PATCH` | `/api/v1/domains/{domainId}/routing` | Update routing mode and health options. |
 | `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing` | Preview routing result. |

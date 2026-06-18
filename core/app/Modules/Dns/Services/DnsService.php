@@ -326,6 +326,36 @@ class DnsService
         return $deleted;
     }
 
+    public function reconcileRecord(string $domainId, string $recordId): ?array
+    {
+        $domain = $this->domains->find($domainId);
+        if ($domain === null) {
+            return null;
+        }
+
+        $record = $this->find($domainId, $recordId);
+        if ($record === null) {
+            return null;
+        }
+
+        $this->invalidateConfigSnapshot();
+        AuditLog::write('dns.record.reconcile', 'dns_record', $recordId, $domainId, [
+            'status' => $record['status'],
+            'origin_status' => $record['origin_status'],
+        ], [
+            'status' => $record['status'],
+            'origin_status' => $record['origin_status'],
+            'reconcile_requested' => true,
+        ], 'system');
+
+        $this->reconcile($domainId);
+
+        return [
+            'record' => $this->find($domainId, $recordId),
+            'reconciled' => true,
+        ];
+    }
+
     public function rebuildCustomerZones(): array
     {
         $stmt = Database::pdo()->query(

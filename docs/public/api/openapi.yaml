@@ -416,6 +416,20 @@ paths:
           $ref: "#/components/responses/Error"
         "502":
           $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/dns/records/{recordId}/reconcile:
+    parameters:
+      - $ref: "#/components/parameters/DomainId"
+      - $ref: "#/components/parameters/RecordId"
+    post:
+      tags: [DNS]
+      summary: Retry PowerDNS reconciliation for one DNS record
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
+        "502":
+          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/routing:
     parameters:
       - $ref: "#/components/parameters/DomainId"

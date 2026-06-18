@@ -483,7 +483,6 @@ Fix hidden production issues that can cause stale edge config, unclear DNS error
 - Origin health and failover policy.
 - Edge config version visibility.
 - Full RBAC audit for privileged actions.
-- DNS row-level retry buttons.
 - Broader tests for all mutating services.
 
 ### Acceptance Checklist
@@ -491,10 +490,21 @@ Fix hidden production issues that can cause stale edge config, unclear DNS error
 - [x] Domain/DNS/GeoDNS mutations invalidate config.
 - [x] DNS publish failures are understandable.
 - [x] DNS failures preserve local desired state.
-- [ ] DNS tab has per-row retry/reconcile actions.
+- [x] DNS tab has per-row retry/reconcile actions.
 - [ ] Edge config applied/pending/stale status is visible.
 - [ ] RBAC is audited across all privileged actions.
 - [ ] Origin health policy supports configurable failover.
+
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `core/app/Modules/Dns/Services/DnsService.php`, `core/app/Modules/Dns/Http/Controllers/DnsController.php`, `core/public_index.php`, `dash/src/lib/api/dns.ts`, `dash/src/views/domain-tabs/DomainDnsTab.vue`, `dash/src/views/domain-tabs/DomainDnsTab.test.ts`, `core/tests/test_phase7_config_invalidation_contract.py`, `docs/api/api.md`, `docs/public/api/openapi.yaml`
+- Behavior added: DNS records now expose a row-level retry/reconcile action in the dashboard, backed by a new record reconcile endpoint that invalidates config snapshots, writes an audit event, and reuses the existing PowerDNS reconciler.
+- Tests added/updated: backend contract coverage for the new route; Vue test for the DNS tab row action.
+- Validation commands run: `php -l core/app/Modules/Dns/Services/DnsService.php && php -l core/app/Modules/Dns/Http/Controllers/DnsController.php && php -l core/public_index.php`; `pytest -q core/tests/test_phase7_config_invalidation_contract.py`; `npm test -- --run src/views/domain-tabs/DomainDnsTab.test.ts` in `dash/`; `npm run typecheck` in `dash/`.
+- Commands not run and why: full repository test matrix, Docker Compose smoke/e2e, and docs build were not run because this phase was kept to a small targeted hardening slice.
+- Remaining blockers: origin failover policy, edge config version visibility, and privileged-action RBAC still need dedicated phase work.
+- Manual validation still required: a live compose check of the retry action against a real PowerDNS-backed domain.
 
 ---
 

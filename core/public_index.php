@@ -389,6 +389,7 @@ $router->add('PATCH', '/api/v1/domains/{domainId}/dns/records/{recordId}', stati
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/dns/records/{recordId}', static fn (Request $req, array $p) => Response::json($dnsController->delete((string) $p['domainId'], (string) $p['recordId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile', static fn (Request $req, array $p) => Response::json($dnsController->reconcileRecord((string) $p['domainId'], (string) $p['recordId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->routing((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/routing', static fn (Request $req, array $p) => Response::json($dnsController->updateRouting((string) $p['domainId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing', static fn (Request $req, array $p) => Response::json($dnsController->previewRouting((string) $p['domainId'], (string) $p['recordId'], $req->body)), auth: true);

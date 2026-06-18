@@ -6,6 +6,7 @@ export const dnsApi = {
   create: (domainId: string, input: CreateDnsRecordInput) => api.post<DnsRecord>(`/api/v1/domains/${domainId}/dns/records`, input),
   update: (domainId: string, recordId: string, input: UpdateDnsRecordInput) => api.patch<DnsRecord>(`/api/v1/domains/${domainId}/dns/records/${recordId}`, input),
   remove: (domainId: string, recordId: string) => api.delete<{ ok: boolean }>(`/api/v1/domains/${domainId}/dns/records/${recordId}`),
+  reconcileRecord: (domainId: string, recordId: string) => api.post<{ record: DnsRecord | null; reconciled: boolean }>(`/api/v1/domains/${domainId}/dns/records/${recordId}/reconcile`),
   routing: (domainId: string) => api.get<DomainRoutingSettings>(`/api/v1/domains/${domainId}/routing`),
   updateRouting: (domainId: string, input: Partial<DomainRoutingSettings>) => api.patch<DomainRoutingSettings>(`/api/v1/domains/${domainId}/routing`, input),
   previewRouting: (domainId: string, recordId: string, input: UpdateDnsRecordInput = {}) => api.post<DnsRoutingPreview>(`/api/v1/domains/${domainId}/dns/records/${recordId}/preview-routing`, input),

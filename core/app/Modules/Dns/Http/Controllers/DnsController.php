@@ -282,6 +282,18 @@ class DnsController
         }
     }
 
+    public function reconcileRecord(string $domainId, string $recordId): array
+    {
+        try {
+            $result = $this->service->reconcileRecord($domainId, $recordId);
+        } catch (\RuntimeException $e) {
+            return $this->dnsPublishFailure($e->getMessage());
+        }
+        return $result === null
+            ? ['error' => 'record_not_found', 'status' => 404]
+            : ['data' => $result];
+    }
+
     public function geoRoutes(string $domainId, string $recordId): array
     {
         $routes = $this->geo->list($domainId, $recordId);
