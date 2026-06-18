@@ -65,9 +65,9 @@ def test_domain_mutations_queue_powerdns_when_not_strict():
 
     assert "private function reconcileDns" in service
     assert "new PowerDnsService()" in service
-    assert "if (!$powerDns->isStrict())" in service
     assert "dns.reconcile.queued" in service
-    assert "(new DnsReconciler())->reconcile()" in service
+    assert "'strict' => $powerDns->isStrict()" in service
+    assert "Domain mutations never publish user rrsets by themselves" in service
 
 
 def test_domain_updates_audit_defined_before_and_after_states():

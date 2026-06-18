@@ -199,26 +199,14 @@ class DomainService
             return;
         }
 
-        // Non-strict installs keep the database write fast and let the
-        // scheduled reconciler converge PowerDNS. Strict installs still fail
-        // the API request when the authority zone cannot be written.
-        if (!$powerDns->isStrict()) {
-            AuditLog::write('dns.reconcile.queued', 'dns', 'powerdns', $domainId, null, [
-                'local_state_saved' => true,
-                'strict' => false,
-            ], 'system');
-            return;
-        }
-
-        $result = (new DnsReconciler())->reconcile();
-        if (($result['ok'] ?? false) !== true) {
-            AuditLog::write('dns.reconcile.failed', 'dns', 'powerdns', $domainId, null, [
-                'error' => (string) ($result['error'] ?? 'powerdns_reconcile_failed'),
-                'local_state_saved' => true,
-                'strict' => true,
-            ], 'system');
-            throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_reconcile_failed'));
-        }
+        // Domain mutations never publish user rrsets by themselves. Keep the
+        // database write fast and let the scheduled reconciler create or prune
+        // the authority-only zone; DNS record writes still enforce strict
+        // PowerDNS behavior when user records are published.
+        AuditLog::write('dns.reconcile.queued', 'dns', 'powerdns', $domainId, null, [
+            'local_state_saved' => true,
+            'strict' => $powerDns->isStrict(),
+        ], 'system');
     }
 
 }
