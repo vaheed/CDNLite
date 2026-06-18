@@ -45,6 +45,32 @@ def test_phase9_dashboard_security_center_uses_protection_intent_contract():
     assert "undoIntent" in unit
 
 
+def test_phase9_backend_has_real_templates_for_all_security_center_cards():
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+
+    for intent_key in (
+        "common_exploits",
+        "login_shield",
+        "protect_api",
+        "smart_rate_limiting",
+        "bot_shield",
+        "emergency_protection",
+        "static_asset_performance",
+    ):
+        assert f"'{intent_key}' => [" in service
+
+    for template_key in (
+        "rate_api_paths",
+        "waf_api_method_probe",
+        "rate_site_abuse",
+        "waf_bot_user_agents",
+        "waf_fake_search_bots",
+        "rate_emergency_sitewide",
+        "waf_emergency_scanners",
+    ):
+        assert f"'template_key' => '{template_key}'" in service
+
+
 def test_phase9_smoke_e2e_roadmap_and_docs_track_security_center():
     smoke = read("ci/smoke.sh")
     e2e = read("ci/e2e.sh")

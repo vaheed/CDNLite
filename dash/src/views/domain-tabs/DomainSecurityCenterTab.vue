@@ -183,6 +183,10 @@ function expectedRuleCount(intentKey: string) {
   const counts: Record<string, number> = {
     common_exploits: 2,
     login_shield: 2,
+    protect_api: 2,
+    smart_rate_limiting: 1,
+    bot_shield: 2,
+    emergency_protection: 2,
     static_asset_performance: 1,
   };
   return counts[intentKey] ?? 0;

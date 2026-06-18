@@ -661,7 +661,7 @@ Suggested cards:
 - [x] Dashboard shows safe/risky labels.
 - [x] Dashboard exposes Security Center cards for existing protection intents.
 - [x] Smoke/e2e verify the built dashboard contains Security Center and protection intent APIs.
-- [ ] Add backend templates for API shield, smart rate limiting, bot shield, and emergency protection.
+- [x] Add backend templates for API shield, smart rate limiting, bot shield, and emergency protection.
 - [ ] Add full browser e2e coverage for clicking Security Center cards in a running dashboard.
 
 ### Progress Notes
@@ -672,7 +672,16 @@ Suggested cards:
 - Tests added/updated: focused Vue coverage for Security Center preview/enable/disable/undo, backend contract coverage for dashboard/API/docs/smoke/e2e wiring, smoke and e2e bundle checks for Security Center and protection intent API strings.
 - Validation commands run: `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts src/views/DomainDetailView.test.ts` in `dash/`; `npm test` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `pytest -q core/tests/test_phase8_protection_contract.py`; `find core -name '*.php' -print0 | xargs -0 -n1 php -l`; `docker compose config --quiet`; `npm run docs:build` in `docs/`.
 - Commands not run and why: live `ci/smoke.sh` and `ci/e2e.sh` were updated but not run against a live root stack in this pass.
-- Remaining blockers: API shield, smart rate limiting, bot shield, and emergency protection need real backend templates before their Security Center cards can be enabled; browser-driven Security Center e2e still needs a running UI automation layer.
+- Remaining blockers: browser-driven Security Center e2e still needs a running UI automation layer.
+
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/tests/test_phase9_security_center_contract.py`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.vue`, `docs/api/api.md`, `docs/use-cases/index.md`, `docs/ROADMAP.md`.
+- Behavior added: Security Center now has real backend templates for API Shield, Smart Rate Limiting, Bot Shield, and Emergency Protection, all generated through existing advanced WAF/rate-limit rule types so preview, enable, disable, undo, audit/history, and config invalidation use the established Phase 8 flow.
+- Tests added/updated: Phase 9 backend contract now requires all seven Security Center intent keys and the new generated rule template keys.
+- Validation commands run: `php -l core/app/Modules/Proxy/Services/TrafficRulesService.php`; `pytest -q core/tests/test_phase9_security_center_contract.py`; `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `docker compose config --quiet`; `npm run docs:build` in `docs/`.
+- Remaining blockers: browser-driven Security Center e2e still needs a running UI automation layer; richer bot/API engines remain future Phase 13/14 work.
 
 ### IDE Prompt
 
