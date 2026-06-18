@@ -782,6 +782,15 @@ Emergency Protection:
 - Validation commands run: `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `pytest -q core/tests/test_phase10_protection_profiles_contract.py`; `npm run docs:build` in `docs/`; `docker compose config --quiet`.
 - Remaining blockers: full browser e2e coverage for clicking one-click profile cards in a running dashboard; broader profile tests for every preset beyond the existing API/e2e Basic Website flow.
 
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/tests/test_phase9_security_center_contract.py`, `core/tests/test_phase10_protection_profiles_contract.py`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.vue`, `dash/src/views/domain-tabs/DomainSecurityCenterTab.test.ts`, `docs/api/api.md`, `docs/use-cases/index.md`, `docs/ROADMAP.md`.
+- Behavior added: WordPress profiles now include an explicit WordPress Hardening intent that generates XML-RPC and scanner WAF rules, and E-commerce profiles now include an explicit Checkout Protection intent that generates checkout rate-limit and method-probe rules. Both remain advanced-rule backed, previewable, auditable, and conflict-safe through the existing profile engine.
+- Tests added/updated: Phase 10 contract coverage now pins the named WordPress and checkout outcomes, and Phase 9 Security Center coverage includes the new built-in intent templates.
+- Validation commands run: `php -l core/app/Modules/Proxy/Services/TrafficRulesService.php`; `pytest -q core/tests/test_phase9_security_center_contract.py core/tests/test_phase10_protection_profiles_contract.py`; `npm test -- --run src/views/domain-tabs/DomainSecurityCenterTab.test.ts` in `dash/`; `npm run typecheck` in `dash/`; `npm run build` in `dash/`; `npm run docs:build` in `docs/`; `docker compose config --quiet`.
+- Remaining blockers: live/browser e2e still needs to exercise profile card clicks for every preset in a running dashboard.
+
 ### IDE Prompt
 
 ```text

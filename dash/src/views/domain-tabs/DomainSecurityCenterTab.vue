@@ -326,6 +326,8 @@ function expectedRuleCount(intentKey: string) {
     protect_api: 2,
     smart_rate_limiting: 1,
     bot_shield: 2,
+    wordpress_hardening: 2,
+    checkout_protection: 2,
     emergency_protection: 2,
     static_asset_performance: 1,
   };

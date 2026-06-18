@@ -39,6 +39,26 @@ const availableIntents = [
     intent: { id: 'intent-login', intent_key: 'login_shield', name: 'Login Shield', status: 'enabled' },
     generated_rules: [{ rule_table: 'rate_limit_rules', rule_id: 'rate-1', template_key: 'rate_login_paths', enabled: true }],
   },
+  {
+    intent_key: 'wordpress_hardening',
+    name: 'WordPress Hardening',
+    summary: 'Adds WordPress-specific XML-RPC and scanner protections.',
+    risk: 'moderate',
+    recommended_mode: 'recommended',
+    status: 'available',
+    intent: null,
+    generated_rules: [],
+  },
+  {
+    intent_key: 'bot_shield',
+    name: 'Bot Shield',
+    summary: 'Logs fake search bots and blocks obvious scraper user agents.',
+    risk: 'moderate',
+    recommended_mode: 'recommended',
+    status: 'available',
+    intent: null,
+    generated_rules: [],
+  },
 ];
 
 const availableProfiles = [
@@ -54,9 +74,9 @@ const availableProfiles = [
   {
     profile_key: 'wordpress',
     name: 'WordPress',
-    summary: 'Common exploit, login, scanner, and static asset protections for WordPress.',
+    summary: 'Common exploit, login, XML-RPC, scanner, bot, and static asset protections for WordPress.',
     risk: 'moderate',
-    intent_keys: ['common_exploits', 'login_shield', 'bot_shield', 'static_asset_performance'],
+    intent_keys: ['common_exploits', 'login_shield', 'wordpress_hardening', 'bot_shield', 'static_asset_performance'],
     status: 'enabled',
     profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'enabled', updated_at: 1710000000 },
   },
@@ -106,7 +126,7 @@ describe('DomainSecurityCenterTab', () => {
     await waitFor(() => expect(view.getByText('Common Exploit Protection')).toBeInTheDocument());
     expect(view.getAllByText('Safe').length).toBeGreaterThan(0);
     expect(view.getAllByText('Needs review').length).toBeGreaterThan(0);
-    expect(view.getByText('2 generated rules')).toBeInTheDocument();
+    expect(view.getAllByText('2 generated rules').length).toBeGreaterThan(0);
   });
 
   it('shows profile bundle details and last applied status', async () => {
@@ -114,7 +134,7 @@ describe('DomainSecurityCenterTab', () => {
 
     await waitFor(() => expect(view.getByText('Basic Website')).toBeInTheDocument());
     expect(view.getByText('Common Exploit Protection, Static Asset Performance')).toBeInTheDocument();
-    expect(view.getByText('Common Exploit Protection, Login Shield, Bot Shield, Static Asset Performance')).toBeInTheDocument();
+    expect(view.getByText('Common Exploit Protection, Login Shield, WordPress Hardening, Bot Shield, Static Asset Performance')).toBeInTheDocument();
     expect(view.getByText(/Last applied/)).toBeInTheDocument();
   });
 
@@ -158,8 +178,8 @@ describe('DomainSecurityCenterTab', () => {
     });
     const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
 
-    await waitFor(() => expect(view.getByRole('button', { name: /preview wordpress/i })).toBeInTheDocument());
-    await fireEvent.click(view.getByRole('button', { name: /preview wordpress/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /^preview wordpress$/i })).toBeInTheDocument());
+    await fireEvent.click(view.getByRole('button', { name: /^preview wordpress$/i }));
 
     await waitFor(() => expect(protectionApiMock.previewProfile).toHaveBeenCalledWith('domain-1', 'wordpress'));
     expect(view.getByRole('dialog', { name: /wordpress preview/i })).toBeInTheDocument();

@@ -72,3 +72,26 @@ def test_phase10_profiles_compose_real_intents_with_profile_ownership_and_safety
     assert "/protection/profiles" in dashboard_api
     assert "applyProfile" in dashboard_view
     assert "disableProfile" in dashboard_view
+
+
+def test_phase10_profile_templates_cover_named_product_outcomes():
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    docs = read("docs/api/api.md")
+    dashboard_view = read("dash/src/views/domain-tabs/DomainSecurityCenterTab.vue")
+
+    assert "'wordpress_hardening'" in service
+    assert "'waf_wordpress_xmlrpc'" in service
+    assert "'waf_wordpress_scanners'" in service
+    assert "'wordpress' => ['name' => 'WordPress'" in service
+    assert "'intent_keys' => ['common_exploits', 'login_shield', 'wordpress_hardening', 'bot_shield', 'static_asset_performance']" in service
+
+    assert "'checkout_protection'" in service
+    assert "'rate_checkout_paths'" in service
+    assert "'waf_checkout_method_probe'" in service
+    assert "'ecommerce' => ['name' => 'E-commerce'" in service
+    assert "'intent_keys' => ['login_shield', 'checkout_protection', 'bot_shield', 'smart_rate_limiting']" in service
+
+    assert "wordpress_hardening" in docs
+    assert "checkout_protection" in docs
+    assert "wordpress_hardening: 2" in dashboard_view
+    assert "checkout_protection: 2" in dashboard_view

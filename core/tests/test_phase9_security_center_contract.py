@@ -54,6 +54,8 @@ def test_phase9_backend_has_real_templates_for_all_security_center_cards():
         "protect_api",
         "smart_rate_limiting",
         "bot_shield",
+        "wordpress_hardening",
+        "checkout_protection",
         "emergency_protection",
         "static_asset_performance",
     ):
@@ -65,6 +67,10 @@ def test_phase9_backend_has_real_templates_for_all_security_center_cards():
         "rate_site_abuse",
         "waf_bot_user_agents",
         "waf_fake_search_bots",
+        "waf_wordpress_xmlrpc",
+        "waf_wordpress_scanners",
+        "rate_checkout_paths",
+        "waf_checkout_method_probe",
         "rate_emergency_sitewide",
         "waf_emergency_scanners",
     ):
