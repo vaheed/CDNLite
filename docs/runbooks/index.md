@@ -181,6 +181,7 @@ curl -s -X POST http://localhost:8080/api/v1/usage/recalculate \
 ```
 
 If metrics are queued but not ingested, focus on edge auth and collector responses. If metrics are ingested but dashboard is empty, check domain filters and bucket selection.
+The edge agent stores the latest rejected collector body at `${METRIC_PATH}.payload.response` and quarantines invalid local metric lines in `${METRIC_PATH}.bad`.
 
 ## DNS Publishing Incident
 
@@ -238,8 +239,9 @@ Checklist:
 - `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` is set to an interactive value such as `30`.
 - ACME directory is staging for tests.
 - Contact email is set.
-- DNS propagation seconds are realistic.
-- `_acme-challenge` records are DNS-only.
+- DNS propagation seconds and DNS TXT visibility attempts are realistic.
+- `_acme-challenge` records are DNS-only, short-lived, and may not appear in the dashboard DNS table.
+- If the job fails with `acme_dns_challenge_not_visible`, confirm public DNS can resolve the TXT record and increase `CDNLITE_ACME_DNS_VERIFY_ATTEMPTS` or `CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS`.
 - `CDNLITE_SSL_SECRET_KEY` did not change.
 - Domain is active and proxied when required by the workflow.
 

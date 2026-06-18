@@ -42,8 +42,10 @@ Use this order during incidents:
 | Metrics or security-event push reports a missing `.payload` file | Two agent/manual push attempts overlapped while sharing the same queue. | Update to the queue-locking agent script; concurrent attempts now leave the active sender in control. |
 | DNS publishing fails | PowerDNS URL/key/server ID wrong or DNSGeo is unhealthy. | Run `docker compose ps`, inspect `pdns-auth`, and run `cdn:settings:test-powerdns`. |
 | SSL issuance stuck at `Queued` / `5%` | `ssl-scheduler` is not running or cannot reach Core/PostgreSQL/ACME, so queued automatic or manual jobs are not being claimed. | Start `ssl-scheduler`, check its logs, and keep `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` low enough for interactive requests. |
+| SSL request shows no queued scheduler work and no `_acme-challenge` record | The domain is still `pending_nameserver`, so managed SSL is rejected before ACME starts. | Verify nameservers or activate the domain first, then request SSL again. |
 | Wildcard certificate issued but subdomains still show the default edge cert | Edge config was not refreshed or the edge agent has not pulled the latest `ssl_certificates` payload. | Rebuild the config snapshot, run the edge config pull, and confirm `*.domain.com` is present in the active edge config. |
-| SSL issuance stuck during validation | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |
+| SSL issuance stuck during validation | DNS-01 challenge not published, not publicly visible, or ACME propagation too short. | Check PowerDNS, public TXT resolution, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`, `CDNLITE_ACME_DNS_VERIFY_ATTEMPTS`, or `CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS`. |
+| SSL job fails with `acme_dns_challenge_not_visible` | Core wrote the TXT to PowerDNS, but the scheduler could not resolve that TXT before asking ACME to validate. | Confirm the domain delegates to CDNLite nameservers, check authoritative TXT lookup for `_acme-challenge`, and tune the ACME DNS verify settings. |
 | Cache assertions are flaky in tests | Default TTL too long for e2e timing. | Use `CDNLITE_CACHE_DEFAULT_TTL=1s` in e2e. |
 | Usage analytics are empty | Edge metrics queue not pushed or domain filter mismatch. | Check `METRIC_PATH`, agent logs, collector endpoint, and domain names. |
 | Config snapshot rollback appears ignored | Edge has not pulled the active version yet. | Run the edge agent config pull or wait for the polling loop, then inspect `edge-sync-status.json`. |
@@ -170,11 +172,18 @@ curl -s http://localhost:8080/api/v1/usage/summary \
 If raw metrics exist but analytics are empty, check collector auth and recalculate aggregates:
 
 ```bash
+docker compose exec edge-agent sh -c 'test -s "${METRIC_PATH}.payload.response" && cat "${METRIC_PATH}.payload.response" || true'
+docker compose exec edge-agent sh -c 'test -s "${METRIC_PATH}.bad" && tail -n 20 "${METRIC_PATH}.bad" || true'
+
 curl -s -X POST http://localhost:8080/api/v1/usage/recalculate \
   -H "Authorization: Bearer $CDNLITE_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"bucket":"hour"}'
 ```
+
+The agent saves rejected collector responses beside the pending payload as
+`${METRIC_PATH}.payload.response`. Invalid local NDJSON metric lines are moved
+to `${METRIC_PATH}.bad` so they do not permanently block valid metrics.
 
 ## Resetting Local Development
 

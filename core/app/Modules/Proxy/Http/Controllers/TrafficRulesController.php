@@ -473,6 +473,13 @@ class TrafficRulesController
         } catch (\OutOfBoundsException) {
             return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {
+            if ($e->getMessage() === 'domain_must_be_active') {
+                return [
+                    'error' => 'domain_must_be_active',
+                    'detail' => 'Verify nameservers before requesting managed SSL.',
+                    'status' => 422,
+                ];
+            }
             return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
         }
     }
@@ -522,6 +529,13 @@ class TrafficRulesController
         } catch (\OutOfBoundsException) {
             return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {
+            if ($e->getMessage() === 'domain_must_be_active') {
+                return [
+                    'error' => 'domain_must_be_active',
+                    'detail' => 'Verify nameservers before requesting managed SSL.',
+                    'status' => 422,
+                ];
+            }
             return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
         }
     }

@@ -125,6 +125,7 @@ export interface SslRenewalHistory { id: Id; hostname: string; action: string; s
 export interface SslJob {
   id: Id; domain_id: Id; status: string; progress_percent: number; message: string;
   error_code?: string | null; error_detail?: string | null; hostnames: string[];
+  scheduler_stale?: boolean; scheduler_hint?: string | null; stale_seconds?: number;
   created_at: number; updated_at: number; finished_at?: number | null;
 }
 export interface SslJobRequest { job_id: Id; status: string; message: string; job: SslJob; }

@@ -109,9 +109,45 @@ class AcmeIssuerService
             sleep($delay);
         }
 
+        if (!$this->waitForDnsChallenge($this->absoluteChallengeName($name, $zoneDomain), $txtValue)) {
+            throw new \RuntimeException('acme_dns_challenge_not_visible:' . $this->absoluteChallengeName($name, $zoneDomain));
+        }
+
         $this->signedPost((string) $challenge['url'], new \stdClass(), $account);
         $this->pollAuthorization($authUrl, $account);
         $this->powerDns->deleteEphemeralRecord($zoneDomain, $name, 'TXT');
+    }
+
+    private function waitForDnsChallenge(string $fqdn, string $expectedValue): bool
+    {
+        $attempts = max(1, (int) (getenv('CDNLITE_ACME_DNS_VERIFY_ATTEMPTS') ?: 30));
+        $sleepSeconds = max(1, (int) (getenv('CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS') ?: 2));
+        for ($i = 0; $i < $attempts; $i++) {
+            if ($this->dnsTxtContains($fqdn, $expectedValue)) {
+                return true;
+            }
+            sleep($sleepSeconds);
+        }
+        return false;
+    }
+
+    private function dnsTxtContains(string $fqdn, string $expectedValue): bool
+    {
+        $records = dns_get_record($fqdn, DNS_TXT);
+        if (!is_array($records)) {
+            return false;
+        }
+        foreach ($records as $record) {
+            $txt = (string) ($record['txt'] ?? '');
+            if ($txt === $expectedValue) {
+                return true;
+            }
+            $entries = $record['entries'] ?? null;
+            if (is_array($entries) && implode('', array_map('strval', $entries)) === $expectedValue) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function pollAuthorization(string $url, array $account): void
@@ -321,6 +357,19 @@ class AcmeIssuerService
         }
         $suffix = '.' . $zone;
         return '_acme-challenge.' . substr($host, 0, -strlen($suffix));
+    }
+
+    private function absoluteChallengeName(string $name, string $zoneDomain): string
+    {
+        $name = rtrim(strtolower(trim($name)), '.');
+        $zone = rtrim(strtolower(trim($zoneDomain)), '.');
+        if ($name === '' || $name === '@') {
+            return $zone;
+        }
+        if ($name === $zone || str_ends_with($name, '.' . $zone)) {
+            return $name;
+        }
+        return $name . '.' . $zone;
     }
 
     private function defaultManagedSslHostnames(string $domain): array

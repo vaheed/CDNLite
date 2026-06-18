@@ -1414,6 +1414,13 @@ class TrafficRulesService
             }
         }
         $r['hostnames'] = isset($r['hostnames_json']) ? (json_decode((string) $r['hostnames_json'], true) ?: []) : [];
+        $staleAfter = max(60, (int) (getenv('CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS') ?: 30) * 2);
+        $age = time() - (int) ($r['updated_at'] ?? time());
+        $r['stale_seconds'] = $age;
+        $r['scheduler_stale'] = ($r['status'] ?? '') === 'queued' && $age >= $staleAfter;
+        if ($r['scheduler_stale']) {
+            $r['scheduler_hint'] = 'ssl-scheduler has not claimed this queued job. Check the ssl-scheduler service and run php artisan cdn:ssl:renew-due to process queued SSL jobs.';
+        }
         unset($r['hostnames_json']);
         return $r;
     }

@@ -127,6 +127,7 @@ export function humanizeApiError(code: string): string {
     must_be_80_or_443: 'Port must be 80 or 443.',
     must_start_with_slash: 'Health check path must start with /.',
     domain_already_exists: 'Unable to create domain. Domain already exists.',
+    domain_must_be_active: 'Verify nameservers before requesting managed SSL.',
     invalid_json: 'The request body contains invalid JSON.',
     internal_server_error: 'The server hit an internal error. Try again or check the core logs.',
   };

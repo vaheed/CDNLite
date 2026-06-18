@@ -32,7 +32,7 @@ while [ "$#" -gt 0 ]; do
       data="$2"
       shift 2
       ;;
-    -X|-H)
+    -X|-H|-w)
       shift 2
       ;;
     -*)
@@ -66,9 +66,14 @@ case "${MOCK_CURL_MODE:-}" in
     exit 0
     ;;
   metrics_fail)
-    exit 22
+    if [ "$out" != "" ]; then
+      printf '{"error":"invalid_json","detail":"mock rejection"}\n' > "$out"
+    fi
+    printf '400'
+    exit 0
     ;;
   metrics_ok)
+    printf '200'
     exit 0
     ;;
 esac
@@ -191,12 +196,44 @@ if [ ! -s "${METRIC_PATH}.payload" ]; then
   printf 'FAIL: failed metrics push did not preserve payload\n' >&2
   exit 1
 fi
+if [ ! -s "${METRIC_PATH}.payload.response" ]; then
+  printf 'FAIL: failed metrics push did not preserve collector response\n' >&2
+  exit 1
+fi
 
 export MOCK_CURL_MODE="metrics_ok"
 sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-ok.err"
 assert_file_eq "$METRIC_PATH" "" "successful metrics push did not clear metrics"
 if [ -e "${METRIC_PATH}.payload" ]; then
   printf 'FAIL: successful metrics push left payload spool behind\n' >&2
+  exit 1
+fi
+if [ -e "${METRIC_PATH}.payload.response" ]; then
+  printf 'FAIL: successful metrics push left response spool behind\n' >&2
+  exit 1
+fi
+
+printf 'not-json\n%s\n' "$metric_line" > "$METRIC_PATH"
+rm -f "${METRIC_PATH}.bad"
+export MOCK_CURL_MODE="metrics_ok"
+sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-invalid.err"
+assert_file_eq "$METRIC_PATH" "" "valid metrics behind an invalid line were not drained"
+if [ ! -s "${METRIC_PATH}.bad" ]; then
+  printf 'FAIL: invalid metric line was not quarantined\n' >&2
+  exit 1
+fi
+if ! grep -q 'quarantined 1 invalid metric line' "$TMP_DIR/metrics-invalid.err"; then
+  printf 'FAIL: invalid metric quarantine was not reported\n' >&2
+  exit 1
+fi
+
+printf 'not-json\n%s\n' "$metric_line" > "$METRIC_PATH"
+printf '{"idempotency_key":"agent-bad","items":[not-json]}' > "${METRIC_PATH}.payload"
+export MOCK_CURL_MODE="metrics_ok"
+sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-rebuild.err"
+assert_file_eq "$METRIC_PATH" "" "invalid preserved payload did not rebuild and drain metrics"
+if ! grep -q 'metrics payload is invalid; rebuilding from metrics queue' "$TMP_DIR/metrics-rebuild.err"; then
+  printf 'FAIL: invalid preserved payload rebuild was not reported\n' >&2
   exit 1
 fi
 

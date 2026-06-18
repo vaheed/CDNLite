@@ -52,7 +52,10 @@
               <td class="table-cell">{{ job.progress_percent }}%</td>
               <td class="table-cell font-mono text-xs">{{ job.hostnames.join(', ') || 'domain default' }}</td>
               <td class="table-cell whitespace-nowrap">{{ formatDate(job.updated_at) }}</td>
-              <td class="table-cell">{{ job.error_detail || job.message }}</td>
+              <td class="table-cell">
+                <p>{{ job.error_detail || job.message }}</p>
+                <p v-if="job.scheduler_stale" class="mt-1 text-xs font-medium text-amber-700 dark:text-amber-200">{{ schedulerHint(job) }}</p>
+              </td>
               <td class="table-cell">
                 <button
                   v-if="job.status === 'failed'"
@@ -81,6 +84,7 @@
         <span>{{ activeJob.progress_percent }}% complete</span>
         <span>{{ activeJob.hostnames.join(', ') }}</span>
       </div>
+      <p v-if="activeJob.scheduler_stale" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">{{ schedulerHint(activeJob) }}</p>
       <p v-if="activeJob.error_detail" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{{ activeJob.error_detail }}</p>
     </section>
 
@@ -218,7 +222,9 @@ async function checkJobQueue() {
     sslJobs.value = acme.jobs ?? [];
     announceJobChanges(sslJobs.value);
     activeJob.value = newestActiveJob(sslJobs.value) ?? activeJob.value;
-    jobQueueMessage.value = sslJobs.value.length ? `Checked ${sslJobs.value.length} SSL jobs.` : 'No SSL jobs are currently queued.';
+    const stale = sslJobs.value.find(job => job.scheduler_stale);
+    jobQueueError.value = Boolean(stale);
+    jobQueueMessage.value = stale ? schedulerHint(stale) : (sslJobs.value.length ? `Checked ${sslJobs.value.length} SSL jobs.` : 'No SSL jobs are currently queued.');
   } catch (error) {
     jobQueueError.value = true;
     jobQueueMessage.value = error instanceof Error ? error.message : 'Unable to check SSL job queue.';
@@ -263,6 +269,7 @@ function isActiveJob(job: SslJob) { return ['queued', 'checking_dns', 'creating_
 function newestActiveJob(jobs: SslJob[]) { return jobs.find(isActiveJob) ?? null; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
 function hostnamesLabel(job: SslJob) { return job.hostnames.length ? job.hostnames.join(', ') : 'the domain default hostnames'; }
+function schedulerHint(job: SslJob) { return job.scheduler_hint || 'ssl-scheduler has not claimed this queued job. Check the ssl-scheduler service and run php artisan cdn:ssl:renew-due.'; }
 function rememberJobStatus(job: SslJob) { lastJobStatuses.set(job.id, job.status); }
 function announceJobChanges(jobs: SslJob[]) {
   for (const job of jobs) {

@@ -37,10 +37,17 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
     assert "AuditLog::write('ssl.requested'" in service
     assert "'job_id' => $job['id']" in service
     assert "public function getSslJob" in service
+    assert "scheduler_stale" in service
+    assert "scheduler_hint" in service
+    assert "stale_seconds" in service
+    assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS" in service
     assert "public function getSslJob(string $domainId, string $jobId)" in controller
+    assert "Verify nameservers before requesting managed SSL." in controller
+    assert "'error' => 'domain_must_be_active'" in controller
     assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in public_index
     assert "'jobs' => $this->certificates->listSslJobs($domainId)" in renewals
     assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in docs
+    assert "scheduler_stale" in docs
     assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}:" in openapi
 
 
@@ -65,6 +72,13 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30" in compose
     assert "ssl.dns_challenge_created" in issuer
     assert "AuditLog::write('ssl.dns_challenge_created'" in issuer
+    assert "waitForDnsChallenge" in issuer
+    assert "dns_get_record($fqdn, DNS_TXT)" in issuer
+    assert "CDNLITE_ACME_DNS_VERIFY_ATTEMPTS" in issuer
+    assert "CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS" in issuer
+    assert "acme_dns_challenge_not_visible" in issuer
+    assert "CDNLITE_ACME_DNS_VERIFY_ATTEMPTS" in compose
+    assert "CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS" in compose
     assert "private function updateActiveJobs" in renewals
     assert "defaultManagedSslHostnames" in renewals
     assert "defaultManagedSslHostnames" in issuer
@@ -114,3 +128,6 @@ def test_dashboard_polls_ssl_job_progress():
     assert "SSL failed" in view
     assert "retryFailedJob" in view
     assert "{ hostnames: job.hostnames }" in view
+    assert "scheduler_stale" in types
+    assert "schedulerHint" in view
+    assert "ssl-scheduler has not claimed this queued job" in view
