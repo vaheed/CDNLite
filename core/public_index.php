@@ -428,6 +428,23 @@ $router->add('DELETE', '/api/v1/domains/{domainId}/redirects/{ruleId}', static f
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/protection/intents', static fn (Request $req, array $p) => Response::json($rulesController->listProtectionIntents((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentKey}/preview', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->previewProtectionIntent((string) $p['domainId'], (string) $p['intentKey'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentKey}/enable', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->enableProtectionIntent((string) $p['domainId'], (string) $p['intentKey'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/disable', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->disableProtectionIntent((string) $p['domainId'], (string) $p['intentId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/undo', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->undoProtectionIntent((string) $p['domainId'], (string) $p['intentId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->listRateLimits((string) $p['domainId'])), auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRateLimit((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);

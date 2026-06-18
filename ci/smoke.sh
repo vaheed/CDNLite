@@ -130,6 +130,12 @@ waf_action_col="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHER
 assert_eq "$waf_action_col" "1" "waf_rules.action column missing"
 record_step PASS "schema-waf-v2-column" "waf_rules.action column exists"
 
+protection_tables="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('protection_profiles','protection_intents','managed_rule_links','profile_change_history','profile_rollback_points');")"
+assert_eq "$protection_tables" "5" "protection contract tables are incomplete"
+managed_rule_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('waf_rules','rate_limit_rules','domain_ip_rules','cache_rules','domain_header_rules') AND column_name IN ('profile_id','intent_id','template_key','managed_by','user_modified','last_generated_at','last_applied_at');")"
+assert_eq "$managed_rule_columns" "35" "managed rule ownership columns are incomplete"
+record_step PASS "schema-protection-contract" "protection ownership tables and technical-rule columns exist"
+
 ssl_key_check="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
 if [[ "$ssl_key_check" == "set" ]]; then
   record_step PASS "ssl-secret-configured" "CDNLITE_SSL_SECRET_KEY present"

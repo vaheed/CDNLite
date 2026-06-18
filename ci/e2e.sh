@@ -439,6 +439,26 @@ rate_path_prefix="$(json_get "$HTTP_BODY" '.data.path_prefix')"
 assert_eq "$rate_path_prefix" "/login" "rate-limit path_prefix mismatch"
 record_step PASS "rate-limit-current" "path_prefix=/login key_type=ip_path"
 
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":12,"path_prefix":"/managed-login","key_type":"ip_path","priority":15,"action":"block","managed_by":"recommended_protection","template_key":"protect_login.rate_limit"}'
+assert_http_status "$HTTP_CODE" "201" "managed rate-limit create failed"
+MANAGED_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+assert_contains "$HTTP_BODY" '"managed_by":"recommended_protection"' "managed rate-limit ownership missing"
+assert_contains "$HTTP_BODY" '"template_key":"protect_login.rate_limit"' "managed rate-limit template missing"
+managed_rate_link_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE rule_table='rate_limit_rules' AND rule_id='${MANAGED_RATE_LIMIT_RULE_ID}' AND managed_by='recommended_protection' AND detached_at IS NULL;")"
+assert_eq "$managed_rate_link_count" "1" "managed rate-limit link missing"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${MANAGED_RATE_LIMIT_RULE_ID}" '{"requests_per_minute":18}'
+assert_http_status "$HTTP_CODE" "200" "managed rate-limit update failed"
+assert_contains "$HTTP_BODY" '"user_modified":true' "managed rate-limit edit should mark user_modified"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${MANAGED_RATE_LIMIT_RULE_ID}/detach-managed" '{}'
+assert_http_status "$HTTP_CODE" "200" "managed rate-limit detach failed"
+assert_contains "$HTTP_BODY" '"managed_by":null' "detached rate-limit should clear managed_by"
+assert_contains "$HTTP_BODY" '"user_modified":false' "detached rate-limit should clear user_modified"
+managed_rate_detached_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE rule_table='rate_limit_rules' AND rule_id='${MANAGED_RATE_LIMIT_RULE_ID}' AND detached_at IS NOT NULL;")"
+assert_eq "$managed_rate_detached_count" "1" "managed rate-limit link should be marked detached"
+api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${MANAGED_RATE_LIMIT_RULE_ID}"
+assert_http_status "$HTTP_CODE" "200" "detached managed rate-limit delete failed"
+record_step PASS "rate-limit-managed-contract" "ownership metadata, user_modified, detach, audit link, and cleanup verified"
+
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":15,"path_prefix":"/api/","key_type":"ip_path","priority":20,"action":"block"}'
 assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
 RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
@@ -467,6 +487,26 @@ api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules" '{"enabled":true,"n
 assert_http_status "$HTTP_CODE" "201" "waf v2 create failed"
 WAF_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "waf-v2-create" "rule_id=${WAF_RULE_ID}"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules" '{"enabled":true,"name":"managed-exploit-block","priority":25,"type":"path_contains","pattern":"../","action":"block","description":"managed exploit path traversal check","managed_by":"recommended_protection","template_key":"block_exploits.path_traversal"}'
+assert_http_status "$HTTP_CODE" "201" "managed waf create failed"
+MANAGED_WAF_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+assert_contains "$HTTP_BODY" '"managed_by":"recommended_protection"' "managed waf ownership missing"
+assert_contains "$HTTP_BODY" '"template_key":"block_exploits.path_traversal"' "managed waf template missing"
+managed_waf_link_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE rule_table='waf_rules' AND rule_id='${MANAGED_WAF_RULE_ID}' AND managed_by='recommended_protection' AND detached_at IS NULL;")"
+assert_eq "$managed_waf_link_count" "1" "managed waf link missing"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${MANAGED_WAF_RULE_ID}" '{"description":"operator tuned managed exploit check"}'
+assert_http_status "$HTTP_CODE" "200" "managed waf update failed"
+assert_contains "$HTTP_BODY" '"user_modified":true' "managed waf edit should mark user_modified"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${MANAGED_WAF_RULE_ID}/detach-managed" '{}'
+assert_http_status "$HTTP_CODE" "200" "managed waf detach failed"
+assert_contains "$HTTP_BODY" '"managed_by":null' "detached waf should clear managed_by"
+assert_contains "$HTTP_BODY" '"user_modified":false' "detached waf should clear user_modified"
+managed_waf_detached_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE rule_table='waf_rules' AND rule_id='${MANAGED_WAF_RULE_ID}' AND detached_at IS NOT NULL;")"
+assert_eq "$managed_waf_detached_count" "1" "managed waf link should be marked detached"
+api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${MANAGED_WAF_RULE_ID}"
+assert_http_status "$HTTP_CODE" "200" "detached managed waf delete failed"
+record_step PASS "waf-managed-contract" "ownership metadata, user_modified, detach, audit link, and cleanup verified"
 
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules"
 assert_http_status "$HTTP_CODE" "200" "waf list failed"

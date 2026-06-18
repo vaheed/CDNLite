@@ -650,6 +650,139 @@ class TrafficRulesService
         $this->invalidateConfigSnapshot();
         return $updated;
     }
+
+    public function listProtectionIntents(string $domainId): array {
+        $templates = $this->protectionIntentTemplates();
+        $rows = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id ORDER BY created_at ASC');
+        $rows->execute([':domain_id' => $domainId]);
+        $saved = [];
+        foreach ($rows->fetchAll() as $row) {
+            $cast = $this->castProtectionIntent((array) $row);
+            $saved[(string) $cast['intent_key']] = $cast;
+        }
+
+        $out = [];
+        foreach ($templates as $key => $template) {
+            $intent = $saved[$key] ?? null;
+            $out[] = [
+                'intent_key' => $key,
+                'name' => $template['name'],
+                'summary' => $template['summary'],
+                'risk' => $template['risk'],
+                'recommended_mode' => $template['mode'],
+                'status' => $intent['status'] ?? 'available',
+                'intent' => $intent,
+                'generated_rules' => $intent ? $this->managedRulesForIntent($domainId, (string) $intent['id']) : [],
+            ];
+        }
+        return $out;
+    }
+
+    public function previewProtectionIntent(string $domainId, string $intentKey, array $input = []): array {
+        $template = $this->protectionIntentTemplate($intentKey);
+        return [
+            'intent_key' => $intentKey,
+            'name' => $template['name'],
+            'mode' => (string) ($input['mode'] ?? $template['mode']),
+            'risk' => $template['risk'],
+            'rules' => $this->generatedRulesForIntent($domainId, $intentKey, null, null, $input),
+            'mutates' => false,
+        ];
+    }
+
+    public function enableProtectionIntent(string $domainId, string $intentKey, array $input = []): array {
+        $template = $this->protectionIntentTemplate($intentKey);
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $intent = $this->upsertProtectionIntent($domainId, $intentKey, $template, $input, 'enabled');
+            $this->assertManagedRulesCanBeRegenerated($domainId, (string) $intent['id'], !empty($input['confirm_overwrite']));
+            $rollbackId = $this->createRollbackPoint($domainId, (string) $intent['id'], 'Before enabling ' . $template['name']);
+            $rules = $this->applyGeneratedRules($domainId, (string) $intent['id'], $intentKey, $input);
+            $after = ['intent' => $this->getProtectionIntent($domainId, (string) $intent['id']), 'rules' => $rules, 'rollback_point_id' => $rollbackId];
+            $this->recordProfileChange($domainId, null, (string) $intent['id'], 'protection_intent.enable', null, $after);
+            AuditLog::write('protection_intent.enable', 'protection_intent', (string) $intent['id'], $domainId, null, $after);
+            $pdo->commit();
+            return $after;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public function disableProtectionIntent(string $domainId, string $intentId, array $input = []): ?array {
+        $intent = $this->getProtectionIntent($domainId, $intentId);
+        if ($intent === null) {
+            return null;
+        }
+        $this->assertManagedRulesCanBeRegenerated($domainId, $intentId, !empty($input['confirm_overwrite']));
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $rollbackId = $this->createRollbackPoint($domainId, $intentId, 'Before disabling ' . (string) $intent['name']);
+            $now = time();
+            foreach ($this->managedRulesForIntent($domainId, $intentId) as $link) {
+                $table = (string) $link['rule_table'];
+                $id = (string) $link['rule_id'];
+                Database::pdo()->prepare("UPDATE {$table} SET enabled=false,last_applied_at=:last_applied_at,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id")
+                    ->execute([':last_applied_at' => $now, ':updated_at' => $now, ':id' => $id, ':domain_id' => $domainId]);
+            }
+            Database::pdo()->prepare('UPDATE protection_intents SET status=:status,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id')
+                ->execute([':status' => 'disabled', ':updated_at' => $now, ':id' => $intentId, ':domain_id' => $domainId]);
+            $after = ['intent' => $this->getProtectionIntent($domainId, $intentId), 'rules' => $this->managedRulesForIntent($domainId, $intentId), 'rollback_point_id' => $rollbackId];
+            $this->recordProfileChange($domainId, null, $intentId, 'protection_intent.disable', $intent, $after);
+            AuditLog::write('protection_intent.disable', 'protection_intent', $intentId, $domainId, $intent, $after);
+            $this->invalidateConfigSnapshot();
+            $pdo->commit();
+            return $after;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public function undoProtectionIntent(string $domainId, string $intentId): ?array {
+        $intent = $this->getProtectionIntent($domainId, $intentId);
+        if ($intent === null) {
+            return null;
+        }
+        $q = Database::pdo()->prepare('SELECT * FROM profile_rollback_points WHERE domain_id=:domain_id AND intent_id=:intent_id ORDER BY created_at DESC LIMIT 1');
+        $q->execute([':domain_id' => $domainId, ':intent_id' => $intentId]);
+        $rollback = $q->fetch();
+        if (!$rollback) {
+            throw new \DomainException('rollback_point_not_found');
+        }
+        $snapshot = json_decode((string) $rollback['snapshot_json'], true) ?: [];
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $now = time();
+            foreach (($snapshot['rules'] ?? []) as $rule) {
+                if (!is_array($rule) || empty($rule['rule_table']) || empty($rule['rule_id'])) {
+                    continue;
+                }
+                $table = (string) $rule['rule_table'];
+                $id = (string) $rule['rule_id'];
+                $enabled = !empty($rule['enabled']) ? 1 : 0;
+                Database::pdo()->prepare("UPDATE {$table} SET enabled=:enabled,last_applied_at=:last_applied_at,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id")
+                    ->execute([':enabled' => $enabled, ':last_applied_at' => $now, ':updated_at' => $now, ':id' => $id, ':domain_id' => $domainId]);
+            }
+            if (isset($snapshot['intent']['status'])) {
+                Database::pdo()->prepare('UPDATE protection_intents SET status=:status,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id')
+                    ->execute([':status' => (string) $snapshot['intent']['status'], ':updated_at' => $now, ':id' => $intentId, ':domain_id' => $domainId]);
+            }
+            $after = ['intent' => $this->getProtectionIntent($domainId, $intentId), 'rules' => $this->managedRulesForIntent($domainId, $intentId), 'rollback_point_id' => (string) $rollback['id']];
+            $this->recordProfileChange($domainId, null, $intentId, 'protection_intent.undo', $intent, $after);
+            AuditLog::write('protection_intent.undo', 'protection_intent', $intentId, $domainId, $intent, $after);
+            $this->invalidateConfigSnapshot();
+            $pdo->commit();
+            return $after;
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
     private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
@@ -685,6 +818,198 @@ class TrafficRulesService
     }
     private function invalidateConfigSnapshot(): void {
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+    }
+    private function protectionIntentTemplates(): array {
+        return [
+            'common_exploits' => [
+                'name' => 'Common Exploit Protection',
+                'summary' => 'Blocks high-confidence traversal and scanner patterns.',
+                'risk' => 'safe',
+                'mode' => 'recommended',
+                'rules' => [
+                    ['rule_table' => 'waf_rules', 'template_key' => 'waf_path_traversal', 'payload' => ['enabled' => true, 'name' => 'Block path traversal', 'priority' => 20, 'type' => 'path_contains', 'pattern' => '../', 'action' => 'block', 'description' => 'Generated by common exploit protection.']],
+                    ['rule_table' => 'waf_rules', 'template_key' => 'waf_scanner_agent', 'payload' => ['enabled' => true, 'name' => 'Block scanner user agents', 'priority' => 30, 'type' => 'user_agent_contains', 'pattern' => 'sqlmap', 'action' => 'block', 'description' => 'Generated by common exploit protection.']],
+                ],
+            ],
+            'login_shield' => [
+                'name' => 'Login Shield',
+                'summary' => 'Protects common login paths with challenge-safe rate limits.',
+                'risk' => 'moderate',
+                'mode' => 'recommended',
+                'rules' => [
+                    ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_login_paths', 'payload' => ['enabled' => true, 'priority' => 20, 'path_prefix' => '/login', 'key_type' => 'ip_path', 'requests_per_minute' => 10, 'action' => 'block']],
+                    ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_wp_login', 'payload' => ['enabled' => true, 'priority' => 21, 'path_prefix' => '/wp-login.php', 'key_type' => 'ip_path', 'requests_per_minute' => 10, 'action' => 'block']],
+                ],
+            ],
+            'static_asset_performance' => [
+                'name' => 'Static Asset Performance',
+                'summary' => 'Caches common static asset paths at the edge.',
+                'risk' => 'safe',
+                'mode' => 'recommended',
+                'rules' => [
+                    ['rule_table' => 'cache_rules', 'template_key' => 'cache_static_assets', 'payload' => ['enabled' => true, 'path_prefix' => '/assets', 'ttl_seconds' => 86400]],
+                ],
+            ],
+        ];
+    }
+    private function protectionIntentTemplate(string $intentKey): array {
+        $templates = $this->protectionIntentTemplates();
+        if (!isset($templates[$intentKey])) {
+            throw new \InvalidArgumentException('unknown_intent');
+        }
+        return $templates[$intentKey];
+    }
+    private function generatedRulesForIntent(string $domainId, string $intentKey, ?string $intentId, ?string $profileId, array $input): array {
+        $template = $this->protectionIntentTemplate($intentKey);
+        $now = time();
+        $rules = [];
+        foreach ($template['rules'] as $rule) {
+            $payload = $rule['payload'] + [
+                'profile_id' => $profileId,
+                'intent_id' => $intentId,
+                'template_key' => (string) $rule['template_key'],
+                'managed_by' => $template['name'],
+                'user_modified' => false,
+                'last_generated_at' => $now,
+                'last_applied_at' => $now,
+            ];
+            $rules[] = [
+                'rule_table' => (string) $rule['rule_table'],
+                'template_key' => (string) $rule['template_key'],
+                'payload' => $payload,
+            ];
+        }
+        return $rules;
+    }
+    private function upsertProtectionIntent(string $domainId, string $intentKey, array $template, array $input, string $status): array {
+        $now = time();
+        $settings = json_encode($input['settings'] ?? [], JSON_UNESCAPED_SLASHES);
+        $existing = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND intent_key=:intent_key ORDER BY created_at DESC LIMIT 1');
+        $existing->execute([':domain_id' => $domainId, ':intent_key' => $intentKey]);
+        $row = $existing->fetch();
+        if ($row) {
+            Database::pdo()->prepare('UPDATE protection_intents SET name=:name,status=:status,mode=:mode,settings_json=:settings_json,updated_at=:updated_at WHERE id=:id')
+                ->execute([':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':updated_at' => $now, ':id' => (string) $row['id']]);
+            return $this->getProtectionIntent($domainId, (string) $row['id']) ?? [];
+        }
+        $id = Uuid::v4();
+        Database::pdo()->prepare(
+            'INSERT INTO protection_intents (id,domain_id,profile_id,intent_key,name,status,mode,settings_json,created_at,updated_at)
+             VALUES (:id,:domain_id,NULL,:intent_key,:name,:status,:mode,:settings_json,:created_at,:updated_at)'
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':intent_key' => $intentKey, ':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':created_at' => $now, ':updated_at' => $now]);
+        return $this->getProtectionIntent($domainId, $id) ?? [];
+    }
+    private function getProtectionIntent(string $domainId, string $intentId): ?array {
+        $q = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND id=:id LIMIT 1');
+        $q->execute([':domain_id' => $domainId, ':id' => $intentId]);
+        $row = $q->fetch();
+        return $row ? $this->castProtectionIntent((array) $row) : null;
+    }
+    private function applyGeneratedRules(string $domainId, string $intentId, string $intentKey, array $input): array {
+        $applied = [];
+        foreach ($this->generatedRulesForIntent($domainId, $intentKey, $intentId, null, $input) as $rule) {
+            $table = (string) $rule['rule_table'];
+            $templateKey = (string) $rule['template_key'];
+            $existing = $this->findManagedRule($domainId, $intentId, $table, $templateKey);
+            if ($existing !== null) {
+                $applied[] = $this->updateGeneratedRule($domainId, $table, (string) $existing['rule_id'], $rule['payload']);
+                continue;
+            }
+            $applied[] = match ($table) {
+                'waf_rules' => $this->createWaf($domainId, $rule['payload']),
+                'rate_limit_rules' => $this->createRateLimit($domainId, $rule['payload']),
+                'cache_rules' => $this->createCacheRule($domainId, $rule['payload']),
+                default => throw new \InvalidArgumentException('invalid_rule_type'),
+            };
+        }
+        return $applied;
+    }
+    private function findManagedRule(string $domainId, string $intentId, string $table, string $templateKey): ?array {
+        $q = Database::pdo()->prepare('SELECT * FROM managed_rule_links WHERE domain_id=:domain_id AND intent_id=:intent_id AND rule_table=:rule_table AND template_key=:template_key AND detached_at IS NULL LIMIT 1');
+        $q->execute([':domain_id' => $domainId, ':intent_id' => $intentId, ':rule_table' => $table, ':template_key' => $templateKey]);
+        $row = $q->fetch();
+        return $row ? (array) $row : null;
+    }
+    private function updateGeneratedRule(string $domainId, string $table, string $id, array $payload): array {
+        $allowed = ['waf_rules', 'rate_limit_rules', 'cache_rules'];
+        if (!in_array($table, $allowed, true)) {
+            throw new \InvalidArgumentException('invalid_rule_type');
+        }
+        $payload['user_modified'] = false;
+        $sets = [];
+        $params = [':id' => $id, ':domain_id' => $domainId, ':updated_at' => time()];
+        foreach ($payload as $key => $value) {
+            $sets[] = "{$key}=:{$key}";
+            $params[':' . $key] = is_bool($value) ? (int) $value : $value;
+        }
+        $sets[] = 'updated_at=:updated_at';
+        Database::pdo()->prepare("UPDATE {$table} SET " . implode(',', $sets) . ' WHERE id=:id AND domain_id=:domain_id')->execute($params);
+        $q = Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain_id LIMIT 1");
+        $q->execute([':id' => $id, ':domain_id' => $domainId]);
+        $updated = $this->cast((array) $q->fetch());
+        $this->storeManagedRuleLink($table, $domainId, $id, $updated);
+        $this->invalidateConfigSnapshot();
+        return $updated;
+    }
+    private function managedRulesForIntent(string $domainId, string $intentId): array {
+        $links = Database::pdo()->prepare('SELECT * FROM managed_rule_links WHERE domain_id=:domain_id AND intent_id=:intent_id AND detached_at IS NULL ORDER BY created_at ASC');
+        $links->execute([':domain_id' => $domainId, ':intent_id' => $intentId]);
+        $out = [];
+        foreach ($links->fetchAll() as $link) {
+            $row = (array) $link;
+            $table = (string) $row['rule_table'];
+            if (!in_array($table, ['waf_rules', 'rate_limit_rules', 'cache_rules', 'domain_header_rules', 'domain_ip_rules'], true)) {
+                continue;
+            }
+            $rule = Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain_id LIMIT 1");
+            $rule->execute([':id' => (string) $row['rule_id'], ':domain_id' => $domainId]);
+            $ruleRow = $rule->fetch();
+            if (!$ruleRow) {
+                continue;
+            }
+            $out[] = $this->cast($row) + ['rule' => $this->cast((array) $ruleRow)];
+        }
+        return $out;
+    }
+    private function assertManagedRulesCanBeRegenerated(string $domainId, string $intentId, bool $confirmed): void {
+        if ($confirmed) {
+            return;
+        }
+        foreach ($this->managedRulesForIntent($domainId, $intentId) as $link) {
+            $rule = $link['rule'] ?? [];
+            if (!empty($rule['user_modified'])) {
+                throw new \DomainException('user_modified_rule_conflict');
+            }
+        }
+    }
+    private function createRollbackPoint(string $domainId, string $intentId, string $label): string {
+        $id = Uuid::v4();
+        $snapshot = ['intent' => $this->getProtectionIntent($domainId, $intentId), 'rules' => []];
+        foreach ($this->managedRulesForIntent($domainId, $intentId) as $link) {
+            $rule = $link['rule'] ?? [];
+            $snapshot['rules'][] = ['rule_table' => (string) $link['rule_table'], 'rule_id' => (string) $link['rule_id'], 'enabled' => !empty($rule['enabled'])];
+        }
+        Database::pdo()->prepare(
+            'INSERT INTO profile_rollback_points (id,domain_id,profile_id,intent_id,label,snapshot_json,created_at)
+             VALUES (:id,:domain_id,NULL,:intent_id,:label,:snapshot_json,:created_at)'
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':intent_id' => $intentId, ':label' => $label, ':snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_SLASHES), ':created_at' => time()]);
+        return $id;
+    }
+    private function recordProfileChange(string $domainId, ?string $profileId, ?string $intentId, string $action, mixed $before, mixed $after): void {
+        Database::pdo()->prepare(
+            'INSERT INTO profile_change_history (id,domain_id,profile_id,intent_id,action,reason,before_json,after_json,created_at)
+             VALUES (:id,:domain_id,:profile_id,:intent_id,:action,NULL,:before_json,:after_json,:created_at)'
+        )->execute([':id' => Uuid::v4(), ':domain_id' => $domainId, ':profile_id' => $profileId, ':intent_id' => $intentId, ':action' => $action, ':before_json' => json_encode($before, JSON_UNESCAPED_SLASHES), ':after_json' => json_encode($after, JSON_UNESCAPED_SLASHES), ':created_at' => time()]);
+    }
+    private function castProtectionIntent(array $r): array {
+        foreach (['created_at', 'updated_at'] as $i) {
+            if (isset($r[$i])) {
+                $r[$i] = (int) $r[$i];
+            }
+        }
+        $r['settings'] = isset($r['settings_json']) ? (json_decode((string) $r['settings_json'], true) ?: []) : [];
+        unset($r['settings_json']);
+        return $r;
     }
     private function managedRulePayload(array $in): array {
         $payload = [];

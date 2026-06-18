@@ -58,6 +58,62 @@ def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
     assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed" in routes
 
 
+def test_phase8_intent_workflow_generates_real_rules_without_silent_overwrite():
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    routes = read("core/public_index.php")
+    api = read("docs/api/api.md")
+    openapi = read("docs/public/api/openapi.yaml")
+
+    for method in (
+        "listProtectionIntents",
+        "previewProtectionIntent",
+        "enableProtectionIntent",
+        "disableProtectionIntent",
+        "undoProtectionIntent",
+        "assertManagedRulesCanBeRegenerated",
+        "profile_rollback_points",
+        "profile_change_history",
+    ):
+        assert method in service
+
+    for action in (
+        "protection_intent.enable",
+        "protection_intent.disable",
+        "protection_intent.undo",
+        "user_modified_rule_conflict",
+    ):
+        assert action in service
+
+    assert "createWaf($domainId" in service
+    assert "createRateLimit($domainId" in service
+    assert "enabled=false" in service
+    assert "last_applied_at" in service
+
+    for method in (
+        "listProtectionIntents",
+        "previewProtectionIntent",
+        "enableProtectionIntent",
+        "disableProtectionIntent",
+        "undoProtectionIntent",
+    ):
+        assert method in controller
+
+    for route in (
+        "/api/v1/domains/{domainId}/protection/intents",
+        "/api/v1/domains/{domainId}/protection/intents/{intentKey}/preview",
+        "/api/v1/domains/{domainId}/protection/intents/{intentKey}/enable",
+        "/api/v1/domains/{domainId}/protection/intents/{intentId}/disable",
+        "/api/v1/domains/{domainId}/protection/intents/{intentId}/undo",
+    ):
+        assert route in routes
+        assert route in openapi
+
+    assert "Protection intents" in api
+    assert "Preview does not mutate" in api
+    assert "User-modified managed rules return `409 user_modified_rule_conflict`" in api
+
+
 def test_phase8_advanced_dashboard_and_docs_expose_managed_state():
     types = read("dash/src/types.ts")
     waf = read("dash/src/views/domain-tabs/DomainWafTab.vue")
@@ -77,3 +133,18 @@ def test_phase8_advanced_dashboard_and_docs_expose_managed_state():
     assert "detach-managed" in api
     assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed:" in openapi
     assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed:" in openapi
+
+
+def test_phase8_roadmap_smoke_and_e2e_track_managed_contract():
+    roadmap = read("docs/ROADMAP.md")
+    smoke = read("ci/smoke.sh")
+    e2e = read("ci/e2e.sh")
+
+    assert "rate-limit advanced views" in roadmap
+    assert "Remaining Phase 8 work" in roadmap
+    assert "schema-protection-contract" in smoke
+    assert "managed_rule_columns" in smoke
+    assert "rate-limit-managed-contract" in e2e
+    assert "waf-managed-contract" in e2e
+    assert "/detach-managed" in e2e
+    assert "managed_rule_links" in e2e

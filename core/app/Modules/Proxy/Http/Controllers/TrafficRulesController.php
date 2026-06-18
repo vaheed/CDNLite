@@ -99,6 +99,51 @@ class TrafficRulesController
         }
         return $rule ? ['data' => $rule] : ['error' => 'rule_not_found', 'status' => 404];
     }
+    public function listProtectionIntents(string $domainId): array {
+        return ['data' => $this->service->listProtectionIntents($domainId)];
+    }
+    public function previewProtectionIntent(string $domainId, string $intentKey, array $body): array {
+        try {
+            return ['data' => $this->service->previewProtectionIntent($domainId, $intentKey, $body)];
+        } catch (\InvalidArgumentException) {
+            return ['error' => 'unknown_intent', 'status' => 404];
+        }
+    }
+    public function enableProtectionIntent(string $domainId, string $intentKey, array $body): array {
+        try {
+            return ['data' => $this->service->enableProtectionIntent($domainId, $intentKey, $body)];
+        } catch (\InvalidArgumentException) {
+            return ['error' => 'unknown_intent', 'status' => 404];
+        } catch (\DomainException $e) {
+            return $this->protectionDomainError($e);
+        }
+    }
+    public function disableProtectionIntent(string $domainId, string $intentId, array $body): array {
+        try {
+            $result = $this->service->disableProtectionIntent($domainId, $intentId, $body);
+        } catch (\DomainException $e) {
+            return $this->protectionDomainError($e);
+        }
+        return $result ? ['data' => $result] : ['error' => 'protection_intent_not_found', 'status' => 404];
+    }
+    public function undoProtectionIntent(string $domainId, string $intentId): array {
+        try {
+            $result = $this->service->undoProtectionIntent($domainId, $intentId);
+        } catch (\DomainException $e) {
+            return $this->protectionDomainError($e);
+        }
+        return $result ? ['data' => $result] : ['error' => 'protection_intent_not_found', 'status' => 404];
+    }
+    private function protectionDomainError(\DomainException $e): array {
+        $message = $e->getMessage();
+        if ($message === 'user_modified_rule_conflict') {
+            return ['error' => 'user_modified_rule_conflict', 'detail' => 'confirm_overwrite_required', 'status' => 409];
+        }
+        if ($message === 'rollback_point_not_found') {
+            return ['error' => 'rollback_point_not_found', 'status' => 404];
+        }
+        return ['error' => $message !== '' ? $message : 'protection_intent_error', 'status' => 422];
+    }
     private function validateRateLimit(array $body, bool $partial): ?array {
         if ($partial && $body === []) {
             return ['error' => 'invalid_request', 'detail' => 'at_least_one_field_required', 'status' => 422];

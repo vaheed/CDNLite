@@ -634,6 +634,81 @@ paths:
     $ref: "#/components/pathItems/RuleCollection"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:
     $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/protection/intents:
+    get:
+      tags: [Traffic Rules]
+      summary: List Protection intents
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/intents/{intentKey}/preview:
+    post:
+      tags: [Traffic Rules]
+      summary: Preview generated rules for a Protection intent
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: intentKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/intents/{intentKey}/enable:
+    post:
+      tags: [Traffic Rules]
+      summary: Enable a Protection intent and generate advanced rules
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: intentKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "409":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/intents/{intentId}/disable:
+    post:
+      tags: [Traffic Rules]
+      summary: Disable generated rules for a Protection intent
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: intentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "409":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/intents/{intentId}/undo:
+    post:
+      tags: [Traffic Rules]
+      summary: Undo a Protection intent change from the latest rollback point
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - name: intentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed:
     post:
       tags: [Traffic Rules]

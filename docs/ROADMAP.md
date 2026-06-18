@@ -552,7 +552,7 @@ Each generated technical rule must store or link to:
   - `Managed by recommended protection`
   - `Managed by login shield`
   - `Customized by user`
-- Add detach action.
+- Add detach action. `[partial: implemented for WAF and rate-limit advanced views]`
 - Add preview of generated rules before apply.
 - Add undo state for simple protection changes.
 
@@ -562,11 +562,22 @@ No major edge behavior change yet. Edge continues consuming generated rules thro
 
 ### Tests
 
-- Generated rules are visible in advanced views.
-- Editing generated rule marks it as user-modified.
+- [x] Generated WAF and rate-limit rules expose ownership in advanced views and API responses.
+- [x] Editing generated WAF and rate-limit rules marks them as user-modified.
+- [x] Detaching generated WAF and rate-limit rules preserves the rule and clears managed ownership.
+- [x] Fresh-install smoke validates protection ownership tables and technical-rule columns.
+- [x] E2E validates managed WAF/rate-limit metadata, managed_rule_links, user_modified, detach, and cleanup.
 - Updating a profile does not overwrite user-modified rules silently.
 - Disabling an intent disables generated rules.
 - Undo restores previous generated state.
+
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/database/migrations/000006_protection_contract.sql`, `core/database/schema.sql`, `core/public_index.php`, `dash/src/lib/api/rateLimit.ts`, `dash/src/lib/api/waf.ts`, `dash/src/types.ts`, `dash/src/views/domain-tabs/DomainRateLimitsTab.vue`, `dash/src/views/domain-tabs/DomainRulesTab.vue`, `dash/src/views/domain-tabs/DomainWafTab.vue`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `ci/smoke.sh`, `ci/e2e.sh`, `core/tests/test_phase8_protection_contract.py`.
+- Behavior added: technical WAF, rate-limit, IP, cache, and header rules now have managed ownership fields. WAF and rate-limit rules can be detached from managed protection without deleting the technical rule; ordinary edits to managed rules mark them as user-modified and sync the managed-rule link.
+- Tests added/updated: backend Phase 8 contract coverage, smoke schema coverage for protection ownership tables/columns, and e2e API coverage for managed WAF/rate-limit create, edit, detach, managed_rule_links, and cleanup.
+- Remaining Phase 8 work: profile/intent enable flows, generated-rule preview, disable, undo/rollback behavior, and conflict handling for profile updates.
 
 ### IDE Prompt
 
