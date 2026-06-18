@@ -15,13 +15,14 @@
 
     <div class="panel-section overflow-hidden p-0">
       <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
-        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">One-click profiles</h3>
+        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Recommended setups</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Apply a complete preset for a site type or situation.</p>
       </div>
       <div class="divide-y divide-slate-200 dark:divide-white/10">
         <div v-for="profile in profiles" :key="profile.profile_key" class="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(220px,1fr)_160px_220px] lg:items-center">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ profile.name }}</h4>
+              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ profileDisplayName(profile) }}</h4>
               <StatusBadge :status="profile.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(profile.status)" />
               <StatusBadge :status="riskStatus(profile.risk)" :label="riskLabel(profile.risk)" />
             </div>
@@ -37,13 +38,13 @@
             <StatusBadge status="info" :label="profile.profile?.id ? 'Managed preset' : 'Ready to apply'" />
           </div>
           <div class="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
-            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Preview ${profile.name}`" @click="previewProfile(profile)">
+            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Preview ${profileDisplayName(profile)}`" @click="previewProfile(profile)">
               <Eye class="h-4 w-4" /> Preview
             </button>
-            <button v-if="profile.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Apply ${profile.name}`" @click="applyProfile(profile)">
+            <button v-if="profile.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Apply ${profileDisplayName(profile)}`" @click="applyProfile(profile)">
               <ShieldCheck class="h-4 w-4" /> Apply
             </button>
-            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Disable ${profile.name}`" @click="disableProfile(profile)">
+            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === profile.profile_key" :aria-label="`Disable ${profileDisplayName(profile)}`" @click="disableProfile(profile)">
               <ShieldOff class="h-4 w-4" /> Disable
             </button>
           </div>
@@ -53,13 +54,14 @@
 
     <div class="panel-section overflow-hidden p-0">
       <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
-        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Individual protections</h3>
+        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Protection controls</h3>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Turn one specific protection on or off without applying a full setup.</p>
       </div>
       <div class="divide-y divide-slate-200 dark:divide-white/10">
         <div v-for="intent in intents" :key="intent.intent_key" class="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.6fr)_190px_minmax(180px,0.8fr)_260px] lg:items-center">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
-              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ intent.name }}</h4>
+              <h4 class="text-base font-semibold text-slate-950 dark:text-white">{{ intentDisplayName(intent) }}</h4>
               <StatusBadge :status="intent.status === 'enabled' ? 'healthy' : 'unknown'" :label="statusLabel(intent.status)" />
               <StatusBadge :status="riskStatus(intent.risk)" :label="riskLabel(intent.risk)" />
             </div>
@@ -77,16 +79,16 @@
             <template v-else>Preview before enabling</template>
           </div>
           <div class="grid gap-2 sm:flex sm:flex-wrap lg:justify-end">
-            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Preview ${intent.name}`" @click="preview(intent)">
+            <button class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Preview ${intentDisplayName(intent)}`" @click="preview(intent)">
               <Eye class="h-4 w-4" /> Preview
             </button>
-            <button v-if="intent.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Enable ${intent.name}`" @click="enable(intent)">
+            <button v-if="intent.status !== 'enabled'" class="button-primary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Enable ${intentDisplayName(intent)}`" @click="enable(intent)">
               <ShieldCheck class="h-4 w-4" /> Enable
             </button>
-            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Disable ${intent.name}`" @click="disable(intent)">
+            <button v-else class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Disable ${intentDisplayName(intent)}`" @click="disable(intent)">
               <ShieldOff class="h-4 w-4" /> Disable
             </button>
-            <button v-if="intent.intent" class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Undo ${intent.name}`" @click="undo(intent)">
+            <button v-if="intent.intent" class="button-secondary w-full sm:w-auto" :disabled="busyKey === intent.intent_key" :aria-label="`Undo ${intentDisplayName(intent)}`" @click="undo(intent)">
               <Undo2 class="h-4 w-4" /> Undo
             </button>
           </div>
@@ -351,6 +353,14 @@ function formatDate(value: number | string) {
 
 function titleize(value: string) {
   return humanize(value).replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function profileDisplayName(profile: ProtectionProfileSummary) {
+  return profile.name === 'Emergency Protection' ? 'Emergency Protection Setup' : profile.name;
+}
+
+function intentDisplayName(intent: ProtectionIntentSummary) {
+  return intent.name === 'Emergency Protection' ? 'Emergency Protection Control' : intent.name;
 }
 
 function ruleEffect(rule: ProtectionGeneratedRule) {

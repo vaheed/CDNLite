@@ -59,6 +59,16 @@ const availableIntents = [
     intent: null,
     generated_rules: [],
   },
+  {
+    intent_key: 'emergency_protection',
+    name: 'Emergency Protection',
+    summary: 'Temporarily tightens site-wide limits and blocks common incident scanner patterns.',
+    risk: 'risky',
+    recommended_mode: 'confirm_first',
+    status: 'available',
+    intent: null,
+    generated_rules: [],
+  },
 ];
 
 const availableProfiles = [
@@ -79,6 +89,15 @@ const availableProfiles = [
     intent_keys: ['common_exploits', 'login_shield', 'wordpress_hardening', 'bot_shield', 'static_asset_performance'],
     status: 'enabled',
     profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'enabled', updated_at: 1710000000 },
+  },
+  {
+    profile_key: 'emergency',
+    name: 'Emergency Protection',
+    summary: 'High-friction temporary controls for active attacks.',
+    risk: 'risky',
+    intent_keys: ['emergency_protection', 'common_exploits', 'bot_shield'],
+    status: 'available',
+    profile: null,
   },
 ];
 
@@ -124,8 +143,12 @@ describe('DomainSecurityCenterTab', () => {
 
     await waitFor(() => expect(view.getByText('Basic Website')).toBeInTheDocument());
     await waitFor(() => expect(view.getByText('Common Exploit Protection')).toBeInTheDocument());
-    expect(view.getByText('One-click profiles')).toBeInTheDocument();
-    expect(view.getByText('Individual protections')).toBeInTheDocument();
+    expect(view.getByText('Recommended setups')).toBeInTheDocument();
+    expect(view.getByText('Apply a complete preset for a site type or situation.')).toBeInTheDocument();
+    expect(view.getByText('Protection controls')).toBeInTheDocument();
+    expect(view.getByText('Turn one specific protection on or off without applying a full setup.')).toBeInTheDocument();
+    expect(view.getByText('Emergency Protection Setup')).toBeInTheDocument();
+    expect(view.getByText('Emergency Protection Control')).toBeInTheDocument();
     expect(view.getAllByText('Safe').length).toBeGreaterThan(0);
     expect(view.getAllByText('Needs review').length).toBeGreaterThan(0);
     expect(view.getAllByText('2 generated rules').length).toBeGreaterThan(0);
