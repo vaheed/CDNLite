@@ -362,6 +362,8 @@ Protection intents are the beginner/simple API layer. Preview does not mutate st
 
 Protection profiles are one-click bundles over the same intent engine. One-click profiles compose protection intents for Basic Website, WordPress, API, SaaS App, E-commerce, and Emergency Protection presets. Preview returns the per-intent generated rules without mutating state. Apply creates or updates a profile record, enables the profile-owned intents, writes profile/audit history, stores rollback points, and invalidates edge config. Disable turns off the generated rules for intents owned by that profile while preserving the underlying advanced rules for inspection and rollback.
 
+Managed WAF presets add inspection metadata to generated WAF rules. WAF rules created by Security Center intents can include `waf_group_id`, `waf_severity`, `waf_confidence`, and `waf_safe_reason`; edge `waf_match` security events emit matching `group_id`, `severity`, `confidence`, and `safe_reason` fields so Activity can explain why a managed rule acted. These fields are additive metadata on the advanced WAF rule, so operators can still edit, detach, or override the generated rule.
+
 The dashboard exposes these APIs through each domain's Security Center tab. That tab is the simple-mode entry point for outcome-based protection, while the WAF, Rate Limits, Cache, Headers, and IP Access tabs remain the advanced inspection and override surfaces for generated rules.
 
 Traffic-rule rollout strategy:

@@ -22,6 +22,10 @@ local function append_security_event(domain_id)
     type = t,
     action = tostring(ngx.ctx.security_action or ''),
     rule_id = tostring(ngx.ctx.security_rule_id or ''),
+    group_id = tostring(ngx.ctx.security_group_id or ''),
+    severity = tostring(ngx.ctx.security_severity or ''),
+    confidence = tostring(ngx.ctx.security_confidence or ''),
+    safe_reason = tostring(ngx.ctx.security_safe_reason or ''),
     path = tostring(ngx.var.uri or '/'),
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
@@ -161,6 +165,10 @@ local function apply_waf(cfg, host)
       ngx.ctx.security_event_type = 'waf_match'
       ngx.ctx.security_rule_id = tostring(rule.id or '')
       ngx.ctx.security_action = tostring(rule.action or 'block')
+      ngx.ctx.security_group_id = tostring(rule.waf_group_id or '')
+      ngx.ctx.security_severity = tostring(rule.waf_severity or '')
+      ngx.ctx.security_confidence = tostring(rule.waf_confidence or '')
+      ngx.ctx.security_safe_reason = tostring(rule.waf_safe_reason or '')
       if ngx.ctx.security_action == 'allow' then
         return true
       end

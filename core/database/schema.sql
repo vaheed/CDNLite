@@ -527,6 +527,10 @@ CREATE TABLE IF NOT EXISTS waf_rules (
   pattern TEXT NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
   description TEXT NULL,
+  waf_group_id TEXT NULL,
+  waf_severity TEXT NULL,
+  waf_confidence TEXT NULL,
+  waf_safe_reason TEXT NULL,
   profile_id TEXT NULL,
   intent_id TEXT NULL,
   template_key TEXT NULL,
@@ -681,6 +685,10 @@ ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS managed_by TEXT NULL;
 ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS user_modified BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS last_generated_at BIGINT NULL;
 ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS last_applied_at BIGINT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS waf_group_id TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS waf_severity TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS waf_confidence TEXT NULL;
+ALTER TABLE waf_rules ADD COLUMN IF NOT EXISTS waf_safe_reason TEXT NULL;
 
 ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS profile_id TEXT NULL;
 ALTER TABLE rate_limit_rules ADD COLUMN IF NOT EXISTS intent_id TEXT NULL;

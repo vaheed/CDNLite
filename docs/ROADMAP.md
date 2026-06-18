@@ -801,6 +801,10 @@ Phase 10: Add one-click protection profiles. Implement Basic Website, WordPress,
 
 ## Phase 11 — Managed WAF Presets
 
+### Status
+
+Partially completed.
+
 ### Goal
 
 Make WAF usable through simple “Block exploits” controls while preserving detailed WAF rule control.
@@ -868,6 +872,16 @@ WAF events must include:
 - XSS payload is logged in log-only mode.
 - Path exception only bypasses intended path.
 - WAF event appears in Activity.
+
+### Progress Notes
+
+- Date: 2026-06-18
+- Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/app/Modules/Collector/Services/CollectorService.php`, `core/database/migrations/000007_managed_waf_metadata.sql`, `core/database/schema.sql`, `edge/openresty/lua/router.lua`, `core/tests/test_phase11_managed_waf_presets_contract.py`, `docs/api/api.md`, `docs/ROADMAP.md`.
+- Behavior added: generated WAF rules now carry managed preset metadata for group, severity, confidence, and safe reason; edge `waf_match` events include the same context for Activity ingestion.
+- Tests added/updated: Phase 11 contract coverage for managed WAF metadata, schema migration, edge event fields, collector persistence, and docs tracking.
+- Validation commands run: `php -l core/app/Modules/Proxy/Services/TrafficRulesService.php`; `php -l core/app/Modules/Collector/Services/CollectorService.php`; `find core -name '*.php' -print0 | xargs -0 -n1 php -l`; `pytest -q core/tests/test_phase11_managed_waf_presets_contract.py core/tests/test_migrations_contract.py`; `pytest -q core/tests/test_phase8_protection_contract.py core/tests/test_phase9_security_center_contract.py core/tests/test_phase10_protection_profiles_contract.py core/tests/test_phase11_managed_waf_presets_contract.py`; `docker compose config --quiet`; `npm run docs:build` in `docs/`; `git diff --check`.
+- Commands not run and why: dashboard typecheck/tests/build were not run because this slice changed no dashboard code or types; OpenAPI validation was not run because no route or schema contract changed; live smoke/e2e were not run because this was a small metadata/event enrichment slice and the root stack was not started.
+- Remaining blockers: full managed WAF group catalog, exceptions, mode switching, learning/log-only workflows, dashboard group statistics, and payload-level edge tests still need dedicated slices.
 
 ### IDE Prompt
 
