@@ -86,6 +86,21 @@ export interface ProtectionIntentPreview {
 export interface ProtectionIntentMutationResult {
   intent: ProtectionIntentRecord; rules: ProtectionGeneratedRule[]; rollback_point_id?: Id;
 }
+export interface ProtectionProfileRecord {
+  id: Id; domain_id?: Id; profile_key: string; name: string; status: string;
+  settings?: Record<string, unknown>; created_at?: number; updated_at?: number;
+}
+export interface ProtectionProfileSummary {
+  profile_key: string; name: string; summary: string; risk: ProtectionRisk; intent_keys: string[];
+  status: string; profile?: ProtectionProfileRecord | null;
+}
+export interface ProtectionProfilePreview {
+  profile_key: string; name: string; risk: ProtectionRisk; intent_keys: string[];
+  intents: ProtectionIntentPreview[]; mutates: boolean;
+}
+export interface ProtectionProfileMutationResult {
+  profile: ProtectionProfileRecord | null; intents: ProtectionIntentMutationResult[];
+}
 export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }

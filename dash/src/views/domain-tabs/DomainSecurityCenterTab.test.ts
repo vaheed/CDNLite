@@ -3,6 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DomainSecurityCenterTab from './DomainSecurityCenterTab.vue';
 
 const protectionApiMock = vi.hoisted(() => ({
+  listProfiles: vi.fn(),
+  previewProfile: vi.fn(),
+  applyProfile: vi.fn(),
+  disableProfile: vi.fn(),
   listIntents: vi.fn(),
   previewIntent: vi.fn(),
   enableIntent: vi.fn(),
@@ -37,10 +41,51 @@ const availableIntents = [
   },
 ];
 
+const availableProfiles = [
+  {
+    profile_key: 'basic_website',
+    name: 'Basic Website',
+    summary: 'Safe starter protection and static asset caching for a typical site.',
+    risk: 'safe',
+    intent_keys: ['common_exploits', 'static_asset_performance'],
+    status: 'available',
+    profile: null,
+  },
+  {
+    profile_key: 'wordpress',
+    name: 'WordPress',
+    summary: 'Common exploit, login, scanner, and static asset protections for WordPress.',
+    risk: 'moderate',
+    intent_keys: ['common_exploits', 'login_shield', 'bot_shield', 'static_asset_performance'],
+    status: 'enabled',
+    profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'enabled' },
+  },
+];
+
 describe('DomainSecurityCenterTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    protectionApiMock.listProfiles.mockResolvedValue(availableProfiles);
     protectionApiMock.listIntents.mockResolvedValue(availableIntents);
+    protectionApiMock.previewProfile.mockResolvedValue({
+      profile_key: 'basic_website',
+      name: 'Basic Website',
+      risk: 'safe',
+      intent_keys: ['common_exploits', 'static_asset_performance'],
+      mutates: false,
+      intents: [
+        {
+          intent_key: 'common_exploits',
+          name: 'Common Exploit Protection',
+          mode: 'recommended',
+          risk: 'safe',
+          mutates: false,
+          rules: [{ rule_table: 'waf_rules', template_key: 'waf_path_traversal', payload: { action: 'block', pattern: '../' } }],
+        },
+      ],
+    });
+    protectionApiMock.applyProfile.mockResolvedValue({ profile: { id: 'profile-basic', profile_key: 'basic_website', name: 'Basic Website', status: 'enabled' }, intents: [] });
+    protectionApiMock.disableProfile.mockResolvedValue({ profile: { id: 'profile-wordpress', profile_key: 'wordpress', name: 'WordPress', status: 'disabled' }, intents: [] });
     protectionApiMock.previewIntent.mockResolvedValue({
       intent_key: 'common_exploits',
       name: 'Common Exploit Protection',
@@ -57,10 +102,55 @@ describe('DomainSecurityCenterTab', () => {
   it('shows beginner protection cards with safe and risky labels', async () => {
     const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
 
+    await waitFor(() => expect(view.getByText('Basic Website')).toBeInTheDocument());
     await waitFor(() => expect(view.getByText('Common Exploit Protection')).toBeInTheDocument());
-    expect(view.getByText('Safe')).toBeInTheDocument();
-    expect(view.getByText('Needs review')).toBeInTheDocument();
+    expect(view.getAllByText('Safe').length).toBeGreaterThan(0);
+    expect(view.getAllByText('Needs review').length).toBeGreaterThan(0);
     expect(view.getByText('2 generated rules')).toBeInTheDocument();
+  });
+
+  it('previews, applies, and disables one-click profiles', async () => {
+    const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
+
+    await waitFor(() => expect(view.getByRole('button', { name: /preview basic website/i })).toBeInTheDocument());
+    await fireEvent.click(view.getByRole('button', { name: /preview basic website/i }));
+    await waitFor(() => expect(protectionApiMock.previewProfile).toHaveBeenCalledWith('domain-1', 'basic_website'));
+    expect(view.getByRole('dialog', { name: /basic website preview/i })).toBeInTheDocument();
+    expect(view.getByText('waf_path_traversal')).toBeInTheDocument();
+
+    await fireEvent.click(view.getByRole('button', { name: /apply basic website/i }));
+    expect(protectionApiMock.applyProfile).toHaveBeenCalledWith('domain-1', 'basic_website');
+
+    await fireEvent.click(view.getByRole('button', { name: /disable wordpress/i }));
+    expect(protectionApiMock.disableProfile).toHaveBeenCalledWith('domain-1', 'profile-wordpress');
+  });
+
+  it('opens WordPress preview in a modal instead of appending it to the page', async () => {
+    protectionApiMock.previewProfile.mockResolvedValueOnce({
+      profile_key: 'wordpress',
+      name: 'WordPress',
+      risk: 'moderate',
+      intent_keys: ['common_exploits', 'login_shield'],
+      mutates: false,
+      intents: [
+        {
+          intent_key: 'login_shield',
+          name: 'Login Shield',
+          mode: 'recommended',
+          risk: 'moderate',
+          mutates: false,
+          rules: [{ rule_table: 'rate_limit_rules', template_key: 'rate_wp_login', payload: { action: 'block', path_prefix: '/wp-login.php' } }],
+        },
+      ],
+    });
+    const view = render(DomainSecurityCenterTab, { props: { domainId: 'domain-1' } });
+
+    await waitFor(() => expect(view.getByRole('button', { name: /preview wordpress/i })).toBeInTheDocument());
+    await fireEvent.click(view.getByRole('button', { name: /preview wordpress/i }));
+
+    await waitFor(() => expect(protectionApiMock.previewProfile).toHaveBeenCalledWith('domain-1', 'wordpress'));
+    expect(view.getByRole('dialog', { name: /wordpress preview/i })).toBeInTheDocument();
+    expect(view.getByText('rate_wp_login')).toBeInTheDocument();
   });
 
   it('previews and enables an available intent without mutating during preview', async () => {
@@ -70,6 +160,7 @@ describe('DomainSecurityCenterTab', () => {
     await fireEvent.click(view.getByRole('button', { name: /preview common exploit protection/i }));
 
     await waitFor(() => expect(protectionApiMock.previewIntent).toHaveBeenCalledWith('domain-1', 'common_exploits'));
+    expect(view.getByRole('dialog', { name: /common exploit protection preview/i })).toBeInTheDocument();
     expect(view.getByText('waf_path_traversal')).toBeInTheDocument();
 
     await fireEvent.click(view.getByRole('button', { name: /enable common exploit protection/i }));

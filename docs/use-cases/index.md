@@ -57,7 +57,7 @@ Watch:
 
 ## Simple Protection Setup
 
-Use a domain's Security Center when the operator wants outcomes such as common exploit protection, login protection, API protection, smart rate limiting, bot protection, emergency protection, or static asset performance without writing WAF, rate-limit, or cache rules by hand. The Security Center previews generated technical rules before enabling an intent, while the advanced tabs remain available for advanced inspection, detach, edit, and override workflows.
+Use a domain's Security Center when the operator wants outcomes such as a Basic Website, WordPress, API, SaaS App, E-commerce, or Emergency Protection profile without writing WAF, rate-limit, or cache rules by hand. Profiles compose the same protection intents used by the simple controls, and the Security Center previews generated technical rules before enabling a profile or individual intent. The advanced tabs remain available for advanced inspection, detach, edit, and override workflows.
 
 ## Certificate Workflow Testing
 

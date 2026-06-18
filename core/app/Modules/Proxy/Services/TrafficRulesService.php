@@ -653,7 +653,7 @@ class TrafficRulesService
 
     public function listProtectionIntents(string $domainId): array {
         $templates = $this->protectionIntentTemplates();
-        $rows = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id ORDER BY created_at ASC');
+        $rows = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND profile_id IS NULL ORDER BY created_at ASC');
         $rows->execute([':domain_id' => $domainId]);
         $saved = [];
         foreach ($rows->fetchAll() as $row) {
@@ -678,6 +678,83 @@ class TrafficRulesService
         return $out;
     }
 
+    public function listProtectionProfiles(string $domainId): array {
+        $templates = $this->protectionProfileTemplates();
+        $rows = Database::pdo()->prepare('SELECT * FROM protection_profiles WHERE domain_id=:domain_id ORDER BY created_at ASC');
+        $rows->execute([':domain_id' => $domainId]);
+        $saved = [];
+        foreach ($rows->fetchAll() as $row) {
+            $cast = $this->castProtectionProfile((array) $row);
+            $saved[(string) $cast['profile_key']] = $cast;
+        }
+
+        $out = [];
+        foreach ($templates as $key => $template) {
+            $profile = $saved[$key] ?? null;
+            $out[] = [
+                'profile_key' => $key,
+                'name' => $template['name'],
+                'summary' => $template['summary'],
+                'risk' => $template['risk'],
+                'intent_keys' => $template['intent_keys'],
+                'status' => $profile['status'] ?? 'available',
+                'profile' => $profile,
+            ];
+        }
+        return $out;
+    }
+
+    public function previewProtectionProfile(string $domainId, string $profileKey, array $input = []): array {
+        $template = $this->protectionProfileTemplate($profileKey);
+        $intents = [];
+        foreach ($template['intent_keys'] as $intentKey) {
+            $intents[] = $this->previewProtectionIntent($domainId, (string) $intentKey, $input);
+        }
+        return [
+            'profile_key' => $profileKey,
+            'name' => $template['name'],
+            'risk' => $template['risk'],
+            'intent_keys' => $template['intent_keys'],
+            'intents' => $intents,
+            'mutates' => false,
+        ];
+    }
+
+    public function applyProtectionProfile(string $domainId, string $profileKey, array $input = []): array {
+        $template = $this->protectionProfileTemplate($profileKey);
+        $profile = $this->upsertProtectionProfile($domainId, $profileKey, $template, 'enabled');
+        $before = $profile;
+        $results = [];
+        foreach ($template['intent_keys'] as $intentKey) {
+            $results[] = $this->enableProtectionIntentForProfile($domainId, (string) $intentKey, (string) $profile['id'], $template, $input);
+        }
+        $after = ['profile' => $this->getProtectionProfile($domainId, (string) $profile['id']), 'intents' => $results];
+        $this->recordProfileChange($domainId, (string) $profile['id'], null, 'protection_profile.apply', $before, $after);
+        AuditLog::write('protection_profile.apply', 'protection_profile', (string) $profile['id'], $domainId, $before, $after);
+        $this->invalidateConfigSnapshot();
+        return $after;
+    }
+
+    public function disableProtectionProfile(string $domainId, string $profileId, array $input = []): ?array {
+        $profile = $this->getProtectionProfile($domainId, $profileId);
+        if ($profile === null) {
+            return null;
+        }
+        $rows = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND profile_id=:profile_id ORDER BY created_at ASC');
+        $rows->execute([':domain_id' => $domainId, ':profile_id' => $profileId]);
+        $results = [];
+        foreach ($rows->fetchAll() as $row) {
+            $results[] = $this->disableProtectionIntentForProfile($domainId, (string) $row['id'], $profileId, $input);
+        }
+        Database::pdo()->prepare('UPDATE protection_profiles SET status=:status,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id')
+            ->execute([':status' => 'disabled', ':updated_at' => time(), ':id' => $profileId, ':domain_id' => $domainId]);
+        $after = ['profile' => $this->getProtectionProfile($domainId, $profileId), 'intents' => $results];
+        $this->recordProfileChange($domainId, $profileId, null, 'protection_profile.disable', $profile, $after);
+        AuditLog::write('protection_profile.disable', 'protection_profile', $profileId, $domainId, $profile, $after);
+        $this->invalidateConfigSnapshot();
+        return $after;
+    }
+
     public function previewProtectionIntent(string $domainId, string $intentKey, array $input = []): array {
         $template = $this->protectionIntentTemplate($intentKey);
         return [
@@ -691,16 +768,23 @@ class TrafficRulesService
     }
 
     public function enableProtectionIntent(string $domainId, string $intentKey, array $input = []): array {
+        return $this->enableProtectionIntentForProfile($domainId, $intentKey, null, null, $input);
+    }
+
+    private function enableProtectionIntentForProfile(string $domainId, string $intentKey, ?string $profileId, ?array $profileTemplate, array $input = []): array {
         $template = $this->protectionIntentTemplate($intentKey);
+        if ($profileTemplate !== null) {
+            $template['name'] = (string) $template['name'] . ' (' . (string) $profileTemplate['name'] . ')';
+        }
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
-            $intent = $this->upsertProtectionIntent($domainId, $intentKey, $template, $input, 'enabled');
+            $intent = $this->upsertProtectionIntent($domainId, $intentKey, $template, $input, 'enabled', $profileId);
             $this->assertManagedRulesCanBeRegenerated($domainId, (string) $intent['id'], !empty($input['confirm_overwrite']));
-            $rollbackId = $this->createRollbackPoint($domainId, (string) $intent['id'], 'Before enabling ' . $template['name']);
-            $rules = $this->applyGeneratedRules($domainId, (string) $intent['id'], $intentKey, $input);
+            $rollbackId = $this->createRollbackPoint($domainId, (string) $intent['id'], 'Before enabling ' . $template['name'], $profileId);
+            $rules = $this->applyGeneratedRules($domainId, (string) $intent['id'], $intentKey, $profileId, $input, $profileTemplate);
             $after = ['intent' => $this->getProtectionIntent($domainId, (string) $intent['id']), 'rules' => $rules, 'rollback_point_id' => $rollbackId];
-            $this->recordProfileChange($domainId, null, (string) $intent['id'], 'protection_intent.enable', null, $after);
+            $this->recordProfileChange($domainId, $profileId, (string) $intent['id'], 'protection_intent.enable', null, $after);
             AuditLog::write('protection_intent.enable', 'protection_intent', (string) $intent['id'], $domainId, null, $after);
             $pdo->commit();
             return $after;
@@ -711,6 +795,10 @@ class TrafficRulesService
     }
 
     public function disableProtectionIntent(string $domainId, string $intentId, array $input = []): ?array {
+        return $this->disableProtectionIntentForProfile($domainId, $intentId, null, $input);
+    }
+
+    private function disableProtectionIntentForProfile(string $domainId, string $intentId, ?string $profileId, array $input = []): ?array {
         $intent = $this->getProtectionIntent($domainId, $intentId);
         if ($intent === null) {
             return null;
@@ -719,7 +807,7 @@ class TrafficRulesService
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
-            $rollbackId = $this->createRollbackPoint($domainId, $intentId, 'Before disabling ' . (string) $intent['name']);
+            $rollbackId = $this->createRollbackPoint($domainId, $intentId, 'Before disabling ' . (string) $intent['name'], $profileId);
             $now = time();
             foreach ($this->managedRulesForIntent($domainId, $intentId) as $link) {
                 $table = (string) $link['rule_table'];
@@ -730,7 +818,7 @@ class TrafficRulesService
             Database::pdo()->prepare('UPDATE protection_intents SET status=:status,updated_at=:updated_at WHERE id=:id AND domain_id=:domain_id')
                 ->execute([':status' => 'disabled', ':updated_at' => $now, ':id' => $intentId, ':domain_id' => $domainId]);
             $after = ['intent' => $this->getProtectionIntent($domainId, $intentId), 'rules' => $this->managedRulesForIntent($domainId, $intentId), 'rollback_point_id' => $rollbackId];
-            $this->recordProfileChange($domainId, null, $intentId, 'protection_intent.disable', $intent, $after);
+            $this->recordProfileChange($domainId, $profileId, $intentId, 'protection_intent.disable', $intent, $after);
             AuditLog::write('protection_intent.disable', 'protection_intent', $intentId, $domainId, $intent, $after);
             $this->invalidateConfigSnapshot();
             $pdo->commit();
@@ -898,6 +986,23 @@ class TrafficRulesService
         }
         return $templates[$intentKey];
     }
+    private function protectionProfileTemplates(): array {
+        return [
+            'basic_website' => ['name' => 'Basic Website', 'summary' => 'Safe starter protection and static asset caching for a typical site.', 'risk' => 'safe', 'intent_keys' => ['common_exploits', 'static_asset_performance']],
+            'wordpress' => ['name' => 'WordPress', 'summary' => 'Common exploit, login, scanner, and static asset protections for WordPress.', 'risk' => 'moderate', 'intent_keys' => ['common_exploits', 'login_shield', 'bot_shield', 'static_asset_performance']],
+            'api' => ['name' => 'API', 'summary' => 'API path protection with rate limits and method-probe logging.', 'risk' => 'moderate', 'intent_keys' => ['protect_api', 'smart_rate_limiting', 'common_exploits']],
+            'saas_app' => ['name' => 'SaaS App', 'summary' => 'Login, API, and suspicious automation protection for application dashboards.', 'risk' => 'moderate', 'intent_keys' => ['login_shield', 'protect_api', 'bot_shield']],
+            'ecommerce' => ['name' => 'E-commerce', 'summary' => 'Protects login, checkout-adjacent traffic, and suspicious bots.', 'risk' => 'moderate', 'intent_keys' => ['login_shield', 'bot_shield', 'smart_rate_limiting']],
+            'emergency' => ['name' => 'Emergency Protection', 'summary' => 'High-friction temporary controls for active attacks.', 'risk' => 'risky', 'intent_keys' => ['emergency_protection', 'common_exploits', 'bot_shield']],
+        ];
+    }
+    private function protectionProfileTemplate(string $profileKey): array {
+        $templates = $this->protectionProfileTemplates();
+        if (!isset($templates[$profileKey])) {
+            throw new \InvalidArgumentException('unknown_profile');
+        }
+        return $templates[$profileKey];
+    }
     private function generatedRulesForIntent(string $domainId, string $intentKey, ?string $intentId, ?string $profileId, array $input): array {
         $template = $this->protectionIntentTemplate($intentKey);
         $now = time();
@@ -920,22 +1025,22 @@ class TrafficRulesService
         }
         return $rules;
     }
-    private function upsertProtectionIntent(string $domainId, string $intentKey, array $template, array $input, string $status): array {
+    private function upsertProtectionIntent(string $domainId, string $intentKey, array $template, array $input, string $status, ?string $profileId = null): array {
         $now = time();
         $settings = json_encode($input['settings'] ?? [], JSON_UNESCAPED_SLASHES);
-        $existing = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND intent_key=:intent_key ORDER BY created_at DESC LIMIT 1');
-        $existing->execute([':domain_id' => $domainId, ':intent_key' => $intentKey]);
+        $existing = Database::pdo()->prepare('SELECT * FROM protection_intents WHERE domain_id=:domain_id AND intent_key=:intent_key AND profile_id IS NOT DISTINCT FROM :profile_id ORDER BY created_at DESC LIMIT 1');
+        $existing->execute([':domain_id' => $domainId, ':intent_key' => $intentKey, ':profile_id' => $profileId]);
         $row = $existing->fetch();
         if ($row) {
-            Database::pdo()->prepare('UPDATE protection_intents SET name=:name,status=:status,mode=:mode,settings_json=:settings_json,updated_at=:updated_at WHERE id=:id')
-                ->execute([':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':updated_at' => $now, ':id' => (string) $row['id']]);
+            Database::pdo()->prepare('UPDATE protection_intents SET profile_id=:profile_id,name=:name,status=:status,mode=:mode,settings_json=:settings_json,updated_at=:updated_at WHERE id=:id')
+                ->execute([':profile_id' => $profileId, ':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':updated_at' => $now, ':id' => (string) $row['id']]);
             return $this->getProtectionIntent($domainId, (string) $row['id']) ?? [];
         }
         $id = Uuid::v4();
         Database::pdo()->prepare(
             'INSERT INTO protection_intents (id,domain_id,profile_id,intent_key,name,status,mode,settings_json,created_at,updated_at)
-             VALUES (:id,:domain_id,NULL,:intent_key,:name,:status,:mode,:settings_json,:created_at,:updated_at)'
-        )->execute([':id' => $id, ':domain_id' => $domainId, ':intent_key' => $intentKey, ':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':created_at' => $now, ':updated_at' => $now]);
+             VALUES (:id,:domain_id,:profile_id,:intent_key,:name,:status,:mode,:settings_json,:created_at,:updated_at)'
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':profile_id' => $profileId, ':intent_key' => $intentKey, ':name' => $template['name'], ':status' => $status, ':mode' => (string) ($input['mode'] ?? $template['mode']), ':settings_json' => $settings, ':created_at' => $now, ':updated_at' => $now]);
         return $this->getProtectionIntent($domainId, $id) ?? [];
     }
     private function getProtectionIntent(string $domainId, string $intentId): ?array {
@@ -944,9 +1049,39 @@ class TrafficRulesService
         $row = $q->fetch();
         return $row ? $this->castProtectionIntent((array) $row) : null;
     }
-    private function applyGeneratedRules(string $domainId, string $intentId, string $intentKey, array $input): array {
+    private function upsertProtectionProfile(string $domainId, string $profileKey, array $template, string $status): array {
+        $now = time();
+        $settings = json_encode(['intent_keys' => $template['intent_keys']], JSON_UNESCAPED_SLASHES);
+        $existing = Database::pdo()->prepare('SELECT * FROM protection_profiles WHERE domain_id=:domain_id AND profile_key=:profile_key LIMIT 1');
+        $existing->execute([':domain_id' => $domainId, ':profile_key' => $profileKey]);
+        $row = $existing->fetch();
+        if ($row) {
+            Database::pdo()->prepare('UPDATE protection_profiles SET name=:name,status=:status,settings_json=:settings_json,updated_at=:updated_at WHERE id=:id')
+                ->execute([':name' => $template['name'], ':status' => $status, ':settings_json' => $settings, ':updated_at' => $now, ':id' => (string) $row['id']]);
+            return $this->getProtectionProfile($domainId, (string) $row['id']) ?? [];
+        }
+        $id = Uuid::v4();
+        Database::pdo()->prepare(
+            'INSERT INTO protection_profiles (id,domain_id,profile_key,name,status,settings_json,created_at,updated_at)
+             VALUES (:id,:domain_id,:profile_key,:name,:status,:settings_json,:created_at,:updated_at)'
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':profile_key' => $profileKey, ':name' => $template['name'], ':status' => $status, ':settings_json' => $settings, ':created_at' => $now, ':updated_at' => $now]);
+        return $this->getProtectionProfile($domainId, $id) ?? [];
+    }
+    private function getProtectionProfile(string $domainId, string $profileId): ?array {
+        $q = Database::pdo()->prepare('SELECT * FROM protection_profiles WHERE domain_id=:domain_id AND id=:id LIMIT 1');
+        $q->execute([':domain_id' => $domainId, ':id' => $profileId]);
+        $row = $q->fetch();
+        return $row ? $this->castProtectionProfile((array) $row) : null;
+    }
+    private function applyGeneratedRules(string $domainId, string $intentId, string $intentKey, ?string $profileId, array $input, ?array $profileTemplate = null): array {
         $applied = [];
         foreach ($this->generatedRulesForIntent($domainId, $intentKey, $intentId, null, $input) as $rule) {
+            if ($profileTemplate !== null) {
+                $rule['payload'] = array_replace($rule['payload'], [
+                    'profile_id' => $profileId,
+                    'managed_by' => $profileTemplate['name'],
+                ]);
+            }
             $table = (string) $rule['rule_table'];
             $templateKey = (string) $rule['template_key'];
             $existing = $this->findManagedRule($domainId, $intentId, $table, $templateKey);
@@ -1021,7 +1156,7 @@ class TrafficRulesService
             }
         }
     }
-    private function createRollbackPoint(string $domainId, string $intentId, string $label): string {
+    private function createRollbackPoint(string $domainId, string $intentId, string $label, ?string $profileId = null): string {
         $id = Uuid::v4();
         $snapshot = ['intent' => $this->getProtectionIntent($domainId, $intentId), 'rules' => []];
         foreach ($this->managedRulesForIntent($domainId, $intentId) as $link) {
@@ -1030,8 +1165,8 @@ class TrafficRulesService
         }
         Database::pdo()->prepare(
             'INSERT INTO profile_rollback_points (id,domain_id,profile_id,intent_id,label,snapshot_json,created_at)
-             VALUES (:id,:domain_id,NULL,:intent_id,:label,:snapshot_json,:created_at)'
-        )->execute([':id' => $id, ':domain_id' => $domainId, ':intent_id' => $intentId, ':label' => $label, ':snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_SLASHES), ':created_at' => time()]);
+             VALUES (:id,:domain_id,:profile_id,:intent_id,:label,:snapshot_json,:created_at)'
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':profile_id' => $profileId, ':intent_id' => $intentId, ':label' => $label, ':snapshot_json' => json_encode($snapshot, JSON_UNESCAPED_SLASHES), ':created_at' => time()]);
         return $id;
     }
     private function recordProfileChange(string $domainId, ?string $profileId, ?string $intentId, string $action, mixed $before, mixed $after): void {
@@ -1041,6 +1176,16 @@ class TrafficRulesService
         )->execute([':id' => Uuid::v4(), ':domain_id' => $domainId, ':profile_id' => $profileId, ':intent_id' => $intentId, ':action' => $action, ':before_json' => json_encode($before, JSON_UNESCAPED_SLASHES), ':after_json' => json_encode($after, JSON_UNESCAPED_SLASHES), ':created_at' => time()]);
     }
     private function castProtectionIntent(array $r): array {
+        foreach (['created_at', 'updated_at'] as $i) {
+            if (isset($r[$i])) {
+                $r[$i] = (int) $r[$i];
+            }
+        }
+        $r['settings'] = isset($r['settings_json']) ? (json_decode((string) $r['settings_json'], true) ?: []) : [];
+        unset($r['settings_json']);
+        return $r;
+    }
+    private function castProtectionProfile(array $r): array {
         foreach (['created_at', 'updated_at'] as $i) {
             if (isset($r[$i])) {
                 $r[$i] = (int) $r[$i];

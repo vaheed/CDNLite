@@ -414,8 +414,9 @@ record_step PASS "dashboard-static-asset-cache" "Vue dashboard static asset cach
 dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1${asset_path}")"
 assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include Security Center tab"
 assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
+assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle should include Protection profile APIs"
 assert_contains "$dashboard_asset" "Preview only shows the technical rules" "dashboard bundle should include intent preview copy"
-record_step PASS "dashboard-security-center-bundle" "Security Center tab and Protection intent APIs are present in the built dashboard"
+record_step PASS "dashboard-security-center-bundle" "Security Center tab and Protection profile/intent APIs are present in the built dashboard"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" '{"name":"e2e-domain-updated"}'
 assert_http_status "$HTTP_CODE" "200" "domain update failed"
@@ -514,6 +515,47 @@ api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${MANAGED_WAF_RULE
 assert_http_status "$HTTP_CODE" "200" "detached managed waf delete failed"
 record_step PASS "waf-managed-contract" "ownership metadata, user_modified, detach, audit link, and cleanup verified"
 
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/profiles"
+assert_http_status "$HTTP_CODE" "200" "protection profile list failed"
+assert_contains "$HTTP_BODY" '"profile_key":"basic_website"' "basic website profile missing from list"
+assert_contains "$HTTP_BODY" '"profile_key":"wordpress"' "wordpress profile missing from list"
+record_step PASS "protection-profile-list" "available one-click protection profiles listed"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/profiles/basic_website/preview" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection profile preview failed"
+assert_contains "$HTTP_BODY" '"intent_key":"common_exploits"' "profile preview should include common exploit intent"
+assert_contains "$HTTP_BODY" '"intent_key":"static_asset_performance"' "profile preview should include static asset intent"
+profile_preview_mutation_count="$(db_query "SELECT COUNT(*) FROM protection_profiles WHERE domain_id='${DOMAIN_ID}' AND profile_key='basic_website';")"
+assert_eq "$profile_preview_mutation_count" "0" "protection profile preview should not persist a profile"
+record_step PASS "protection-profile-preview" "one-click profile preview is non-mutating"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/profiles/basic_website/apply" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection profile apply failed"
+PROTECTION_PROFILE_ID="$(json_get "$HTTP_BODY" '.data.profile.id')"
+assert_contains "$HTTP_BODY" '"profile_key":"basic_website"' "applied profile should report profile key"
+assert_contains "$HTTP_BODY" '"status":"enabled"' "applied profile should report enabled status"
+assert_contains "$HTTP_BODY" '"managed_by":"Basic Website"' "profile-generated rules should expose profile ownership"
+profile_intent_count="$(db_query "SELECT COUNT(*) FROM protection_intents WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}' AND status='enabled';")"
+assert_eq "$profile_intent_count" "2" "basic website profile should enable two owned intents"
+profile_rule_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}' AND detached_at IS NULL;")"
+assert_eq "$profile_rule_count" "3" "basic website profile should create three managed rule links"
+profile_history_count="$(db_query "SELECT COUNT(*) FROM profile_change_history WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}' AND action='protection_profile.apply';")"
+assert_eq "$profile_history_count" "1" "profile apply should write profile change history"
+profile_rollback_count="$(db_query "SELECT COUNT(*) FROM profile_rollback_points WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}';")"
+assert_eq "$profile_rollback_count" "2" "profile apply should create rollback points for owned intents"
+record_step PASS "protection-profile-apply" "one-click profile apply generated owned intents, rules, history, and rollback"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/profiles/${PROTECTION_PROFILE_ID}/disable" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection profile disable failed"
+assert_contains "$HTTP_BODY" '"status":"disabled"' "disabled profile should report disabled status"
+profile_disabled_intent_count="$(db_query "SELECT COUNT(*) FROM protection_intents WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}' AND status='disabled';")"
+assert_eq "$profile_disabled_intent_count" "2" "profile disable should disable owned intents"
+profile_disabled_rule_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links l JOIN waf_rules w ON w.id=l.rule_id WHERE l.domain_id='${DOMAIN_ID}' AND l.profile_id='${PROTECTION_PROFILE_ID}' AND l.rule_table='waf_rules' AND w.enabled IS FALSE;")"
+assert_eq "$profile_disabled_rule_count" "2" "profile disable should turn off owned waf rules"
+profile_disable_history_count="$(db_query "SELECT COUNT(*) FROM profile_change_history WHERE domain_id='${DOMAIN_ID}' AND profile_id='${PROTECTION_PROFILE_ID}' AND action='protection_profile.disable';")"
+assert_eq "$profile_disable_history_count" "1" "profile disable should write profile change history"
+record_step PASS "protection-profile-disable" "one-click profile disable turns off owned generated rules and records history"
+
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents"
 assert_http_status "$HTTP_CODE" "200" "protection intent list failed"
 assert_contains "$HTTP_BODY" '"intent_key":"common_exploits"' "common exploit intent missing from list"
@@ -524,7 +566,7 @@ api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_expl
 assert_http_status "$HTTP_CODE" "200" "protection intent preview failed"
 assert_contains "$HTTP_BODY" '"rule_table":"waf_rules"' "preview should include generated waf rules"
 assert_contains "$HTTP_BODY" '"template_key":"waf_path_traversal"' "preview should include traversal template"
-preview_mutation_count="$(db_query "SELECT COUNT(*) FROM protection_intents WHERE domain_id='${DOMAIN_ID}' AND intent_key='common_exploits';")"
+preview_mutation_count="$(db_query "SELECT COUNT(*) FROM protection_intents WHERE domain_id='${DOMAIN_ID}' AND intent_key='common_exploits' AND profile_id IS NULL;")"
 assert_eq "$preview_mutation_count" "0" "protection preview should not persist an intent"
 record_step PASS "protection-intent-preview" "generated-rule preview is non-mutating"
 

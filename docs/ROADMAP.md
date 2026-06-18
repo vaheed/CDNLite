@@ -767,6 +767,12 @@ Emergency Protection:
 - Emergency profile can be reverted.
 - User-modified rule conflict shows confirmation.
 
+### Progress Notes
+
+- Backend profile templates and list/preview/apply/disable endpoints are wired through the traffic-rules controller and public router.
+- Profile apply composes the existing protection intent engine, stores profile ownership on generated rules, writes profile/audit history, creates rollback points, and preserves user-modified rule conflict checks with `confirm_overwrite`.
+- Smoke checks verify profile schema and dashboard profile API references. E2E now lists, previews, applies, and disables the Basic Website profile against live PostgreSQL-backed rules.
+
 ### IDE Prompt
 
 ```text

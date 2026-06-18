@@ -428,6 +428,19 @@ $router->add('DELETE', '/api/v1/domains/{domainId}/redirects/{ruleId}', static f
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/import', static fn (Request $req, array $p) => Response::json($rulesController->importRedirects((string) $p['domainId'], $req->body)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/redirects/export', static fn (Request $req, array $p) => Response::json($rulesController->exportRedirects((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Request $req, array $p) => Response::json($rulesController->testRedirect((string) $p['domainId'], $req->body)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/protection/profiles', static fn (Request $req, array $p) => Response::json($rulesController->listProtectionProfiles((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->previewProtectionProfile((string) $p['domainId'], (string) $p['profileKey'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/profiles/{profileKey}/apply', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->applyProtectionProfile((string) $p['domainId'], (string) $p['profileKey'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/protection/profiles/{profileId}/disable', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->disableProtectionProfile((string) $p['domainId'], (string) $p['profileId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/protection/intents', static fn (Request $req, array $p) => Response::json($rulesController->listProtectionIntents((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentKey}/preview', static function (Request $req, array $p) use ($rulesController): array {
     $result = $rulesController->previewProtectionIntent((string) $p['domainId'], (string) $p['intentKey'], $req->body);

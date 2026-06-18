@@ -102,6 +102,33 @@ class TrafficRulesController
     public function listProtectionIntents(string $domainId): array {
         return ['data' => $this->service->listProtectionIntents($domainId)];
     }
+    public function listProtectionProfiles(string $domainId): array {
+        return ['data' => $this->service->listProtectionProfiles($domainId)];
+    }
+    public function previewProtectionProfile(string $domainId, string $profileKey, array $body): array {
+        try {
+            return ['data' => $this->service->previewProtectionProfile($domainId, $profileKey, $body)];
+        } catch (\InvalidArgumentException) {
+            return ['error' => 'unknown_profile', 'status' => 404];
+        }
+    }
+    public function applyProtectionProfile(string $domainId, string $profileKey, array $body): array {
+        try {
+            return ['data' => $this->service->applyProtectionProfile($domainId, $profileKey, $body)];
+        } catch (\InvalidArgumentException) {
+            return ['error' => 'unknown_profile', 'status' => 404];
+        } catch (\DomainException $e) {
+            return $this->protectionDomainError($e);
+        }
+    }
+    public function disableProtectionProfile(string $domainId, string $profileId, array $body): array {
+        try {
+            $result = $this->service->disableProtectionProfile($domainId, $profileId, $body);
+        } catch (\DomainException $e) {
+            return $this->protectionDomainError($e);
+        }
+        return $result ? ['data' => $result] : ['error' => 'protection_profile_not_found', 'status' => 404];
+    }
     public function previewProtectionIntent(string $domainId, string $intentKey, array $body): array {
         try {
             return ['data' => $this->service->previewProtectionIntent($domainId, $intentKey, $body)];

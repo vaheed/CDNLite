@@ -54,7 +54,8 @@ fi
 dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1${dashboard_asset_path}")"
 assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include the Security Center tab"
 assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
-record_step PASS "dashboard-security-center-bundle" "Security Center and Protection intent APIs are present in the dashboard bundle"
+assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle should include Protection profile APIs"
+record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
 record_step PASS "agent-flow-checks" "config and metrics failure handling verified"
@@ -145,6 +146,8 @@ managed_rule_columns="$(db_query "SELECT COUNT(*) FROM information_schema.column
 assert_eq "$managed_rule_columns" "35" "managed rule ownership columns are incomplete"
 intent_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='protection_intents' AND column_name IN ('domain_id','profile_id','intent_key','name','status','mode','settings_json');")"
 assert_eq "$intent_columns" "7" "protection intent workflow columns are incomplete"
+profile_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='protection_profiles' AND column_name IN ('domain_id','profile_key','name','status','settings_json','created_at','updated_at');")"
+assert_eq "$profile_columns" "7" "protection profile workflow columns are incomplete"
 rollback_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_rollback_points' AND column_name IN ('domain_id','profile_id','intent_id','label','snapshot_json','created_at');")"
 assert_eq "$rollback_columns" "6" "protection rollback columns are incomplete"
 history_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_change_history' AND column_name IN ('domain_id','profile_id','intent_id','action','reason','before_json','after_json','created_at');")"
