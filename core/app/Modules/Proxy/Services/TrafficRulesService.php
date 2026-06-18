@@ -259,8 +259,14 @@ class TrafficRulesService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
+        if ((int) ($domain['proxy_enabled'] ?? 0) !== 1 && (int) ($domain['dns_record_count'] ?? 0) > 0) {
+            throw new \DomainException('proxy_required');
+        }
         if ((string) $domain['status'] !== 'active') {
             throw new \DomainException('domain_must_be_active');
+        }
+        if ((int) ($domain['proxy_enabled'] ?? 0) !== 1) {
+            throw new \DomainException('proxy_required');
         }
 
         $targets = $hostnames === [] ? $this->defaultManagedSslHostnames((string) $domain['domain']) : $hostnames;
@@ -446,6 +452,7 @@ class TrafficRulesService
     private function domainForSsl(string $domainId): ?array {
         $s = Database::pdo()->prepare(
             "SELECT d.id,d.domain,d.status,
+             (SELECT COUNT(*) FROM dns_records r WHERE r.domain_id=d.id) AS dns_record_count,
              CASE WHEN EXISTS (SELECT 1 FROM dns_records r WHERE r.domain_id=d.id AND r.proxied=true AND r.status='active') THEN 1 ELSE 0 END AS proxy_enabled
              FROM domains d WHERE d.id=:id LIMIT 1"
         );
