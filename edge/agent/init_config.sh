@@ -11,7 +11,7 @@ validate_config() {
 import json
 import sys
 
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
+with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
     data = json.load(fh)
 
 if not isinstance(data, dict):
@@ -39,7 +39,7 @@ write_status_cache() {
   ts="$(date +%s)"
   version="$(python3 - "$EDGE_CONFIG_PATH" <<'PY' 2>/dev/null || true
 import json,sys
-with open(sys.argv[1], 'r', encoding='utf-8') as f:
+with open(sys.argv[1], 'r', encoding='utf-8', errors='replace') as f:
  d=json.load(f)
 v=d.get('version') if isinstance(d,dict) else None
 print(v if isinstance(v,int) else 'null')

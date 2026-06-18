@@ -24,7 +24,7 @@ import json
 import sys
 
 try:
-    with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
         data = json.load(fh)
 except Exception:
     sys.exit(0)
@@ -51,7 +51,7 @@ source, metrics_out, payload_out, bad_out = sys.argv[1:5]
 items = []
 bad_count = 0
 
-with open(source, "r", encoding="utf-8") as fh, \
+with open(source, "r", encoding="utf-8", errors="replace") as fh, \
      open(metrics_out, "w", encoding="utf-8") as metrics_fh, \
      open(bad_out, "w", encoding="utf-8") as bad_fh:
     for line_no, raw in enumerate(fh, 1):
@@ -115,7 +115,7 @@ import json
 import sys
 
 pending, target, metrics_hash = sys.argv[1:4]
-with open(pending, "r", encoding="utf-8") as fh:
+with open(pending, "r", encoding="utf-8", errors="replace") as fh:
     payload = json.load(fh)
 payload["idempotency_key"] = "agent-" + metrics_hash
 with open(target, "w", encoding="utf-8") as fh:

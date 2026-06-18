@@ -12,7 +12,7 @@ import json
 import sys
 
 try:
-    with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
         data = json.load(fh)
 except Exception:
     sys.exit(0)
@@ -45,7 +45,7 @@ is_not_modified_response() {
 import json
 import sys
 
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
+with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
     data = json.load(fh)
 
 if isinstance(data, dict) and data.get("not_modified") is True:
@@ -60,7 +60,7 @@ validate_config() {
 import json
 import sys
 
-with open(sys.argv[1], "r", encoding="utf-8") as fh:
+with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
     data = json.load(fh)
 
 if not isinstance(data, dict):

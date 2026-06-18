@@ -237,13 +237,14 @@ Checklist:
 
 - `ssl-scheduler` is running and not started with `CDNLITE_SCHEDULER_IDLE=1`.
 - `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` is set to an interactive value such as `30`.
+- `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` is low enough to reclaim failed in-progress attempts without waiting hours.
 - ACME directory is staging for tests.
 - Contact email is set.
-- DNS propagation seconds and DNS TXT visibility attempts are realistic.
+- DNS propagation seconds are realistic. Recursive TXT visibility attempts are used only when `CDNLITE_ACME_PUBLIC_DNS_PRECHECK=true`.
 - `_acme-challenge` records are DNS-only, short-lived, and may not appear in the dashboard DNS table.
-- If the job fails with `acme_dns_challenge_not_visible`, confirm public DNS can resolve the TXT record and increase `CDNLITE_ACME_DNS_VERIFY_ATTEMPTS` or `CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS`.
+- If the job fails with `acme_dns_challenge_not_in_powerdns`, inspect the PowerDNS zone API for the `_acme-challenge` TXT. If it fails with `acme_dns_challenge_not_visible` and public precheck is enabled, confirm public DNS can resolve the TXT record and increase `CDNLITE_ACME_DNS_VERIFY_ATTEMPTS` or `CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS`.
 - `CDNLITE_SSL_SECRET_KEY` did not change.
-- Domain is active and proxied when required by the workflow.
+- Domain is active. DNS-01 issuance does not require a proxied customer record.
 
 Fallback:
 

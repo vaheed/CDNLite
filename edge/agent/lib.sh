@@ -43,7 +43,7 @@ cdnlite_config_version() {
 import json
 import sys
 try:
-    with open(sys.argv[1], "r", encoding="utf-8") as fh:
+    with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
         data = json.load(fh)
 except Exception:
     sys.exit(0)

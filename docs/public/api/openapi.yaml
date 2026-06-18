@@ -918,6 +918,7 @@ paths:
     post:
       tags: [SSL]
       summary: Queue managed SSL flow for apex and wildcard hostnames by default
+      description: Requires an active domain and DNS-01 challenge publishing; customer DNS records do not need to be proxied. CDNLite verifies the challenge through PowerDNS before asking ACME to validate.
       parameters:
         - $ref: "#/components/parameters/DomainId"
       requestBody:

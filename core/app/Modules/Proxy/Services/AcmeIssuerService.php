@@ -94,6 +94,10 @@ class AcmeIssuerService
         if (($dns['ok'] ?? false) !== true) {
             throw new \RuntimeException((string) ($dns['error'] ?? 'powerdns_challenge_sync_failed'));
         }
+        $authoritative = $this->powerDns->hasRecordContent($zoneDomain, $name, 'TXT', $txtValue);
+        if (($authoritative['ok'] ?? false) !== true || ($authoritative['found'] ?? false) !== true) {
+            throw new \RuntimeException('acme_dns_challenge_not_in_powerdns:' . $this->absoluteChallengeName($name, $zoneDomain));
+        }
         AuditLog::write('ssl.dns_challenge_created', 'ssl', null, $domainId, null, [
             'domain_id' => $domainId,
             'hostname' => $identifier,
@@ -109,13 +113,19 @@ class AcmeIssuerService
             sleep($delay);
         }
 
-        if (!$this->waitForDnsChallenge($this->absoluteChallengeName($name, $zoneDomain), $txtValue)) {
+        if ($this->publicDnsPrecheckEnabled() && !$this->waitForDnsChallenge($this->absoluteChallengeName($name, $zoneDomain), $txtValue)) {
             throw new \RuntimeException('acme_dns_challenge_not_visible:' . $this->absoluteChallengeName($name, $zoneDomain));
         }
 
         $this->signedPost((string) $challenge['url'], new \stdClass(), $account);
         $this->pollAuthorization($authUrl, $account);
         $this->powerDns->deleteEphemeralRecord($zoneDomain, $name, 'TXT');
+    }
+
+    private function publicDnsPrecheckEnabled(): bool
+    {
+        $value = strtolower(trim((string) (getenv('CDNLITE_ACME_PUBLIC_DNS_PRECHECK') ?: 'false')));
+        return in_array($value, ['1', 'true', 'yes', 'on'], true);
     }
 
     private function waitForDnsChallenge(string $fqdn, string $expectedValue): bool
@@ -159,7 +169,7 @@ class AcmeIssuerService
                 return;
             }
             if (($body['status'] ?? '') === 'invalid') {
-                throw new \RuntimeException('acme_authorization_invalid');
+                throw new \RuntimeException('acme_authorization_invalid:' . $this->acmeProblemDetail($body));
             }
             sleep(1);
         }
@@ -175,11 +185,30 @@ class AcmeIssuerService
                 return $body;
             }
             if (($body['status'] ?? '') === 'invalid') {
-                throw new \RuntimeException('acme_order_invalid');
+                throw new \RuntimeException('acme_order_invalid:' . $this->acmeProblemDetail($body));
             }
             sleep(1);
         }
         throw new \RuntimeException('acme_order_timeout');
+    }
+
+    private function acmeProblemDetail(array $body): string
+    {
+        $errors = [];
+        $error = $body['error'] ?? null;
+        if (is_array($error)) {
+            $errors[] = (string) ($error['type'] ?? 'acme_error') . ':' . (string) ($error['detail'] ?? '');
+        }
+        foreach ((array) ($body['challenges'] ?? []) as $challenge) {
+            if (!is_array($challenge) || ($challenge['status'] ?? '') !== 'invalid') {
+                continue;
+            }
+            $challengeError = $challenge['error'] ?? null;
+            if (is_array($challengeError)) {
+                $errors[] = (string) ($challengeError['type'] ?? 'challenge_error') . ':' . (string) ($challengeError['detail'] ?? '');
+            }
+        }
+        return $errors === [] ? 'no_acme_error_detail' : implode('|', $errors);
     }
 
     private function account(): array

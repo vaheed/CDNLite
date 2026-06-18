@@ -193,6 +193,33 @@ class PowerDnsService
         return ['ok' => true, 'verified' => true, 'status' => 200];
     }
 
+    public function hasRecordContent(string $zoneDomain, string $name, string $type, string $content): array
+    {
+        $result = $this->getZone($zoneDomain);
+        if (($result['ok'] ?? false) !== true) {
+            return $result;
+        }
+
+        $fqdn = strtolower($this->toFqdn($name, $zoneDomain));
+        $recordType = strtoupper($type);
+        $expected = $this->normalizeContent($recordType, $content);
+        foreach ((array) ($result['zone']['rrsets'] ?? []) as $rrset) {
+            if (strtolower((string) ($rrset['name'] ?? '')) !== $fqdn || strtoupper((string) ($rrset['type'] ?? '')) !== $recordType) {
+                continue;
+            }
+            foreach ((array) ($rrset['records'] ?? []) as $record) {
+                if (!empty($record['disabled'])) {
+                    continue;
+                }
+                if (trim((string) ($record['content'] ?? '')) === $expected) {
+                    return ['ok' => true, 'found' => true, 'status' => 200];
+                }
+            }
+        }
+
+        return ['ok' => true, 'found' => false, 'status' => 200, 'error' => 'powerdns_record_content_missing'];
+    }
+
     private function zonesBaseUrl(): string
     {
         $apiUrl = rtrim((string) $this->settings->value('platform.powerdns', 'api_url'), '/');

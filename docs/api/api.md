@@ -424,7 +424,8 @@ SSL tips:
 - When nameserver verification marks a domain active, CDNLite automatically queues a managed ACME DNS-01 certificate for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab.
 - The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
 - Queued jobs include `scheduler_stale`, `stale_seconds`, and `scheduler_hint` when `ssl-scheduler` has not claimed them after the configured scheduler interval.
-- ACME DNS-01 TXT records are short-lived PowerDNS records, not durable dashboard DNS rows. The issuer waits for public TXT visibility before asking ACME to validate and reports `acme_dns_challenge_not_visible` when that check fails.
+- ACME DNS-01 TXT records are short-lived PowerDNS records, not durable dashboard DNS rows. The issuer verifies the TXT through the PowerDNS API, then asks ACME to validate. Set `CDNLITE_ACME_PUBLIC_DNS_PRECHECK=true` to require a recursive public DNS precheck before ACME validation.
+- DNS-01 issuance requires an active domain and PowerDNS challenge publishing; it does not require any customer DNS record to be proxied.
 - Keep DNS-only `_acme-challenge` records available during issuance.
 - Do not enable force HTTPS until an active certificate exists for the domain.
 - Keep `CDNLITE_SSL_SECRET_KEY` stable; changing it can break stored certificate material.

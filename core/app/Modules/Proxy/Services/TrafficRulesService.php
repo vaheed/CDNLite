@@ -259,14 +259,8 @@ class TrafficRulesService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((int) ($domain['proxy_enabled'] ?? 0) !== 1 && (int) ($domain['dns_record_count'] ?? 0) > 0) {
-            throw new \DomainException('proxy_required');
-        }
         if ((string) $domain['status'] !== 'active') {
             throw new \DomainException('domain_must_be_active');
-        }
-        if ((int) ($domain['proxy_enabled'] ?? 0) !== 1) {
-            throw new \DomainException('proxy_required');
         }
 
         $targets = $hostnames === [] ? $this->defaultManagedSslHostnames((string) $domain['domain']) : $hostnames;

@@ -480,7 +480,7 @@ class TrafficRulesController
                     'status' => 422,
                 ];
             }
-            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+            return ['error' => $e->getMessage() !== '' ? $e->getMessage() : 'ssl_request_invalid', 'status' => 422];
         }
     }
     public function forceRenewSslCertificate(string $domainId): array {
@@ -536,7 +536,7 @@ class TrafficRulesController
                     'status' => 422,
                 ];
             }
-            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+            return ['error' => $e->getMessage() !== '' ? $e->getMessage() : 'ssl_request_invalid', 'status' => 422];
         }
     }
     public function checkSslCertificates(string $domainId, array $body): array {
@@ -572,7 +572,7 @@ class TrafficRulesController
         } catch (\OutOfBoundsException) {
             return ['error' => 'domain_not_found', 'status' => 404];
         } catch (\DomainException $e) {
-            return ['error' => 'proxy_required', 'detail' => $e->getMessage(), 'status' => 422];
+            return ['error' => $e->getMessage() !== '' ? $e->getMessage() : 'acme_issue_invalid', 'status' => 422];
         } catch (\InvalidArgumentException $e) {
             return ['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $e->getMessage(), 'status' => 422];
         } catch (\RuntimeException $e) {

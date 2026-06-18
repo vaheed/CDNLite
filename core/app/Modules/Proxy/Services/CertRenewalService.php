@@ -49,13 +49,15 @@ class CertRenewalService
     public function processQueuedJobs(?int $limit = null): array
     {
         $limit = max(1, min(50, $limit ?? (int) (getenv('CDNLITE_SSL_JOB_BATCH_SIZE') ?: 10)));
+        $staleBefore = time() - max(60, (int) (getenv('CDNLITE_SSL_JOB_STALE_RETRY_SECONDS') ?: 900));
         $stmt = Database::pdo()->prepare(
             "SELECT * FROM ssl_jobs
              WHERE status='queued'
+                OR (status IN ('checking_dns','validating_challenge','issuing','installing') AND updated_at<=:stale_before)
              ORDER BY created_at ASC
              LIMIT {$limit}"
         );
-        $stmt->execute();
+        $stmt->execute([':stale_before' => $staleBefore]);
 
         $results = [];
         foreach ($stmt->fetchAll() as $job) {
@@ -112,7 +114,7 @@ class CertRenewalService
         $claim = Database::pdo()->prepare(
             "UPDATE ssl_jobs
              SET status='checking_dns',progress_percent=20,message='Checking DNS validation prerequisites.',updated_at=:updated_at
-             WHERE id=:id AND status='queued'"
+             WHERE id=:id AND status IN ('queued','checking_dns','validating_challenge','issuing','installing')"
         );
         $claim->execute([':updated_at' => $now, ':id' => $jobId]);
         if ($claim->rowCount() !== 1) {

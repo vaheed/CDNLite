@@ -158,7 +158,8 @@ Core settings:
 | `CDNLITE_ORIGIN_SHIELD_SECRET` | Default origin shield secret. |
 | `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
 | `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
-| `CDNLITE_ACME_*` | ACME directory, contact email, DNS propagation delay, DNS TXT visibility checks, and polling for automatic apex and wildcard certificates. |
+| `CDNLITE_ACME_*` | ACME directory, contact email, DNS propagation delay, optional public DNS TXT precheck, and polling for automatic apex and wildcard certificates. |
+| `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` | Age after which an in-progress SSL job can be reclaimed by the scheduler and retried. |
 | `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` | Seconds between SSL scheduler loops for queued issuance and renewals; default `30`. |
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |

@@ -66,19 +66,26 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
         assert event in renewals
     assert "public function processQueuedJobs" in renewals
     assert "WHERE status='queued'" in renewals
+    assert "CDNLITE_SSL_JOB_STALE_RETRY_SECONDS" in renewals
+    assert "updated_at<=:stale_before" in renewals
     assert "'queued_issuance'" in renewals
     assert "processQueuedJobs()" in command
     assert "renewDue()" in command
     assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30" in compose
+    assert "CDNLITE_SSL_JOB_STALE_RETRY_SECONDS" in compose
     assert "ssl.dns_challenge_created" in issuer
     assert "AuditLog::write('ssl.dns_challenge_created'" in issuer
     assert "waitForDnsChallenge" in issuer
+    assert "hasRecordContent($zoneDomain, $name, 'TXT', $txtValue)" in issuer
+    assert "CDNLITE_ACME_PUBLIC_DNS_PRECHECK" in issuer
+    assert "acme_dns_challenge_not_in_powerdns" in issuer
     assert "dns_get_record($fqdn, DNS_TXT)" in issuer
     assert "CDNLITE_ACME_DNS_VERIFY_ATTEMPTS" in issuer
     assert "CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS" in issuer
     assert "acme_dns_challenge_not_visible" in issuer
     assert "CDNLITE_ACME_DNS_VERIFY_ATTEMPTS" in compose
     assert "CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS" in compose
+    assert "CDNLITE_ACME_PUBLIC_DNS_PRECHECK" in compose
     assert "private function updateActiveJobs" in renewals
     assert "defaultManagedSslHostnames" in renewals
     assert "defaultManagedSslHostnames" in issuer

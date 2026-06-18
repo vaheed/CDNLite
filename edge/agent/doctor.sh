@@ -29,7 +29,7 @@ import sys
 p = sys.argv[1]
 if not os.path.exists(p) or os.path.getsize(p) == 0:
     raise SystemExit(0)
-with open(p, "r", encoding="utf-8") as fh:
+with open(p, "r", encoding="utf-8", errors="replace") as fh:
     json.load(fh)
 PY
 then
