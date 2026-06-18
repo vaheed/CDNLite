@@ -567,17 +567,19 @@ No major edge behavior change yet. Edge continues consuming generated rules thro
 - [x] Detaching generated WAF and rate-limit rules preserves the rule and clears managed ownership.
 - [x] Fresh-install smoke validates protection ownership tables and technical-rule columns.
 - [x] E2E validates managed WAF/rate-limit metadata, managed_rule_links, user_modified, detach, and cleanup.
-- Updating a profile does not overwrite user-modified rules silently.
-- Disabling an intent disables generated rules.
-- Undo restores previous generated state.
+- [x] Fresh-install smoke validates protection intent, history, and rollback schema.
+- [x] E2E validates intent preview, enable, user-modified conflict, confirmed overwrite, disable, undo, audit, history, and rollback.
+- [x] Updating a profile/intent does not overwrite user-modified rules silently.
+- [x] Disabling an intent disables generated rules.
+- [x] Undo restores previous generated state.
 
 ### Progress Notes
 
 - Date: 2026-06-18
 - Changed files: `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/database/migrations/000006_protection_contract.sql`, `core/database/schema.sql`, `core/public_index.php`, `dash/src/lib/api/rateLimit.ts`, `dash/src/lib/api/waf.ts`, `dash/src/types.ts`, `dash/src/views/domain-tabs/DomainRateLimitsTab.vue`, `dash/src/views/domain-tabs/DomainRulesTab.vue`, `dash/src/views/domain-tabs/DomainWafTab.vue`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `ci/smoke.sh`, `ci/e2e.sh`, `core/tests/test_phase8_protection_contract.py`.
-- Behavior added: technical WAF, rate-limit, IP, cache, and header rules now have managed ownership fields. WAF and rate-limit rules can be detached from managed protection without deleting the technical rule; ordinary edits to managed rules mark them as user-modified and sync the managed-rule link.
-- Tests added/updated: backend Phase 8 contract coverage, smoke schema coverage for protection ownership tables/columns, and e2e API coverage for managed WAF/rate-limit create, edit, detach, managed_rule_links, and cleanup.
-- Remaining Phase 8 work: profile/intent enable flows, generated-rule preview, disable, undo/rollback behavior, and conflict handling for profile updates.
+- Behavior added: technical WAF, rate-limit, IP, cache, and header rules now have managed ownership fields. WAF and rate-limit rules can be detached from managed protection without deleting the technical rule; ordinary edits to managed rules mark them as user-modified and sync the managed-rule link. Protection intent APIs now preview generated rules, enable real managed rules, reject silent overwrites of user-modified generated rules, support confirmed regeneration, disable generated rules, and undo from rollback points.
+- Tests added/updated: backend Phase 8 contract coverage, smoke schema coverage for protection ownership, intent, history, and rollback tables/columns, and e2e API coverage for managed WAF/rate-limit create, edit, detach, managed_rule_links, protection intent preview/enable/conflict/disable/undo, audit events, profile_change_history, and profile_rollback_points.
+- Remaining Phase 8 work: dashboard Security Center cards for beginner intent preview/apply/disable/undo flows.
 
 ### IDE Prompt
 

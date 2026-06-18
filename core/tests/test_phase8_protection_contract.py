@@ -144,7 +144,17 @@ def test_phase8_roadmap_smoke_and_e2e_track_managed_contract():
     assert "Remaining Phase 8 work" in roadmap
     assert "schema-protection-contract" in smoke
     assert "managed_rule_columns" in smoke
+    assert "intent_columns" in smoke
+    assert "rollback_columns" in smoke
+    assert "history_columns" in smoke
     assert "rate-limit-managed-contract" in e2e
     assert "waf-managed-contract" in e2e
+    assert "protection-intent-preview" in e2e
+    assert "protection-intent-enable" in e2e
+    assert "protection-intent-conflict" in e2e
+    assert "protection-intent-disable" in e2e
+    assert "protection-intent-undo" in e2e
     assert "/detach-managed" in e2e
     assert "managed_rule_links" in e2e
+    assert "profile_change_history" in e2e
+    assert "profile_rollback_points" in e2e

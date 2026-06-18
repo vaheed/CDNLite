@@ -134,7 +134,13 @@ protection_tables="$(db_query "SELECT COUNT(*) FROM information_schema.tables WH
 assert_eq "$protection_tables" "5" "protection contract tables are incomplete"
 managed_rule_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('waf_rules','rate_limit_rules','domain_ip_rules','cache_rules','domain_header_rules') AND column_name IN ('profile_id','intent_id','template_key','managed_by','user_modified','last_generated_at','last_applied_at');")"
 assert_eq "$managed_rule_columns" "35" "managed rule ownership columns are incomplete"
-record_step PASS "schema-protection-contract" "protection ownership tables and technical-rule columns exist"
+intent_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='protection_intents' AND column_name IN ('domain_id','profile_id','intent_key','name','status','mode','settings_json');")"
+assert_eq "$intent_columns" "7" "protection intent workflow columns are incomplete"
+rollback_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_rollback_points' AND column_name IN ('domain_id','profile_id','intent_id','label','snapshot_json','created_at');")"
+assert_eq "$rollback_columns" "6" "protection rollback columns are incomplete"
+history_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_change_history' AND column_name IN ('domain_id','profile_id','intent_id','action','reason','before_json','after_json','created_at');")"
+assert_eq "$history_columns" "8" "protection history columns are incomplete"
+record_step PASS "schema-protection-contract" "protection ownership, intent, history, and rollback schema exists"
 
 ssl_key_check="$(docker compose exec -T core php -r "echo getenv('CDNLITE_SSL_SECRET_KEY') ? 'set' : 'missing';")"
 if [[ "$ssl_key_check" == "set" ]]; then

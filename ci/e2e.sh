@@ -508,6 +508,67 @@ api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${MANAGED_WAF_RULE
 assert_http_status "$HTTP_CODE" "200" "detached managed waf delete failed"
 record_step PASS "waf-managed-contract" "ownership metadata, user_modified, detach, audit link, and cleanup verified"
 
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents"
+assert_http_status "$HTTP_CODE" "200" "protection intent list failed"
+assert_contains "$HTTP_BODY" '"intent_key":"common_exploits"' "common exploit intent missing from list"
+assert_contains "$HTTP_BODY" '"intent_key":"login_shield"' "login shield intent missing from list"
+record_step PASS "protection-intent-list" "available beginner protection intents listed"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_exploits/preview" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection intent preview failed"
+assert_contains "$HTTP_BODY" '"rule_table":"waf_rules"' "preview should include generated waf rules"
+assert_contains "$HTTP_BODY" '"template_key":"waf_path_traversal"' "preview should include traversal template"
+preview_mutation_count="$(db_query "SELECT COUNT(*) FROM protection_intents WHERE domain_id='${DOMAIN_ID}' AND intent_key='common_exploits';")"
+assert_eq "$preview_mutation_count" "0" "protection preview should not persist an intent"
+record_step PASS "protection-intent-preview" "generated-rule preview is non-mutating"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_exploits/enable" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection intent enable failed"
+PROTECTION_INTENT_ID="$(json_get "$HTTP_BODY" '.data.intent.id')"
+assert_contains "$HTTP_BODY" '"status":"enabled"' "enabled intent should report enabled status"
+assert_contains "$HTTP_BODY" '"managed_by":"Common Exploit Protection"' "generated waf rule should expose managed_by"
+intent_waf_count="$(db_query "SELECT COUNT(*) FROM managed_rule_links WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND rule_table='waf_rules' AND detached_at IS NULL;")"
+assert_eq "$intent_waf_count" "2" "common exploit intent should create two managed waf links"
+intent_history_count="$(db_query "SELECT COUNT(*) FROM profile_change_history WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND action='protection_intent.enable';")"
+assert_eq "$intent_history_count" "1" "enable should write profile change history"
+intent_rollback_count="$(db_query "SELECT COUNT(*) FROM profile_rollback_points WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}';")"
+assert_eq "$intent_rollback_count" "1" "enable should create rollback point"
+record_step PASS "protection-intent-enable" "intent enable generated real managed waf rules with history and rollback"
+
+PROTECTION_WAF_RULE_ID="$(db_query "SELECT rule_id FROM managed_rule_links WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND rule_table='waf_rules' AND template_key='waf_path_traversal' AND detached_at IS NULL LIMIT 1;")"
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${PROTECTION_WAF_RULE_ID}" '{"description":"operator tuned generated traversal rule"}'
+assert_http_status "$HTTP_CODE" "200" "generated protection waf edit failed"
+assert_contains "$HTTP_BODY" '"user_modified":true' "editing generated protection waf should mark user_modified"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_exploits/enable" '{}'
+assert_http_status "$HTTP_CODE" "409" "re-enabling user-modified intent should require confirmation"
+assert_contains "$HTTP_BODY" '"error":"user_modified_rule_conflict"' "conflict should expose user_modified_rule_conflict"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_exploits/enable" '{"confirm_overwrite":true}'
+assert_http_status "$HTTP_CODE" "200" "confirmed protection intent regenerate failed"
+regenerated_user_modified="$(db_query "SELECT user_modified::int FROM waf_rules WHERE id='${PROTECTION_WAF_RULE_ID}' AND domain_id='${DOMAIN_ID}';")"
+assert_eq "$regenerated_user_modified" "0" "confirmed regenerate should clear user_modified"
+record_step PASS "protection-intent-conflict" "user-modified generated rule blocks silent overwrite until confirmed"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/${PROTECTION_INTENT_ID}/disable" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection intent disable failed"
+assert_contains "$HTTP_BODY" '"status":"disabled"' "disabled intent should report disabled status"
+disabled_rule_count="$(db_query "SELECT COUNT(*) FROM waf_rules WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND enabled IS FALSE;")"
+assert_eq "$disabled_rule_count" "2" "disable should turn off generated waf rules"
+disable_history_count="$(db_query "SELECT COUNT(*) FROM profile_change_history WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND action='protection_intent.disable';")"
+assert_eq "$disable_history_count" "1" "disable should write profile change history"
+record_step PASS "protection-intent-disable" "intent disable turns off generated rules and records history"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/${PROTECTION_INTENT_ID}/undo" '{}'
+assert_http_status "$HTTP_CODE" "200" "protection intent undo failed"
+enabled_rule_count="$(db_query "SELECT COUNT(*) FROM waf_rules WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND enabled IS TRUE;")"
+assert_eq "$enabled_rule_count" "2" "undo should restore generated waf enabled state"
+undo_history_count="$(db_query "SELECT COUNT(*) FROM profile_change_history WHERE domain_id='${DOMAIN_ID}' AND intent_id='${PROTECTION_INTENT_ID}' AND action='protection_intent.undo';")"
+assert_eq "$undo_history_count" "1" "undo should write profile change history"
+audit_intent_count="$(db_query "SELECT COUNT(*) FROM audit_log WHERE domain_id='${DOMAIN_ID}' AND action IN ('protection_intent.enable','protection_intent.disable','protection_intent.undo');")"
+if [[ "$audit_intent_count" -lt 3 ]]; then
+  fail "protection intent enable/disable/undo audit events missing"
+fi
+record_step PASS "protection-intent-undo" "undo restores generated state and audit/history stay visible"
+
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules"
 assert_http_status "$HTTP_CODE" "200" "waf list failed"
 assert_contains "$HTTP_BODY" '"type":"path_prefix"' "waf v2 type missing"
