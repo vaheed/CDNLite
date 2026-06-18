@@ -31,27 +31,50 @@
         <div class="flex items-center justify-end gap-1.5 whitespace-nowrap">
           <RouterLink class="button-secondary h-9 px-3 text-xs" :to="`/domains/${row.id}/overview`">Manage <ArrowUpRight class="h-3.5 w-3.5" /></RouterLink>
           <button class="button-secondary h-9 px-3 text-xs" @click="editDomain(row)"><Pencil class="h-3.5 w-3.5" /> Edit</button>
-          <ConfirmDangerButton class="h-9 px-2.5 text-xs" :aria-label="`Delete ${row.domain}`" confirm-text="Delete this domain?" @confirm="deleteDomain(String(row.id))"><Trash2 class="h-3.5 w-3.5" /><span class="sr-only">Delete</span></ConfirmDangerButton>
+          <button class="button-danger h-9 px-2.5 text-xs" :aria-label="`Delete ${row.domain}`" type="button" @click="openDeleteDomain(row)"><Trash2 class="h-3.5 w-3.5" /><span class="sr-only">Delete</span></button>
         </div>
       </template>
     </DataTable>
+    <div v-if="pendingDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4" role="presentation" @click.self="cancelDeleteDomain">
+      <section class="w-full max-w-lg rounded-lg border border-rose-200 bg-white p-5 shadow-2xl dark:border-rose-400/30 dark:bg-slate-950" role="dialog" aria-modal="true" aria-labelledby="delete-domain-title">
+        <div class="flex items-start gap-3">
+          <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-200"><AlertTriangle class="h-5 w-5" /></div>
+          <div class="min-w-0">
+            <h2 id="delete-domain-title" class="text-base font-semibold text-slate-950 dark:text-white">Delete domain</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">This removes the domain, DNS records, origins, rules, SSL jobs, certificates, and edge configuration.</p>
+          </div>
+        </div>
+        <div class="mt-5 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100">
+          Type <b class="font-mono">{{ pendingDelete.domain }}</b> to confirm deletion.
+        </div>
+        <label class="mt-4 block">
+          <span class="field-label">Domain confirmation</span>
+          <input v-model="deleteConfirmation" class="input font-mono" autocomplete="off" :placeholder="pendingDelete.domain" @keydown.enter.prevent="confirmDeleteDomain" />
+        </label>
+        <p v-if="deleteError" class="mt-3 text-sm font-medium text-rose-600 dark:text-rose-300">{{ deleteError }}</p>
+        <div class="mt-5 flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10">
+          <button type="button" class="button-secondary" :disabled="deletingDomain" @click="cancelDeleteDomain">Cancel</button>
+          <button type="button" class="button-danger" :disabled="!canConfirmDelete || deletingDomain" @click="confirmDeleteDomain">{{ deletingDomain ? 'Deleting...' : 'Delete domain' }}</button>
+        </div>
+      </section>
+    </div>
   </section>
 </template>
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { z } from 'zod';
-import { ArrowUpRight, Pencil, Plus, Trash2 } from 'lucide-vue-next';
+import { AlertTriangle, ArrowUpRight, Pencil, Plus, Trash2 } from 'lucide-vue-next';
 import TextInput from '@/components/forms/TextInput.vue';
 import DataTable from '@/components/ui/DataTable.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
-import ConfirmDangerButton from '@/components/forms/ConfirmDangerButton.vue';
 import AddDomainWizard from '@/components/domains/AddDomainWizard.vue';
 import { domainsApi } from '@/lib/api/domains';
 import { CdnLiteApiError } from '@/lib/api/client';
 import type { Domain, UpdateDomainInput } from '@/types';
 const domains=ref<Domain[]>([]);const saving=ref(false);const editingId=ref('');const showForm=ref(false);const formError=ref('');const fieldErrors=reactive<Record<string,string>>({});
+const pendingDelete=ref<Domain|null>(null);const deleteConfirmation=ref('');const deletingDomain=ref(false);const deleteError=ref('');
 const form=reactive({name:'',domain:''});
 const schema=z.object({name:z.string().min(1,'Domain name is required.'),domain:z.string().min(1,'Domain is required.')});
 const help={name:{label:'Name',what:'Human-readable domain name.',works:'Used only for administration.',example:'Main website',required:true},domain:{label:'Domain',what:'Hostname served by the CDN.',works:'Matches the incoming Host header.',example:'example.com',required:true}};
@@ -63,9 +86,12 @@ const columns=[
   {key:'actions',label:'Actions',sortable:false,align:'right' as const,class:'w-[22%]'},
 ];
 const domainRows=computed(()=>domains.value.map(domain=>({...domain,actions:''})));
+const canConfirmDelete=computed(()=>pendingDelete.value!==null&&deleteConfirmation.value.trim()===pendingDelete.value.domain);
 async function load(){try{domains.value=await domainsApi.list();}catch(error){formError.value=messageFor(error,'Unable to load domains.');}}
 async function saveDomain(){clearErrors();const parsed=schema.safeParse(form);if(!parsed.success){parsed.error.issues.forEach(issue=>fieldErrors[String(issue.path[0])]=issue.message);formError.value='Fix the highlighted fields.';return;}saving.value=true;try{await domainsApi.update(editingId.value,{...form} as UpdateDomainInput);resetForm();await load();}catch(error){formError.value=messageFor(error,'Unable to update domain.');}finally{saving.value=false;}}
-async function deleteDomain(id:string){await domainsApi.remove(id);await load();}
+function openDeleteDomain(row:Record<string,unknown>){const domain=domains.value.find(item=>item.id===String(row.id));if(!domain)return;pendingDelete.value=domain;deleteConfirmation.value='';deleteError.value='';}
+function cancelDeleteDomain(){if(deletingDomain.value)return;pendingDelete.value=null;deleteConfirmation.value='';deleteError.value='';}
+async function confirmDeleteDomain(){if(!pendingDelete.value||!canConfirmDelete.value)return;deletingDomain.value=true;deleteError.value='';try{await domainsApi.remove(pendingDelete.value.id);pendingDelete.value=null;deleteConfirmation.value='';await load();}catch(error){deleteError.value=messageFor(error,'Unable to delete domain.');}finally{deletingDomain.value=false;}}
 function editDomain(row:Record<string,unknown>){editingId.value=String(row.id);showForm.value=true;Object.assign(form,{name:String(row.name??''),domain:String(row.domain??'')});clearErrors();}
 function startCreate(){resetForm();showForm.value=true;}
 async function onOnboardingCompleted(){resetForm();await load();}
