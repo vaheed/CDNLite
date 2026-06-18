@@ -39,7 +39,7 @@ Use this order during incidents:
 | Edge returns unknown host page | Host is not in `config.json` or edge has stale config. | Activate the domain, rebuild snapshot, and confirm edge agent pulled config. |
 | Edge agent auth fails | Edge token mismatch, bad timestamp, reused nonce, or signature mismatch. | Re-register/rotate token, check system clock, and run `edge/agent/doctor.sh`. |
 | Dashboard reports `edge_not_healthy` after startup | The edge has not completed a successful signed heartbeat in the last 90 seconds. | Check `edge-agent` logs and run the heartbeat script; HTTP failures now make the script fail instead of being treated as success. |
-| Security-event push reports a missing `.payload` file | Two agent/manual push attempts overlapped while sharing the same queue. | Update to the queue-locking agent script; concurrent attempts now leave the active sender in control. |
+| Metrics or security-event push reports a missing `.payload` file | Two agent/manual push attempts overlapped while sharing the same queue. | Update to the queue-locking agent script; concurrent attempts now leave the active sender in control. |
 | DNS publishing fails | PowerDNS URL/key/server ID wrong or DNSGeo is unhealthy. | Run `docker compose ps`, inspect `pdns-auth`, and run `cdn:settings:test-powerdns`. |
 | SSL issuance stuck at `Queued` / `5%` | `ssl-scheduler` is not running or cannot reach Core/PostgreSQL/ACME. | Start `ssl-scheduler`, check its logs, and keep `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` low enough for interactive requests. |
 | SSL issuance stuck during validation | DNS-01 challenge not published or ACME propagation too short. | Check ACME settings, DNS records, and increase `CDNLITE_ACME_DNS_PROPAGATION_SECONDS`. |

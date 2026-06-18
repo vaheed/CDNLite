@@ -246,6 +246,10 @@ agent_exec() {
   docker compose exec -T edge-agent sh -lc "CORE_URL=http://core:8080 $1"
 }
 
+agent_push_metrics() {
+  agent_exec 'lock="${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}.push.lock"; i=0; while [ -d "$lock" ] && [ "$i" -lt 20 ]; do i=$((i + 1)); sleep 1; done; [ ! -d "$lock" ] && /agent/push_metrics.sh'
+}
+
 edge_cache_header_for_host() {
   local host="$1"
   local path="$2"
@@ -1162,7 +1166,7 @@ fi
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "activity origin restore failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
-agent_exec '/agent/push_metrics.sh' >/dev/null
+agent_push_metrics >/dev/null
 
 activity_request_lookup_ok() {
   local request_id="$1"

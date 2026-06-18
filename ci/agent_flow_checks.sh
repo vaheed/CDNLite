@@ -200,4 +200,11 @@ if [ -e "${METRIC_PATH}.payload" ]; then
   exit 1
 fi
 
+metric_line='{"ts":2,"domain_id":"domain-1","edge_node_id":"edge-1","requests_count":1,"bytes_in":2,"bytes_out":3,"status":200}'
+printf '%s\n' "$metric_line" > "$METRIC_PATH"
+mkdir "${METRIC_PATH}.push.lock"
+sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-locked.err"
+assert_file_eq "$METRIC_PATH" "$metric_line" "locked metrics push changed metrics"
+rmdir "${METRIC_PATH}.push.lock"
+
 printf 'agent flow checks passed\n'

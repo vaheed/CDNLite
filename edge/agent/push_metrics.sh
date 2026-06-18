@@ -3,6 +3,12 @@ set -eu
 
 payload_file="${METRIC_PATH}.payload"
 count_file="${payload_file}.count"
+lock_dir="${METRIC_PATH}.push.lock"
+
+if ! mkdir "$lock_dir" 2>/dev/null; then
+  exit 0
+fi
+trap 'rmdir "$lock_dir" 2>/dev/null || true' 0 HUP INT TERM
 
 ensure_metric_writable() {
   [ -f "$METRIC_PATH" ] || : > "$METRIC_PATH"

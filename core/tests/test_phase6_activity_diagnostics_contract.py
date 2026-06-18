@@ -105,6 +105,9 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     assert "activity-edge-request-ingest" in e2e
     assert "activity-edge-502-diagnostics" in e2e
     assert "/agent/push_metrics.sh" in e2e
+    assert "agent_push_metrics()" in e2e
+    assert 'agent_push_metrics >/dev/null' in e2e
+    assert '.push.lock' in e2e
     assert "activity_request_lookup_ok" in e2e
     assert 'retry 20 1 activity_request_lookup_ok "$activity_ok_request_id"' in e2e
     assert 'retry 20 1 activity_request_lookup_ok "$activity_502_request_id"' in e2e
