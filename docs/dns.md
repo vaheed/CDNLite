@@ -17,7 +17,12 @@ are not published until the domain is active and its authoritative nameservers
 verify against the configured platform nameservers. If verification later fails
 because the domain was delegated away, Core keeps the domain and all DNS records
 in PostgreSQL, marks the domain pending, and reconciliation withdraws every
-non-`NS`/`SOA` rrset from PowerDNS.
+non-`NS`/`SOA` rrset from PowerDNS. Deleting the domain removes the whole
+PowerDNS zone, including the automatically generated `SOA`.
+
+Domain DNS record list APIs and the dashboard always show the platform `NS`
+records as readonly managed rows. They come from current platform nameserver
+settings, not from editable customer DNS records.
 
 Use `CDNLITE_SYNC_INTERVAL_SECONDS` to set the scheduled convergence interval (default:
 `30`). `php artisan cdn:powerdns:dry-run` previews desired rrsets, while

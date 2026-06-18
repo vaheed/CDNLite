@@ -277,6 +277,7 @@ Routing mode values include `geo`, `anycast`, and `dns_only`.
 
 DNS tips:
 
+- Domain DNS record lists include readonly platform `NS` rows derived from current nameserver settings. They are published for the customer zone even while user records wait for delegation verification.
 - Keep MX, TXT verification, SPF, DKIM, and DMARC records DNS-only.
 - Use proxied records only for HTTP/HTTPS traffic intended for the CDN edge.
 - Additional proxied records at the same DNS name are stored and returned as

@@ -17,6 +17,8 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     assert "pg_advisory_unlock" in reconciler
     assert "changetype' => 'DELETE'" in reconciler
     assert "patchRrsets($zone, [$rrset])" in reconciler
+    assert "deleteZone($zone)" in reconciler
+    assert "onlyDeletes($rrsets)" in reconciler
     assert "'powerdns_reconcile_partial_failure'" in reconciler
     assert "$this->builder->prune($generation)" in reconciler
     builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
@@ -25,6 +27,18 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     assert "$recordType === 'TXT'" in builder
     assert "$recordType === 'MX'" in builder
     assert "sprintf('%d %s', $priority ?? 0, $target)" in builder
+
+
+def test_domain_dns_list_includes_readonly_platform_nameservers():
+    service = read("core/app/Modules/Dns/Services/DnsService.php")
+    tab = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
+
+    assert "platformNameserverRecords" in service
+    assert "'managed_by' => 'platform_nameservers'" in service
+    assert "'readonly' => true" in service
+    assert "Managed by platform nameserver settings." in tab
+    assert "row.readonly" in tab
+    assert "ShieldCheck" in tab
 
 
 def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():

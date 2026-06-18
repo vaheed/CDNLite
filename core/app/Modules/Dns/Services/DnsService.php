@@ -16,6 +16,7 @@ class DnsService
     private CustomerDnsService $customerDns;
     private DnsPublishingPlanner $planner;
     private OriginHealthService $origins;
+    private PowerDnsRecordBuilder $records;
 
     public function __construct()
     {
@@ -23,17 +24,21 @@ class DnsService
         $this->planner = new DnsPublishingPlanner();
         $this->customerDns = new CustomerDnsService($this->planner);
         $this->origins = new OriginHealthService();
+        $this->records = new PowerDnsRecordBuilder();
     }
 
     public function listByDomain(string $domainId): array
     {
         $domain = $this->domains->find($domainId);
+        if ($domain === null) {
+            return [];
+        }
         $stmt = Database::pdo()->prepare(
             'SELECT r.*, (SELECT COUNT(*) FROM dns_record_geo_routes g WHERE g.dns_record_id = r.id) AS geo_routes_count
              FROM dns_records r WHERE r.domain_id = :domain_id ORDER BY r.id ASC'
         );
         $stmt->execute([':domain_id' => $domainId]);
-        return array_map(function (array $row) use ($domain): array {
+        $records = array_map(function (array $row) use ($domain): array {
             $record = $this->castRow($row);
             $record['effective_status'] = $record['status'] === 'active'
                 && ($domain['status'] ?? null) === 'active'
@@ -45,6 +50,43 @@ class DnsService
                 : (($domain['nameserver_status'] ?? null) !== 'verified' ? 'nameservers_not_verified' : null);
             return $record;
         }, $stmt->fetchAll());
+        return array_merge($this->platformNameserverRecords($domain), $records);
+    }
+
+    private function platformNameserverRecords(array $domain): array
+    {
+        $now = time();
+        return array_map(static function (string $nameserver) use ($domain, $now): array {
+            return [
+                'id' => 'platform-ns:' . rtrim($nameserver, '.'),
+                'domain_id' => (string) $domain['id'],
+                'type' => 'NS',
+                'name' => '@',
+                'content' => $nameserver,
+                'ttl' => 300,
+                'priority' => null,
+                'proxied' => false,
+                'geo_policy_id' => null,
+                'origin_type' => 'NS',
+                'origin_content' => $nameserver,
+                'public_type' => 'NS',
+                'public_content' => $nameserver,
+                'origin_host' => null,
+                'origin_tls_verify' => 'ignore',
+                'origin_scheme' => null,
+                'origin_status' => 'dns_only',
+                'geo_origins' => [],
+                'routing_policy' => 'standard',
+                'status' => 'active',
+                'effective_status' => 'active',
+                'disabled_reason' => null,
+                'geo_routes_count' => 0,
+                'managed_by' => 'platform_nameservers',
+                'readonly' => true,
+                'created_at' => (int) ($domain['created_at'] ?? $now),
+                'updated_at' => (int) ($domain['updated_at'] ?? $now),
+            ];
+        }, $this->records->nameservers());
     }
 
     public function routing(string $domainId): ?array

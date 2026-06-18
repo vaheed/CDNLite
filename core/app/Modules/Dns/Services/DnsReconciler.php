@@ -30,10 +30,12 @@ class DnsReconciler
         try {
             $previous = $this->storedIdentities();
             $desired = $this->builder->build();
+            $desiredIdentities = $this->identities($desired);
+            $desiredZones = $this->desiredZones($desired);
             $generation = $this->builder->persist($desired);
             $zones = $this->byZone($desired);
             foreach ($previous as $identity => $rrset) {
-                if (!isset($this->identities($desired)[$identity])) {
+                if (!isset($desiredIdentities[$identity])) {
                     $zones[$rrset['zone_name']][] = [
                         'name' => $rrset['rrset_name'],
                         'type' => $rrset['rrset_type'],
@@ -45,6 +47,15 @@ class DnsReconciler
             $changes = 0;
             $failures = [];
             foreach ($zones as $zone => $rrsets) {
+                if (!isset($desiredZones[$zone]) && $this->onlyDeletes($rrsets)) {
+                    $deleteResult = $this->powerDns->deleteZone($zone);
+                    if (($deleteResult['ok'] ?? false) !== true) {
+                        $failures[] = $deleteResult + ['zone' => $zone];
+                        continue;
+                    }
+                    $changes++;
+                    continue;
+                }
                 $zoneResult = $this->powerDns->ensureZone($zone);
                 if (($zoneResult['ok'] ?? false) !== true) {
                     $failures[] = $zoneResult + ['zone' => $zone];
@@ -171,6 +182,28 @@ class DnsReconciler
             $result[$this->identity($rrset)] = true;
         }
         return $result;
+    }
+
+    private function desiredZones(array $rrsets): array
+    {
+        $result = [];
+        foreach ($rrsets as $rrset) {
+            $result[(string) $rrset['zone_name']] = true;
+        }
+        return $result;
+    }
+
+    private function onlyDeletes(array $rrsets): bool
+    {
+        if ($rrsets === []) {
+            return false;
+        }
+        foreach ($rrsets as $rrset) {
+            if (($rrset['changetype'] ?? 'REPLACE') !== 'DELETE') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private function identity(array $rrset): string

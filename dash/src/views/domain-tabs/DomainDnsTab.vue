@@ -77,10 +77,10 @@
     <DataTable v-else-if="records.length" title="DNS records" subtitle="Authoritative records for this domain." :rows="records" :columns="columns">
       <template #type="{ value }"><span class="record-type">{{ value }}</span></template>
       <template #name="{ value }"><span class="font-mono font-medium">{{ value }}</span></template>
-      <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : `${row.type} ${row.content}` }}</span><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Published by CDNLite; private origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
-      <template #proxied="{ row }"><span :class="row.proxied ? 'status-proxied' : 'status-neutral'"><Cloud v-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
+      <template #content="{ row }"><span class="font-mono text-xs">{{ row.proxied ? `${row.public_type} ${row.public_content}` : `${row.type} ${row.content}` }}</span><p v-if="row.readonly" class="mt-1 text-xs text-slate-500">Managed by platform nameserver settings.</p><p v-if="row.proxied" class="mt-1 text-xs text-slate-500">Published by CDNLite; private origin: {{ row.content }}</p><p v-if="Number(row.geo_origins_count) > 0" class="mt-1 text-xs text-cyan-700">{{ row.geo_origins_count }} country origins</p></template>
+      <template #proxied="{ row }"><span :class="row.readonly ? 'status-neutral' : row.proxied ? 'status-proxied' : 'status-neutral'"><ShieldCheck v-if="row.readonly" class="h-3.5 w-3.5" /><Cloud v-else-if="row.proxied" class="h-3.5 w-3.5" /><CloudOff v-else class="h-3.5 w-3.5" />{{ row.readonly ? 'Managed' : row.proxied ? 'Proxied' : 'DNS only' }}</span></template>
       <template #status="{ row }"><StatusBadge :status="row.effective_status === 'active' ? 'healthy' : 'warning'" :label="row.effective_status === 'active' ? 'Active' : row.disabled_reason === 'nameservers_not_verified' ? 'Waiting for NS' : 'Disabled'" /></template>
-      <template #actions="{ row }"><div class="flex gap-2"><button class="button-secondary h-9 px-3 text-xs" @click="reconcile(row)">Retry sync</button><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
+      <template #actions="{ row }"><div class="flex gap-2"><span v-if="row.readonly" class="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">Platform</span><template v-else><button class="button-secondary h-9 px-3 text-xs" @click="reconcile(row)">Retry sync</button><button class="icon-button" title="Edit record" @click="edit(row)"><Pencil class="h-4 w-4" /></button><ConfirmDangerButton class="h-9 px-3 text-xs" confirm-text="Delete this DNS record?" @confirm="remove(row)">Delete</ConfirmDangerButton></template></div></template>
     </DataTable>
     <EmptyState v-else title="No DNS records" message="Add your first DNS record to begin routing traffic." />
   </section>
@@ -88,7 +88,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue';
-import { Cloud, CloudOff, Pencil, Plus, Trash2, X } from 'lucide-vue-next';
+import { Cloud, CloudOff, Pencil, Plus, ShieldCheck, Trash2, X } from 'lucide-vue-next';
 import DataTable from '@/components/ui/DataTable.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';

@@ -52,6 +52,7 @@ export interface DnsRecord {
   origin_status?: string; geo_origins?: Record<string, { host: string; scheme?: 'http' | 'https'; port?: 80 | 443 | number; tls_verify?: 'verify' | 'ignore' }>;
   routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
   geo_routes_count?: number;
+  managed_by?: string | null; readonly?: boolean;
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
 export type UpdateDnsRecordInput = Partial<CreateDnsRecordInput>;

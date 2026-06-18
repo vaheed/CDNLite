@@ -120,6 +120,20 @@ class PowerDnsService
         return $normalized;
     }
 
+    public function deleteZone(string $zoneDomain): array
+    {
+        $zoneId = $this->zoneId($zoneDomain);
+        $hash = $this->syncState->begin($zoneId, [], 'delete_zone');
+        $url = sprintf('%s/%s', $this->zonesBaseUrl(), rawurlencode($zoneId));
+        $result = $this->request('DELETE', $url, null);
+        $status = (int) ($result['status'] ?? 0);
+        $normalized = $this->isSuccessStatus($status) || $status === 404
+            ? ['ok' => true, 'deleted' => $status !== 404, 'status' => $status]
+            : $result;
+        $this->syncState->finish($zoneId, [], 'delete_zone', $hash, $normalized);
+        return $normalized;
+    }
+
     private function patchZone(string $zoneId, array $payload): array
     {
         $rrsets = (array) ($payload['rrsets'] ?? []);
