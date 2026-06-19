@@ -883,6 +883,8 @@ record_step PASS "edge-rate-limit-runtime" "429 observed for /login after burst"
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":5,"path_prefix":"/challenge","key_type":"ip_path","priority":21,"action":"challenge"}'
 assert_http_status "$HTTP_CODE" "201" "challenge rate-limit create failed"
 CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+# The edge serves its local snapshot, so publish and apply this new rule before exercising it.
+agent_exec '/agent/pull_config.sh' >/dev/null
 challenge_codes=()
 for i in $(seq 1 8); do
   code="$(curl -sS -o /tmp/e2e-rate-limit-challenge-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-challenge")"
