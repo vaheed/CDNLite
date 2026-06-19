@@ -883,6 +883,14 @@ WAF events must include:
 - Commands not run and why: dashboard typecheck/tests/build were not run because this slice changed no dashboard code or types; OpenAPI validation was not run because no route or schema contract changed; live smoke/e2e were not run because this was a small metadata/event enrichment slice and the root stack was not started.
 - Remaining blockers: full managed WAF group catalog, exceptions, mode switching, learning/log-only workflows, dashboard group statistics, and payload-level edge tests still need dedicated slices.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/public_index.php`, `core/tests/test_phase11_managed_waf_presets_contract.py`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `docs/ROADMAP.md`.
+- Behavior added: Phase 11 now exposes a read-only managed WAF preset catalog at `GET /api/v1/domains/{domainId}/protection/waf-presets`, returning available WAF modes, roadmap group definitions, and existing generated WAF rule templates grouped by `waf_group_id` without mutating rules or edge config.
+- Tests added/updated: Phase 11 contract coverage now requires the catalog route, service/controller methods, OpenAPI entry, read-only docs, the managed WAF modes, and the roadmap WAF group list.
+- Remaining blockers: mode application, exceptions, learning/log-only workflow, dashboard group statistics, and payload-level edge tests still need dedicated slices.
+
 ### IDE Prompt
 
 ```text

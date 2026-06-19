@@ -764,6 +764,48 @@ class TrafficRulesService
         return $out;
     }
 
+    public function managedWafPresets(string $domainId): array {
+        $rulesByGroup = [];
+        foreach ($this->protectionIntentTemplates() as $intentKey => $intent) {
+            foreach ($intent['rules'] as $rule) {
+                if (($rule['rule_table'] ?? '') !== 'waf_rules') {
+                    continue;
+                }
+                $payload = $rule['payload'] ?? [];
+                $groupId = (string) ($payload['waf_group_id'] ?? '');
+                if ($groupId === '') {
+                    continue;
+                }
+                $rulesByGroup[$groupId][] = [
+                    'intent_key' => (string) $intentKey,
+                    'template_key' => (string) $rule['template_key'],
+                    'name' => (string) ($payload['name'] ?? $rule['template_key']),
+                    'type' => (string) ($payload['type'] ?? ''),
+                    'pattern' => (string) ($payload['pattern'] ?? ''),
+                    'default_action' => (string) ($payload['action'] ?? 'log'),
+                    'severity' => (string) ($payload['waf_severity'] ?? ''),
+                    'confidence' => (string) ($payload['waf_confidence'] ?? ''),
+                    'safe_reason' => (string) ($payload['waf_safe_reason'] ?? ''),
+                ];
+            }
+        }
+
+        $groups = [];
+        foreach ($this->managedWafGroups() as $groupId => $group) {
+            $groups[] = $group + [
+                'group_id' => $groupId,
+                'rules' => $rulesByGroup[$groupId] ?? [],
+            ];
+        }
+
+        return [
+            'domain_id' => $domainId,
+            'modes' => array_values($this->managedWafModes()),
+            'groups' => $groups,
+            'mutates' => false,
+        ];
+    }
+
     public function previewProtectionProfile(string $domainId, string $profileKey, array $input = []): array {
         $template = $this->protectionProfileTemplate($profileKey);
         $intents = [];
@@ -966,6 +1008,56 @@ class TrafficRulesService
     }
     private function invalidateConfigSnapshot(): void {
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+    }
+    private function managedWafModes(): array {
+        return [
+            'log_only' => [
+                'mode' => 'log_only',
+                'name' => 'Log only',
+                'summary' => 'Records matches without blocking so operators can learn false-positive risk first.',
+                'default_action' => 'log',
+                'requires_confirmation' => false,
+            ],
+            'challenge_suspicious' => [
+                'mode' => 'challenge_suspicious',
+                'name' => 'Challenge suspicious',
+                'summary' => 'Uses friction for medium-confidence traffic before escalating to block.',
+                'default_action' => 'challenge',
+                'requires_confirmation' => false,
+            ],
+            'block_high_confidence' => [
+                'mode' => 'block_high_confidence',
+                'name' => 'Block high-confidence',
+                'summary' => 'Blocks rules with high confidence while lower-confidence matches remain observable.',
+                'default_action' => 'block',
+                'requires_confirmation' => false,
+            ],
+            'strict_block' => [
+                'mode' => 'strict_block',
+                'name' => 'Strict block',
+                'summary' => 'Blocks broader exploit patterns and should be previewed before use.',
+                'default_action' => 'block',
+                'requires_confirmation' => true,
+            ],
+        ];
+    }
+    private function managedWafGroups(): array {
+        return [
+            'sql_injection' => ['name' => 'SQL Injection', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'cross_site_scripting' => ['name' => 'Cross-Site Scripting', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'path_traversal' => ['name' => 'Path Traversal', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'local_file_inclusion' => ['name' => 'Local File Inclusion', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'remote_file_inclusion' => ['name' => 'Remote File Inclusion', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'command_injection' => ['name' => 'Command Injection', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'php_exploit' => ['name' => 'PHP Exploit Patterns', 'severity' => 'high', 'recommended_mode' => 'block_high_confidence'],
+            'wordpress_exploit' => ['name' => 'WordPress Exploit Patterns', 'severity' => 'medium', 'recommended_mode' => 'challenge_suspicious'],
+            'scanner_recon' => ['name' => 'Scanner / Recon Tools', 'severity' => 'medium', 'recommended_mode' => 'challenge_suspicious'],
+            'suspicious_encodings' => ['name' => 'Suspicious Encodings', 'severity' => 'medium', 'recommended_mode' => 'log_only'],
+            'known_bad_user_agents' => ['name' => 'Known Bad User Agents', 'severity' => 'medium', 'recommended_mode' => 'challenge_suspicious'],
+            'api_method_probe' => ['name' => 'API Method Probes', 'severity' => 'medium', 'recommended_mode' => 'log_only'],
+            'suspicious_bot' => ['name' => 'Suspicious Bot Signals', 'severity' => 'medium', 'recommended_mode' => 'challenge_suspicious'],
+            'checkout_probe' => ['name' => 'Checkout Probes', 'severity' => 'medium', 'recommended_mode' => 'log_only'],
+        ];
     }
     private function protectionIntentTemplates(): array {
         return [

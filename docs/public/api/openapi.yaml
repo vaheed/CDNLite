@@ -643,6 +643,15 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/waf-presets:
+    get:
+      tags: [Traffic Rules]
+      summary: List read-only managed WAF preset groups and modes
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview:
     post:
       tags: [Traffic Rules]

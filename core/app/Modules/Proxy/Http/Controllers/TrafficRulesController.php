@@ -105,6 +105,9 @@ class TrafficRulesController
     public function listProtectionProfiles(string $domainId): array {
         return ['data' => $this->service->listProtectionProfiles($domainId)];
     }
+    public function listManagedWafPresets(string $domainId): array {
+        return ['data' => $this->service->managedWafPresets($domainId)];
+    }
     public function previewProtectionProfile(string $domainId, string $profileKey, array $body): array {
         try {
             return ['data' => $this->service->previewProtectionProfile($domainId, $profileKey, $body)];
