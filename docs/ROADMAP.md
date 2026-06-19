@@ -1585,6 +1585,16 @@ edge-3    | stale   | 120 | 128 | stale
 - Commands not run and why: smoke/e2e and other long-running Docker validations were intentionally skipped per instruction.
 - Remaining blockers: none for the current Phase 21 slice.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `ci/smoke.sh`, `ci/e2e.sh`, `core/tests/test_phase21_edge_config_visibility_contract.py`, `core/tests/test_hardening_contract.py`, `docs/ROADMAP.md`.
+- Behavior added: smoke checks now verify the edge-node config visibility columns, the config publish audit hooks, and the dashboard bundle strings for the new config-status UI. E2E now exercises `cdn:edge:sync-config` after domain activation, confirms publish audit entries, and verifies the edge heartbeat stores the applied config version after a pull.
+- Tests added/updated: a dedicated Phase 21 contract now pins the new smoke/e2e wiring plus the config publish, rollback, and agent error-reporting hooks.
+- Validation commands run: `bash -n ci/smoke.sh && bash -n ci/e2e.sh && sh -n edge/agent/lib.sh && sh -n edge/agent/heartbeat.sh && sh -n edge/agent/pull_config.sh`; `pytest -q core/tests/test_phase21_edge_config_visibility_contract.py`; `npm run typecheck` in `dash/`.
+- Commands not run and why: live smoke/e2e stack execution was intentionally skipped per instruction.
+- Remaining blockers: none for the current Phase 21 smoke/e2e wiring slice.
+
 ### IDE Prompt
 
 ```text
