@@ -49,7 +49,8 @@ class ConfigService
             if ($origins === []) {
                 continue;
             }
-            $hosts[$domain['domain']] = [
+            $domainHost = strtolower((string) $domain['domain']);
+            $baseConfig = [
                 'domain_id' => (string) $domain['id'],
                 'origin' => $origins[0],
                 'origins' => $origins,
@@ -64,7 +65,18 @@ class ConfigService
             $shieldHash = isset($domain['origin_shield_header_value_hash']) ? trim((string) $domain['origin_shield_header_value_hash']) : '';
             $shieldSecret = (string) (getenv('CDNLITE_ORIGIN_SHIELD_SECRET') ?: '');
             if ($shieldHeaderName !== '' && $shieldHash !== '' && $shieldSecret !== '' && hash('sha256', $shieldSecret) === $shieldHash) {
-                $hosts[$domain['domain']]['headers'][$shieldHeaderName] = $shieldSecret;
+                $baseConfig['headers'][$shieldHeaderName] = $shieldSecret;
+            }
+
+            $hosts[$domainHost] = $baseConfig;
+            foreach ($this->proxiedRecordHosts($domainHost, $records, $configuredOrigins) as $recordHost => $recordOrigins) {
+                $recordConfig = $baseConfig;
+                if ($recordOrigins !== []) {
+                    $recordConfig['origin'] = $recordOrigins[0];
+                    $recordConfig['origins'] = $recordOrigins;
+                    $recordConfig['geo_origins'] = $this->buildGeoOrigins($this->dnsRecordsGeoOriginsForHost($records, $recordHost, $domainHost));
+                }
+                $hosts[$recordHost] = $recordConfig;
             }
         }
 
@@ -465,10 +477,111 @@ class ConfigService
         return $origins;
     }
 
+    private function proxiedRecordHosts(string $domainHost, array $records, array $configuredOrigins): array
+    {
+        $hosts = [];
+        foreach ($records as $record) {
+            if (empty($record['proxied']) || ($record['status'] ?? 'active') !== 'active') {
+                continue;
+            }
+            $recordHost = $this->recordHost($domainHost, (string) ($record['name'] ?? ''));
+            if ($recordHost === null) {
+                continue;
+            }
+            $recordOrigins = $this->originsForDnsRecord((string) ($record['id'] ?? ''), $configuredOrigins);
+            if ($recordOrigins === []) {
+                $origin = $this->originFromDnsRecord($record);
+                if ($origin === null) {
+                    continue;
+                }
+                $recordOrigins = [$origin];
+            }
+            $hosts[$recordHost] ??= [];
+            array_push($hosts[$recordHost], ...$recordOrigins);
+        }
+        foreach ($hosts as &$origins) {
+            usort($origins, static function (array $a, array $b): int {
+                $health = ['healthy' => 0, 'unknown' => 1, 'unhealthy' => 2];
+                return [$health[$a['health_status']] ?? 1, $a['weight'], $a['id']]
+                    <=> [$health[$b['health_status']] ?? 1, $b['weight'], $b['id']];
+            });
+        }
+        unset($origins);
+        return $hosts;
+    }
+
+    private function originsForDnsRecord(string $recordId, array $configuredOrigins): array
+    {
+        if ($recordId === '') {
+            return [];
+        }
+        $origins = [];
+        foreach ($configuredOrigins as $origin) {
+            if ((string) ($origin['dns_record_id'] ?? '') !== $recordId || empty($origin['enabled'])) {
+                continue;
+            }
+            $origins[] = $this->originForSnapshot($origin);
+        }
+        return $origins;
+    }
+
+    private function recordHost(string $domainHost, string $name): ?string
+    {
+        $name = strtolower(rtrim(trim($name), '.'));
+        if ($name === '' || $name === '@') {
+            return $domainHost;
+        }
+        if ($name === $domainHost || str_ends_with($name, '.' . $domainHost)) {
+            return $name;
+        }
+        return $name . '.' . $domainHost;
+    }
+
+    private function originFromDnsRecord(array $record): ?array
+    {
+        $host = trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? ''));
+        if ($host === '') {
+            return null;
+        }
+        $scheme = $this->schemeForDnsRecord($record);
+        return [
+            'id' => (string) ($record['id'] ?? ''),
+            'dns_record_id' => (string) ($record['id'] ?? ''),
+            'source' => 'dns_record',
+            'role' => 'origin',
+            'weight' => 1,
+            'enabled' => true,
+            'scheme' => $scheme,
+            'host' => $host,
+            'port' => $scheme === 'https' ? 443 : 80,
+            'host_header' => $host,
+            'sni' => $host,
+            'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
+            'health_status' => (string) ($record['origin_status'] ?? 'pending'),
+            'status' => (string) ($record['origin_status'] ?? 'pending'),
+        ];
+    }
+
     private function dnsRecordsGeoOrigins(array $records): array
     {
         foreach ($records as $record) {
             if (!empty($record['proxied']) && ($record['status'] ?? 'active') === 'active' && is_array($record['geo_origins'] ?? null)) {
+                return $record['geo_origins'];
+            }
+        }
+        return [];
+    }
+
+    private function dnsRecordsGeoOriginsForHost(array $records, string $host, string $domainHost): array
+    {
+        foreach ($records as $record) {
+            if (empty($record['proxied']) || ($record['status'] ?? 'active') !== 'active') {
+                continue;
+            }
+            if ($this->recordHost($domainHost, (string) ($record['name'] ?? '')) !== $host) {
+                continue;
+            }
+            if (is_array($record['geo_origins'] ?? null)) {
                 return $record['geo_origins'];
             }
         }

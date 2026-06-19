@@ -109,6 +109,10 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "'origins' => $origins" in config
+    assert "proxiedRecordHosts($domainHost, $records, $configuredOrigins)" in config
+    assert "private function recordHost(string $domainHost, string $name): ?string" in config
+    assert "private function originsForDnsRecord(string $recordId, array $configuredOrigins): array" in config
+    assert "str_ends_with($name, '.' . $domainHost)" in config
     assert "private function originsForSnapshot" in config
     assert "private function originsFromDnsRecords" in config
     assert "'source' => 'dns_record'" in config
