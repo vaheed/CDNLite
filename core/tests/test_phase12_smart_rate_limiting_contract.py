@@ -64,3 +64,23 @@ def test_phase12_rate_limit_events_are_enriched_for_activity():
 
     assert "ngx.ctx.security_rate_limit_id" in router
     assert "'rate_limit_id' => (string) ($item['rate_limit_id'] ?? $item['rule_id'] ?? '')" in collector
+
+
+def test_phase12_header_based_rate_limit_keys_flow_to_schema_api_and_edge():
+    migration = read("core/database/migrations/000008_rate_limit_header_keys.sql")
+    schema = read("core/database/schema.sql")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    router = read("edge/openresty/lua/router.lua")
+    types = read("dash/src/types.ts")
+    docs = read("docs/api/api.md")
+
+    assert "ADD COLUMN IF NOT EXISTS key_header_name TEXT NULL" in migration
+    assert "key_header_name TEXT NULL" in schema
+    assert "['ip', 'ip_path', 'header', 'header_path']" in controller
+    assert "key_header_name" in controller
+    assert "'key_header_name' => null" in service
+    assert "request_header_value" in router
+    assert "key_type == 'header' or key_type == 'header_path'" in router
+    assert "key_header_name" in types
+    assert "header/header_path" in docs

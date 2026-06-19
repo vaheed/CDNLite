@@ -201,8 +201,19 @@ class TrafficRulesController
             }
         }
         if (array_key_exists('key_type', $body)) {
-            $keyType = Validator::enum($body, 'key_type', ['ip', 'ip_path']);
+            $keyType = Validator::enum($body, 'key_type', ['ip', 'ip_path', 'header', 'header_path']);
             if (($keyType['ok'] ?? false) !== true) { return $keyType; }
+        }
+        $keyTypeValue = (string) ($body['key_type'] ?? '');
+        if (in_array($keyTypeValue, ['header', 'header_path'], true) || array_key_exists('key_header_name', $body)) {
+            if (!isset($body['key_header_name']) || trim((string) $body['key_header_name']) === '') {
+                return ['error' => 'invalid_field', 'field' => 'key_header_name', 'detail' => 'required_for_header_key_type', 'status' => 422];
+            }
+            $header = Validator::requiredString($body, 'key_header_name', 128);
+            if (($header['ok'] ?? false) !== true) { return $header; }
+            if (!preg_match('/^[A-Za-z0-9!#$%&\'*+.^_`|~-]+$/', (string) $header['value'])) {
+                return ['error' => 'invalid_field', 'field' => 'key_header_name', 'detail' => 'invalid_header_name', 'status' => 422];
+            }
         }
         if (array_key_exists('action', $body)) {
             $action = Validator::enum($body, 'action', ['block']);

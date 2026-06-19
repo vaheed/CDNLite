@@ -209,6 +209,15 @@ local function match_rate_limit(cfg, host)
   return best
 end
 
+local function request_header_value(name)
+  local header_name = tostring(name or '')
+  if header_name == '' then
+    return ''
+  end
+  local var_name = 'http_' .. string.lower(string.gsub(header_name, '-', '_'))
+  return tostring(ngx.var[var_name] or '')
+end
+
 local function apply_rate_limit(cfg, host, domain_id)
   local rule = match_rate_limit(cfg, host)
   if not rule then
@@ -224,6 +233,14 @@ local function apply_rate_limit(cfg, host, domain_id)
   local key = client_ip
   if key_type == 'ip_path' then
     key = client_ip .. '|' .. (ngx.var.uri or '/')
+  elseif key_type == 'header' or key_type == 'header_path' then
+    local header_value = request_header_value(rule.key_header_name)
+    if header_value ~= '' then
+      key = 'h|' .. tostring(rule.key_header_name or '') .. '|' .. header_value
+      if key_type == 'header_path' then
+        key = key .. '|' .. (ngx.var.uri or '/')
+      end
+    end
   end
   local bucket = tostring(math.floor(ngx.now() / 60))
   local counter_key = tostring(domain_id) .. '|' .. tostring(rule.id or '') .. '|' .. key .. '|' .. bucket

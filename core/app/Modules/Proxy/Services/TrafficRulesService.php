@@ -1571,6 +1571,7 @@ class TrafficRulesService
             'priority' => 100,
             'path_prefix' => '/',
             'key_type' => 'ip',
+            'key_header_name' => null,
             'requests_per_minute' => 60,
             'action' => 'block',
         ];
@@ -1578,7 +1579,11 @@ class TrafficRulesService
         foreach ($defaults as $key => $default) {
             if (!$partial || array_key_exists($key, $in)) {
                 $value = $in[$key] ?? $default;
-                $payload[$key] = $key === 'enabled' ? !empty($value) : ($key === 'priority' || $key === 'requests_per_minute' ? (int) $value : (string) $value);
+                if ($key === 'key_header_name' && ($value === null || trim((string) $value) === '')) {
+                    $payload[$key] = null;
+                } else {
+                    $payload[$key] = $key === 'enabled' ? !empty($value) : ($key === 'priority' || $key === 'requests_per_minute' ? (int) $value : (string) $value);
+                }
             }
         }
         return $payload + $this->managedRulePayload($in);

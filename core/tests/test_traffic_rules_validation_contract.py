@@ -22,6 +22,8 @@ $badCache = $c->createCacheRule('domain-1', ['path_prefix' => 'assets', 'ttl_sec
 $badRate = $c->createRateLimit('domain-1', ['requests_per_minute' => 0]);
 $badRatePath = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
 $badRateKeyType = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
+$badRateHeaderMissing = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'header']);
+$badRateHeaderName = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'header_path', 'key_header_name' => 'Bad Header']);
 $badWafPatch = $c->updateWaf('domain-1', 'rule-1', ['type' => 'not_valid']);
 $badCachePatch = $c->updateCacheRule('domain-1', 'rule-2', ['ttl_seconds' => 0]);
 $badRedirectMatchType = $c->createRedirect('domain-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
@@ -38,6 +40,8 @@ echo json_encode([
   'badRate' => $badRate,
   'badRatePath' => $badRatePath,
   'badRateKeyType' => $badRateKeyType,
+  'badRateHeaderMissing' => $badRateHeaderMissing,
+  'badRateHeaderName' => $badRateHeaderName,
   'badWafPatch' => $badWafPatch,
   'badCachePatch' => $badCachePatch,
   'badRedirectMatchType' => $badRedirectMatchType,
@@ -64,6 +68,10 @@ echo json_encode([
     assert out['badRatePath']['field'] == 'path_prefix'
     assert out['badRateKeyType']['error'] == 'invalid_field'
     assert out['badRateKeyType']['field'] == 'key_type'
+    assert out['badRateHeaderMissing']['error'] == 'invalid_field'
+    assert out['badRateHeaderMissing']['field'] == 'key_header_name'
+    assert out['badRateHeaderName']['error'] == 'invalid_field'
+    assert out['badRateHeaderName']['field'] == 'key_header_name'
 
     assert out['badWafPatch']['error'] == 'invalid_field'
     assert out['badWafPatch']['field'] == 'type'

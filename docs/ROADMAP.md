@@ -974,6 +974,14 @@ Rate-limit events must include:
 - Tests added/updated: Phase 12 contract coverage now pins the edge and collector event-enrichment fields.
 - Remaining blockers: dry-run mode, per-header/token keys, challenge action support, richer dashboard path suggestions, and payload-level edge tests still need dedicated slices.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/database/migrations/000008_rate_limit_header_keys.sql`, `core/database/schema.sql`, `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `edge/openresty/lua/router.lua`, `dash/src/types.ts`, `dash/src/views/domain-tabs/DomainRateLimitsTab.vue`, `core/tests/test_phase12_smart_rate_limiting_contract.py`, `core/tests/test_migrations_contract.py`, `core/tests/test_traffic_rules_validation_contract.py`, `docs/api/api.md`, `docs/ROADMAP.md`.
+- Behavior added: advanced rate-limit rules now support `header` and `header_path` key types with `key_header_name`, allowing API-token or Authorization-header limits to be represented in PostgreSQL, API responses, config snapshots, dashboard advanced editing, and edge counters. Missing headers fall back to client IP to avoid one shared unauthenticated bucket.
+- Tests added/updated: Phase 12 contract coverage now pins migration/schema/API/edge/dashboard/docs support for header-based keys, migration coverage includes the new migration, and validation coverage rejects missing or invalid header names.
+- Remaining blockers: dry-run mode, challenge action support, richer dashboard path suggestions, and payload-level edge tests still need dedicated slices.
+
 ### IDE Prompt
 
 ```text

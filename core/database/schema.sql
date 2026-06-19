@@ -504,6 +504,7 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules (
   priority INTEGER NOT NULL DEFAULT 100,
   path_prefix TEXT NOT NULL DEFAULT '/',
   key_type TEXT NOT NULL DEFAULT 'ip',
+  key_header_name TEXT NULL,
   requests_per_minute INTEGER NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
   profile_id TEXT NULL,

@@ -105,7 +105,7 @@ export interface ProtectionProfileMutationResult {
 export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }
-export interface RateLimitRule extends ManagedRuleMetadata { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | string; action: string; }
+export interface RateLimitRule extends ManagedRuleMetadata { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | 'header' | 'header_path' | string; key_header_name?: string | null; action: string; }
 export interface HeaderRule extends ManagedRuleMetadata { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
 export interface IpRule extends ManagedRuleMetadata { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
 export interface DomainOrigin {
