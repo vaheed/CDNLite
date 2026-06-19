@@ -34,6 +34,7 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
     assert "INSERT INTO ssl_jobs" in service
     assert "defaultManagedSslHostnames" in service
     assert "'*.' . $domain" in service
+    assert "':provider' => 'acme'" in service
     assert "AuditLog::write('ssl.requested'" in service
     assert "'job_id' => $job['id']" in service
     assert "public function getSslJob" in service
@@ -72,6 +73,7 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "'queued_issuance'" in renewals
     assert "processQueuedJobs()" in command
     assert "renewDue()" in command
+    assert "requestSslJob($domainId, $hostnames)" in read("core/app/Console/Commands/CdnSslRequestCommand.php")
     assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30" in compose
     assert "CDNLITE_SSL_JOB_STALE_RETRY_SECONDS" in compose
     assert "ssl.dns_challenge_created" in issuer

@@ -18,7 +18,7 @@ class CdnSslRequestCommand
         $hostnames = array_values(array_filter(array_map('trim', explode(',', (string) ($opts['hostnames'] ?? '')))));
 
         try {
-            $rows = (new TrafficRulesService())->requestSslCertificate($domainId, $hostnames);
+            $rows = (new TrafficRulesService())->requestSslJob($domainId, $hostnames);
         } catch (\Throwable $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);
             return 1;

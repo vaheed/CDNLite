@@ -230,12 +230,14 @@ Procedure:
 ```bash
 docker compose logs --tail=160 ssl-scheduler
 docker compose exec core php artisan cdn:ssl:list --domain_id="$DOMAIN_ID"
+docker compose exec core php artisan cdn:ssl:request --domain_id="$DOMAIN_ID"
 docker compose exec core php artisan cdn:settings:test-powerdns
 ```
 
 Checklist:
 
 - `ssl-scheduler` is running and not started with `CDNLITE_SCHEDULER_IDLE=1`.
+- `cdn:ssl:request` or `/ssl/request` returned a queued job; plain pending certificate rows without a job will not be claimed.
 - `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` is set to an interactive value such as `30`.
 - `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` is low enough to reclaim failed in-progress attempts without waiting hours.
 - ACME directory is staging for tests.

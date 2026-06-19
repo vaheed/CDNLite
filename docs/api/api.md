@@ -412,7 +412,7 @@ Cache tips:
 | `POST` | `/api/v1/domains/{domainId}/ssl/request` | Queue managed SSL flow and return `{ job_id, status, message }`. Defaults to apex plus wildcard hostnames. |
 | `GET` | `/api/v1/domains/{domainId}/ssl/jobs/{jobId}` | Show SSL job progress. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/acme/issue` | Issue ACME certificate. |
-| `POST` | `/api/v1/domains/{domainId}/ssl/request-cert` | Request automated certificate. |
+| `POST` | `/api/v1/domains/{domainId}/ssl/request-cert` | Synchronously request automated certificate issuance. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/renew` | Force renewal. |
 | `GET` | `/api/v1/domains/{domainId}/ssl/acme-status` | Show ACME status. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/check` | Check certificates. |
@@ -424,6 +424,7 @@ SSL tips:
 - When nameserver verification marks a domain active, CDNLite automatically queues a managed ACME DNS-01 certificate for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab.
 - When an active, verified domain receives or updates a proxied DNS record, CDNLite also ensures the default managed apex and wildcard SSL job exists.
 - The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
+- The `cdn:ssl:request` CLI follows the queued `/ssl/request` behavior and returns the scheduler job metadata.
 - Queued jobs include `scheduler_stale`, `stale_seconds`, and `scheduler_hint` when `ssl-scheduler` has not claimed them after the configured scheduler interval.
 - ACME DNS-01 TXT records are short-lived PowerDNS records, not durable dashboard DNS rows. The issuer verifies the TXT through the PowerDNS API, then asks ACME to validate. Set `CDNLITE_ACME_PUBLIC_DNS_PRECHECK=true` to require a recursive public DNS precheck before ACME validation.
 - DNS-01 issuance requires an active domain and PowerDNS challenge publishing; it does not require any customer DNS record to be proxied.

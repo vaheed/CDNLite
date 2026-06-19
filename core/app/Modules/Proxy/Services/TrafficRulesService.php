@@ -276,13 +276,13 @@ class TrafficRulesService
             if ($id === false) {
                 $i = Database::pdo()->prepare('INSERT INTO ssl_certificates (id,domain_id,hostname,provider,status,issuer,serial_number,not_before,not_after,days_until_expiry,renewal_due_at,last_checked_at,last_error,created_at,updated_at) VALUES (:id,:domain_id,:hostname,:provider,:status,:issuer,:serial,:not_before,:not_after,:days,:renewal,:checked,:error,:created,:updated)');
                 $i->execute([
-                    ':id' => Uuid::v4(), ':domain_id' => $domainId, ':hostname' => $h, ':provider' => 'cdnlite', ':status' => 'pending',
+                    ':id' => Uuid::v4(), ':domain_id' => $domainId, ':hostname' => $h, ':provider' => 'acme', ':status' => 'pending',
                     ':issuer' => null, ':serial' => null, ':not_before' => null, ':not_after' => null, ':days' => null, ':renewal' => null,
                     ':checked' => $now, ':error' => null, ':created' => $now, ':updated' => $now,
                 ]);
             } else {
                 $u = Database::pdo()->prepare("UPDATE ssl_certificates SET provider=:provider,status=:status,last_checked_at=:checked,last_error=NULL,updated_at=:updated WHERE id=:id AND status IN ('missing','pending')");
-                $u->execute([':provider' => 'cdnlite', ':status' => 'pending', ':checked' => $now, ':updated' => $now, ':id' => $id]);
+                $u->execute([':provider' => 'acme', ':status' => 'pending', ':checked' => $now, ':updated' => $now, ':id' => $id]);
             }
         }
         return $this->listSslCertificates($domainId);

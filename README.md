@@ -60,6 +60,7 @@ docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:usage:prune --dry-run
+docker compose exec core php artisan cdn:ssl:request --domain_id="$DOMAIN_ID"
 docker compose exec core php artisan cdn:powerdns:doctor
 docker compose exec core php artisan cdn:powerdns:dry-run
 docker compose exec core php artisan cdn:powerdns:force-sync

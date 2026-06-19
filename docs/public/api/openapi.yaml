@@ -956,7 +956,7 @@ paths:
   /api/v1/domains/{domainId}/ssl/request-cert:
     post:
       tags: [SSL]
-      summary: Request automated certificate
+      summary: Synchronously request automated certificate issuance
       parameters:
         - $ref: "#/components/parameters/DomainId"
       requestBody:

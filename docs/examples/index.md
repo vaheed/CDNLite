@@ -261,16 +261,23 @@ Start with a generous threshold, then tune from security events and application 
 ## SSL Request Example
 
 ```bash
-curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/ssl/request-cert" \
+JOB_ID="$(
+  curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/ssl/request" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"hostnames":["example.test","*.example.test"]}' \
+    | jq -r '.data.job_id'
+)"
+
+curl -s "$API/api/v1/domains/$DOMAIN_ID/ssl/jobs/$JOB_ID" \
   -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"hostnames":["example.test","www.example.test"]}'
+  | jq
 
 curl -s "$API/api/v1/domains/$DOMAIN_ID/ssl/acme-status" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Use staging ACME first. When DNS propagation and renewal are reliable, move to production ACME.
+Use staging ACME first. The request endpoint queues a scheduler job; keep `ssl-scheduler` running and poll the job until it reaches `issued` or `failed`.
 
 ## Signed Edge Config Pull Sketch
 
