@@ -219,9 +219,9 @@ def test_route_validation_returns_invalid_field_for_new_guards():
             body={},
             headers={"Authorization": "Bearer stage2-token"},
         )
-        assert ssl_request_code == 202
-        assert ssl_request_body["status"] == "queued"
-        assert ssl_request_body["job"]["hostnames"] == [f"stage2-{token}.example.test", f"*.stage2-{token}.example.test"]
+        assert ssl_request_code == 422
+        assert ssl_request_body["error"] == "domain_must_be_active"
+        assert ssl_request_body["detail"] == "Verify nameservers before requesting managed SSL."
     finally:
         server.terminate()
         server.wait(timeout=5)
