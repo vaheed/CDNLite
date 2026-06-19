@@ -652,6 +652,15 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/rate-limit-templates:
+    get:
+      tags: [Traffic Rules]
+      summary: List read-only Smart Rate Limiting templates and recent impact estimates
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview:
     post:
       tags: [Traffic Rules]

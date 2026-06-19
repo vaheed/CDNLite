@@ -108,6 +108,9 @@ class TrafficRulesController
     public function listManagedWafPresets(string $domainId): array {
         return ['data' => $this->service->managedWafPresets($domainId)];
     }
+    public function listSmartRateLimitTemplates(string $domainId): array {
+        return ['data' => $this->service->smartRateLimitTemplates($domainId)];
+    }
     public function previewProtectionProfile(string $domainId, string $profileKey, array $body): array {
         try {
             return ['data' => $this->service->previewProtectionProfile($domainId, $profileKey, $body)];

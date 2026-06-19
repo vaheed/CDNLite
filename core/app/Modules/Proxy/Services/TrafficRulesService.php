@@ -806,6 +806,30 @@ class TrafficRulesService
         ];
     }
 
+    public function smartRateLimitTemplates(string $domainId): array {
+        $templates = [];
+        foreach ($this->smartRateLimitTemplateDefinitions() as $intentKey => $template) {
+            $rule = $template['rule'];
+            $templates[] = [
+                'intent_key' => $intentKey,
+                'name' => $template['name'],
+                'summary' => $template['summary'],
+                'risk' => $template['risk'],
+                'recommended_mode' => $template['mode'],
+                'default_paths' => $template['default_paths'],
+                'rule' => $rule,
+                'preview_impact' => $this->smartRateLimitImpact($domainId, (string) $rule['path_prefix'], 86400),
+                'mutates' => false,
+            ];
+        }
+        return [
+            'domain_id' => $domainId,
+            'window_seconds' => 60,
+            'templates' => $templates,
+            'mutates' => false,
+        ];
+    }
+
     public function previewProtectionProfile(string $domainId, string $profileKey, array $input = []): array {
         $template = $this->protectionProfileTemplate($profileKey);
         $intents = [];
@@ -1057,6 +1081,66 @@ class TrafficRulesService
             'api_method_probe' => ['name' => 'API Method Probes', 'severity' => 'medium', 'recommended_mode' => 'log_only'],
             'suspicious_bot' => ['name' => 'Suspicious Bot Signals', 'severity' => 'medium', 'recommended_mode' => 'challenge_suspicious'],
             'checkout_probe' => ['name' => 'Checkout Probes', 'severity' => 'medium', 'recommended_mode' => 'log_only'],
+        ];
+    }
+    private function smartRateLimitTemplateDefinitions(): array {
+        return [
+            'login_protection' => [
+                'name' => 'Login Protection',
+                'summary' => 'Challenge or limit repeated requests to common login paths.',
+                'risk' => 'moderate',
+                'mode' => 'challenge_first',
+                'default_paths' => ['/login', '/admin', '/wp-login.php'],
+                'rule' => ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_login_paths', 'enabled' => true, 'priority' => 20, 'path_prefix' => '/login', 'key_type' => 'ip_path', 'requests_per_minute' => 10, 'window_seconds' => 60, 'action' => 'block', 'duration_seconds' => 600],
+            ],
+            'api_protection' => [
+                'name' => 'API Protection',
+                'summary' => 'Apply API-friendly 429 limits to API paths.',
+                'risk' => 'moderate',
+                'mode' => 'recommended',
+                'default_paths' => ['/api/'],
+                'rule' => ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_api_paths', 'enabled' => true, 'priority' => 30, 'path_prefix' => '/api/', 'key_type' => 'ip_path', 'requests_per_minute' => 120, 'window_seconds' => 60, 'action' => 'block', 'duration_seconds' => 300],
+            ],
+            'form_spam' => [
+                'name' => 'Form Spam',
+                'summary' => 'Limit repeated POSTs to forms such as contact and signup pages.',
+                'risk' => 'moderate',
+                'mode' => 'challenge_first',
+                'default_paths' => ['/contact', '/signup'],
+                'rule' => ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_form_spam', 'enabled' => true, 'priority' => 34, 'path_prefix' => '/contact', 'key_type' => 'ip_path', 'requests_per_minute' => 5, 'window_seconds' => 60, 'action' => 'block', 'duration_seconds' => 900],
+            ],
+            'expensive_pages' => [
+                'name' => 'Expensive Pages',
+                'summary' => 'Protect selected expensive paths after reviewing recent traffic.',
+                'risk' => 'moderate',
+                'mode' => 'preview_first',
+                'default_paths' => ['/'],
+                'rule' => ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_expensive_pages', 'enabled' => true, 'priority' => 45, 'path_prefix' => '/', 'key_type' => 'ip_path', 'requests_per_minute' => 30, 'window_seconds' => 60, 'action' => 'block', 'duration_seconds' => 300],
+            ],
+            'emergency_traffic_limit' => [
+                'name' => 'Emergency Traffic Limit',
+                'summary' => 'Temporarily tighten site-wide request volume during an active incident.',
+                'risk' => 'risky',
+                'mode' => 'confirm_first',
+                'default_paths' => ['/'],
+                'rule' => ['rule_table' => 'rate_limit_rules', 'template_key' => 'rate_emergency_sitewide', 'enabled' => true, 'priority' => 5, 'path_prefix' => '/', 'key_type' => 'ip', 'requests_per_minute' => 300, 'window_seconds' => 60, 'action' => 'block', 'duration_seconds' => 600],
+            ],
+        ];
+    }
+    private function smartRateLimitImpact(string $domainId, string $pathPrefix, int $lookbackSeconds): array {
+        $since = time() - max(60, $lookbackSeconds);
+        $stmt = Database::pdo()->prepare(
+            'SELECT COALESCE(SUM(requests_count), 0) FROM usage_rollups
+             WHERE domain_id=:domain_id AND ts>=:since AND path LIKE :path_prefix'
+        );
+        $stmt->execute([
+            ':domain_id' => $domainId,
+            ':since' => $since,
+            ':path_prefix' => rtrim($pathPrefix, '%') . '%',
+        ]);
+        return [
+            'lookback_seconds' => $lookbackSeconds,
+            'would_have_matched_24h' => (int) $stmt->fetchColumn(),
         ];
     }
     private function protectionIntentTemplates(): array {

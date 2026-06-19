@@ -958,6 +958,14 @@ Rate-limit events must include:
 - Dry-run logs but does not block.
 - Activity shows rate-limit events.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/public_index.php`, `core/tests/test_phase12_smart_rate_limiting_contract.py`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `docs/ROADMAP.md`.
+- Behavior added: Phase 12 now exposes a read-only Smart Rate Limiting template catalog at `GET /api/v1/domains/{domainId}/protection/rate-limit-templates`, covering login protection, API protection, form spam, expensive pages, and emergency traffic limiting. Each template returns the advanced `rate_limit_rules` shape, safe defaults, recommended mode, and a recent Activity impact estimate via `preview_impact.would_have_matched_24h`.
+- Tests added/updated: Phase 12 contract coverage now requires the catalog route, service/controller methods, OpenAPI entry, docs, built-in templates, and preview-impact field.
+- Remaining blockers: dry-run mode, per-header/token keys, challenge action support, richer dashboard path suggestions, enriched edge rate-limit event fields, and payload-level edge tests still need dedicated slices.
+
 ### IDE Prompt
 
 ```text
