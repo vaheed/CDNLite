@@ -73,6 +73,9 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "dns_record_id" in origins
     assert "syncDnsRecordFromLinkedOrigin" in origins
     assert "$payload['_skip_dns_record_sync'] = true" in origins
+    assert "$payload['host_header'] = (string) ($existing['host_header'] ?? $host)" in origins
+    assert "$payload['sni'] = (string) ($existing['sni'] ?? $host)" in origins
+    assert "$payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? false)" in origins
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins

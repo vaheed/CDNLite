@@ -273,6 +273,12 @@ class OriginHealthService
         ];
 
         if ($existing !== null) {
+            // DNS reconciliation owns the backend address/protocol, but origin
+            // routing knobs can be edited in the Origins tab and must survive
+            // the list-time sync that keeps DNS-linked rows visible.
+            $payload['host_header'] = (string) ($existing['host_header'] ?? $host);
+            $payload['sni'] = (string) ($existing['sni'] ?? $host);
+            $payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? false);
             $payload['_skip_dns_record_sync'] = true;
             return $this->update($domainId, (string) $existing['id'], $payload);
         }
