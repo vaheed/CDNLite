@@ -346,9 +346,12 @@ docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE
 agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
 retry 20 1 edge_is_healthy
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null
+# Report the version only after the agent has successfully applied its first snapshot.
+agent_exec '/agent/heartbeat.sh' >/dev/null
 edge_config_version="$(db_query "SELECT COALESCE(applied_config_version, 0) FROM edge_nodes WHERE edge_id='${EDGE_ID}' LIMIT 1;")"
-assert_eq "$edge_config_version" "$config_snapshot_after" "edge heartbeat should persist applied config version"
+initial_config_snapshot_version="$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")"
+assert_eq "$edge_config_version" "$initial_config_snapshot_version" "edge heartbeat should persist applied config version"
 record_step PASS "edge-config-version" "edge heartbeat persisted the applied snapshot version"
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
