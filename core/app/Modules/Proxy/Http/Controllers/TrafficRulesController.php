@@ -91,6 +91,11 @@ class TrafficRulesController
     public function deleteRateLimit(string $domainId, string $id): array {
         return $this->service->deleteRateLimit($domainId, $id) ? ['ok' => true] : ['error' => 'rate_limit_not_found', 'status' => 404];
     }
+    public function dryRunRateLimit(string $domainId, array $body): array {
+        $error = $this->validateRateLimit($body, false);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->dryRunRateLimit($domainId, $body)];
+    }
     public function detachManagedRule(string $domainId, string $ruleType, string $id): array {
         try {
             $rule = $this->service->detachManagedRule($domainId, $ruleType, $id);
@@ -216,7 +221,7 @@ class TrafficRulesController
             }
         }
         if (array_key_exists('action', $body)) {
-            $action = Validator::enum($body, 'action', ['block']);
+            $action = Validator::enum($body, 'action', ['block', 'challenge']);
             if (($action['ok'] ?? false) !== true) { return $action; }
         }
         return null;

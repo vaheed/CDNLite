@@ -275,6 +275,15 @@ local function apply_rate_limit(cfg, host, domain_id)
     ngx.header['Retry-After'] = '60'
     ngx.say('{"error":"rate_limited","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
     return ngx.exit(429)
+  elseif ngx.ctx.security_action == 'challenge' then
+    append_security_event(domain_id)
+    edge_log.warn('rate_limit_challenge', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })
+    ngx.status = 429
+    ngx.header.content_type = 'application/json'
+    identity.apply()
+    ngx.header['Retry-After'] = '60'
+    ngx.say('{"error":"challenge_required","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
+    return ngx.exit(429)
   end
   return true
 end

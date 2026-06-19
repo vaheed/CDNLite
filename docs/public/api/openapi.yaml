@@ -632,6 +632,17 @@ paths:
           $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/rate-limits:
     $ref: "#/components/pathItems/RuleCollection"
+  /api/v1/domains/{domainId}/rate-limits/dry-run:
+    post:
+      tags: [Traffic Rules]
+      summary: Dry-run a Smart Rate Limiting rule without mutating state
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:
     $ref: "#/components/pathItems/RuleMember"
   /api/v1/domains/{domainId}/protection/profiles:

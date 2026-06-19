@@ -84,3 +84,26 @@ def test_phase12_header_based_rate_limit_keys_flow_to_schema_api_and_edge():
     assert "key_type == 'header' or key_type == 'header_path'" in router
     assert "key_header_name" in types
     assert "header/header_path" in docs
+
+
+def test_phase12_dry_run_and_challenge_are_exposed_through_api_and_dashboard():
+    routes = read("core/public_index.php")
+    openapi = read("docs/public/api/openapi.yaml")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    router = read("edge/openresty/lua/router.lua")
+    dashboard = read("dash/src/views/domain-tabs/DomainRateLimitsTab.vue")
+    api = read("dash/src/lib/api/rateLimit.ts")
+    docs = read("docs/api/api.md")
+
+    assert "/api/v1/domains/{domainId}/rate-limits/dry-run" in routes
+    assert "/api/v1/domains/{domainId}/rate-limits/dry-run:" in openapi
+    assert "dryRunRateLimit" in controller
+    assert "dryRunRateLimit" in service
+    assert "action' => 'challenge'" in service or "'challenge'" in service
+    assert "challenge_required" in router
+    assert "rate_limit_challenge" in router
+    assert "dryRun:" in api
+    assert "Smart Rate Limiting" in dashboard
+    assert "Action" in dashboard and "challenge" in dashboard
+    assert "dry-run" in docs

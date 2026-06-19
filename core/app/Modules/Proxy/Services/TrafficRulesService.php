@@ -679,6 +679,38 @@ class TrafficRulesService
     public function deleteRateLimit(string $domainId, string $id): bool {
         return $this->delete('rate_limit_rules', $domainId, $id);
     }
+    public function dryRunRateLimit(string $domainId, array $in): array {
+        $payload = $this->rateLimitPayload($in);
+        $pathPrefix = (string) ($payload['path_prefix'] ?? '/');
+        $windowSeconds = (int) ($payload['window_seconds'] ?? 60);
+        $since = time() - max(60, $windowSeconds);
+        $stmt = Database::pdo()->prepare(
+            'SELECT COALESCE(SUM(requests_count), 0) FROM usage_rollups
+             WHERE domain_id=:domain_id AND ts>=:since AND path LIKE :path_prefix'
+        );
+        $stmt->execute([
+            ':domain_id' => $domainId,
+            ':since' => $since,
+            ':path_prefix' => rtrim($pathPrefix, '%') . '%',
+        ]);
+        $wouldMatch = (int) $stmt->fetchColumn();
+        return [
+            'rule' => [
+                'enabled' => !empty($payload['enabled']),
+                'priority' => (int) ($payload['priority'] ?? 100),
+                'path_prefix' => $pathPrefix,
+                'key_type' => (string) ($payload['key_type'] ?? 'ip'),
+                'key_header_name' => $payload['key_header_name'] ?? null,
+                'requests_per_minute' => (int) ($payload['requests_per_minute'] ?? 60),
+                'action' => (string) ($payload['action'] ?? 'block'),
+            ],
+            'preview_impact' => [
+                'lookback_seconds' => 86400,
+                'would_have_matched_24h' => $wouldMatch,
+            ],
+            'mutates' => false,
+        ];
+    }
     public function detachManagedRule(string $domainId, string $ruleType, string $id): ?array {
         $table = match ($ruleType) {
             'waf_rule', 'waf' => 'waf_rules',
@@ -1585,6 +1617,9 @@ class TrafficRulesService
                     $payload[$key] = $key === 'enabled' ? !empty($value) : ($key === 'priority' || $key === 'requests_per_minute' ? (int) $value : (string) $value);
                 }
             }
+        }
+        if (!$partial || array_key_exists('window_seconds', $in)) {
+            $payload['window_seconds'] = (int) ($in['window_seconds'] ?? 60);
         }
         return $payload + $this->managedRulePayload($in);
     }

@@ -462,6 +462,10 @@ $router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/u
 }, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->listRateLimits((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/rate-limits/dry-run', static function (Request $req, array $p) use ($rulesController): array {
+    $result = $rulesController->dryRunRateLimit((string) $p['domainId'], $req->body);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
 $router->add('PATCH', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->updateRateLimit((string) $p['domainId'], (string) $p['ruleId'], $req->body)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed', static fn (Request $req, array $p) => Response::json($rulesController->detachManagedRule((string) $p['domainId'], 'rate_limit', (string) $p['ruleId'])), auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}/rate-limits/{ruleId}', static fn (Request $req, array $p) => Response::json($rulesController->deleteRateLimit((string) $p['domainId'], (string) $p['ruleId'])), auth: true);

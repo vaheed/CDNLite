@@ -982,6 +982,14 @@ Rate-limit events must include:
 - Tests added/updated: Phase 12 contract coverage now pins migration/schema/API/edge/dashboard/docs support for header-based keys, migration coverage includes the new migration, and validation coverage rejects missing or invalid header names.
 - Remaining blockers: dry-run mode, challenge action support, richer dashboard path suggestions, and payload-level edge tests still need dedicated slices.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php`, `core/app/Modules/Proxy/Services/TrafficRulesService.php`, `core/public_index.php`, `edge/openresty/lua/router.lua`, `dash/src/lib/api/rateLimit.ts`, `dash/src/views/domain-tabs/DomainRateLimitsTab.vue`, `core/tests/test_phase12_smart_rate_limiting_contract.py`, `docs/api/api.md`, `docs/public/api/openapi.yaml`, `docs/ROADMAP.md`.
+- Behavior added: Smart Rate Limiting now supports dry-run previews, challenge action mode, and dashboard path suggestions. Dry-run returns a non-mutating `preview_impact` estimate, while `challenge` emits a distinct `challenge_required` edge response and still records security events. The Rate Limits tab now shows common beginner path suggestions and exposes the `challenge` action in the advanced editor.
+- Tests added/updated: Phase 12 contract coverage now requires the dry-run route, API client, dashboard support, and challenge behavior.
+- Remaining blockers: payload-level edge tests still need a dedicated slice.
+
 ### IDE Prompt
 
 ```text
