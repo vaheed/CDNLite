@@ -115,8 +115,10 @@ edge_config_visibility_columns="$(db_query "SELECT COUNT(*) FROM information_sch
 assert_eq "$edge_config_visibility_columns" "3" "edge config visibility columns are incomplete"
 record_step PASS "schema-edge-config-visibility" "edge config visibility columns are present"
 
-config_publish_audit_checks="$(grep -c 'config.publish' core/app/Modules/Proxy/Services/ConfigService.php)"
-assert_eq "$config_publish_audit_checks" "2" "config publish audit hooks missing"
+config_service="core/app/Modules/Proxy/Services/ConfigService.php"
+grep -Fq "'config.publish'" "$config_service" || fail "new config publish audit hook missing"
+grep -Fq "'config.publish.reused'" "$config_service" || fail "reused config publish audit hook missing"
+grep -Fq "'config.rollback'" "$config_service" || fail "config rollback audit hook missing"
 record_step PASS "schema-config-publish-audit" "config publish/rollback audit hooks are wired"
 
 removed_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
