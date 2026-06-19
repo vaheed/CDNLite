@@ -14,5 +14,7 @@ def test_stage6_agent_scripts_present_and_hardened_contract():
     assert "api.ipify" not in lib
     assert "checks" in doctor
     assert "last_error" in pull
+    assert "cdnlite_config_apply_error" in lib
     assert "config_version" in heartbeat
+    assert "config_apply_error" in heartbeat
     assert "backoff" in run

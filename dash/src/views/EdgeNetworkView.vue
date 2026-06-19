@@ -51,6 +51,18 @@
       </template>
       <template #version="{ value }"><span class="whitespace-nowrap text-xs font-medium">{{ value || 'Unknown' }}</span></template>
       <template #heartbeat="{ value }"><span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">{{ value }}</span></template>
+      <template #config="{ row }">
+        <div class="min-w-0">
+          <StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" />
+          <p class="mt-1 text-xs text-slate-400">
+            Applied {{ row.applied_config_version ? `v${row.applied_config_version}` : 'none' }}
+            <span v-if="row.last_config_pull_at"> · Pulled {{ formatDate(row.last_config_pull_at as number | null | undefined) }}</span>
+          </p>
+          <p v-if="row.config_apply_error" class="mt-1 max-w-64 truncate text-xs text-red-600 dark:text-red-300" :title="String(row.config_apply_error)">
+            {{ row.config_apply_error }}
+          </p>
+        </div>
+      </template>
       <template #health="{ row }"><StatusBadge :status="String(row.health)" /></template>
     </DataTable>
 
@@ -152,6 +164,34 @@
         </div>
       </article>
     </div>
+
+    <article class="card p-5 sm:p-6">
+      <div class="section-heading">
+        <div>
+          <h2>Config snapshot status</h2>
+          <p>Compare each edge node against the latest generated edge config.</p>
+        </div>
+        <StatusBadge :status="configHealth" :label="configHealthLabel" />
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-3">
+        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Latest snapshot</p>
+          <p class="mt-2 text-2xl font-black text-slate-950 dark:text-white">{{ latestSnapshot ? `v${latestSnapshot.version}` : 'None' }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ latestSnapshot ? formatDate(latestSnapshot.generated_at) : 'No snapshots available yet.' }}</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Up to date</p>
+          <p class="mt-2 text-2xl font-black text-emerald-700 dark:text-emerald-300">{{ configCounts.synced }}</p>
+          <p class="mt-1 text-xs text-slate-400">Nodes already running the latest config.</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+          <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Pending or stale</p>
+          <p class="mt-2 text-2xl font-black text-amber-700 dark:text-amber-300">{{ configCounts.pending + configCounts.stale }}</p>
+          <p class="mt-1 text-xs text-slate-400">Nodes still pulling or reporting an error.</p>
+        </div>
+      </div>
+    </article>
   </section>
 </template>
 
@@ -163,17 +203,19 @@ import ChartCard from '@/components/ui/ChartCard.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
+import { configSnapshotsApi } from '@/lib/api/configSnapshots';
 import { edgesApi } from '@/lib/api/edges';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
 import { useVisibilityPolling } from '@/lib/data/polling';
 import { heartbeatStatus } from '@/lib/utils/diagnostics';
 import { formatDate } from '@/lib/utils/format';
-import type { EdgeDnsStatus, EdgeNode, EdgePool } from '@/types';
+import type { ConfigSnapshotSummary, EdgeDnsStatus, EdgeNode, EdgePool } from '@/types';
 
 const edges = ref<EdgeNode[]>([]);
 const pools = ref<EdgePool[]>([]);
 const dns = ref<EdgeDnsStatus | null>(null);
+const snapshots = ref<ConfigSnapshotSummary[]>([]);
 const showAllDnsRecords = ref(false);
 const dnsPreviewLimit = 3;
 const hasHiddenDnsRecords = computed(() => (dns.value?.records.length ?? 0) > dnsPreviewLimit);
@@ -201,6 +243,7 @@ const columns = [
   { key: 'modes', label: 'Modes', sortable: false },
   { key: 'version', label: 'Version' },
   { key: 'heartbeat', label: 'Heartbeat' },
+  { key: 'config', label: 'Config' },
   { key: 'health', label: 'Health' },
 ];
 const healthCounts = computed(() => ({
@@ -213,6 +256,16 @@ const healthSummary = computed(() => [
   { key: 'warning', label: 'Warning', value: healthCounts.value.warning, dot: 'bg-amber-500' },
   { key: 'critical', label: 'Critical', value: healthCounts.value.critical, dot: 'bg-red-500' },
 ]);
+const latestSnapshot = computed(() => [...snapshots.value].sort((a, b) => b.version - a.version)[0] ?? null);
+const configCounts = computed(() => {
+  const latestVersion = latestSnapshot.value?.version ?? null;
+  const synced = latestVersion === null ? 0 : rows.value.filter(row => row.applied_config_version === latestVersion).length;
+  const stale = latestVersion === null ? 0 : rows.value.filter(row => (row.applied_config_version ?? null) !== null && (row.applied_config_version ?? 0) < latestVersion).length;
+  const pending = latestVersion === null ? rows.value.filter(row => row.applied_config_version === null).length : rows.value.filter(row => row.applied_config_version === null || (row.applied_config_version ?? 0) > latestVersion).length;
+  return { synced, stale, pending };
+});
+const configHealth = computed(() => configCounts.value.pending > 0 || configCounts.value.stale > 0 ? 'warning' : latestSnapshot.value ? 'ok' : 'info');
+const configHealthLabel = computed(() => latestSnapshot.value ? (configCounts.value.pending || configCounts.value.stale ? 'Syncing' : 'Up to date') : 'No snapshots');
 const overallHealth = computed(() => healthCounts.value.critical ? 'critical' : healthCounts.value.warning ? 'warning' : 'ok');
 const overallHealthLabel = computed(() => overallHealth.value === 'ok' ? 'Operational' : overallHealth.value === 'warning' ? 'Degraded' : 'Action required');
 const chart = computed(() => ({
@@ -239,11 +292,31 @@ function asList(value: unknown): string[] {
     : String(value ?? '').trim() === '' ? [] : [String(value).trim()];
 }
 
+function configStatus(row: { applied_config_version?: number | null; config_apply_error?: string | null }): 'ok' | 'warning' | 'critical' | 'info' {
+  const latestVersion = latestSnapshot.value?.version ?? null;
+  if (latestVersion === null) return 'info';
+  if (row.config_apply_error) return 'critical';
+  if ((row.applied_config_version ?? null) === latestVersion) return 'ok';
+  if (row.applied_config_version === null) return 'warning';
+  return 'warning';
+}
+
+function configStatusLabel(row: { applied_config_version?: number | null; config_apply_error?: string | null }): string {
+  const latestVersion = latestSnapshot.value?.version ?? null;
+  if (latestVersion === null) return 'No snapshot';
+  if (row.config_apply_error) return 'Apply error';
+  if ((row.applied_config_version ?? null) === latestVersion) return 'Up to date';
+  if (row.applied_config_version === null) return 'Pending';
+  if ((row.applied_config_version ?? 0) < latestVersion) return 'Stale';
+  return 'Ahead';
+}
+
 async function load() {
-  [edges.value, pools.value, dns.value] = await Promise.all([
+  [edges.value, pools.value, dns.value, snapshots.value] = await Promise.all([
     edgesApi.list().catch(() => []),
     edgesApi.pools().catch(() => []),
     edgesApi.dns().catch(() => null),
+    configSnapshotsApi.list().catch(() => []),
   ]);
 }
 

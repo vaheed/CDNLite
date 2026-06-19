@@ -347,6 +347,9 @@ agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
 retry 20 1 edge_is_healthy
 agent_exec '/agent/pull_config.sh' >/dev/null || true
+edge_config_version="$(db_query "SELECT COALESCE(applied_config_version, 0) FROM edge_nodes WHERE edge_id='${EDGE_ID}' LIMIT 1;")"
+assert_eq "$edge_config_version" "$config_snapshot_after" "edge heartbeat should persist applied config version"
+record_step PASS "edge-config-version" "edge heartbeat persisted the applied snapshot version"
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
 
@@ -376,6 +379,13 @@ now="$(date +%s)"
 db_query "UPDATE domains SET status='active', nameserver_status='verified', last_ns_check_at=$now, updated_at=$now WHERE id='${DOMAIN_ID}';" >/dev/null
 db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
 record_step PASS "domain-activate" "domain activated with development override"
+
+config_snapshot_before="$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")"
+config_snapshot_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
+config_snapshot_after="$(jq -r '.version' <<<"$config_snapshot_json")"
+retry 20 1 db_query "SELECT COUNT(*) FROM audit_log WHERE event IN ('config.publish','config.publish.reused');" >/dev/null
+assert_eq "$config_snapshot_after" "$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")" "config rebuild should reuse the current snapshot when unchanged"
+record_step PASS "config-publish-audit" "config rebuild writes publish audit events and reuses unchanged snapshots"
 
 api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'

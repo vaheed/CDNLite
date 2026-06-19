@@ -1555,6 +1555,36 @@ edge-3    | stale   | 120 | 128 | stale
 - Dashboard shows pending then up to date.
 - Stale edge is detected.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/database/migrations/000009_edge_config_version_visibility.sql`, `core/database/schema.sql`, `core/app/Modules/Edge/Services/EdgeService.php`, `dash/src/views/EdgeNetworkView.vue`, `dash/src/types.ts`, `core/tests/test_edge_network_phase12_contract.py`, `core/tests/test_dashboard_edge_network_design_contract.py`.
+- Behavior added: edge nodes now persist `applied_config_version`, `last_config_pull_at`, and `config_apply_error` from heartbeat/register payloads. The Edge Network dashboard now compares each node against the latest config snapshot, shows applied/pending/stale/apply-error status, and surfaces the latest snapshot version alongside per-node pull timing.
+- Tests added/updated: contract coverage now pins the new edge config visibility fields in the service, dashboard, and TypeScript types.
+- Validation commands run: `php -l core/app/Modules/Edge/Services/EdgeService.php && php -l core/app/Modules/Edge/Http/Controllers/EdgeController.php && php -l core/public_index.php`; `pytest -q core/tests/test_edge_network_phase12_contract.py core/tests/test_dashboard_edge_network_design_contract.py core/tests/test_edge_agent_stage6_contract.py`; `npm run typecheck` in `dash/`.
+- Commands not run and why: smoke/e2e and other long-running Docker validations were intentionally skipped per instruction.
+- Remaining blockers: Activity/event records for config publish/apply transitions still need a dedicated slice, and the edge agent can still be extended to report a safe apply-error reason from the config pull loop.
+
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `core/app/Modules/Proxy/Services/ConfigService.php`, `core/tests/test_phase14_15_contract.py`, `docs/ROADMAP.md`.
+- Behavior added: config snapshot rebuild and rollback now write audit events for `config.publish`, `config.publish.reused`, and `config.rollback`, preserving the previous active version in audit details so Activity can show publish/apply transitions.
+- Tests added/updated: Phase 14/15 contract coverage now pins the new audit-event methods and audit event names in `ConfigService`.
+- Validation commands run: `php -l core/app/Modules/Proxy/Services/ConfigService.php`; `pytest -q core/tests/test_phase14_15_contract.py core/tests/test_edge_network_phase12_contract.py core/tests/test_dashboard_edge_network_design_contract.py`; `npm run typecheck` in `dash/`.
+- Commands not run and why: smoke/e2e and other long-running Docker validations were intentionally skipped per instruction.
+- Remaining blockers: the edge agent can still be extended to report a safe apply-error reason from the config pull loop.
+
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `edge/agent/lib.sh`, `edge/agent/heartbeat.sh`, `core/tests/test_edge_agent_stage6_contract.py`, `docs/ROADMAP.md`.
+- Behavior added: the edge agent heartbeat now reads the local sync-status file and reports `config_apply_error` alongside `config_version`, allowing Core and the dashboard to show a safe human-readable apply failure reason after a config pull or validation problem.
+- Tests added/updated: stage 6 agent contract now pins the new heartbeat/error helper contract.
+- Validation commands run: `sh -n edge/agent/lib.sh && sh -n edge/agent/heartbeat.sh && sh -n edge/agent/pull_config.sh`; `pytest -q core/tests/test_edge_agent_stage6_contract.py core/tests/test_edge_network_phase12_contract.py core/tests/test_dashboard_edge_network_design_contract.py`; `npm run typecheck` in `dash/`.
+- Commands not run and why: smoke/e2e and other long-running Docker validations were intentionally skipped per instruction.
+- Remaining blockers: none for the current Phase 21 slice.
+
 ### IDE Prompt
 
 ```text

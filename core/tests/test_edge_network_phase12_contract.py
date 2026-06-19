@@ -38,6 +38,7 @@ def test_platform_dns_plan_contract():
 def test_edge_network_dashboard_contract():
     view = read("dash/src/views/EdgeNetworkView.vue")
     api = read("dash/src/lib/api/edges.ts")
+    types = read("dash/src/types.ts")
     router = read("dash/src/router/index.ts")
 
     assert 'title="Nodes"' in view
@@ -46,6 +47,11 @@ def test_edge_network_dashboard_contract():
     assert "Static proxy anycast" in view
     assert "staticAnycastSummary" in view
     assert "has no public IP" in view
+    assert "Config snapshot status" in view
+    assert "applied_config_version" in view
+    assert "config_apply_error" in view
+    assert "configStatusLabel" in view
     assert "/api/v1/edges/pools" in api
     assert "/api/v1/edges/dns" in api
+    assert "applied_config_version" in types
     assert "EdgeNetworkView" in router

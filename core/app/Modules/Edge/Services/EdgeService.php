@@ -73,12 +73,14 @@ class EdgeService
             'INSERT INTO edge_nodes (
                 id, edge_id, hostname, public_ip, public_ipv4, public_ipv6, region, country, continent,
                 latitude, longitude, version, status, is_enabled, last_heartbeat, last_heartbeat_at,
-                health_status, weight, priority, geo_enabled, anycast_enabled, created_at, updated_at
+                health_status, applied_config_version, last_config_pull_at, config_apply_error,
+                weight, priority, geo_enabled, anycast_enabled, created_at, updated_at
              )
              VALUES (
                 :id, :edge_id, :hostname, :public_ip, :public_ipv4, :public_ipv6, :region, :country, :continent,
                 :latitude, :longitude, :version, :status, :is_enabled, :last_heartbeat, :last_heartbeat_at,
-                :health_status, :weight, :priority, :geo_enabled, :anycast_enabled, :created_at, :updated_at
+                :health_status, :applied_config_version, :last_config_pull_at, :config_apply_error,
+                :weight, :priority, :geo_enabled, :anycast_enabled, :created_at, :updated_at
              )
              ON CONFLICT(edge_id) DO UPDATE SET
                 hostname = excluded.hostname,
@@ -96,6 +98,9 @@ class EdgeService
                 last_heartbeat = excluded.last_heartbeat,
                 last_heartbeat_at = excluded.last_heartbeat_at,
                 health_status = excluded.health_status,
+                applied_config_version = excluded.applied_config_version,
+                last_config_pull_at = excluded.last_config_pull_at,
+                config_apply_error = excluded.config_apply_error,
                 weight = excluded.weight,
                 priority = excluded.priority,
                 geo_enabled = excluded.geo_enabled,
@@ -120,6 +125,9 @@ class EdgeService
             ':last_heartbeat' => $now,
             ':last_heartbeat_at' => $now,
             ':health_status' => (string) ($input['health_status'] ?? 'unknown'),
+            ':applied_config_version' => isset($input['config_version']) ? (int) $input['config_version'] : null,
+            ':last_config_pull_at' => isset($input['config_version']) ? $now : null,
+            ':config_apply_error' => isset($input['config_apply_error']) ? (string) $input['config_apply_error'] : null,
             ':weight' => (int) ($input['weight'] ?? 100),
             ':priority' => (int) ($input['priority'] ?? 100),
             ':geo_enabled' => array_key_exists('geo_enabled', $input) ? (int) ((bool) $input['geo_enabled']) : 1,
@@ -153,6 +161,9 @@ class EdgeService
                 last_heartbeat_at = :last_heartbeat_at,
                 status = :status,
                 health_status = COALESCE(NULLIF(:health_status, \'\'), health_status),
+                applied_config_version = COALESCE(:applied_config_version, applied_config_version),
+                last_config_pull_at = COALESCE(:last_config_pull_at, last_config_pull_at),
+                config_apply_error = COALESCE(:config_apply_error, config_apply_error),
                 updated_at = :updated_at
              WHERE edge_id = :edge_id'
         );
@@ -171,6 +182,9 @@ class EdgeService
             ':last_heartbeat_at' => $now,
             ':status' => 'online',
             ':health_status' => (string) ($input['health_status'] ?? ''),
+            ':applied_config_version' => isset($input['config_version']) ? (int) $input['config_version'] : null,
+            ':last_config_pull_at' => isset($input['config_version']) ? $now : null,
+            ':config_apply_error' => isset($input['config_apply_error']) ? (string) $input['config_apply_error'] : null,
             ':updated_at' => $now,
         ]);
         $updated = $stmt->rowCount() > 0;
@@ -209,6 +223,9 @@ class EdgeService
         $row['priority'] = isset($row['priority']) ? (int) $row['priority'] : 100;
         $row['geo_enabled'] = ((int) ($row['geo_enabled'] ?? 1)) === 1;
         $row['anycast_enabled'] = ((int) ($row['anycast_enabled'] ?? 0)) === 1;
+        $row['applied_config_version'] = isset($row['applied_config_version']) ? (int) $row['applied_config_version'] : null;
+        $row['last_config_pull_at'] = isset($row['last_config_pull_at']) ? (int) $row['last_config_pull_at'] : null;
+        $row['config_apply_error'] = isset($row['config_apply_error']) ? (string) $row['config_apply_error'] : null;
         $row['created_at'] = (int) $row['created_at'];
         $row['updated_at'] = (int) $row['updated_at'];
         return $row;

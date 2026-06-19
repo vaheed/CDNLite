@@ -52,3 +52,22 @@ if isinstance(version, int) and version >= 0:
     print(version)
 PY
 }
+
+cdnlite_config_apply_error() {
+  file="$1"
+  [ -s "$file" ] || return 0
+  python3 - "$file" <<'PY' 2>/dev/null || true
+import json
+import sys
+
+try:
+    with open(sys.argv[1], "r", encoding="utf-8", errors="replace") as fh:
+        data = json.load(fh)
+except Exception:
+    sys.exit(0)
+
+error = data.get("last_error") if isinstance(data, dict) else None
+if isinstance(error, str) and error.strip() != "":
+    print(error.strip())
+PY
+}

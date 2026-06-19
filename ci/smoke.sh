@@ -55,6 +55,8 @@ dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1$
 assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include the Security Center tab"
 assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
 assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle should include Protection profile APIs"
+assert_contains "$dashboard_asset" "Config snapshot status" "dashboard bundle should include edge config visibility UI"
+assert_contains "$dashboard_asset" "config_apply_error" "dashboard bundle should include config apply error rendering"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
@@ -108,6 +110,14 @@ record_step PASS "schema-rate-limit-headers" "rate-limit header key columns are 
 rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limits/dry-run' core/public_index.php)"
 assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"
 record_step PASS "schema-rate-limit-dry-run-route" "rate-limit dry-run route is registered"
+
+edge_config_visibility_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='edge_nodes' AND column_name IN ('applied_config_version','last_config_pull_at','config_apply_error');")"
+assert_eq "$edge_config_visibility_columns" "3" "edge config visibility columns are incomplete"
+record_step PASS "schema-edge-config-visibility" "edge config visibility columns are present"
+
+config_publish_audit_checks="$(grep -c 'config.publish' core/app/Modules/Proxy/Services/ConfigService.php)"
+assert_eq "$config_publish_audit_checks" "2" "config publish audit hooks missing"
+record_step PASS "schema-config-publish-audit" "config publish/rollback audit hooks are wired"
 
 removed_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
 assert_eq "$removed_origin_columns" "0" "domain origin columns should be absent"

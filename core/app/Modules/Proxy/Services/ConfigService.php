@@ -4,6 +4,7 @@ namespace App\Modules\Proxy\Services;
 
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Domains\Services\DomainService;
+use App\Support\AuditLog;
 use App\Support\Database;
 
 class ConfigService
@@ -30,6 +31,7 @@ class ConfigService
 
     public function rebuild(?int $ifVersion = null): array
     {
+        $previousActiveVersion = $this->activeSnapshotVersion();
         Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
@@ -110,6 +112,7 @@ class ConfigService
         if ($existing !== null) {
             $existing = $this->refreshSnapshotGeneratedAt($existing);
             $this->activateSnapshotVersion((int) $existing['version']);
+            $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
             if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                 return ['not_modified' => true, 'version' => (int) $existing['version']];
             }
@@ -153,6 +156,7 @@ class ConfigService
             if ($existing !== null) {
                 $existing = $this->refreshSnapshotGeneratedAt($existing);
                 $this->activateSnapshotVersion((int) $existing['version']);
+                $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
                 if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                     return ['not_modified' => true, 'version' => (int) $existing['version']];
                 }
@@ -178,6 +182,7 @@ class ConfigService
             throw new \RuntimeException('config_snapshot_store_failed');
         }
         $this->activateSnapshotVersion($version);
+        $this->auditSnapshotPublish($version, $previousActiveVersion, $version, false);
 
         if ($ifVersion !== null && $ifVersion === $version) {
             return ['not_modified' => true, 'version' => $version];
@@ -227,8 +232,10 @@ class ConfigService
         if ($payload === null) {
             throw new \OutOfBoundsException('config_snapshot_not_found');
         }
+        $previousActiveVersion = $this->activeSnapshotVersion();
         Database::pdo()->prepare('UPDATE config_state SET active_snapshot_version=:version WHERE id=1')
             ->execute([':version' => $version]);
+        AuditLog::write('config.rollback', 'config_snapshot', (string) $version, null, ['active_version' => $previousActiveVersion], ['active_version' => $version]);
         return $payload;
     }
 
@@ -400,6 +407,24 @@ class ConfigService
     {
         Database::pdo()->prepare('UPDATE config_state SET active_snapshot_version = :version WHERE id = 1')
             ->execute([':version' => $version]);
+    }
+
+    private function activeSnapshotVersion(): ?int
+    {
+        $value = Database::pdo()->query('SELECT active_snapshot_version FROM config_state WHERE id = 1')->fetchColumn();
+        return $value === false || $value === null ? null : (int) $value;
+    }
+
+    private function auditSnapshotPublish(int $version, ?int $beforeVersion, int $afterVersion, bool $existing): void
+    {
+        AuditLog::write(
+            $existing ? 'config.publish.reused' : 'config.publish',
+            'config_snapshot',
+            (string) $version,
+            null,
+            ['active_version' => $beforeVersion],
+            ['active_version' => $afterVersion, 'snapshot_version' => $version]
+        );
     }
 
     private function originForSnapshot(array $origin): array
