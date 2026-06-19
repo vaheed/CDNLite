@@ -101,6 +101,14 @@ for t in "${required_tables[@]}"; do
 done
 record_step PASS "schema-tables" "all required tables exist"
 
+rate_limit_header_key_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='rate_limit_rules' AND column_name IN ('key_type','key_header_name');")"
+assert_eq "$rate_limit_header_key_columns" "2" "rate-limit header key columns are incomplete"
+record_step PASS "schema-rate-limit-headers" "rate-limit header key columns are present"
+
+rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limits/dry-run' core/public_index.php)"
+assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"
+record_step PASS "schema-rate-limit-dry-run-route" "rate-limit dry-run route is registered"
+
 removed_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domains' AND column_name IN ('origin_host','origin_port','origin_scheme','geo_origins_json','proxy_enabled');")"
 assert_eq "$removed_origin_columns" "0" "domain origin columns should be absent"
 record_step PASS "schema-domain-origin-columns-absent" "domain origin columns are absent"

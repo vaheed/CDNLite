@@ -473,6 +473,11 @@ record_step PASS "rate-limit-managed-contract" "ownership metadata, user_modifie
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":15,"path_prefix":"/api/","key_type":"ip_path","priority":20,"action":"block"}'
 assert_http_status "$HTTP_CODE" "201" "rate-limit create failed"
 RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/dry-run" '{"enabled":true,"requests_per_minute":10,"path_prefix":"/login","key_type":"ip_path","priority":10,"action":"challenge"}'
+assert_http_status "$HTTP_CODE" "200" "rate-limit dry-run failed"
+assert_contains "$HTTP_BODY" '"would_have_matched_24h":' "rate-limit dry-run preview missing"
+assert_contains "$HTTP_BODY" '"action":"challenge"' "rate-limit dry-run action missing"
+record_step PASS "rate-limit-dry-run" "dry-run preview returned impact and challenge action"
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits"
 assert_http_status "$HTTP_CODE" "200" "rate-limit list failed"
 assert_contains "$HTTP_BODY" '"path_prefix":"/api/"' "created rate-limit missing from list"
@@ -861,6 +866,24 @@ fi
 edge_id_header_rl="$(edge_header_for_host "${TEST_DOMAIN}" "/login?via=edge-rate-limit-header" "X-CDNLITE-Edge")"
 assert_eq "$edge_id_header_rl" "$EDGE_ID" "rate-limit response should expose edge id header"
 record_step PASS "edge-rate-limit-runtime" "429 observed for /login after burst"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":5,"path_prefix":"/challenge","key_type":"ip_path","priority":21,"action":"challenge"}'
+assert_http_status "$HTTP_CODE" "201" "challenge rate-limit create failed"
+CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+challenge_codes=()
+for i in $(seq 1 8); do
+  code="$(curl -sS -o /tmp/e2e-rate-limit-challenge-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-challenge")"
+  challenge_codes+=("$code")
+done
+if [[ " ${challenge_codes[*]} " != *" 429 "* ]]; then
+  fail "challenge rate limit expected 429 challenge responses"
+fi
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=5"
+assert_http_status "$HTTP_CODE" "200" "security rate-limit events query failed"
+assert_contains "$HTTP_BODY" '"challenge_required"' "challenge rate-limit security event missing"
+api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${CHALLENGE_RATE_LIMIT_RULE_ID}"
+assert_http_status "$HTTP_CODE" "200" "challenge rate-limit cleanup failed"
+record_step PASS "edge-rate-limit-challenge" "challenge action returns 429 and is visible in security events"
 
 if docker compose exec -T edge-agent sh -lc "grep -q 'rate_limited' \"\${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}\"" \
   || docker compose exec -T edge sh -lc "grep -q 'rate_limited' /var/lib/cdnlite/metrics.ndjson"; then
