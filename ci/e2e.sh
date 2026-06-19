@@ -227,6 +227,12 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+config_publish_audit_exists() {
+  local count
+  count="$(db_query "SELECT COUNT(*) FROM audit_log WHERE event IN ('config.publish', 'config.publish.reused');")"
+  [[ "$count" -ge 1 ]]
+}
+
 edge_is_healthy() {
   [[ "$(db_query "SELECT COUNT(*) FROM edge_nodes
     WHERE edge_id='${EDGE_ID}' AND status='online' AND health_status='healthy'
@@ -350,7 +356,7 @@ agent_exec '/agent/pull_config.sh' >/dev/null
 # Report the version only after the agent has successfully applied its first snapshot.
 agent_exec '/agent/heartbeat.sh' >/dev/null
 edge_config_version="$(db_query "SELECT COALESCE(applied_config_version, 0) FROM edge_nodes WHERE edge_id='${EDGE_ID}' LIMIT 1;")"
-initial_config_snapshot_version="$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")"
+initial_config_snapshot_version="$(db_query "SELECT COALESCE(active_snapshot_version, 0) FROM config_state WHERE id = 1;")"
 assert_eq "$edge_config_version" "$initial_config_snapshot_version" "edge heartbeat should persist applied config version"
 record_step PASS "edge-config-version" "edge heartbeat persisted the applied snapshot version"
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
@@ -383,11 +389,15 @@ db_query "UPDATE domains SET status='active', nameserver_status='verified', last
 db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
 record_step PASS "domain-activate" "domain activated with development override"
 
-config_snapshot_before="$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")"
 config_snapshot_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
 config_snapshot_after="$(jq -r '.version' <<<"$config_snapshot_json")"
-retry 20 1 db_query "SELECT COUNT(*) FROM audit_log WHERE event IN ('config.publish','config.publish.reused');" >/dev/null
-assert_eq "$config_snapshot_after" "$(db_query "SELECT COALESCE(MAX(version), 0) FROM config_snapshots;")" "config rebuild should reuse the current snapshot when unchanged"
+config_snapshot_reused_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
+config_snapshot_reused_version="$(jq -r '.version' <<<"$config_snapshot_reused_json")"
+config_snapshot_reused="$(jq -r '.reused // false' <<<"$config_snapshot_reused_json")"
+retry 20 1 config_publish_audit_exists
+assert_eq "$config_snapshot_after" "$(db_query "SELECT COALESCE(active_snapshot_version, 0) FROM config_state WHERE id = 1;")" "config rebuild should activate the published snapshot"
+assert_eq "$config_snapshot_reused_version" "$config_snapshot_after" "unchanged config rebuild should reuse the active snapshot version"
+assert_eq "$config_snapshot_reused" "true" "unchanged config rebuild should report a reused snapshot"
 record_step PASS "config-publish-audit" "config rebuild writes publish audit events and reuses unchanged snapshots"
 
 api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
@@ -646,7 +656,7 @@ assert_contains "$HTTP_BODY" '"action":"block"' "waf v2 action missing"
 record_step PASS "waf-v2-list" "waf v2 fields visible"
 
 # Force and verify config propagation to edge before route assertions.
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null
 edge_wait_config_host "${TEST_DOMAIN}"
 if [[ -n "${CDNLITE_ORIGIN_SHIELD_SECRET:-}" ]]; then
   retry 30 1 docker compose exec -T edge-agent sh -lc "grep -Fq 'X-CDNLITE-Origin-Secret' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
@@ -925,7 +935,7 @@ assert_contains "$HTTP_BODY" "\"hostname\":\"${TEST_DOMAIN}\"" "ssl certificate 
 if [[ "$HTTP_BODY" == *"private_key_pem"* ]]; then
   fail "ssl certificate list should not expose private key"
 fi
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null
 snapshot_ssl_host="$(docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"${TEST_DOMAIN}\" <<'PY'
 import json, sys
 path, host = sys.argv[1], sys.argv[2]
@@ -1052,7 +1062,7 @@ record_step PASS "edge-proxy-delete" "DELETE forwarded to configured origin"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":false}'
 assert_http_status "$HTTP_CODE" "200" "record proxy disable failed"
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null
 proxy_db="$(db_query "SELECT proxied::int FROM dns_records WHERE id='${PRIMARY_DNS_ID}';")"
 assert_eq "$proxy_db" "0" "DNS record proxied should be false"
 record_step PASS "proxy-disable" "proxy disabled on DNS record"
@@ -1068,7 +1078,7 @@ record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":true}'
 assert_http_status "$HTTP_CODE" "200" "record proxy enable failed"
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+agent_exec '/agent/pull_config.sh' >/dev/null
 edge_wait_success_status "${TEST_DOMAIN}"
 enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "proxy-reenable" "status=${enabled_code}"
