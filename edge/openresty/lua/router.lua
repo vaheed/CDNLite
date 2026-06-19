@@ -22,6 +22,12 @@ local function append_security_event(domain_id)
     type = t,
     action = tostring(ngx.ctx.security_action or ''),
     rule_id = tostring(ngx.ctx.security_rule_id or ''),
+    rate_limit_id = tostring(ngx.ctx.security_rate_limit_id or ''),
+    limit_key_type = tostring(ngx.ctx.security_limit_key_type or ''),
+    threshold = tonumber(ngx.ctx.security_threshold or 0) or 0,
+    current_count = tonumber(ngx.ctx.security_current_count or 0) or 0,
+    window_seconds = tonumber(ngx.ctx.security_window_seconds or 0) or 0,
+    retry_after = tonumber(ngx.ctx.security_retry_after or 0) or 0,
     group_id = tostring(ngx.ctx.security_group_id or ''),
     severity = tostring(ngx.ctx.security_severity or ''),
     confidence = tostring(ngx.ctx.security_confidence or ''),
@@ -236,7 +242,13 @@ local function apply_rate_limit(cfg, host, domain_id)
 
   ngx.ctx.security_event_type = 'rate_limited'
   ngx.ctx.security_rule_id = tostring(rule.id or '')
+  ngx.ctx.security_rate_limit_id = tostring(rule.id or '')
   ngx.ctx.security_action = tostring(rule.action or 'block')
+  ngx.ctx.security_limit_key_type = key_type
+  ngx.ctx.security_threshold = rpm
+  ngx.ctx.security_current_count = current
+  ngx.ctx.security_window_seconds = 60
+  ngx.ctx.security_retry_after = 60
   if ngx.ctx.security_action == 'block' then
     append_security_event(domain_id)
     edge_log.warn('rate_limited', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })

@@ -966,6 +966,14 @@ Rate-limit events must include:
 - Tests added/updated: Phase 12 contract coverage now requires the catalog route, service/controller methods, OpenAPI entry, docs, built-in templates, and preview-impact field.
 - Remaining blockers: dry-run mode, per-header/token keys, challenge action support, richer dashboard path suggestions, enriched edge rate-limit event fields, and payload-level edge tests still need dedicated slices.
 
+### Progress Notes
+
+- Date: 2026-06-19
+- Changed files: `edge/openresty/lua/router.lua`, `core/app/Modules/Collector/Services/CollectorService.php`, `core/tests/test_phase12_smart_rate_limiting_contract.py`, `docs/api/api.md`, `docs/ROADMAP.md`.
+- Behavior added: edge `rate_limited` security events now include `rate_limit_id`, `limit_key_type`, `threshold`, `current_count`, `window_seconds`, and `retry_after`; collector ingestion persists those fields into Activity details while preserving the existing `decision`, `request_id`, path, method, and hashed client IP fields.
+- Tests added/updated: Phase 12 contract coverage now pins the edge and collector event-enrichment fields.
+- Remaining blockers: dry-run mode, per-header/token keys, challenge action support, richer dashboard path suggestions, and payload-level edge tests still need dedicated slices.
+
 ### IDE Prompt
 
 ```text

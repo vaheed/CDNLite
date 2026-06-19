@@ -44,3 +44,23 @@ def test_phase12_exposes_read_only_smart_rate_limit_template_catalog():
     assert "would_have_matched_24h" in docs
     assert "Phase 12 — Smart Rate Limiting" in roadmap
     assert "Progress Notes" in roadmap
+
+
+def test_phase12_rate_limit_events_are_enriched_for_activity():
+    router = read("edge/openresty/lua/router.lua")
+    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
+    docs = read("docs/api/api.md")
+
+    for field in (
+        "limit_key_type",
+        "threshold",
+        "current_count",
+        "window_seconds",
+        "retry_after",
+    ):
+        assert field in router
+        assert field in collector
+        assert field in docs
+
+    assert "ngx.ctx.security_rate_limit_id" in router
+    assert "'rate_limit_id' => (string) ($item['rate_limit_id'] ?? $item['rule_id'] ?? '')" in collector
