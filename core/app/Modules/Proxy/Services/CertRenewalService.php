@@ -53,7 +53,7 @@ class CertRenewalService
         $stmt = Database::pdo()->prepare(
             "SELECT * FROM ssl_jobs
              WHERE status='queued'
-                OR (status IN ('checking_dns','validating_challenge','issuing','installing') AND updated_at<=:stale_before)
+                OR (status IN ('checking_dns','creating_order','validating_challenge','issuing','installing') AND updated_at<=:stale_before)
              ORDER BY created_at ASC
              LIMIT {$limit}"
         );

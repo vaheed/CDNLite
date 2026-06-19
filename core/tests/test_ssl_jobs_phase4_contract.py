@@ -68,6 +68,7 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "WHERE status='queued'" in renewals
     assert "CDNLITE_SSL_JOB_STALE_RETRY_SECONDS" in renewals
     assert "updated_at<=:stale_before" in renewals
+    assert "'creating_order','validating_challenge'" in renewals
     assert "'queued_issuance'" in renewals
     assert "processQueuedJobs()" in command
     assert "renewDue()" in command
@@ -103,10 +104,13 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
 def test_wildcard_ssl_is_automatic_after_dns_verification():
     verification = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    dns_service = read("core/app/Modules/Dns/Services/DnsService.php")
     schema = read("core/database/schema.sql")
     edge_tls = read("edge/openresty/lua/tls_cert.lua")
 
     assert "queueManagedWildcardSsl($domainId)" in verification
+    assert "ensureManagedSslForProxiedRecord" in dns_service
+    assert "ensureManagedWildcardSslJob($domainId)" in dns_service
     assert "ensureManagedWildcardSslJob" in service
     assert "hasActiveSslJob" in service
     assert "hasActiveManagedCertificate" in service

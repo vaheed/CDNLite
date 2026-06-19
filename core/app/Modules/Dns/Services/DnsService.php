@@ -4,6 +4,7 @@ namespace App\Modules\Dns\Services;
 
 use App\Modules\Domains\Services\DomainService;
 use App\Modules\Proxy\Services\OriginHealthService;
+use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\AuditLog;
 use App\Support\Database;
@@ -211,6 +212,7 @@ class DnsService
         }
         $this->origins->syncFromDnsRecord($domainId, $created);
         $this->reconcile($domainId);
+        $this->ensureManagedSslForProxiedRecord($domainId, $created);
         return $created;
     }
 
@@ -343,6 +345,7 @@ class DnsService
         }
         $this->origins->syncFromDnsRecord($domainId, $updated);
         $this->reconcile($domainId);
+        $this->ensureManagedSslForProxiedRecord($domainId, $updated);
         return $updated;
     }
 
@@ -503,6 +506,24 @@ class DnsService
             if ((new PowerDnsService())->isStrict()) {
                 throw new \RuntimeException((string) ($result['error'] ?? 'powerdns_reconcile_failed'));
             }
+        }
+    }
+
+    private function ensureManagedSslForProxiedRecord(string $domainId, array $record): void
+    {
+        if (empty($record['proxied']) || (string) ($record['status'] ?? 'active') !== 'active') {
+            return;
+        }
+
+        try {
+            (new TrafficRulesService())->ensureManagedWildcardSslJob($domainId);
+        } catch (\Throwable $e) {
+            AuditLog::write('ssl.auto_request_failed', 'ssl', null, $domainId, null, [
+                'domain_id' => $domainId,
+                'dns_record_id' => $record['id'] ?? null,
+                'error' => $e->getMessage(),
+                'created_at' => time(),
+            ], 'system');
         }
     }
 
