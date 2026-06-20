@@ -66,7 +66,7 @@ export interface GeoRoute { id?: Id; country_code?: string | null; edge_country_
 
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }
-export interface CacheSettings { enabled: boolean; default_edge_ttl_seconds: number; default_browser_ttl_seconds: number | null; cache_query_string_mode: string; respect_origin_cache_control: boolean; cache_authorized_requests: boolean; stale_if_error_seconds: number; }
+export interface CacheSettings { enabled: boolean; default_edge_ttl_seconds: number; default_browser_ttl_seconds: number | null; cache_query_string_mode: string; respect_origin_cache_control: boolean; cache_authorized_requests: boolean; stale_if_error_seconds: number; static_asset_cache_enabled: boolean; ignore_query_strings_for_static: boolean; bypass_logged_in_users: boolean; }
 export interface ManagedRuleMetadata { profile_id?: Id | null; intent_id?: Id | null; template_key?: string | null; managed_by?: string | null; user_modified?: boolean; last_generated_at?: number | null; last_applied_at?: number | null; }
 export type ProtectionRisk = 'safe' | 'moderate' | 'risky' | string;
 export interface ProtectionIntentRecord {

@@ -1140,6 +1140,15 @@ Phase 14: Add API Protection. Implement API path discovery, protect_api intents,
 
 ## Phase 15 — Performance Starter
 
+### Status
+
+Implemented (2026-06-20).
+
+### Progress Notes
+
+- Added safe static-asset cache controls, query-string normalization limited to static extensions, and logged-in session-cookie bypass at the edge.
+- Added API/dashboard configuration, schema migration, and smoke/e2e coverage for static cache hits, cookie bypasses, and query-string cache reuse.
+
 ### Goal
 
 Make caching simple and safe for non-experts.

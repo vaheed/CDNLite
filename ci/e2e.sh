@@ -1022,6 +1022,20 @@ assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
 record_step PASS "cache-rule-create" "domain cache rule created"
 
+api_put "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/cache/settings" '{"enabled":true,"default_edge_ttl_seconds":60,"cache_query_string_mode":"include_all","respect_origin_cache_control":true,"cache_authorized_requests":false,"stale_if_error_seconds":86400,"static_asset_cache_enabled":true,"ignore_query_strings_for_static":true,"bypass_logged_in_users":true}'
+assert_http_status "$HTTP_CODE" "200" "performance starter cache settings update failed"
+assert_contains "$HTTP_BODY" '"static_asset_cache_enabled":true' "performance starter should enable static asset caching"
+agent_exec '/agent/pull_config.sh' >/dev/null
+record_step PASS "performance-starter-settings" "safe static cache controls saved and published to edge"
+
+static_first="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/cdn-health.css?build=${RUN_KEY}-one")"
+assert_eq "$static_first" "MISS" "first static asset request should MISS"
+static_query_reuse="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/cdn-health.css?build=${RUN_KEY}-two")"
+assert_eq "$static_query_reuse" "HIT" "static query-string normalization should reuse the cached asset"
+static_cookie_bypass="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/cdn-health.css?build=${RUN_KEY}-three" -H 'Cookie: laravel_session=e2e-session')"
+assert_eq "$static_cookie_bypass" "BYPASS" "logged-in cookie should bypass static cache"
+record_step PASS "performance-starter-edge" "static cache HIT, query normalization, and logged-in bypass verified"
+
 first_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"
 assert_eq "$first_cache" "MISS" "first cacheable GET should MISS"
 second_cache="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$cache_path")"

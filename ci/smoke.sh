@@ -57,6 +57,7 @@ assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle shoul
 assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle should include Protection profile APIs"
 assert_contains "$dashboard_asset" "Config snapshot status" "dashboard bundle should include edge config visibility UI"
 assert_contains "$dashboard_asset" "config_apply_error" "dashboard bundle should include config apply error rendering"
+assert_contains "$dashboard_asset" "Cache static assets" "dashboard bundle should include Performance Starter controls"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
@@ -102,6 +103,10 @@ for t in "${required_tables[@]}"; do
   assert_eq "$count" "1" "table ${t} missing"
 done
 record_step PASS "schema-tables" "all required tables exist"
+
+performance_cache_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_cache_settings' AND column_name IN ('static_asset_cache_enabled','ignore_query_strings_for_static','bypass_logged_in_users');")"
+assert_eq "$performance_cache_columns" "3" "Performance Starter cache columns are incomplete"
+record_step PASS "schema-performance-starter" "safe static cache controls are present"
 
 rate_limit_header_key_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='rate_limit_rules' AND column_name IN ('key_type','key_header_name');")"
 assert_eq "$rate_limit_header_key_columns" "2" "rate-limit header key columns are incomplete"

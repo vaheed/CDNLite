@@ -408,6 +408,10 @@ class TrafficRulesController
         if (($authorized['ok'] ?? false) !== true) { return $authorized; }
         $stale = Validator::intRange($body, 'stale_if_error_seconds', 0, 31536000, 86400);
         if (($stale['ok'] ?? false) !== true) { return $stale; }
+        foreach (['static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users'] as $field) {
+            $value = Validator::bool($body, $field, $field === 'bypass_logged_in_users');
+            if (($value['ok'] ?? false) !== true) { return $value; }
+        }
         return ['data' => $this->service->setDomainCacheSettings($domainId, $body)];
     }
     public function createCachePurgeRequest(string $domainId, array $body): array {

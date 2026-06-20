@@ -735,6 +735,9 @@ CREATE TABLE IF NOT EXISTS domain_cache_settings (
   respect_origin_cache_control BOOLEAN NOT NULL DEFAULT true,
   cache_authorized_requests BOOLEAN NOT NULL DEFAULT false,
   stale_if_error_seconds INTEGER NOT NULL DEFAULT 86400,
+  static_asset_cache_enabled BOOLEAN NOT NULL DEFAULT false,
+  ignore_query_strings_for_static BOOLEAN NOT NULL DEFAULT false,
+  bypass_logged_in_users BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );

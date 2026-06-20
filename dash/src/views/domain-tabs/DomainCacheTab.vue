@@ -19,6 +19,18 @@
           <span><b>Respect origin Cache-Control</b><small>Use cache directives returned by your origin when present.</small></span>
           <input v-model="settings.respect_origin_cache_control" class="toggle" type="checkbox" />
         </label>
+        <label class="setting-row border-0 px-0">
+          <span><b>Cache static assets</b><small>Cache CSS, JavaScript, images, fonts, video, and PDF files across the site.</small></span>
+          <input v-model="settings.static_asset_cache_enabled" class="toggle" type="checkbox" />
+        </label>
+        <label class="setting-row border-0 px-0">
+          <span><b>Ignore query strings for static assets</b><small>Reuse the same cached static file when its URL only differs by a query string.</small></span>
+          <input v-model="settings.ignore_query_strings_for_static" class="toggle" type="checkbox" :disabled="!settings.static_asset_cache_enabled" />
+        </label>
+        <label class="setting-row border-0 px-0">
+          <span><b>Bypass cache for logged-in users</b><small>Keep pages private when common session or authentication cookies are present.</small></span>
+          <input v-model="settings.bypass_logged_in_users" class="toggle" type="checkbox" />
+        </label>
         <div class="grid gap-4 py-4 md:grid-cols-2">
           <label><span class="field-label">Default edge TTL</span><select v-model.number="settings.default_edge_ttl_seconds" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="14400">4 hours</option><option :value="86400">1 day</option><option :value="604800">7 days</option></select></label>
           <label><span class="field-label">Stale if origin fails</span><select v-model.number="settings.stale_if_error_seconds" class="input"><option :value="0">Disabled</option><option :value="3600">1 hour</option><option :value="86400">1 day</option><option :value="604800">7 days</option></select></label>
@@ -69,7 +81,7 @@ import { cacheApi } from '@/lib/api/cache';
 import { purgeApi } from '@/lib/api/purge';
 
 const props = defineProps<{ domainId: string }>();
-const settings = reactive({ enabled: true, default_edge_ttl_seconds: 3600, default_browser_ttl_seconds: null as number | null, cache_query_string_mode: 'include_all', respect_origin_cache_control: true, cache_authorized_requests: false, stale_if_error_seconds: 86400 });
+const settings = reactive({ enabled: true, default_edge_ttl_seconds: 3600, default_browser_ttl_seconds: null as number | null, cache_query_string_mode: 'include_all', respect_origin_cache_control: true, cache_authorized_requests: false, stale_if_error_seconds: 86400, static_asset_cache_enabled: false, ignore_query_strings_for_static: false, bypass_logged_in_users: true });
 const purges = ref<Record<string, unknown>[]>([]);
 const purgeValue = ref('');
 const purgeType = ref('url');

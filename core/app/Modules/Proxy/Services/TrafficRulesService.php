@@ -535,10 +535,13 @@ class TrafficRulesService
             'respect_origin_cache_control' => true,
             'cache_authorized_requests' => false,
             'stale_if_error_seconds' => 86400,
+            'static_asset_cache_enabled' => false,
+            'ignore_query_strings_for_static' => false,
+            'bypass_logged_in_users' => true,
             'created_at' => $now,
             'updated_at' => $now,
         ];
-        $ins = Database::pdo()->prepare('INSERT INTO domain_cache_settings (domain_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,created_at,updated_at) VALUES (:domain_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:created_at,:updated_at)');
+        $ins = Database::pdo()->prepare('INSERT INTO domain_cache_settings (domain_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,static_asset_cache_enabled,ignore_query_strings_for_static,bypass_logged_in_users,created_at,updated_at) VALUES (:domain_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:static_assets,:ignore_static_query,:bypass_logged_in,:created_at,:updated_at)');
         $ins->execute([
             ':domain_id' => $domainId,
             ':enabled' => 1,
@@ -548,6 +551,9 @@ class TrafficRulesService
             ':respect' => 1,
             ':authorized' => 0,
             ':stale' => 86400,
+            ':static_assets' => 0,
+            ':ignore_static_query' => 0,
+            ':bypass_logged_in' => 1,
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
@@ -564,9 +570,12 @@ class TrafficRulesService
             ':respect' => (int) ($in['respect_origin_cache_control'] ?? $existing['respect_origin_cache_control']),
             ':authorized' => (int) ($in['cache_authorized_requests'] ?? $existing['cache_authorized_requests']),
             ':stale' => (int) ($in['stale_if_error_seconds'] ?? $existing['stale_if_error_seconds']),
+            ':static_assets' => (int) ($in['static_asset_cache_enabled'] ?? $existing['static_asset_cache_enabled']),
+            ':ignore_static_query' => (int) ($in['ignore_query_strings_for_static'] ?? $existing['ignore_query_strings_for_static']),
+            ':bypass_logged_in' => (int) ($in['bypass_logged_in_users'] ?? $existing['bypass_logged_in_users']),
             ':updated_at' => time(),
         ];
-        $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,updated_at=:updated_at WHERE domain_id=:domain_id');
+        $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,static_asset_cache_enabled=:static_assets,ignore_query_strings_for_static=:ignore_static_query,bypass_logged_in_users=:bypass_logged_in,updated_at=:updated_at WHERE domain_id=:domain_id');
         $u->execute($payload);
         $this->invalidateConfigSnapshot();
         return $this->getDomainCacheSettings($domainId);
@@ -1620,7 +1629,7 @@ class TrafficRulesService
         }
         return $payload + $this->managedRulePayload($in);
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function castSslJob(array $r): array {
         foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
             if (isset($r[$i]) && $r[$i] !== null) {
