@@ -195,18 +195,34 @@ class ConfigService
     public function snapshots(): array
     {
         $rows = Database::pdo()->query(
-            'SELECT s.version,s.generated_at,s.content_hash,length(s.payload_json) AS size,
+            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s) AS size,
                     (s.version=cs.active_snapshot_version) AS active
              FROM config_snapshots s CROSS JOIN config_state cs
              WHERE cs.id=1 ORDER BY s.version DESC'
         )->fetchAll();
-        return array_map(static fn (array $row): array => [
+        return array_map(static fn (array $row): array => self::snapshotSummaryFromRow($row), $rows);
+    }
+
+    public function latestSnapshotSummary(): ?array
+    {
+        $row = Database::pdo()->query(
+            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s) AS size,
+                    (s.version=cs.active_snapshot_version) AS active
+             FROM config_snapshots s CROSS JOIN config_state cs
+             WHERE cs.id=1 ORDER BY s.version DESC LIMIT 1'
+        )->fetch();
+        return $row === false ? null : self::snapshotSummaryFromRow((array) $row);
+    }
+
+    private static function snapshotSummaryFromRow(array $row): array
+    {
+        return [
             'version' => (int) $row['version'],
             'generated_at' => (int) $row['generated_at'],
             'content_hash' => (string) $row['content_hash'],
             'size' => (int) $row['size'],
             'active' => in_array($row['active'], [true, 1, '1', 't', 'true'], true),
-        ], $rows);
+        ];
     }
 
     public function snapshot(int $version): ?array

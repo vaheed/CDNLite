@@ -196,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { ChevronDown, ChevronUp, Database, Layers3, Network, TriangleAlert } from 'lucide-vue-next';
 import DataTable from '@/components/ui/DataTable.vue';
 import ChartCard from '@/components/ui/ChartCard.vue';
@@ -205,6 +205,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ReportExportButton from '@/components/reports/ReportExportButton.vue';
 import { configSnapshotsApi } from '@/lib/api/configSnapshots';
 import { edgesApi } from '@/lib/api/edges';
+import { runtimeConfig } from '@/lib/config/env';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
 import { useVisibilityPolling } from '@/lib/data/polling';
@@ -216,6 +217,7 @@ const edges = ref<EdgeNode[]>([]);
 const pools = ref<EdgePool[]>([]);
 const dns = ref<EdgeDnsStatus | null>(null);
 const snapshots = ref<ConfigSnapshotSummary[]>([]);
+let loadInFlight: Promise<void> | null = null;
 const showAllDnsRecords = ref(false);
 const dnsPreviewLimit = 3;
 const hasHiddenDnsRecords = computed(() => (dns.value?.records.length ?? 0) > dnsPreviewLimit);
@@ -285,6 +287,9 @@ const chart = computed(() => ({
     ],
   }],
 }));
+const pollingIntervalMs = computed(() =>
+  Math.max(runtimeConfig.dashboardRefreshSeconds * 1000, runtimeConfig.requestTimeoutMs + 1000),
+);
 
 function asList(value: unknown): string[] {
   return Array.isArray(value)
@@ -312,15 +317,26 @@ function configStatusLabel(row: { applied_config_version?: number | null; config
 }
 
 async function load() {
-  [edges.value, pools.value, dns.value, snapshots.value] = await Promise.all([
-    edgesApi.list().catch(() => []),
-    edgesApi.pools().catch(() => []),
-    edgesApi.dns().catch(() => null),
-    configSnapshotsApi.list().catch(() => []),
-  ]);
+  if (loadInFlight) return loadInFlight;
+  loadInFlight = (async () => {
+    const [nextEdges, nextPools, nextDns, latestSnapshot] = await Promise.all([
+      edgesApi.list().catch(() => []),
+      edgesApi.pools().catch(() => []),
+      edgesApi.dns().catch(() => null),
+      configSnapshotsApi.latest().catch(() => null),
+    ]);
+    edges.value = nextEdges;
+    pools.value = nextPools;
+    dns.value = nextDns;
+    snapshots.value = latestSnapshot ? [latestSnapshot] : [];
+  })();
+  try {
+    await loadInFlight;
+  } finally {
+    loadInFlight = null;
+  }
 }
 
 useInvalidationListener(() => [queryKeys.edgeNodes()], load);
-useVisibilityPolling(load, 8000);
-onMounted(load);
+useVisibilityPolling(load, pollingIntervalMs, { immediate: true });
 </script>

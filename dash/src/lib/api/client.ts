@@ -44,6 +44,8 @@ function redact(value: string) {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const base = options.base === 'edge' ? runtimeConfig.edgeUrl : runtimeConfig.coreUrl;
   const url = buildUrl(base, path, options.query);
+  const method = options.method ?? 'GET';
+  const isMutation = method.toUpperCase() !== 'GET';
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? runtimeConfig.requestTimeoutMs);
   const headers = new Headers(options.headers);
@@ -71,17 +73,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       throw new CdnLiteApiError(response.status, formatApiError(payload, raw), payload, raw);
     }
     const result = unwrap<T>(payload);
-    emitInvalidation(options.method ?? 'GET', path);
-    if ((options.method ?? 'GET').toUpperCase() !== 'GET') {
-      notify({ kind: 'success', title: mutationSuccessTitle(options.method ?? 'GET') }, 3500);
+    emitInvalidation(method, path);
+    if (isMutation) {
+      notify({ kind: 'success', title: mutationSuccessTitle(method) }, 3500);
     }
     return result;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      notify({ kind: 'error', title: 'Request timed out' });
+      if (isMutation) notify({ kind: 'error', title: 'Request timed out' });
       throw new CdnLiteApiError(408, 'Request timed out');
     }
-    if ((options.method ?? 'GET').toUpperCase() !== 'GET' && error instanceof Error) {
+    if (isMutation && error instanceof Error) {
       notify({ kind: 'error', title: 'Action failed', message: error.message });
     }
     throw error;

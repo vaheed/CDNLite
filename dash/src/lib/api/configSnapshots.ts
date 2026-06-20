@@ -3,6 +3,7 @@ import type { ConfigSnapshot, ConfigSnapshotDiff, ConfigSnapshotSummary } from '
 
 export const configSnapshotsApi = {
   list: () => api.get<ConfigSnapshotSummary[]>('/api/v1/config/snapshots'),
+  latest: () => api.get<ConfigSnapshotSummary | null>('/api/v1/config/snapshots/latest'),
   get: (version: number) => api.get<ConfigSnapshot>(`/api/v1/config/snapshots/${version}`),
   diff: (fromVersion: number, toVersion: number) =>
     api.post<ConfigSnapshotDiff>('/api/v1/config/snapshots/diff', {
