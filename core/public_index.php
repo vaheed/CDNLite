@@ -26,6 +26,8 @@ use App\Modules\Overview\Http\Controllers\OverviewController;
 use App\Modules\Overview\Services\OverviewService;
 use App\Modules\Operations\Http\Controllers\OperationsLogController;
 use App\Modules\Operations\Services\OperationsLogService;
+use App\Modules\Recommendations\Http\Controllers\RecommendationController;
+use App\Modules\Recommendations\Services\RecommendationService;
 use App\Modules\Settings\Http\Controllers\SettingsController;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\ApiAuth;
@@ -208,6 +210,7 @@ $readinessController = new ReadinessController(new ReadinessService());
 $settingsController = new SettingsController(new SettingsRepository());
 $overviewController = new OverviewController(new OverviewService());
 $operationsLogController = new OperationsLogController(new OperationsLogService());
+$recommendationController = new RecommendationController(new RecommendationService());
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -275,6 +278,8 @@ $router->add('GET', '/ready', static function () use ($configService): array {
 $router->add('GET', '/api/v1/readiness', static fn (): array => Response::json($readinessController->index()), auth: true);
 $router->add('GET', '/api/v1/overview', static fn (): array => Response::json($overviewController->index()), auth: true);
 $router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response::json($overviewController->warnings()), auth: true);
+$router->add('GET', '/api/v1/recommendations', static fn (Request $req): array => Response::json($recommendationController->index(null, $req->query)), auth: true);
+$router->add('POST', '/api/v1/recommendations/generate', static fn (): array => Response::json($recommendationController->generate()), auth: true);
 $router->add('GET', '/api/v1/security/events', static fn (Request $req): array => Response::json($operationsLogController->securityEvents($req->query)), auth: true);
 $router->add('GET', '/api/v1/security/summary', static fn (Request $req): array => Response::json($operationsLogController->securitySummary($req->query)), auth: true);
 $router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);
@@ -459,6 +464,20 @@ $router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/d
 }, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/undo', static function (Request $req, array $p) use ($rulesController): array {
     $result = $rulesController->undoProtectionIntent((string) $p['domainId'], (string) $p['intentId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/recommendations', static fn (Request $req, array $p): array => Response::json($recommendationController->index((string) $p['domainId'], $req->query)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/recommendations/generate', static fn (Request $req, array $p): array => Response::json($recommendationController->generate((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/recommendations/{recommendationId}/apply', static function (Request $req, array $p) use ($recommendationController): array {
+    $result = $recommendationController->apply((string) $p['domainId'], (string) $p['recommendationId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/recommendations/{recommendationId}/dismiss', static function (Request $req, array $p) use ($recommendationController): array {
+    $result = $recommendationController->dismiss((string) $p['domainId'], (string) $p['recommendationId']);
+    return Response::json($result, (int) ($result['status'] ?? 200));
+}, auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/recommendations/{recommendationId}/snooze', static function (Request $req, array $p) use ($recommendationController): array {
+    $result = $recommendationController->snooze((string) $p['domainId'], (string) $p['recommendationId'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/rate-limits', static fn (Request $req, array $p) => Response::json($rulesController->createRateLimit((string) $p['domainId'], $req->body), 201), auth: true);

@@ -1247,6 +1247,17 @@ Phase 15: Add Performance Starter controls. Build simple cache setup for static 
 
 ## Phase 16 — Recommendation Engine
 
+### Status
+
+Implemented (2026-06-20).
+
+### Progress Notes
+
+- Added a deterministic recommendation engine backed by the `recommendations` table, fresh-install schema, migration, generator command, and authenticated API routes for list, generate, apply, dismiss, and snooze.
+- Recommendations now use Activity/request diagnostics, cache hit ratio, origin 502s, SSL state, security events, and protection intent state to suggest Login Shield, API Protection, origin diagnostics, static asset caching, Bot Protection, common exploit protection, and SSL review.
+- Added dashboard recommendation panels to Overview and domain Security Center with confidence, risk, impact, one-click actions, dismissal/snooze, and “Why am I seeing this?” explanations.
+- Added docs, OpenAPI entries, smoke checks, and e2e coverage for recommendation generation and dismissed-recommendation suppression, including the regeneration parameter fix.
+
 ### Goal
 
 Make CDNLite proactive by suggesting safe improvements based on traffic, errors, security events, and configuration.

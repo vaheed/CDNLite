@@ -69,6 +69,7 @@ use App\Console\Commands\CdnOriginsListCommand;
 use App\Console\Commands\CdnPowerDnsDoctorCommand;
 use App\Console\Commands\CdnPowerDnsDryRunCommand;
 use App\Console\Commands\CdnPowerDnsForceSyncCommand;
+use App\Console\Commands\CdnRecommendationsGenerateCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:admin:create', new CdnAdminCreateCommand());
@@ -130,6 +131,7 @@ $runner->register('cdn:ip-rule:update', new CdnIpRuleUpdateCommand());
 $runner->register('cdn:ip-rule:delete', new CdnIpRuleDeleteCommand());
 $runner->register('cdn:origins:health-check', new CdnOriginsHealthCheckCommand());
 $runner->register('cdn:origins:list', new CdnOriginsListCommand());
+$runner->register('cdn:recommendations:generate', new CdnRecommendationsGenerateCommand());
 $runner->register('cdn:ssl:renew-due', new CdnSslRenewDueCommand());
 $runner->register('cdn:ssl:list', new CdnSslListCommand());
 $runner->register('cdn:ssl:request', new CdnSslRequestCommand());

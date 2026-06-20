@@ -182,6 +182,8 @@ Useful admin login response fields:
 | --- | --- | --- |
 | `GET` | `/api/v1/overview` | Aggregate operations summary. |
 | `GET` | `/api/v1/overview/warnings` | Readiness and risk warnings. |
+| `GET` | `/api/v1/recommendations` | Active recommendations across domains. |
+| `POST` | `/api/v1/recommendations/generate` | Generate recommendations across domains. |
 | `GET` | `/api/v1/security/events` | Paginated global security events. |
 | `GET` | `/api/v1/security/summary` | Security event aggregates. |
 | `GET` | `/api/v1/audit` | Audit history. |
@@ -189,6 +191,33 @@ Useful admin login response fields:
 Common query parameters: `domain_id`, `limit`, `offset`, `type`, `action`, and time filters where supported.
 
 Operational APIs are designed for dashboards and reports. Use them for human-facing status pages, but prefer domain-specific APIs when automating configuration changes.
+
+### Recommendation Engine
+
+Recommendations are generated from Activity, request diagnostics, cache status,
+SSL state, origin errors, security events, and current configuration. Each item
+includes `confidence`, `risk`, `impact`, `preview_payload`, `one_click_action`,
+`status`, and a human-readable `why` explanation.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/domains/{domainId}/recommendations` | List active recommendations for a domain. |
+| `POST` | `/api/v1/domains/{domainId}/recommendations/generate` | Generate recommendations for one domain. |
+| `POST` | `/api/v1/domains/{domainId}/recommendations/{recommendationId}/apply` | Apply the safe one-click action. |
+| `POST` | `/api/v1/domains/{domainId}/recommendations/{recommendationId}/dismiss` | Dismiss and suppress immediate regeneration. |
+| `POST` | `/api/v1/domains/{domainId}/recommendations/{recommendationId}/snooze` | Hide temporarily; body accepts `{ "seconds": 86400 }`. |
+
+The generator command is:
+
+```bash
+php artisan cdn:recommendations:generate
+php artisan cdn:recommendations:generate --domain_id=<domain-id>
+```
+
+Current recommendation types cover login protection, API protection, 502 origin
+diagnostics, low cache hit ratio, bot protection, common exploit protection,
+and SSL review. One-click actions reuse the existing protection intent, cache
+settings, and origin health-check services.
 
 ## Domains
 

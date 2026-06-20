@@ -20,6 +20,7 @@ tags:
   - name: Health
   - name: Admin
   - name: Operations
+  - name: Recommendations
   - name: Domains
   - name: DNS
   - name: Origins
@@ -132,6 +133,76 @@ paths:
     get:
       tags: [Operations]
       summary: Readiness and operational warnings
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/recommendations:
+    get:
+      tags: [Recommendations]
+      summary: List active recommendations across domains
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/recommendations/generate:
+    post:
+      tags: [Recommendations]
+      summary: Generate recommendations across domains
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/recommendations:
+    get:
+      tags: [Recommendations]
+      summary: List active domain recommendations
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/recommendations/generate:
+    post:
+      tags: [Recommendations]
+      summary: Generate recommendations for a domain
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/recommendations/{recommendationId}/apply:
+    post:
+      tags: [Recommendations]
+      summary: Apply a recommendation one-click action
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RecommendationId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/recommendations/{recommendationId}/dismiss:
+    post:
+      tags: [Recommendations]
+      summary: Dismiss a recommendation
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RecommendationId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/recommendations/{recommendationId}/snooze:
+    post:
+      tags: [Recommendations]
+      summary: Snooze a recommendation
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+        - $ref: "#/components/parameters/RecommendationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seconds:
+                  type: integer
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
@@ -1422,6 +1493,13 @@ components:
       schema:
         type: string
       description: Opaque traffic rule identifier.
+    RecommendationId:
+      name: recommendationId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Opaque recommendation identifier.
     DomainIdQuery:
       name: domain_id
       in: query

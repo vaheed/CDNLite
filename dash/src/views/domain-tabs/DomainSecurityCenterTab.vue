@@ -13,6 +13,8 @@
     <div v-if="message" role="status" class="notice-info">{{ message }}</div>
     <div v-if="error" class="state-error">{{ error }}</div>
 
+    <RecommendationsPanel :domain-id="domainId" />
+
     <div class="panel-section overflow-hidden p-0">
       <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
         <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Recommended setups</h3>
@@ -163,6 +165,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Eye, RefreshCw, ShieldCheck, ShieldOff, Undo2, X } from 'lucide-vue-next';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
+import RecommendationsPanel from '@/components/recommendations/RecommendationsPanel.vue';
 import { protectionApi } from '@/lib/api/protection';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';

@@ -320,6 +320,21 @@ curl -s -X POST "$API/api/v1/config/snapshots/12/rollback" \
 
 Rollback is a control-plane action. Edge nodes still need to pull the active snapshot.
 
+## Recommendations
+
+Generate proactive recommendations after traffic has reached a domain:
+
+```bash
+php artisan cdn:recommendations:generate --domain_id="$DOMAIN_ID"
+
+curl -s "$API/api/v1/domains/$DOMAIN_ID/recommendations" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Each recommendation includes the reason it appeared and, when safe, a one-click
+action endpoint for applying the suggested protection, cache, or diagnostic
+step.
+
 ## OpenAPI Client Generation
 
 The OpenAPI document is available at [OpenAPI YAML](../api/openapi.yaml).

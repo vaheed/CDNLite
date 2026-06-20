@@ -168,6 +168,11 @@ Core settings:
 | `CDNLITE_CDN_ZONE` | Authoritative zone containing stable site targets and the shared proxy record. |
 | `CDNLITE_CDN_PROXY_HOST` | Shared proxy hostname, and must be inside `CDNLITE_CDN_ZONE`. |
 
+The recommendation engine has no dedicated environment variables. Run
+`php artisan cdn:recommendations:generate` manually or from your scheduler to
+refresh proactive security, performance, reliability, and SSL suggestions from
+recent telemetry.
+
 Static proxy anycast IPs are configured in the admin dashboard under
 Settings -> Edge DNS / Anycast as `anycast_ipv4` and `anycast_ipv6`. These are
 database-backed settings, not environment variables. Enter one or more IPs per

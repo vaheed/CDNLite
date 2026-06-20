@@ -216,3 +216,11 @@ export interface Overview {
   ssl_expiring_count: number; top_domains: OverviewDomain[]; recent_snapshots: OverviewSnapshot[];
 }
 export interface OverviewWarning { severity: 'warning' | 'critical' | 'info'; message: string; link: string; }
+export interface Recommendation {
+  id: Id; domain_id: Id; domain_name?: string; type: string; title: string; message: string; why: string;
+  confidence: number; risk: ProtectionRisk; impact: 'security' | 'reliability' | 'performance' | 'ssl' | string;
+  preview_payload: Record<string, unknown>; one_click_action: Record<string, unknown>;
+  status: 'open' | 'snoozed' | 'dismissed' | 'applied' | string;
+  snoozed_until?: number | null; dismissed_at?: number | null; applied_at?: number | null;
+  created_at: number; updated_at: number;
+}

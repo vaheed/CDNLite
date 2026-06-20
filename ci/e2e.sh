@@ -396,6 +396,33 @@ db_query "UPDATE domains SET status='active', nameserver_status='verified', last
 db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
 record_step PASS "domain-activate" "domain activated with development override"
 
+db_query "INSERT INTO usage_rollups (id,ts,domain_id,edge_node_id,requests_count,bytes_in,bytes_out,status,cache_status,path,method,host) VALUES
+  ('rec-login-${RUN_KEY}',${now},'${DOMAIN_ID}','${EDGE_ID}',8,800,8000,200,'MISS','/login','GET','${TEST_DOMAIN}'),
+  ('rec-api-${RUN_KEY}',${now},'${DOMAIN_ID}','${EDGE_ID}',12,1200,12000,200,'MISS','/api/users','GET','${TEST_DOMAIN}'),
+  ('rec-origin-${RUN_KEY}',${now},'${DOMAIN_ID}','${EDGE_ID}',4,400,4000,502,'BYPASS','/upstream','GET','${TEST_DOMAIN}');" >/dev/null
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/recommendations/generate" '{}'
+assert_http_status "$HTTP_CODE" "200" "recommendation generation failed"
+assert_contains "$HTTP_BODY" '"type":"login_shield"' "login activity should create Login Shield recommendation"
+assert_contains "$HTTP_BODY" '"type":"protect_api"' "API activity should create API Protection recommendation"
+assert_contains "$HTTP_BODY" '"type":"origin_diagnostics"' "502 diagnostics should create origin recommendation"
+assert_contains "$HTTP_BODY" '"type":"static_asset_cache"' "low cache hit ratio should create cache recommendation"
+record_step PASS "recommendations-generate" "activity, API, 502, and cache signals generated recommendations"
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/recommendations"
+assert_http_status "$HTTP_CODE" "200" "recommendations list failed"
+recommendation_id="$(json_get "$HTTP_BODY" '.data[] | select(.type=="login_shield") | .id' | head -n1)"
+[[ -n "$recommendation_id" && "$recommendation_id" != "null" ]] || fail "login recommendation id missing"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/recommendations/${recommendation_id}/dismiss" '{}'
+assert_http_status "$HTTP_CODE" "200" "recommendation dismiss failed"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/recommendations/generate" '{}'
+assert_http_status "$HTTP_CODE" "200" "recommendation regeneration failed"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/recommendations"
+assert_http_status "$HTTP_CODE" "200" "recommendations list after dismiss failed"
+if [[ "$HTTP_BODY" == *'"type":"login_shield"'* ]]; then
+  fail "dismissed recommendation reappeared immediately"
+fi
+record_step PASS "recommendations-dismiss-suppression" "dismissed recommendation stays hidden after regeneration"
+
 config_snapshot_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
 config_snapshot_after="$(jq -r '.version' <<<"$config_snapshot_json")"
 config_snapshot_reused_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
