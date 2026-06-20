@@ -233,6 +233,13 @@ config_publish_audit_exists() {
   [[ "$count" -ge 1 ]]
 }
 
+challenge_security_event_visible() {
+  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=20"
+  [[ "$HTTP_CODE" == "200" ]] &&
+    [[ "$HTTP_BODY" == *"\"decision\":\"challenge\""* ]] &&
+    [[ "$HTTP_BODY" == *"\"rate_limit_id\":\"${CHALLENGE_RATE_LIMIT_RULE_ID}\""* ]]
+}
+
 edge_is_healthy() {
   [[ "$(db_query "SELECT COUNT(*) FROM edge_nodes
     WHERE edge_id='${EDGE_ID}' AND status='online' AND health_status='healthy'
@@ -896,16 +903,22 @@ CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
 # The edge serves its local snapshot, so publish and apply this new rule before exercising it.
 agent_exec '/agent/pull_config.sh' >/dev/null
 challenge_codes=()
+challenge_response_verified=0
 for i in $(seq 1 8); do
   code="$(curl -sS -o /tmp/e2e-rate-limit-challenge-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-challenge")"
   challenge_codes+=("$code")
+  if [[ "$code" == "429" ]] && grep -Fq '"error":"challenge_required"' "/tmp/e2e-rate-limit-challenge-${i}.txt"; then
+    challenge_response_verified=1
+  fi
 done
 if [[ " ${challenge_codes[*]} " != *" 429 "* ]]; then
   fail "challenge rate limit expected 429 challenge responses"
 fi
-api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=5"
-assert_http_status "$HTTP_CODE" "200" "security rate-limit events query failed"
-assert_contains "$HTTP_BODY" '"challenge_required"' "challenge rate-limit security event missing"
+assert_eq "$challenge_response_verified" "1" "challenge rate-limit response should identify the required challenge"
+# Security events are delivered asynchronously by the edge agent. The event records
+# the configured decision (`challenge`), while the HTTP response says `challenge_required`.
+retry 10 1 agent_exec '/agent/push_security_events.sh'
+retry 20 1 challenge_security_event_visible
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${CHALLENGE_RATE_LIMIT_RULE_ID}"
 assert_http_status "$HTTP_CODE" "200" "challenge rate-limit cleanup failed"
 record_step PASS "edge-rate-limit-challenge" "challenge action returns 429 and is visible in security events"
