@@ -102,6 +102,12 @@ export interface ProtectionProfilePreview {
 export interface ProtectionProfileMutationResult {
   profile: ProtectionProfileRecord | null; intents: ProtectionIntentMutationResult[];
 }
+export interface ApiProtectionPathSuggestion {
+  path_prefix: string; requests_24h: number; default?: boolean;
+}
+export interface ApiProtectionDiscovery {
+  domain_id: Id; paths: ApiProtectionPathSuggestion[]; recommended_methods: string[]; recommended_header_key: string;
+}
 export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolean; path_prefix: string; ttl_seconds: number; }
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; enabled?: boolean; status?: string; }

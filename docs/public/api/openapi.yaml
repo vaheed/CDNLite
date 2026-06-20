@@ -672,6 +672,15 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/protection/api-paths:
+    get:
+      tags: [Traffic Rules]
+      summary: Discover likely API path prefixes from recent Activity
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview:
     post:
       tags: [Traffic Rules]

@@ -431,6 +431,7 @@ $router->add('POST', '/api/v1/domains/{domainId}/redirects/test', static fn (Req
 $router->add('GET', '/api/v1/domains/{domainId}/protection/profiles', static fn (Request $req, array $p) => Response::json($rulesController->listProtectionProfiles((string) $p['domainId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/protection/waf-presets', static fn (Request $req, array $p) => Response::json($rulesController->listManagedWafPresets((string) $p['domainId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/protection/rate-limit-templates', static fn (Request $req, array $p) => Response::json($rulesController->listSmartRateLimitTemplates((string) $p['domainId'])), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/protection/api-paths', static fn (Request $req, array $p) => Response::json($rulesController->discoverApiPaths((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview', static function (Request $req, array $p) use ($rulesController): array {
     $result = $rulesController->previewProtectionProfile((string) $p['domainId'], (string) $p['profileKey'], $req->body);
     return Response::json($result, (int) ($result['status'] ?? 200));

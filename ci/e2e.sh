@@ -449,6 +449,7 @@ dashboard_asset="$(docker compose exec -T dashboard wget -qO- "http://127.0.0.1$
 assert_contains "$dashboard_asset" "Security Center" "dashboard bundle should include Security Center tab"
 assert_contains "$dashboard_asset" "/protection/intents" "dashboard bundle should include Protection intent APIs"
 assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle should include Protection profile APIs"
+assert_contains "$dashboard_asset" "/protection/api-paths" "dashboard bundle should include API Protection discovery API"
 assert_contains "$dashboard_asset" "Preview only shows the technical rules" "dashboard bundle should include intent preview copy"
 record_step PASS "dashboard-security-center-bundle" "Security Center tab and Protection profile/intent APIs are present in the built dashboard"
 
@@ -599,7 +600,21 @@ api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents"
 assert_http_status "$HTTP_CODE" "200" "protection intent list failed"
 assert_contains "$HTTP_BODY" '"intent_key":"common_exploits"' "common exploit intent missing from list"
 assert_contains "$HTTP_BODY" '"intent_key":"login_shield"' "login shield intent missing from list"
+assert_contains "$HTTP_BODY" '"intent_key":"protect_api"' "API Shield intent missing from list"
 record_step PASS "protection-intent-list" "available beginner protection intents listed"
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/api-paths"
+assert_http_status "$HTTP_CODE" "200" "API Protection path discovery failed"
+assert_contains "$HTTP_BODY" '"path_prefix":"/api/"' "API Protection path discovery should include default API prefix"
+assert_contains "$HTTP_BODY" '"recommended_header_key":"Authorization"' "API Protection path discovery should recommend Authorization key"
+record_step PASS "api-protection-path-discovery" "API Protection path discovery returns safe defaults"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/protect_api/preview" '{}'
+assert_http_status "$HTTP_CODE" "200" "API Shield preview failed"
+assert_contains "$HTTP_BODY" '"template_key":"rate_api_authorization_header"' "API Shield preview should include header-based token limit"
+assert_contains "$HTTP_BODY" '"template_key":"waf_api_allowed_methods"' "API Shield preview should include scoped method restriction"
+assert_contains "$HTTP_BODY" '"type":"path_method_not_allowed"' "API Shield preview should expose path-scoped method WAF type"
+record_step PASS "api-protection-preview" "API Shield preview exposes method and token-aware rules"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/common_exploits/preview" '{}'
 assert_http_status "$HTTP_CODE" "200" "protection intent preview failed"

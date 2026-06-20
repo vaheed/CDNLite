@@ -19,6 +19,10 @@ local function optional_string(value)
   return tostring(value)
 end
 
+local function trim(value)
+  return tostring(value or ''):match('^%s*(.-)%s*$')
+end
+
 local function append_security_event(domain_id)
   local t = tostring(ngx.ctx.security_event_type or '')
   if t == '' then
@@ -161,6 +165,22 @@ local function waf_rule_matches(rule, path, method, client_ip, country, ua)
   if t == 'ip_cidr' then return ip_in_cidr(client_ip, pattern) end
   if t == 'country_is' then return string.upper(country) == string.upper(pattern) end
   if t == 'method_is' then return string.upper(method) == string.upper(pattern) end
+  if t == 'path_method_not_allowed' then
+    local prefix, methods = split_once(pattern, ':')
+    if not prefix or prefix == '' or not methods or methods == '' then
+      return false
+    end
+    if string.sub(path, 1, #prefix) ~= prefix then
+      return false
+    end
+    local current_method = string.upper(method)
+    for allowed in string.gmatch(methods, '[^,]+') do
+      if current_method == string.upper(trim(allowed)) then
+        return false
+      end
+    end
+    return true
+  end
   if t == 'header_contains' then
     local header_name, header_value = split_once(pattern, ':')
     if not header_name or header_name == '' or not header_value or header_value == '' then

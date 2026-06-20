@@ -1098,6 +1098,17 @@ Phase 13: Add Bot Protection. Build simple controls for verified search bots, fa
 
 ## Phase 14 — API Protection
 
+### Status
+
+Implemented (2026-06-20).
+
+### Progress Notes
+
+- API Shield now generates scoped `/api/` method restrictions, IP/path limits, and `Authorization` header/path limits through the existing managed intent/profile engine.
+- Added API path discovery at `GET /api/v1/domains/{domainId}/protection/api-paths`, returning Activity-derived API prefixes with safe `/api/` defaults when no traffic exists.
+- Added the `path_method_not_allowed` WAF match type at the edge so unsupported methods are blocked only inside the configured API prefix and still emit normal WAF security events.
+- Added dashboard API client/types, advanced WAF editor support, docs/OpenAPI, smoke checks, e2e API discovery/preview coverage, and focused Phase 14 contract tests.
+
 ### Goal
 
 Provide one-click API security controls.

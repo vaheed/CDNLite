@@ -116,6 +116,9 @@ class TrafficRulesController
     public function listSmartRateLimitTemplates(string $domainId): array {
         return ['data' => $this->service->smartRateLimitTemplates($domainId)];
     }
+    public function discoverApiPaths(string $domainId): array {
+        return ['data' => $this->service->discoverApiPaths($domainId)];
+    }
     public function previewProtectionProfile(string $domainId, string $profileKey, array $body): array {
         try {
             return ['data' => $this->service->previewProtectionProfile($domainId, $profileKey, $body)];
@@ -229,8 +232,8 @@ class TrafficRulesController
     public function createWaf(string $domainId, array $body): array {
         $type = Validator::requiredString($body, 'type', 64);
         if (($type['ok'] ?? false) !== true) { return $type; }
-        if (!in_array((string) $type['value'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
-            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains', 'status' => 422];
+        if (!in_array((string) $type['value'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains', 'path_method_not_allowed'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains_path_method_not_allowed', 'status' => 422];
         }
         $pattern = Validator::requiredString($body, 'pattern', 2048);
         if (($pattern['ok'] ?? false) !== true) { return $pattern; }
@@ -363,8 +366,8 @@ class TrafficRulesController
     }
     public function listCacheRules(string $domainId): array { return ['data' => $this->service->listCacheRules($domainId)]; }
     public function updateWaf(string $domainId, string $id, array $body): array {
-        if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains'], true)) {
-            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains', 'status' => 422];
+        if (array_key_exists('type', $body) && !in_array((string) $body['type'], ['path_contains', 'path_prefix', 'user_agent_contains', 'ip_cidr', 'country_is', 'method_is', 'header_contains', 'path_method_not_allowed'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'type', 'detail' => 'must_be_one_of_path_contains_path_prefix_user_agent_contains_ip_cidr_country_is_method_is_header_contains_path_method_not_allowed', 'status' => 422];
         }
         if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || trim((string) $body['pattern']) === '')) {
             return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_be_non_empty_string', 'status' => 422];
