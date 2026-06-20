@@ -27,13 +27,16 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
 
     for route in (
         "/api/v1/config/snapshots",
+        "/api/v1/config/snapshots/latest",
         "/api/v1/config/snapshots/{version}",
         "/api/v1/config/snapshots/diff",
         "/api/v1/config/snapshots/{version}/rollback",
         "/api/v1/config/snapshots/rebuild",
     ):
         assert route in routes
+    assert routes.index("/api/v1/config/snapshots/latest") < routes.index("/api/v1/config/snapshots/{version}")
     assert "active_snapshot_version" in schema
+    assert "public function latestSnapshotSummary" in service
     assert "public function diff" in service
     assert "public function rollback" in service
     assert "public function rebuild" in service
