@@ -648,7 +648,9 @@ class TrafficRulesService
     }
     public function listSecurityEvents(string $domainId, ?string $type = null, int $limit = 100): array {
         $query = "SELECT id,event,details_json,created_at FROM audit_log
-                  WHERE domain_id=:domain_id AND event IN ('waf_match','rate_limited','bot_match','geo_block')";
+                  WHERE domain_id=:domain_id
+                    AND event IN ('waf_match','rate_limited','bot_match','geo_block')
+                    AND (event IN ('waf_match','rate_limited','geo_block') OR event='bot_match')";
         $params = [':domain_id' => $domainId];
         if ($type !== null && $type !== '') {
             $query .= ' AND event=:event';
