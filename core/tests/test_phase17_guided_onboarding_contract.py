@@ -67,7 +67,19 @@ def test_phase17_dashboard_docs_smoke_and_e2e_are_wired():
     assert "Guided onboarding" in component
     assert "Recommend profile" in component
     assert "Apply recommended profile" in component
+    assert 'v-if="!dismissed"' in component
+    assert "state.value.status === 'skipped'" in component
+    assert "dismissed.value = true" in component
+    assert "countryOptions" in component
+    assert "selectedCountries" in component
+    assert "Select a country" in component
+    assert "input v-model=\"countriesText\"" not in component
+    assert "Full preview details" in component
+    assert "JSON.stringify(rule.payload ?? {}, null, 2)" in component
     assert "GuidedOnboardingWizard" in security
+    assert "Full generated payload" in security
+    assert "previewDetailItems" in security
+    assert "ruleSummaryFields" in security
     assert "getOnboarding" in api
     assert "/onboarding/answers" in api
     assert "OnboardingState" in types

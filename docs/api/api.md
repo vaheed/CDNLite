@@ -229,16 +229,17 @@ through the same Protection profile engine used by Security Center.
 | --- | --- | --- |
 | `GET` | `/api/v1/domains/{domainId}/onboarding` | Load onboarding state, recommendation, and setup progress. |
 | `POST` | `/api/v1/domains/{domainId}/onboarding/answers` | Store answers and refresh the recommended profile. |
-| `POST` | `/api/v1/domains/{domainId}/onboarding/preview` | Preview the recommended profile without mutating rules. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/preview` | Preview the recommended profile without mutating rules. Responses include the full generated rule payloads so operators can inspect exact WAF, rate-limit, cache, and ownership fields before applying. |
 | `POST` | `/api/v1/domains/{domainId}/onboarding/apply` | Apply the recommended profile and mark onboarding complete. |
-| `POST` | `/api/v1/domains/{domainId}/onboarding/skip` | Skip onboarding while preserving resume state. |
-| `POST` | `/api/v1/domains/{domainId}/onboarding/resume` | Resume a skipped wizard. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/skip` | Skip onboarding for this domain. The dashboard hides the guided panel after skip while preserving state for API-level resume. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/resume` | Resume a skipped wizard through API or operator tooling. |
 
 Answers include `site_type`, `has_login`, `has_api`, `sells_products`,
 `countries`, `framework`, `under_attack`, and `enable_now`. Recommendation
 priority is emergency, WordPress, e-commerce, API, SaaS app, then Basic Website.
-The progress payload covers domain added, nameservers, origin, SSL, protection
-profile, and edge readiness.
+The dashboard uses themed country selection chips instead of free-text country
+entry. The progress payload covers domain added, nameservers, origin, SSL,
+protection profile, and edge readiness.
 
 ## Domains
 

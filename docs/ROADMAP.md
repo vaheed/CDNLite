@@ -1331,11 +1331,11 @@ Implemented (2026-06-20).
 
 ### Progress Notes
 
-- Added persistent per-domain onboarding state with answers, recommended profile, skip/resume lifecycle, completion tracking, and audit events.
+- Added persistent per-domain onboarding state with answers, recommended profile, skip/resume lifecycle, completion tracking, and audit events. Dashboard skip now acts as a durable per-domain dismissal while preserving API-level resume state.
 - Added deterministic recommendation logic for emergency, WordPress, e-commerce, API, SaaS app, and Basic Website profiles.
 - Added onboarding preview/apply endpoints that reuse the existing Protection profile engine so generated rules, audit/history, rollback, and config invalidation stay aligned with Security Center.
 - Added setup progress for domain added, nameservers, origin, SSL, protection profile, and edge readiness.
-- Added a Security Center guided onboarding panel, API client/types, docs/OpenAPI entries, smoke schema/bundle checks, e2e skip/resume/apply coverage, and focused Phase 17 contract tests.
+- Added a Security Center guided onboarding panel, themed country selection, full generated-rule preview details, API client/types, docs/OpenAPI entries, smoke schema/bundle checks, e2e skip/resume/apply coverage, and focused Phase 17 contract tests.
 
 ### Goal
 

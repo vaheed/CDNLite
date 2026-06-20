@@ -125,36 +125,28 @@
               <p class="mt-1 text-sm font-medium text-slate-800 dark:text-slate-200">{{ previewAfterLabel }}</p>
             </div>
           </div>
-          <div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10">
-            <table class="min-w-[760px] text-left text-sm">
-              <thead class="table-head">
-                <tr>
-                  <th v-if="profilePreviewResult">Intent</th>
-                  <th>Rule type</th>
-                  <th>Template</th>
-                  <th>Effect</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template v-if="profilePreviewResult">
-                  <template v-for="intent in profilePreviewResult.intents" :key="intent.intent_key">
-                    <tr v-for="rule in intent.rules" :key="`${intent.intent_key}:${rule.rule_table}:${rule.template_key}`" class="border-t border-slate-200 dark:border-white/10">
-                      <td class="table-cell font-medium">{{ intent.name }}</td>
-                      <td class="table-cell">{{ humanize(rule.rule_table) }}</td>
-                      <td class="table-cell font-mono text-xs">{{ rule.template_key }}</td>
-                      <td class="table-cell">{{ ruleEffect(rule) }}</td>
-                    </tr>
-                  </template>
-                </template>
-                <template v-else-if="previewResult">
-                  <tr v-for="rule in previewResult.rules" :key="`${rule.rule_table}:${rule.template_key}`" class="border-t border-slate-200 dark:border-white/10">
-                    <td class="table-cell font-medium">{{ humanize(rule.rule_table) }}</td>
-                    <td class="table-cell font-mono text-xs">{{ rule.template_key }}</td>
-                    <td class="table-cell">{{ ruleEffect(rule) }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
+          <div class="space-y-3">
+            <div v-for="item in previewDetailItems" :key="item.key" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
+              <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_150px_170px] lg:items-start">
+                <div class="min-w-0">
+                  <p v-if="item.intentName" class="text-xs font-semibold uppercase text-slate-500">{{ item.intentName }}</p>
+                  <h3 class="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{{ humanize(item.rule.rule_table) }} · <span class="font-mono text-xs">{{ item.rule.template_key }}</span></h3>
+                  <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ ruleEffect(item.rule) }}</p>
+                </div>
+                <StatusBadge status="info" :label="item.rule.enabled === false ? 'Will be disabled' : 'Will be enabled'" />
+                <StatusBadge status="unknown" :label="item.rule.managed_by || 'Managed rule'" />
+              </div>
+              <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                <div v-for="field in ruleSummaryFields(item.rule)" :key="field.label" class="rounded-lg border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950">
+                  <dt class="text-xs font-semibold uppercase text-slate-500">{{ field.label }}</dt>
+                  <dd class="mt-1 break-words font-mono text-xs text-slate-800 dark:text-slate-100">{{ field.value }}</dd>
+                </div>
+              </dl>
+              <details class="mt-3 rounded-lg border border-slate-200 bg-slate-950 dark:border-white/10" open>
+                <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-white">Full generated payload</summary>
+                <pre class="max-h-96 overflow-auto border-t border-white/10 p-3 text-xs text-white">{{ JSON.stringify(item.rule.payload ?? {}, null, 2) }}</pre>
+              </details>
+            </div>
           </div>
         </div>
       </div>
@@ -191,6 +183,22 @@ const previewBeforeLabel = computed(() => statusLabel(previewedProfileStatus.val
 const previewAfterLabel = computed(() => {
   const count = profilePreviewResult.value?.intent_keys.length ?? 0;
   return `Applies ${count} protection ${count === 1 ? 'outcome' : 'outcomes'}`;
+});
+const previewDetailItems = computed(() => {
+  if (profilePreviewResult.value) {
+    return profilePreviewResult.value.intents.flatMap((intent) =>
+      intent.rules.map((rule) => ({
+        key: `${intent.intent_key}:${rule.rule_table}:${rule.template_key}`,
+        intentName: intent.name,
+        rule,
+      })),
+    );
+  }
+  return (previewResult.value?.rules || []).map((rule) => ({
+    key: `${rule.rule_table}:${rule.template_key}`,
+    intentName: '',
+    rule,
+  }));
 });
 
 async function load() {
@@ -375,7 +383,19 @@ function ruleEffect(rule: ProtectionGeneratedRule) {
   if (action && pattern) return `${humanize(action)} on ${pattern}`;
   if (pattern) return `Applies to ${pattern}`;
   if (typeof payload.ttl_seconds === 'number') return `Caches for ${payload.ttl_seconds} seconds`;
+  if (typeof payload.requests_per_minute === 'number') return `Limits to ${payload.requests_per_minute} requests per minute`;
   return 'Creates an advanced managed rule';
+}
+
+function ruleSummaryFields(rule: ProtectionGeneratedRule) {
+  const payload = rule.payload ?? {};
+  const keys = ['action', 'pattern', 'path_prefix', 'requests_per_minute', 'key_type', 'ttl_seconds', 'priority', 'enabled', 'template_key', 'managed_by'];
+  return keys
+    .filter((key) => payload[key] !== undefined && payload[key] !== null && payload[key] !== '')
+    .map((key) => ({
+      label: humanize(key),
+      value: typeof payload[key] === 'object' ? JSON.stringify(payload[key]) : String(payload[key]),
+    }));
 }
 
 watch(() => props.domainId, load);
