@@ -40,6 +40,7 @@ def test_performance_starter_has_dashboard_docs_smoke_and_e2e_coverage():
     roadmap = read("docs/ROADMAP.md")
     smoke = read("ci/smoke.sh")
     e2e = read("ci/e2e.sh")
+    ci_lib = read("ci/lib.sh")
 
     for field in (
         "Cache static assets",
@@ -52,5 +53,7 @@ def test_performance_starter_has_dashboard_docs_smoke_and_e2e_coverage():
     assert "Implemented (2026-06-20)" in roadmap
     assert "schema-performance-starter" in smoke
     assert "performance-starter-edge" in e2e
+    assert "api_put" in e2e
+    assert "api_put()" in ci_lib
     assert "static query-string normalization should reuse the cached asset" in e2e
     assert "logged-in cookie should bypass static cache" in e2e

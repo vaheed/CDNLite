@@ -85,6 +85,7 @@ api_auth_header_args() {
 api_get() { http_request GET "$1" "" "$(api_auth_header_args)"; }
 api_post() { http_request POST "$1" "$2" "$(api_auth_header_args)"; }
 api_patch() { http_request PATCH "$1" "$2" "$(api_auth_header_args)"; }
+api_put() { http_request PUT "$1" "$2" "$(api_auth_header_args)"; }
 api_delete() { http_request DELETE "$1" "" "$(api_auth_header_args)"; }
 
 assert_http_status() {
