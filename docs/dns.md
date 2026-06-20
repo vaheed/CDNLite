@@ -105,8 +105,11 @@ Proxied customer apex records are always published as `ALIAS` to that stable
 site target. Proxied subdomains are always published as `CNAME`. CDNLite has no
 apex address-flattening mode and never copies edge IPs into customer zones.
 Changing an edge IP or health state therefore changes only the shared proxy
-rrsets; customer zones and site CNAMEs are not rewritten. Core records distinct
-edge-state hashes in `edge_state_generations` for inspection and test assertions.
+rrsets; customer zones and site CNAMEs are not rewritten. Edge heartbeat and
+registration requests only update local eligibility state, so they stay fast
+even if PowerDNS is slow. The next reconcile or force sync publishes the latest
+shared proxy rrsets and records distinct edge-state hashes in
+`edge_state_generations` for inspection and test assertions.
 
 For DNS-only `A` and `AAAA` records, content must remain an IPv4 or IPv6
 address respectively. For proxied `A` and `AAAA` records, the dashboard content

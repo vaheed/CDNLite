@@ -2,7 +2,6 @@
 
 namespace App\Modules\Edge\Services;
 
-use App\Modules\Dns\Services\DnsService;
 use App\Support\Database;
 use App\Support\Uuid;
 
@@ -139,7 +138,6 @@ class EdgeService
         $stmt = Database::pdo()->prepare('SELECT * FROM edge_nodes WHERE edge_id = :edge_id LIMIT 1');
         $stmt->execute([':edge_id' => $edgeId]);
         $edge = $this->castRow((array) $stmt->fetch());
-        (new DnsService())->rebuildGeoDomains();
         return $edge;
     }
 
@@ -187,11 +185,7 @@ class EdgeService
             ':config_apply_error' => isset($input['config_apply_error']) ? (string) $input['config_apply_error'] : null,
             ':updated_at' => $now,
         ]);
-        $updated = $stmt->rowCount() > 0;
-        if ($updated) {
-            (new DnsService())->rebuildGeoDomains();
-        }
-        return $updated;
+        return $stmt->rowCount() > 0;
     }
 
     public function registerToken(string $edgeId, string $token): void

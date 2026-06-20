@@ -81,6 +81,54 @@ dashboard image with the production browser URLs, or place Core and Edge at the
 URLs compiled into the selected image. Never compile a privileged API token into
 public dashboard assets.
 
+## Reverse Proxy
+
+When Core API and dashboard are served through separate reverse proxies, preserve
+admin auth headers on the Core API proxy. The dashboard is a browser SPA; after
+login it calls Core with `Authorization: Bearer <admin-session-token>`. If the
+Core proxy drops that header, admins will appear logged out or API calls will
+fail even though the dashboard itself loads.
+
+Core API Nginx example:
+
+```nginx
+server {
+    server_name api.example.com;
+
+    location / {
+        proxy_pass http://cdnlite-core:8080;
+
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+        client_max_body_size 20m;
+    }
+}
+```
+
+Dashboard Nginx example:
+
+```nginx
+server {
+    server_name dashboard.example.com;
+
+    location / {
+        proxy_pass http://cdnlite-dashboard:80;
+        proxy_set_header Host $host;
+    }
+}
+```
+
+The dashboard build must use the browser-reachable Core URL, for example
+`VITE_CDNLITE_CORE_URL=https://api.example.com`. Do not point browser assets at
+internal Compose names such as `http://core:8080`.
+
 ## Start And Verify
 
 ```bash

@@ -525,6 +525,9 @@ SSL tips:
 
 The bundled edge agent includes `health_status: "healthy"` in successful
 heartbeats so fresh local nodes become eligible for the shared DNS edge pool.
+Register and heartbeat calls update local edge state only; run
+`cdn:dns:reconcile` or use DNS force sync when you need immediate PowerDNS
+publication.
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
 | `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. |
 | `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |

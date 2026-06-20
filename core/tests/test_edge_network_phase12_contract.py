@@ -30,9 +30,21 @@ def test_platform_dns_plan_contract():
     assert "'shared_proxy:' . $type" in dns
     assert "ORDER BY anycast DESC" in dns
     assert "edge_state_generations" in dns
+    assert "desiredRrsets(bool $persistGeneration = false)" in dns
     assert "/api/v1/edges/dns" in routes
     assert "'cdn_zone'" in settings
     assert "'proxy_host'" in settings
+
+
+def test_edge_agent_writes_do_not_block_on_powerdns():
+    controller = read("core/app/Modules/Edge/Http/Controllers/EdgeController.php")
+    edge = read("core/app/Modules/Edge/Services/EdgeService.php")
+    builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
+
+    assert "DnsReconciler" not in controller
+    assert "syncEdgeDnsRecords" not in controller
+    assert "rebuildGeoDomains" not in edge
+    assert "desiredRrsets(true)" in builder
 
 
 def test_edge_network_dashboard_contract():

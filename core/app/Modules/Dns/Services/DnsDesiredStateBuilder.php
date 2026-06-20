@@ -15,7 +15,7 @@ class DnsDesiredStateBuilder
 
     public function build(): array
     {
-        $rrsets = $this->edgeDns->desiredRrsets();
+        $rrsets = $this->edgeDns->desiredRrsets(true);
         $rrsets = array_merge($rrsets, $this->customerZoneAuthorityRrsets());
         $stmt = Database::pdo()->query(
             "SELECT r.*, d.id AS site_id, d.domain

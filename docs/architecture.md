@@ -54,7 +54,10 @@ responses.
 The agent reports `health_status=healthy` with each successful signed heartbeat
 and treats non-success HTTP responses as heartbeat failures.
 Core combines that status with heartbeat freshness and the enabled flag when
-building the shared PowerDNS/DNSGeo edge pool.
+building the shared PowerDNS/DNSGeo edge pool. Heartbeat and registration
+requests update PostgreSQL state only; PowerDNS publication happens through
+normal reconcile and force-sync flows so agent traffic does not block on DNS
+network I/O.
 | CI and controlled services | Bash, Docker Compose | Smoke/e2e validation, origin services, real DNSGeo/PowerDNS. |
 
 Core treats a PowerDNS PATCH as successful only after an optional zone

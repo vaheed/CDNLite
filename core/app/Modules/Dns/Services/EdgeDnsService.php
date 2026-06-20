@@ -30,12 +30,14 @@ class EdgeDnsService
         return (new DnsReconciler())->reconcile($force);
     }
 
-    public function desiredRrsets(): array
+    public function desiredRrsets(bool $persistGeneration = false): array
     {
         $zone = $this->cdnZone();
         $ttl = $this->ttl();
         $pool = $this->activeEdgePool();
-        $this->persistGeneration($pool);
+        if ($persistGeneration) {
+            $this->persistGeneration($pool);
+        }
         $rrsets = [
             $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
         ];

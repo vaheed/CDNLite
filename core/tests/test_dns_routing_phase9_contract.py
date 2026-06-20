@@ -38,7 +38,7 @@ def test_routing_api_and_republish_contract():
     assert "['A', 'AAAA']" in controller
 
     edge = read("core/app/Modules/Edge/Services/EdgeService.php")
-    assert "(new DnsService())->rebuildGeoDomains();" in edge
+    assert "(new DnsService())->rebuildGeoDomains();" not in edge
 
 
 def test_dashboard_routing_controls_contract():

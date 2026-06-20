@@ -138,6 +138,10 @@ php core/artisan cdn:admin:create --username=admin --password='replace-with-a-lo
 
 Core stores admin passwords with PHP `password_hash`. Login returns an opaque bearer session token whose SHA-256 hash is stored in `admin_sessions`; the dashboard keeps the raw session token in browser memory only. A browser refresh requires logging in again.
 
+If Core is behind Nginx or another reverse proxy, the Core API proxy must forward
+the `Authorization` header. The dashboard proxy only serves static browser
+assets; it does not carry admin API session tokens after the page loads.
+
 If `VITE_CDNLITE_API_TOKEN` is set, the built browser bundle can still send `Authorization: Bearer <token>` for control-plane API requests. Because Vite embeds `VITE_*` values into static assets, treat that option as suitable only for local or otherwise private deployments. Edge developer tool tokens are session-memory only and must not be stored in localStorage.
 
 In production, put both the dashboard and the CDNLite API behind real authentication at the reverse proxy or platform layer. The dashboard admin model is not production RBAC.
