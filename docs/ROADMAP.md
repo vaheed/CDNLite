@@ -1000,6 +1000,21 @@ Phase 12: Add Smart Rate Limiting. Implement beginner controls for login protect
 
 ## Phase 13 — Bot Protection
 
+### Status
+
+Partially completed (2026-06-20).
+
+### Progress Notes
+
+- Bot Shield now generates explicit scraper and unverified-search-bot policies with class, score, and decision metadata.
+- The edge emits `bot_match` security events with `bot_class`, `bot_score`, `bot_action`, and `request_id`; the collector, Operations view, and dashboard filter treat them as security events.
+- Search-bot User-Agent claims are challenged rather than allowed, because User-Agent alone is not verification.
+
+### Remaining Work
+
+- Add a verified-search-bot source with reverse-DNS and forward-confirmation before allowing crawler traffic.
+- Add configurable bot policies, richer behavioral signals, and Security Center match statistics.
+
 ### Goal
 
 Protect against suspicious automation without requiring users to configure bot scores manually.

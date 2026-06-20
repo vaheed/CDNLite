@@ -10,7 +10,7 @@
     <form class="card grid gap-3 p-4 md:grid-cols-3 xl:grid-cols-4" @submit.prevent="applyFilters">
       <label><span class="field-label">Domain</span><select v-model="filters.domain_id" class="input"><option value="">All domains</option><option v-for="domain in domains" :key="domain.id" :value="domain.id">{{ domain.domain }}</option></select></label>
       <label><span class="field-label">Edge</span><input v-model="filters.edge_id" class="input" placeholder="edge-01" /></label>
-      <label><span class="field-label">Event type</span><select v-model="filters.type" class="input"><option value="">All types</option><option value="waf_match">WAF match</option><option value="rate_limited">Rate limited</option><option value="geo_block">Geo block</option></select></label>
+      <label><span class="field-label">Event type</span><select v-model="filters.type" class="input"><option value="">All types</option><option value="waf_match">WAF match</option><option value="bot_match">Bot protection</option><option value="rate_limited">Rate limited</option><option value="geo_block">Geo block</option></select></label>
       <label><span class="field-label">IP prefix</span><input v-model="filters.ip" class="input" placeholder="203.0.113" /></label>
       <label><span class="field-label">Path / payload</span><input v-model="filters.search" class="input" type="search" placeholder="/admin" /></label>
       <label><span class="field-label">From</span><input v-model="fromInput" class="input" type="datetime-local" /></label>

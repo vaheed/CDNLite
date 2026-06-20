@@ -12,6 +12,7 @@ def test_migrations_are_the_supported_upgrade_path():
     assert (ROOT / "core/database/migrations/000005_origin_pool_defaults.sql").is_file()
     assert (ROOT / "core/database/migrations/000006_protection_contract.sql").is_file()
     assert (ROOT / "core/database/migrations/000008_rate_limit_header_keys.sql").is_file()
+    assert (ROOT / "core/database/migrations/000011_bot_protection.sql").is_file()
 
 
 def test_schema_application_is_explicit_and_serialized_at_container_start():

@@ -9,6 +9,16 @@ local edge_log = require('edge_log')
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
 
+-- cjson decodes SQL NULL fields as cjson.null. Never stringify that sentinel:
+-- doing so turns it into "userdata: NULL" and can accidentally classify an
+-- ordinary managed WAF rule as a bot policy.
+local function optional_string(value)
+  if value == nil or value == cjson.null then
+    return ''
+  end
+  return tostring(value)
+end
+
 local function append_security_event(domain_id)
   local t = tostring(ngx.ctx.security_event_type or '')
   if t == '' then
@@ -32,6 +42,9 @@ local function append_security_event(domain_id)
     severity = tostring(ngx.ctx.security_severity or ''),
     confidence = tostring(ngx.ctx.security_confidence or ''),
     safe_reason = tostring(ngx.ctx.security_safe_reason or ''),
+    bot_class = tostring(ngx.ctx.security_bot_class or ''),
+    bot_score = tonumber(ngx.ctx.security_bot_score or 0) or 0,
+    bot_action = tostring(ngx.ctx.security_bot_action or ''),
     path = tostring(ngx.var.uri or '/'),
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
@@ -175,6 +188,15 @@ local function apply_waf(cfg, host)
       ngx.ctx.security_severity = tostring(rule.waf_severity or '')
       ngx.ctx.security_confidence = tostring(rule.waf_confidence or '')
       ngx.ctx.security_safe_reason = tostring(rule.waf_safe_reason or '')
+      ngx.ctx.security_bot_class = optional_string(rule.bot_class)
+      ngx.ctx.security_bot_score = tonumber(optional_string(rule.bot_score)) or 0
+      ngx.ctx.security_bot_action = optional_string(rule.bot_action)
+      if ngx.ctx.security_bot_action == '' then
+        ngx.ctx.security_bot_action = optional_string(rule.action)
+      end
+      if ngx.ctx.security_bot_class ~= '' then
+        ngx.ctx.security_event_type = 'bot_match'
+      end
       if ngx.ctx.security_action == 'allow' then
         return true
       end
@@ -184,6 +206,14 @@ local function apply_waf(cfg, host)
         ngx.header.content_type = 'application/json'
         identity.apply()
         ngx.say('{"error":"blocked_by_waf","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
+        return ngx.exit(403)
+      end
+      if ngx.ctx.security_action == 'challenge' then
+        append_security_event(nil)
+        ngx.status = 403
+        ngx.header.content_type = 'application/json'
+        identity.apply()
+        ngx.say('{"error":"bot_challenge_required","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
         return ngx.exit(403)
       end
       return true

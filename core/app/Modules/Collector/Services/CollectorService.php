@@ -157,7 +157,7 @@ class CollectorService
         try {
             foreach ($items as $item) {
                 $event = (string) ($item['type'] ?? '');
-                if (!in_array($event, ['waf_match', 'rate_limited'], true)) {
+                if (!in_array($event, ['waf_match', 'rate_limited', 'bot_match'], true)) {
                     continue;
                 }
                 $domainId = (string) ($item['domain_id'] ?? '');
@@ -170,7 +170,7 @@ class CollectorService
                     ':actor_type' => 'system',
                     ':actor_id' => (string) ($item['edge_node_id'] ?? ''),
                     ':action' => 'inspect',
-                    ':resource_type' => $event === 'waf_match' ? 'waf' : 'rate_limit',
+                    ':resource_type' => $event === 'rate_limited' ? 'rate_limit' : 'waf',
                     ':resource_id' => (string) ($item['rule_id'] ?? ''),
                     ':domain_id' => $domainId,
                     ':details_json' => json_encode([
@@ -189,6 +189,9 @@ class CollectorService
                         'severity' => (string) ($item['severity'] ?? ''),
                         'confidence' => (string) ($item['confidence'] ?? ''),
                         'safe_reason' => (string) ($item['safe_reason'] ?? ''),
+                        'bot_class' => (string) ($item['bot_class'] ?? ''),
+                        'bot_score' => (int) ($item['bot_score'] ?? 0),
+                        'bot_action' => (string) ($item['bot_action'] ?? ''),
                     ], JSON_UNESCAPED_SLASHES),
                     ':event' => $event,
                     ':created_at' => (int) ($item['ts'] ?? $now),
@@ -309,7 +312,7 @@ class CollectorService
                 $event = (string) ($row['event'] ?? '');
                 $items[] = [
                     'id' => 'audit:' . (string) $row['id'],
-                    'type' => in_array($event, ['waf_match', 'rate_limited', 'geo_block'], true) ? 'security' : 'audit',
+                    'type' => in_array($event, ['waf_match', 'rate_limited', 'bot_match', 'geo_block'], true) ? 'security' : 'audit',
                     'ts' => (int) $row['created_at'],
                     'title' => (string) ($row['event'] ?: $row['action']),
                     'summary' => (string) $row['resource_type'] . ($row['resource_id'] ? ' ' . (string) $row['resource_id'] : ''),
@@ -834,9 +837,9 @@ class CollectorService
             $params[':to'] = $to;
         }
         if ($type === 'security') {
-            $where[] = "event IN ('waf_match','rate_limited','geo_block')";
+            $where[] = "event IN ('waf_match','rate_limited','bot_match','geo_block')";
         } elseif ($type === 'audit') {
-            $where[] = "(event IS NULL OR event NOT IN ('waf_match','rate_limited','geo_block'))";
+            $where[] = "(event IS NULL OR event NOT IN ('waf_match','rate_limited','bot_match','geo_block'))";
         }
         if ($search !== '') {
             $where[] = '(details_json ILIKE :search OR event ILIKE :search OR action ILIKE :search OR resource_type ILIKE :search OR resource_id ILIKE :search)';

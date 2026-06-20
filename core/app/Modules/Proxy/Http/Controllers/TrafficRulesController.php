@@ -239,7 +239,7 @@ class TrafficRulesController
             if (($priority['ok'] ?? false) !== true) { return $priority; }
         }
         if (array_key_exists('action', $body)) {
-            $action = Validator::enum($body, 'action', ['block', 'log', 'allow']);
+            $action = Validator::enum($body, 'action', ['block', 'log', 'allow', 'challenge']);
             if (($action['ok'] ?? false) !== true) { return $action; }
         }
         if (array_key_exists('name', $body)) {
@@ -369,8 +369,8 @@ class TrafficRulesController
         if (array_key_exists('pattern', $body) && (!is_string($body['pattern']) || trim((string) $body['pattern']) === '')) {
             return ['error' => 'invalid_field', 'field' => 'pattern', 'detail' => 'must_be_non_empty_string', 'status' => 422];
         }
-        if (array_key_exists('action', $body) && !in_array((string) $body['action'], ['block', 'log', 'allow'], true)) {
-            return ['error' => 'invalid_field', 'field' => 'action', 'detail' => 'must_be_one_of_block_log_allow', 'status' => 422];
+        if (array_key_exists('action', $body) && !in_array((string) $body['action'], ['block', 'log', 'allow', 'challenge'], true)) {
+            return ['error' => 'invalid_field', 'field' => 'action', 'detail' => 'must_be_one_of_block_log_allow_challenge', 'status' => 422];
         }
         if (array_key_exists('priority', $body)) {
             $priority = Validator::intRange($body, 'priority', 1, 100000);

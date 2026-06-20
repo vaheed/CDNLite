@@ -58,6 +58,7 @@ assert_contains "$dashboard_asset" "/protection/profiles" "dashboard bundle shou
 assert_contains "$dashboard_asset" "Config snapshot status" "dashboard bundle should include edge config visibility UI"
 assert_contains "$dashboard_asset" "config_apply_error" "dashboard bundle should include config apply error rendering"
 assert_contains "$dashboard_asset" "Cache static assets" "dashboard bundle should include Performance Starter controls"
+assert_contains "$dashboard_asset" "Bot protection" "dashboard bundle should expose Bot Protection events"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
@@ -111,6 +112,10 @@ record_step PASS "schema-performance-starter" "safe static cache controls are pr
 rate_limit_header_key_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='rate_limit_rules' AND column_name IN ('key_type','key_header_name');")"
 assert_eq "$rate_limit_header_key_columns" "2" "rate-limit header key columns are incomplete"
 record_step PASS "schema-rate-limit-headers" "rate-limit header key columns are present"
+
+bot_protection_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='waf_rules' AND column_name IN ('bot_class','bot_score','bot_action');")"
+assert_eq "$bot_protection_columns" "3" "Bot Protection WAF metadata columns are incomplete"
+record_step PASS "schema-bot-protection" "bot class, score, and action columns are present"
 
 rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limits/dry-run' core/public_index.php)"
 assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"

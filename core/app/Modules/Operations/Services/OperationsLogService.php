@@ -7,7 +7,7 @@ use PDO;
 
 class OperationsLogService
 {
-    private const SECURITY_EVENTS = ['waf_match', 'rate_limited', 'geo_block'];
+    private const SECURITY_EVENTS = ['waf_match', 'rate_limited', 'bot_match', 'geo_block'];
     private const ACTIVE_JOB_STATUSES = ['queued', 'checking_dns', 'creating_order', 'validating_challenge', 'issuing', 'installing'];
 
     public function securityEvents(array $filters): array

@@ -656,6 +656,14 @@ if [[ "$audit_intent_count" -lt 3 ]]; then
 fi
 record_step PASS "protection-intent-undo" "undo restores generated state and audit/history stay visible"
 
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/protection/intents/bot_shield/enable" '{}'
+assert_http_status "$HTTP_CODE" "200" "Bot Shield enable failed"
+BOT_SHIELD_INTENT_ID="$(json_get "$HTTP_BODY" '.data.intent.id')"
+assert_contains "$HTTP_BODY" '"bot_class":"scraper"' "Bot Shield should generate scraper metadata"
+bot_rule_count="$(db_query "SELECT COUNT(*) FROM waf_rules WHERE domain_id='${DOMAIN_ID}' AND intent_id='${BOT_SHIELD_INTENT_ID}' AND bot_class IS NOT NULL;")"
+assert_eq "$bot_rule_count" "2" "Bot Shield should create two classified bot rules"
+record_step PASS "bot-shield-enable" "managed scraper and unverified-search-bot policies created"
+
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules"
 assert_http_status "$HTTP_CODE" "200" "waf list failed"
 assert_contains "$HTTP_BODY" '"type":"path_prefix"' "waf v2 type missing"
@@ -883,6 +891,25 @@ waf_edge_header="$(awk 'BEGIN{IGNORECASE=1} /^X-CDNLITE-Edge:/ {sub(/\r$/,"",$2)
 assert_eq "$waf_edge_header" "$EDGE_ID" "waf block response should expose edge id header"
 rm -f "$waf_headers"
 record_step PASS "edge-waf-block-runtime" "403 and edge header observed for /admin"
+
+# Bot Shield challenges claimed search crawlers; a User-Agent claim is not verification.
+bot_challenge_body="$(mktemp)"
+bot_challenge_status="$(curl -sS -o "$bot_challenge_body" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -A 'Googlebot' "${EDGE_URL}/bot-check?via=edge-bot-challenge")"
+assert_eq "$bot_challenge_status" "403" "unverified search-bot claim should be challenged"
+assert_contains "$(cat "$bot_challenge_body")" '"error":"bot_challenge_required"' "bot challenge response should be explicit"
+rm -f "$bot_challenge_body"
+retry 10 1 agent_exec '/agent/push_security_events.sh'
+bot_event_visible=0
+for _ in $(seq 1 20); do
+  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=bot_match&limit=1"
+  if [[ "$HTTP_CODE" == "200" ]] && [[ "$HTTP_BODY" == *'"bot_class":"unknown_automation"'* ]] && [[ "$HTTP_BODY" == *'"bot_action":"challenge"'* ]]; then
+    bot_event_visible=1
+    break
+  fi
+  sleep 1
+done
+assert_eq "$bot_event_visible" "1" "bot_match event should preserve classification and action"
+record_step PASS "edge-bot-protection-runtime" "unverified crawler challenge and classified security event observed"
 
 # Rate-limit runtime behavior (path-scoped ip_path).
 rate_limit_codes=()
