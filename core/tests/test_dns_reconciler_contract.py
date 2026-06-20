@@ -80,10 +80,11 @@ def test_all_durable_dns_triggers_use_the_reconciler():
     sources = [
         read("core/app/Modules/Dns/Services/DnsService.php"),
         read("core/app/Modules/Domains/Services/DomainService.php"),
-        read("core/app/Modules/Edge/Http/Controllers/EdgeController.php"),
         read("core/app/Console/Commands/CdnPowerDnsForceSyncCommand.php"),
     ]
+    edge_controller = read("core/app/Modules/Edge/Http/Controllers/EdgeController.php")
     assert all("DnsReconciler" in source for source in sources)
+    assert "DnsReconciler" not in edge_controller
     assert "syncReplace(" not in sources[0]
     assert "syncDelete(" not in sources[0]
 
