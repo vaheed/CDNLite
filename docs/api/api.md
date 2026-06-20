@@ -219,6 +219,27 @@ diagnostics, low cache hit ratio, bot protection, common exploit protection,
 and SSL review. One-click actions reuse the existing protection intent, cache
 settings, and origin health-check services.
 
+### Guided Onboarding
+
+Guided onboarding stores first-setup answers per domain, recommends a protection
+profile, previews the generated rules, and can apply the selected profile
+through the same Protection profile engine used by Security Center.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/domains/{domainId}/onboarding` | Load onboarding state, recommendation, and setup progress. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/answers` | Store answers and refresh the recommended profile. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/preview` | Preview the recommended profile without mutating rules. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/apply` | Apply the recommended profile and mark onboarding complete. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/skip` | Skip onboarding while preserving resume state. |
+| `POST` | `/api/v1/domains/{domainId}/onboarding/resume` | Resume a skipped wizard. |
+
+Answers include `site_type`, `has_login`, `has_api`, `sells_products`,
+`countries`, `framework`, `under_attack`, and `enable_now`. Recommendation
+priority is emergency, WordPress, e-commerce, API, SaaS app, then Basic Website.
+The progress payload covers domain added, nameservers, origin, SSL, protection
+profile, and edge readiness.
+
 ## Domains
 
 | Method | Route | Purpose |

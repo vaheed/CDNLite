@@ -62,8 +62,11 @@ assert_contains "$dashboard_asset" "Cache static assets" "dashboard bundle shoul
 assert_contains "$dashboard_asset" "Bot protection" "dashboard bundle should expose Bot Protection events"
 assert_contains "$dashboard_asset" "Recommendations" "dashboard bundle should include recommendations panel"
 assert_contains "$dashboard_asset" "/recommendations/generate" "dashboard bundle should include recommendation generation API"
+assert_contains "$dashboard_asset" "Guided onboarding" "dashboard bundle should include guided onboarding wizard"
+assert_contains "$dashboard_asset" "/onboarding/answers" "dashboard bundle should include onboarding answer API"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 record_step PASS "dashboard-recommendations-bundle" "Recommendation panel and APIs are present in the dashboard bundle"
+record_step PASS "dashboard-onboarding-bundle" "Guided onboarding wizard and APIs are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
 record_step PASS "agent-flow-checks" "config and metrics failure handling verified"
@@ -100,7 +103,7 @@ required_tables=(
   domains dns_records edge_nodes edge_tokens edge_request_nonces
   admin_users admin_sessions
   usage_rollups usage_ingest_keys usage_aggregates config_state config_snapshots
-  recommendations
+  recommendations domain_onboarding
   domain_cache_settings cache_purge_requests cache_purge_versions page_rules ssl_certificates
   rate_limit_rules audit_log platform_settings platform_settings_audit
 )
@@ -113,6 +116,10 @@ record_step PASS "schema-tables" "all required tables exist"
 recommendation_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='recommendations' AND column_name IN ('domain_id','type','confidence','risk','impact','preview_payload','one_click_action','status','snoozed_until','dismissed_at','applied_at');")"
 assert_eq "$recommendation_columns" "11" "recommendations schema is incomplete"
 record_step PASS "schema-recommendations" "recommendation engine table and lifecycle columns are present"
+
+onboarding_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_onboarding' AND column_name IN ('domain_id','status','answers_json','recommended_profile_key','skipped_at','completed_at','created_at','updated_at');")"
+assert_eq "$onboarding_columns" "8" "guided onboarding schema is incomplete"
+record_step PASS "schema-onboarding" "guided onboarding answers and lifecycle columns are present"
 
 performance_cache_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_cache_settings' AND column_name IN ('static_asset_cache_enabled','ignore_query_strings_for_static','bypass_logged_in_users');")"
 assert_eq "$performance_cache_columns" "3" "Performance Starter cache columns are incomplete"

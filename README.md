@@ -29,6 +29,7 @@ CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL datab
 - Cache settings, cache rules, purge workflows, and cache analytics.
 - Redirects, page rules, WAF rules, rate limits, response headers, and IP access rules.
 - Security Center one-click protection profiles and generated WAF/rate-limit/cache intents with rollback history.
+- Guided onboarding wizard that recommends and applies starter protection profiles from simple site questions.
 - SSL settings, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
 - Edge node registration, heartbeat, config polling, metrics ingest, and security-event ingest with HMAC replay protection.
 - Successful edge-agent heartbeats mark the node healthy for the shared DNS edge pool.

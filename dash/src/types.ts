@@ -102,6 +102,22 @@ export interface ProtectionProfilePreview {
 export interface ProtectionProfileMutationResult {
   profile: ProtectionProfileRecord | null; intents: ProtectionIntentMutationResult[];
 }
+export interface OnboardingAnswers {
+  site_type?: string; has_login?: boolean; has_api?: boolean; sells_products?: boolean;
+  countries?: string[]; under_attack?: boolean; framework?: string; enable_now?: boolean;
+}
+export interface OnboardingProgressStep { key: string; label: string; status: string; }
+export interface OnboardingState {
+  domain_id: Id; status: string; answers: OnboardingAnswers; recommended_profile_key: string;
+  recommendation: { profile_key: string; name: string; reason: string };
+  progress: OnboardingProgressStep[]; skipped_at?: number | null; completed_at?: number | null; updated_at?: number | null;
+}
+export interface OnboardingPreview {
+  onboarding: OnboardingState; profile_preview: ProtectionProfilePreview; mutates: boolean;
+}
+export interface OnboardingApplyResult {
+  onboarding: OnboardingState; profile_result: ProtectionProfileMutationResult;
+}
 export interface ApiProtectionPathSuggestion {
   path_prefix: string; requests_24h: number; default?: boolean;
 }

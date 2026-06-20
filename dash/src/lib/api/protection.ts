@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiProtectionDiscovery, ProtectionIntentMutationResult, ProtectionIntentPreview, ProtectionIntentSummary, ProtectionProfileMutationResult, ProtectionProfilePreview, ProtectionProfileSummary } from '@/types';
+import type { ApiProtectionDiscovery, OnboardingAnswers, OnboardingApplyResult, OnboardingPreview, OnboardingState, ProtectionIntentMutationResult, ProtectionIntentPreview, ProtectionIntentSummary, ProtectionProfileMutationResult, ProtectionProfilePreview, ProtectionProfileSummary } from '@/types';
 
 export const protectionApi = {
   listProfiles: (domainId: string) => api.get<ProtectionProfileSummary[]>(`/api/v1/domains/${domainId}/protection/profiles`),
@@ -20,4 +20,15 @@ export const protectionApi = {
     api.post<ProtectionIntentMutationResult>(`/api/v1/domains/${domainId}/protection/intents/${intentId}/disable`, input),
   undoIntent: (domainId: string, intentId: string) =>
     api.post<ProtectionIntentMutationResult>(`/api/v1/domains/${domainId}/protection/intents/${intentId}/undo`),
+  getOnboarding: (domainId: string) => api.get<OnboardingState>(`/api/v1/domains/${domainId}/onboarding`),
+  saveOnboardingAnswers: (domainId: string, answers: OnboardingAnswers) =>
+    api.post<OnboardingState>(`/api/v1/domains/${domainId}/onboarding/answers`, { answers }),
+  previewOnboarding: (domainId: string) =>
+    api.post<OnboardingPreview>(`/api/v1/domains/${domainId}/onboarding/preview`),
+  applyOnboarding: (domainId: string) =>
+    api.post<OnboardingApplyResult>(`/api/v1/domains/${domainId}/onboarding/apply`),
+  skipOnboarding: (domainId: string) =>
+    api.post<OnboardingState>(`/api/v1/domains/${domainId}/onboarding/skip`),
+  resumeOnboarding: (domainId: string) =>
+    api.post<OnboardingState>(`/api/v1/domains/${domainId}/onboarding/resume`),
 };

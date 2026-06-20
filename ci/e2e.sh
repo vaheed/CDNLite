@@ -389,6 +389,12 @@ assert_http_status "$HTTP_CODE" "201" "domain create failed"
 DOMAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "domain-create" "domain_id=${DOMAIN_ID} domain=${TEST_DOMAIN}"
 
+api_post "${CORE_URL}/api/v1/domains" \
+  "{\"name\":\"e2e-onboarding-${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN_2}\"}"
+assert_http_status "$HTTP_CODE" "201" "onboarding domain create failed"
+DOMAIN_ID_2="$(json_get "$HTTP_BODY" '.data.id')"
+record_step PASS "onboarding-domain-create" "domain_id=${DOMAIN_ID_2} domain=${TEST_DOMAIN_2}"
+
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
 assert_http_status "$HTTP_CODE" "200" "domain activation failed"
 now="$(date +%s)"
@@ -422,6 +428,44 @@ if [[ "$HTTP_BODY" == *'"type":"login_shield"'* ]]; then
   fail "dismissed recommendation reappeared immediately"
 fi
 record_step PASS "recommendations-dismiss-suppression" "dismissed recommendation stays hidden after regeneration"
+
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding"
+assert_http_status "$HTTP_CODE" "200" "onboarding state load failed"
+assert_contains "$HTTP_BODY" '"recommended_profile_key":"basic_website"' "empty onboarding should default to Basic Website"
+assert_contains "$HTTP_BODY" '"key":"domain_added"' "onboarding progress should include domain lifecycle"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/answers" '{"site_type":"website","framework":"wordpress","has_login":true,"has_api":false,"sells_products":false,"countries":["US"],"under_attack":false,"enable_now":false}'
+assert_http_status "$HTTP_CODE" "200" "wordpress onboarding answers failed"
+assert_contains "$HTTP_BODY" '"recommended_profile_key":"wordpress"' "WordPress answers should recommend WordPress profile"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/answers" '{"site_type":"api","framework":"other","has_login":false,"has_api":true,"sells_products":false,"countries":["US"],"under_attack":false,"enable_now":false}'
+assert_http_status "$HTTP_CODE" "200" "api onboarding answers failed"
+assert_contains "$HTTP_BODY" '"recommended_profile_key":"api"' "API answers should recommend API profile"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/answers" '{"site_type":"website","framework":"wordpress","has_login":true,"has_api":true,"sells_products":true,"countries":["US"],"under_attack":true,"enable_now":true}'
+assert_http_status "$HTTP_CODE" "200" "emergency onboarding answers failed"
+assert_contains "$HTTP_BODY" '"recommended_profile_key":"emergency"' "under-attack answers should recommend Emergency Protection"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/preview" '{}'
+assert_http_status "$HTTP_CODE" "200" "onboarding preview failed"
+assert_contains "$HTTP_BODY" '"profile_key":"emergency"' "onboarding preview should use recommended profile"
+onboarding_preview_mutation_count="$(db_query "SELECT COUNT(*) FROM protection_profiles WHERE domain_id='${DOMAIN_ID_2}';")"
+assert_eq "$onboarding_preview_mutation_count" "0" "onboarding preview should not persist protection profiles"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/skip" '{}'
+assert_http_status "$HTTP_CODE" "200" "onboarding skip failed"
+assert_contains "$HTTP_BODY" '"status":"skipped"' "onboarding skip should mark skipped"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/resume" '{}'
+assert_http_status "$HTTP_CODE" "200" "onboarding resume failed"
+assert_contains "$HTTP_BODY" '"status":"in_progress"' "onboarding resume should return to in_progress"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID_2}/onboarding/apply" '{}'
+assert_http_status "$HTTP_CODE" "200" "onboarding apply failed"
+assert_contains "$HTTP_BODY" '"status":"completed"' "onboarding apply should complete wizard"
+assert_contains "$HTTP_BODY" '"profile_key":"emergency"' "onboarding apply should apply recommended profile"
+onboarding_applied_count="$(db_query "SELECT COUNT(*) FROM protection_profiles WHERE domain_id='${DOMAIN_ID_2}' AND profile_key='emergency' AND status='enabled';")"
+assert_eq "$onboarding_applied_count" "1" "onboarding apply should persist enabled emergency profile"
+record_step PASS "guided-onboarding-flow" "recommendation logic, preview, skip/resume, and apply verified"
 
 config_snapshot_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
 config_snapshot_after="$(jq -r '.version' <<<"$config_snapshot_json")"

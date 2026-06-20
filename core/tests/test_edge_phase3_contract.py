@@ -51,7 +51,9 @@ def test_edge_country_rules_use_mounted_mmdb_when_headers_are_absent():
     setup = read("docs/setup.md")
     api = read("docs/api/api.md")
 
-    assert "lua-resty-maxminddb" in dockerfile
+    assert "libmaxminddb" in dockerfile
+    assert "COPY openresty/lua /etc/openresty/lua" in dockerfile
+    assert "resty/maxminddb.lua" in "\n".join(str(path) for path in (ROOT / "edge/openresty/lua").rglob("*.lua"))
     assert "assert(require('resty.maxminddb'))" in dockerfile
     assert "pdns-mmdb:/var/lib/cdnlite/mmdb:ro" in compose
     assert "pdns-mmdb-updater:" in compose

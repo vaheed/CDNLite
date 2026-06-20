@@ -24,6 +24,8 @@ use App\Modules\Health\Http\Controllers\ReadinessController;
 use App\Modules\Health\Services\ReadinessService;
 use App\Modules\Overview\Http\Controllers\OverviewController;
 use App\Modules\Overview\Services\OverviewService;
+use App\Modules\Onboarding\Http\Controllers\OnboardingController;
+use App\Modules\Onboarding\Services\OnboardingService;
 use App\Modules\Operations\Http\Controllers\OperationsLogController;
 use App\Modules\Operations\Services\OperationsLogService;
 use App\Modules\Recommendations\Http\Controllers\RecommendationController;
@@ -209,6 +211,7 @@ $adminAuthController = new AdminAuthController($adminAuth);
 $readinessController = new ReadinessController(new ReadinessService());
 $settingsController = new SettingsController(new SettingsRepository());
 $overviewController = new OverviewController(new OverviewService());
+$onboardingController = new OnboardingController(new OnboardingService());
 $operationsLogController = new OperationsLogController(new OperationsLogService());
 $recommendationController = new RecommendationController(new RecommendationService());
 
@@ -466,6 +469,12 @@ $router->add('POST', '/api/v1/domains/{domainId}/protection/intents/{intentId}/u
     $result = $rulesController->undoProtectionIntent((string) $p['domainId'], (string) $p['intentId']);
     return Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/onboarding', static fn (Request $req, array $p): array => Response::json($onboardingController->show((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/onboarding/answers', static fn (Request $req, array $p): array => Response::json($onboardingController->answers((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/onboarding/preview', static fn (Request $req, array $p): array => Response::json($onboardingController->preview((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/onboarding/apply', static fn (Request $req, array $p): array => Response::json($onboardingController->apply((string) $p['domainId'], $req->body)), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/onboarding/skip', static fn (Request $req, array $p): array => Response::json($onboardingController->skip((string) $p['domainId'])), auth: true);
+$router->add('POST', '/api/v1/domains/{domainId}/onboarding/resume', static fn (Request $req, array $p): array => Response::json($onboardingController->resume((string) $p['domainId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/recommendations', static fn (Request $req, array $p): array => Response::json($recommendationController->index((string) $p['domainId'], $req->query)), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/recommendations/generate', static fn (Request $req, array $p): array => Response::json($recommendationController->generate((string) $p['domainId'])), auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/recommendations/{recommendationId}/apply', static function (Request $req, array $p) use ($recommendationController): array {

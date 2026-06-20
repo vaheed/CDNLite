@@ -206,6 +206,66 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding:
+    get:
+      tags: [Onboarding]
+      summary: Load guided onboarding state and setup progress
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding/answers:
+    post:
+      tags: [Onboarding]
+      summary: Store guided onboarding answers and generate a profile recommendation
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding/preview:
+    post:
+      tags: [Onboarding]
+      summary: Preview the recommended onboarding protection profile
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding/apply:
+    post:
+      tags: [Onboarding]
+      summary: Apply the recommended onboarding protection profile
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "409":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding/skip:
+    post:
+      tags: [Onboarding]
+      summary: Skip guided onboarding for a domain
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/onboarding/resume:
+    post:
+      tags: [Onboarding]
+      summary: Resume guided onboarding for a domain
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/security/events:
     get:
       tags: [Operations]

@@ -14,6 +14,7 @@
     <div v-if="error" class="state-error">{{ error }}</div>
 
     <RecommendationsPanel :domain-id="domainId" />
+    <GuidedOnboardingWizard :domain-id="domainId" @applied="load" />
 
     <div class="panel-section overflow-hidden p-0">
       <div class="border-b border-slate-200 px-4 py-3 dark:border-white/10 sm:px-5">
@@ -166,6 +167,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Eye, RefreshCw, ShieldCheck, ShieldOff, Undo2, X } from 'lucide-vue-next';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import RecommendationsPanel from '@/components/recommendations/RecommendationsPanel.vue';
+import GuidedOnboardingWizard from '@/components/protection/GuidedOnboardingWizard.vue';
 import { protectionApi } from '@/lib/api/protection';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
