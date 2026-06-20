@@ -574,6 +574,7 @@ Edge endpoint notes:
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/v1/config/snapshots` | List versions. |
+| `GET` | `/api/v1/config/snapshots/latest` | Return the latest snapshot summary without the snapshot payload. |
 | `GET` | `/api/v1/config/snapshots/{version}` | Show version. |
 | `POST` | `/api/v1/config/snapshots/diff` | Diff JSON paths between versions. |
 | `POST` | `/api/v1/config/snapshots/{version}/rollback` | Activate old version. |

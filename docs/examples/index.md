@@ -309,6 +309,9 @@ The edge agent scripts already do this; the example is for developers writing cu
 curl -s "$API/api/v1/config/snapshots" \
   -H "Authorization: Bearer $TOKEN"
 
+curl -s "$API/api/v1/config/snapshots/latest" \
+  -H "Authorization: Bearer $TOKEN"
+
 curl -s -X POST "$API/api/v1/config/snapshots/diff" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \

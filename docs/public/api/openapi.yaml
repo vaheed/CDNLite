@@ -1298,6 +1298,13 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericArray"
+  /api/v1/config/snapshots/latest:
+    get:
+      tags: [Config]
+      summary: Get latest config snapshot summary
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/config/snapshots/{version}:
     get:
       tags: [Config]
