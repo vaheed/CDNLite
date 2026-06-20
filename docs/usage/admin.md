@@ -136,15 +136,22 @@ Edge agent -> signed /api/v1/edge/config -> config.json
 ```
 # Domain Activity
 
-Every domain detail page includes an **Activity** tab. It provides two
-independently paginated streams:
+Every domain detail page includes an **Activity** tab with **Simple view** and
+**Advanced view**. Simple view groups raw events into readable protection
+outcomes such as blocked exploit attempts, suspicious bots, login abuse, origin
+errors, SSL actions, DNS publishing, and cache actions. It also shows recommended
+next actions when recent activity suggests a protection profile.
+
+Advanced view preserves the diagnostic workflow and provides independently
+paginated streams:
 
 - Security events: WAF, rate-limit, and Geo decisions.
 - Change log: administrative and automated audit entries.
 
-Both streams are scoped by domain ID and support free-text detail search, date
-range filtering, page-size selection, and raw JSON inspection. Use this view
-instead of manually correlating the global Security Events and Audit Log pages.
+Both advanced streams are scoped by domain ID and support free-text detail
+search, date range filtering, page-size selection, request-id lookup, export,
+and raw JSON inspection. Use this view instead of manually correlating the global
+Security Events and Audit Log pages.
 
 Global collection pages use consistent pagination controls with selectable
 10/25/50/100-row page sizes. The Event Viewer supports search, severity, type,

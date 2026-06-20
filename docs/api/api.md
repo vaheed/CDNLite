@@ -617,8 +617,8 @@ Settings tips:
 | `POST` | `/api/v1/usage/recalculate` | Rebuild minute/hour/day aggregates. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
-| `GET` | `/api/v1/domains/{domainId}/activity` | Paginated mixed domain activity timeline with request, error, audit, and security events. Supports `limit`, `offset`, `type`, `search`, `from`, and `to`. |
-| `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths/origins/edges, and recent origin errors. |
+| `GET` | `/api/v1/domains/{domainId}/activity` | Paginated mixed domain activity timeline with request, error, audit, and security events. Supports `limit`, `offset`, `type`, `search`, `from`, and `to`; each item includes a `friendly` label/category/intent for Simple Activity while preserving raw `details`. |
+| `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths/origins/edges, recent origin errors, and a beginner summary with grouped WAF, rate-limit, bot, origin, SSL, DNS, cache, and audit counts. |
 | `GET` | `/api/v1/domains/{domainId}/activity/requests` | Paginated edge request and origin diagnostics. Supports `limit`, `offset`, `type=request/error`, `search`, `from`, and `to`. |
 | `GET` | `/api/v1/domains/{domainId}/activity/requests/{requestId}` | Find one edge request by request ID from a 5xx page or edge log. |
 | `GET` | `/api/v1/domains/{domainId}/activity/export` | Export the current mixed activity filter as JSON. |
@@ -630,6 +630,7 @@ Analytics tips:
 - Recalculate aggregates after bulk ingest, test fixture loading, or suspected aggregation drift.
 - Domain-filtered analytics are safer for customer-facing reports than global analytics.
 - Activity endpoints store edge query data only after the edge-side redaction step. Use request-id lookup to correlate the public 5xx page, Docker-visible edge logs, and dashboard Activity details without exposing raw secret query values.
+- Simple Activity is derived from the same raw request, audit, and security rows as Advanced Activity. API clients can use `friendly.category`, `friendly.intent`, and `summary.beginner.recommendations` for beginner dashboards without losing request IDs or exportable raw details.
 - Prune raw detailed request rows with `php artisan cdn:usage:prune --dry-run` followed by `php artisan cdn:usage:prune --days=30` or the value configured in `CDNLITE_ANALYTICS_RETENTION_DAYS`.
 - Security-event ingest stores `client_ip` as a SHA-256 hash by default. Set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your deployment has an explicit policy for full IP retention.
 - `rate_limited` security-event details include `rate_limit_id`, `limit_key_type`, `threshold`, `current_count`, `window_seconds`, `action` as `decision`, and `retry_after` so Activity can explain which Smart Rate Limiting rule fired and how far over the limit the request was.

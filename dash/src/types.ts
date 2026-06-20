@@ -178,9 +178,19 @@ export interface RequestActivity {
 }
 export interface ActivityTimelineItem {
   id: string; type: 'request' | 'error' | 'audit' | 'security' | string; ts: number;
-  title: string; summary?: string | null; request_id?: string | null; details: unknown;
+  title: string; summary?: string | null; request_id?: string | null; friendly?: ActivityFriendly; details: unknown;
 }
 export interface ActivityTimeline { items: ActivityTimelineItem[]; total: number; limit: number; offset: number; cursor?: string | null; }
+export interface ActivityFriendly {
+  category: string; intent: string; label: string; title: string; summary: string;
+  severity: Severity | string; recommendation?: string | null;
+}
+export interface BeginnerActivitySummary {
+  headline: string;
+  counts: Record<string, number>;
+  cards: Array<{ key: string; label: string; count: number; category: string }>;
+  recommendations: Array<{ type: string; label: string; reason: string }>;
+}
 export interface ActivitySummary {
   total_requests: number; forwarded_requests: number; bytes_in: number; bytes_out: number;
   cache_hit_ratio: number; status_counts: Record<string, number>;
@@ -188,6 +198,7 @@ export interface ActivitySummary {
   top_origins: Array<{ value: string; count: number }>;
   top_edge_nodes: Array<{ value: string; count: number }>;
   recent_origin_errors: RequestActivity[];
+  beginner?: BeginnerActivitySummary;
 }
 export interface ActivityExport { domain_id: Id; generated_at: number; format: 'json'; items: ActivityTimelineItem[]; }
 export interface CacheAnalyticsRow { cache_status: string; count: number; bytes_out: number; }

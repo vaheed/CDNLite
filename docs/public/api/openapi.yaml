@@ -1463,7 +1463,7 @@ paths:
   /api/v1/domains/{domainId}/activity:
     get:
       tags: [Analytics, Operations]
-      summary: Mixed domain activity timeline
+      summary: Mixed domain activity timeline with friendly labels
       parameters:
         - $ref: "#/components/parameters/DomainId"
         - $ref: "#/components/parameters/Limit"
@@ -1478,7 +1478,7 @@ paths:
   /api/v1/domains/{domainId}/activity/summary:
     get:
       tags: [Analytics, Operations]
-      summary: Domain activity summary and recent origin errors
+      summary: Domain activity summary, beginner groups, and recent origin errors
       parameters:
         - $ref: "#/components/parameters/DomainId"
       responses:

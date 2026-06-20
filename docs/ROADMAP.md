@@ -1392,6 +1392,10 @@ Phase 17: Add a guided onboarding wizard. Ask simple questions about site type, 
 
 ## Phase 18 — Beginner Activity UX
 
+### Status
+
+Implemented on 2026-06-20.
+
 ### Goal
 
 Make Activity useful to non-experts while preserving advanced diagnostics.

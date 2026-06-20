@@ -295,13 +295,15 @@ class CollectorService
             $total += $this->countTimelineRequests($domainId, $cursor, $from, $to, $search, $type === 'error');
             foreach ($this->timelineRequests($domainId, $limit + $offset, $cursor, $from, $to, $search, $type === 'error') as $row) {
                 $request = $this->castRequestActivity($row);
+                $friendly = $this->friendlyRequestActivity($request);
                 $items[] = [
                     'id' => 'request:' . $request['id'],
                     'type' => ((int) ($request['status'] ?? 0) >= 500 || !empty($request['router_error'])) ? 'error' : 'request',
                     'ts' => (int) $request['ts'],
-                    'title' => trim(((string) ($request['method'] ?? 'GET')) . ' ' . ((string) ($request['host'] ?? '')) . ((string) ($request['path'] ?? ''))),
-                    'summary' => 'HTTP ' . (string) ($request['status'] ?? 0) . ' / ' . (string) ($request['cache_status'] ?? 'UNKNOWN'),
+                    'title' => $friendly['title'],
+                    'summary' => $friendly['summary'],
                     'request_id' => $request['request_id'] ?? null,
+                    'friendly' => $friendly,
                     'details' => $request,
                 ];
             }
@@ -310,13 +312,16 @@ class CollectorService
             $total += $this->countTimelineAudit($domainId, $cursor, $from, $to, $search, $type);
             foreach ($this->timelineAudit($domainId, $limit + $offset, $cursor, $from, $to, $search, $type) as $row) {
                 $event = (string) ($row['event'] ?? '');
+                $details = $this->decodeJson($row['details_json'] ?? null);
+                $friendly = $this->friendlyAuditActivity($event, (string) $row['action'], (string) $row['resource_type'], is_array($details) ? $details : []);
                 $items[] = [
                     'id' => 'audit:' . (string) $row['id'],
                     'type' => in_array($event, ['waf_match', 'rate_limited', 'bot_match', 'geo_block'], true) ? 'security' : 'audit',
                     'ts' => (int) $row['created_at'],
-                    'title' => (string) ($row['event'] ?: $row['action']),
-                    'summary' => (string) $row['resource_type'] . ($row['resource_id'] ? ' ' . (string) $row['resource_id'] : ''),
+                    'title' => $friendly['title'],
+                    'summary' => $friendly['summary'],
                     'request_id' => $this->requestIdFromDetails($row['details_json'] ?? null),
+                    'friendly' => $friendly,
                     'details' => [
                         'id' => (string) $row['id'],
                         'actor_type' => (string) $row['actor_type'],
@@ -325,7 +330,7 @@ class CollectorService
                         'resource_type' => (string) $row['resource_type'],
                         'resource_id' => $row['resource_id'],
                         'event' => $row['event'],
-                        'details' => $this->decodeJson($row['details_json'] ?? null),
+                        'details' => $details,
                     ],
                 ];
             }
@@ -386,6 +391,7 @@ class CollectorService
             'top_origins' => $this->topUsageDimension('origin_id', $whereSql, $params),
             'top_edge_nodes' => $this->topUsageDimension('edge_node_id', $whereSql, $params),
             'recent_origin_errors' => $this->recentOriginErrors($whereSql, $params),
+            'beginner' => $this->beginnerActivitySummary($domainId, $filters, (int) ($row['status_5xx'] ?? 0)),
         ];
     }
 
@@ -745,6 +751,238 @@ class CollectorService
             ? (json_decode((string) $row['query_redacted'], true) ?: [])
             : [];
         return $row;
+    }
+
+    /**
+     * Beginner Activity labels are derived from raw events so advanced exports
+     * keep their original request, audit, and security payloads unchanged.
+     */
+    private function friendlyRequestActivity(array $request): array
+    {
+        $status = (int) ($request['status'] ?? 0);
+        $cache = strtoupper((string) ($request['cache_status'] ?? 'UNKNOWN'));
+        $methodPath = trim(((string) ($request['method'] ?? 'GET')) . ' ' . ((string) ($request['path'] ?? '/')));
+        if ($status >= 500 || !empty($request['router_error'])) {
+            return [
+                'category' => 'origin',
+                'intent' => 'origin_health',
+                'label' => 'Origin error detected',
+                'title' => 'Origin error detected',
+                'summary' => 'CDNLite saw HTTP ' . $status . ' while serving ' . ($methodPath !== '' ? $methodPath : 'a request') . '.',
+                'severity' => 'warning',
+                'recommendation' => 'Check the origin health and recent deploys.',
+            ];
+        }
+        if ($cache === 'HIT') {
+            return [
+                'category' => 'cache',
+                'intent' => 'cache_static_assets',
+                'label' => 'Cached request served',
+                'title' => 'Cached request served',
+                'summary' => 'A request was served from cache without reaching the origin.',
+                'severity' => 'info',
+                'recommendation' => null,
+            ];
+        }
+        return [
+            'category' => 'request',
+            'intent' => 'traffic',
+            'label' => 'Request served',
+            'title' => trim(((string) ($request['method'] ?? 'GET')) . ' ' . ((string) ($request['host'] ?? '')) . ((string) ($request['path'] ?? ''))),
+            'summary' => 'HTTP ' . (string) $status . ' / ' . $cache,
+            'severity' => 'info',
+            'recommendation' => null,
+        ];
+    }
+
+    private function friendlyAuditActivity(string $event, string $action, string $resourceType, array $details): array
+    {
+        if ($event === 'waf_match') {
+            return [
+                'category' => 'waf',
+                'intent' => (string) ($details['group_id'] ?? 'common_exploits'),
+                'label' => 'Blocked exploit attempt',
+                'title' => 'Blocked exploit attempt',
+                'summary' => $this->decisionSummary($details, 'A WAF rule matched suspicious traffic.'),
+                'severity' => (string) ($details['severity'] ?? 'warning'),
+                'recommendation' => null,
+            ];
+        }
+        if ($event === 'rate_limited') {
+            $path = (string) ($details['path'] ?? '');
+            $login = preg_match('~/(login|wp-login|admin|session|auth)~i', $path) === 1;
+            return [
+                'category' => 'rate_limit',
+                'intent' => $login ? 'login_shield' : 'smart_rate_limiting',
+                'label' => $login ? 'Stopped too many login requests' : 'Stopped too many requests',
+                'title' => $login ? 'Stopped too many login requests' : 'Stopped too many requests',
+                'summary' => $this->decisionSummary($details, 'A rate limit protected the origin from repeated requests.'),
+                'severity' => 'warning',
+                'recommendation' => $login ? 'Enable Login Shield' : null,
+            ];
+        }
+        if ($event === 'bot_match') {
+            return [
+                'category' => 'bot',
+                'intent' => 'bot_shield',
+                'label' => 'Challenged suspicious bot',
+                'title' => 'Challenged suspicious bot',
+                'summary' => $this->decisionSummary($details, 'Bot protection identified suspicious automation.'),
+                'severity' => 'warning',
+                'recommendation' => 'Review Bot Shield mode.',
+            ];
+        }
+        if (str_starts_with($event, 'ssl.')) {
+            return [
+                'category' => 'ssl',
+                'intent' => 'ssl_lifecycle',
+                'label' => $event === 'ssl.issued' ? 'SSL certificate issued' : 'SSL action recorded',
+                'title' => $event === 'ssl.issued' ? 'SSL certificate issued' : 'SSL action recorded',
+                'summary' => 'Certificate automation recorded ' . $event . '.',
+                'severity' => $event === 'ssl.failed' ? 'warning' : 'info',
+                'recommendation' => $event === 'ssl.failed' ? 'Check SSL validation details.' : null,
+            ];
+        }
+        if (str_starts_with($event, 'dns.') || str_contains($resourceType, 'dns')) {
+            return [
+                'category' => 'dns',
+                'intent' => 'dns_publishing',
+                'label' => 'DNS change published',
+                'title' => 'DNS change published',
+                'summary' => 'DNS publishing recorded ' . ($event !== '' ? $event : $action) . '.',
+                'severity' => 'info',
+                'recommendation' => null,
+            ];
+        }
+        if (str_contains($event . '.' . $action . '.' . $resourceType, 'cache')) {
+            return [
+                'category' => 'cache',
+                'intent' => 'cache_static_assets',
+                'label' => 'Cache action recorded',
+                'title' => 'Cache action recorded',
+                'summary' => 'A cache setting, rule, or purge changed.',
+                'severity' => 'info',
+                'recommendation' => null,
+            ];
+        }
+        return [
+            'category' => 'audit',
+            'intent' => 'change_log',
+            'label' => 'Change recorded',
+            'title' => (string) ($event !== '' ? $event : $action),
+            'summary' => $resourceType !== '' ? $resourceType : 'Administrative change',
+            'severity' => 'info',
+            'recommendation' => null,
+        ];
+    }
+
+    private function decisionSummary(array $details, string $fallback): string
+    {
+        $decision = trim((string) ($details['decision'] ?? $details['bot_action'] ?? ''));
+        $path = trim((string) ($details['path'] ?? ''));
+        if ($decision !== '' && $path !== '') {
+            return ucfirst($decision) . ' on ' . $path . '.';
+        }
+        if ($path !== '') {
+            return $fallback . ' Path: ' . $path . '.';
+        }
+        return $fallback;
+    }
+
+    private function beginnerActivitySummary(string $domainId, array $filters, int $originErrorCount): array
+    {
+        $where = ['domain_id = :domain_id'];
+        $params = [':domain_id' => $domainId];
+        $this->applyTimeFilters($where, $params, $filters, 'created_at');
+        $stmt = Database::pdo()->prepare(
+            "SELECT event, COUNT(*) AS count
+             FROM audit_log
+             WHERE " . implode(' AND ', $where) . "
+             AND event IN ('waf_match','rate_limited','bot_match','ssl.issued','ssl.failed')
+             GROUP BY event"
+        );
+        $stmt->execute($params);
+        $counts = [
+            'exploit_attempts' => 0,
+            'suspicious_bots' => 0,
+            'login_abuse_attempts' => 0,
+            'origin_errors' => $originErrorCount,
+            'ssl_actions' => 0,
+            'dns_changes' => 0,
+            'cache_actions' => 0,
+            'audit_changes' => 0,
+        ];
+        foreach ($stmt->fetchAll() as $row) {
+            $event = (string) $row['event'];
+            $count = (int) $row['count'];
+            if ($event === 'waf_match') {
+                $counts['exploit_attempts'] += $count;
+            } elseif ($event === 'bot_match') {
+                $counts['suspicious_bots'] += $count;
+            } elseif ($event === 'rate_limited') {
+                $counts['login_abuse_attempts'] += $count;
+            } elseif (str_starts_with($event, 'ssl.')) {
+                $counts['ssl_actions'] += $count;
+            }
+        }
+
+        $this->beginnerAuditCategoryCounts($where, $params, $counts);
+        $cards = [
+            ['key' => 'exploit_attempts', 'label' => 'exploit attempts', 'count' => $counts['exploit_attempts'], 'category' => 'waf'],
+            ['key' => 'suspicious_bots', 'label' => 'suspicious bots', 'count' => $counts['suspicious_bots'], 'category' => 'bot'],
+            ['key' => 'login_abuse_attempts', 'label' => 'login abuse attempts', 'count' => $counts['login_abuse_attempts'], 'category' => 'rate_limit'],
+            ['key' => 'origin_errors', 'label' => 'origin errors', 'count' => $counts['origin_errors'], 'category' => 'origin'],
+            ['key' => 'ssl_actions', 'label' => 'SSL actions', 'count' => $counts['ssl_actions'], 'category' => 'ssl'],
+            ['key' => 'dns_changes', 'label' => 'DNS changes', 'count' => $counts['dns_changes'], 'category' => 'dns'],
+            ['key' => 'cache_actions', 'label' => 'cache actions', 'count' => $counts['cache_actions'], 'category' => 'cache'],
+        ];
+
+        return [
+            'headline' => 'Today CDNLite protected and monitored your site.',
+            'counts' => $counts,
+            'cards' => $cards,
+            'recommendations' => $this->beginnerRecommendations($counts),
+        ];
+    }
+
+    private function beginnerAuditCategoryCounts(array $where, array $params, array &$counts): void
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT event, action, resource_type, COUNT(*) AS count
+             FROM audit_log
+             WHERE " . implode(' AND ', $where) . "
+             GROUP BY event, action, resource_type"
+        );
+        $stmt->execute($params);
+        foreach ($stmt->fetchAll() as $row) {
+            $text = strtolower((string) ($row['event'] ?? '') . '.' . (string) ($row['action'] ?? '') . '.' . (string) ($row['resource_type'] ?? ''));
+            $count = (int) $row['count'];
+            if (str_contains($text, 'dns')) {
+                $counts['dns_changes'] += $count;
+            } elseif (str_contains($text, 'cache')) {
+                $counts['cache_actions'] += $count;
+            } elseif (!str_contains($text, 'waf_match') && !str_contains($text, 'rate_limited') && !str_contains($text, 'bot_match')) {
+                $counts['audit_changes'] += $count;
+            }
+        }
+    }
+
+    private function beginnerRecommendations(array $counts): array
+    {
+        $recommendations = [];
+        if ($counts['login_abuse_attempts'] > 0) {
+            $recommendations[] = ['type' => 'login_shield', 'label' => 'Enable Login Shield', 'reason' => 'Recent login paths were rate limited.'];
+        }
+        if ($counts['suspicious_bots'] > 0) {
+            $recommendations[] = ['type' => 'bot_shield', 'label' => 'Review Bot Shield mode', 'reason' => 'Suspicious automation was detected.'];
+        }
+        if ($counts['origin_errors'] > 0) {
+            $recommendations[] = ['type' => 'origin_health', 'label' => 'Check origin health', 'reason' => 'Recent requests returned origin or router errors.'];
+        }
+        if ($counts['exploit_attempts'] > 0) {
+            $recommendations[] = ['type' => 'common_exploits', 'label' => 'Keep exploit protection enabled', 'reason' => 'WAF rules matched exploit-looking traffic.'];
+        }
+        return $recommendations;
     }
 
     private function timelineRequests(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): array

@@ -1,5 +1,15 @@
 <template>
   <div class="space-y-6">
+    <div class="panel-section flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h2 class="text-base font-semibold">Activity view</h2>
+        <p class="text-sm text-slate-500">Simple explains outcomes. Advanced keeps request IDs, raw details, filters, and export.</p>
+      </div>
+      <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-white/10 dark:bg-white/5">
+        <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" :class="activityMode === 'simple' ? 'bg-white text-slate-950 shadow-sm dark:bg-white/15 dark:text-white' : 'text-slate-500'" @click="activityMode='simple'">Simple view</button>
+        <button type="button" class="rounded-md px-3 py-1.5 text-sm font-semibold" :class="activityMode === 'advanced' ? 'bg-white text-slate-950 shadow-sm dark:bg-white/15 dark:text-white' : 'text-slate-500'" @click="activityMode='advanced'">Advanced view</button>
+      </div>
+    </div>
     <form class="panel-section grid gap-3 md:grid-cols-2 xl:grid-cols-5" @submit.prevent="applyFilters">
       <label><span class="field-label">Search details</span><input v-model="search" class="input" type="search" placeholder="Request ID, path, action, origin..." /></label>
       <label><span class="field-label">Event type</span><select v-model="typeFilter" class="input"><option value="">All activity</option><option value="request">Requests</option><option value="error">Errors</option><option value="audit">Changes</option><option value="security">Security</option></select></label>
@@ -7,7 +17,7 @@
       <label><span class="field-label">To</span><input v-model="toInput" class="input" type="datetime-local" /></label>
       <div class="flex items-end gap-2"><button class="button-primary flex-1">Apply</button><button type="button" class="button-secondary" @click="clearFilters">Clear</button><button type="button" class="button-secondary" @click="exportCurrent">Export JSON</button></div>
     </form>
-    <form class="panel-section flex flex-col gap-3 md:flex-row md:items-end" @submit.prevent="findByRequestId">
+    <form v-if="activityMode === 'advanced'" class="panel-section flex flex-col gap-3 md:flex-row md:items-end" @submit.prevent="findByRequestId">
       <label class="flex-1"><span class="field-label">Request-id lookup</span><input v-model="requestIdSearch" class="input font-mono" type="search" placeholder="Paste the request id from a 5xx error page" /></label>
       <button class="button-secondary" :disabled="requestLookupBusy">{{ requestLookupBusy ? 'Searching...' : 'Find request' }}</button>
     </form>
@@ -23,24 +33,42 @@
         <div class="panel-section"><p class="field-label">Bytes out</p><p class="mt-1 text-2xl font-bold">{{ formatBytes(summary?.bytes_out ?? 0) }}</p></div>
       </section>
 
+      <section v-if="activityMode === 'simple'" class="panel-section space-y-4">
+        <div class="section-heading"><div><h2>Beginner Activity summary</h2><p>{{ summary?.beginner?.headline || 'CDNLite is monitoring this site.' }}</p></div></div>
+        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div v-for="card in simpleCards" :key="card.key" class="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+            <p class="field-label">{{ card.label }}</p>
+            <p class="mt-1 text-2xl font-bold">{{ card.count }}</p>
+            <p class="mt-2 text-xs text-slate-500">{{ simpleCardHint(card.category) }}</p>
+          </div>
+        </div>
+        <div v-if="summary?.beginner?.recommendations?.length" class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/20 dark:bg-amber-500/10">
+          <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Recommended action</p>
+          <button v-for="recommendation in summary.beginner.recommendations" :key="recommendation.type" type="button" class="mt-2 block text-left text-sm text-amber-800 underline decoration-amber-400 underline-offset-2 dark:text-amber-100" @click="selected=recommendation">
+            {{ recommendation.label }} — {{ recommendation.reason }}
+          </button>
+        </div>
+      </section>
+
       <section class="panel-section space-y-4">
-        <div class="section-heading"><div><h2>Activity timeline</h2><p>Requests, origin errors, DNS/SSL changes, and security events in one stream.</p></div></div>
+        <div class="section-heading"><div><h2>{{ activityMode === 'simple' ? 'Readable Activity cards' : 'Activity timeline' }}</h2><p>{{ activityMode === 'simple' ? 'Friendly labels grouped by protection outcome.' : 'Requests, origin errors, DNS/SSL changes, and security events in one stream.' }}</p></div></div>
         <EmptyState v-if="!timeline.items.length" title="No timeline events" message="No domain activity matches the current filters." />
         <div v-else class="space-y-3">
           <button v-for="item in timeline.items" :key="item.id" class="w-full rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-sky-300 dark:border-white/10 dark:bg-white/5" @click="selected=item">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="badgeClass(item.type)">{{ item.type }}</span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="badgeClass(item.type)">{{ activityMode === 'simple' ? (item.friendly?.category || item.type) : item.type }}</span>
               <span class="text-sm text-slate-500">{{ formatDate(item.ts) }}</span>
-              <span v-if="item.request_id" class="font-mono text-xs text-slate-500">{{ item.request_id }}</span>
+              <span v-if="activityMode === 'advanced' && item.request_id" class="font-mono text-xs text-slate-500">{{ item.request_id }}</span>
             </div>
-            <p class="mt-2 font-semibold text-slate-950 dark:text-white">{{ item.title }}</p>
-            <p v-if="item.summary" class="mt-1 text-sm text-slate-500">{{ item.summary }}</p>
+            <p class="mt-2 font-semibold text-slate-950 dark:text-white">{{ activityMode === 'simple' ? (item.friendly?.label || item.title) : item.title }}</p>
+            <p v-if="item.summary" class="mt-1 text-sm text-slate-500">{{ activityMode === 'simple' ? (item.friendly?.summary || item.summary) : item.summary }}</p>
+            <p v-if="activityMode === 'simple' && item.friendly?.recommendation" class="mt-2 text-sm font-semibold text-sky-700 dark:text-sky-200">{{ item.friendly.recommendation }}</p>
           </button>
         </div>
         <PaginationControls :total="timeline.total" :limit="timelineLimit" :offset="timelineOffset" @update:limit="setTimelineLimit" @update:offset="setTimelineOffset" />
       </section>
 
-      <section class="grid gap-4 xl:grid-cols-3">
+      <section v-if="activityMode === 'advanced'" class="grid gap-4 xl:grid-cols-3">
         <div class="panel-section space-y-3">
           <h2 class="text-base font-semibold">Top paths</h2>
           <p v-for="row in summary?.top_paths || []" :key="row.value" class="flex justify-between gap-3 text-sm"><span class="truncate font-mono">{{ row.value }}</span><b>{{ row.count }}</b></p>
@@ -55,7 +83,7 @@
         </div>
       </section>
 
-      <section v-if="showErrorSections" class="panel-section space-y-4">
+      <section v-if="activityMode === 'advanced' && showErrorSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Recent origin errors</h2><p>Latest 5xx, router, and upstream failures for quick request-id correlation.</p></div></div>
         <EmptyState v-if="!summary?.recent_origin_errors?.length" title="No recent origin errors" message="No origin or router failures match this period." />
         <HorizontalScrollFrame v-else :watch-key="summary.recent_origin_errors.length">
@@ -75,7 +103,7 @@
         </HorizontalScrollFrame>
       </section>
 
-      <section v-if="showRequestSections" class="panel-section space-y-4">
+      <section v-if="activityMode === 'advanced' && showRequestSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Recent edge requests</h2><p>Request, cache, router, and origin forwarding details captured from edge metrics.</p></div></div>
         <EmptyState v-if="!requests.items.length" title="No request details" message="No edge request metrics have been ingested for this domain yet." />
         <HorizontalScrollFrame v-else :watch-key="requests.items.length">
@@ -97,7 +125,7 @@
         <PaginationControls :total="requests.total" :limit="requestsLimit" :offset="requestsOffset" @update:limit="setRequestsLimit" @update:offset="setRequestsOffset" />
       </section>
 
-      <section v-if="showSecuritySections" class="panel-section space-y-4">
+      <section v-if="activityMode === 'advanced' && showSecuritySections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Security events</h2><p>WAF, rate-limit, and Geo decisions for this domain.</p></div></div>
         <EmptyState v-if="!security.items.length" title="No security events" message="No domain security events match the selected period." />
         <HorizontalScrollFrame v-else :watch-key="security.items.length">
@@ -117,7 +145,7 @@
         <PaginationControls :total="security.total" :limit="securityLimit" :offset="securityOffset" @update:limit="setSecurityLimit" @update:offset="setSecurityOffset" />
       </section>
 
-      <section v-if="showAuditSections" class="panel-section space-y-4">
+      <section v-if="activityMode === 'advanced' && showAuditSections" class="panel-section space-y-4">
         <div class="section-heading"><div><h2>Change log</h2><p>Administrative and automated changes scoped to this domain.</p></div></div>
         <EmptyState v-if="!audit.items.length" title="No changes" message="No domain changes match the selected period." />
         <HorizontalScrollFrame v-else :watch-key="audit.items.length">
@@ -162,7 +190,8 @@ import type { ActivityExport, ActivitySummary, ActivityTimeline, ActivityTimelin
 const props = defineProps<{ domainId: string }>();
 const loading = ref(true);
 const error = ref('');
-const selected = ref<AuditEntry | RequestActivity | SecurityEvent | ActivityTimelineItem | ActivityExport | null>(null);
+const selected = ref<AuditEntry | RequestActivity | SecurityEvent | ActivityTimelineItem | ActivityExport | Record<string, unknown> | null>(null);
+const activityMode = ref<'simple' | 'advanced'>('simple');
 const search = ref('');
 const typeFilter = ref('');
 const requestIdSearch = ref('');
@@ -182,6 +211,7 @@ const audit = ref<PaginatedResult<AuditEntry>>({ items: [], total: 0, limit: 25,
 const requests = ref<PaginatedResult<RequestActivity>>({ items: [], total: 0, limit: 25, offset: 0 });
 const summary = ref<ActivitySummary | null>(null);
 const timeline = ref<ActivityTimeline>({ items: [], total: 0, limit: 25, offset: 0, cursor: null });
+const simpleCards = computed(() => summary.value?.beginner?.cards || []);
 const showRequestSections = computed(() => typeFilter.value === '' || typeFilter.value === 'request' || typeFilter.value === 'error');
 const showErrorSections = computed(() => typeFilter.value === '' || typeFilter.value === 'error');
 const showSecuritySections = computed(() => typeFilter.value === '' || typeFilter.value === 'security');
@@ -232,6 +262,16 @@ function badgeClass(type: string) {
   if (type === 'security') return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200';
   if (type === 'audit') return 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-200';
   return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200';
+}
+function simpleCardHint(category: string) {
+  if (category === 'waf') return 'Exploit-looking traffic stopped by WAF rules.';
+  if (category === 'bot') return 'Automation that looked suspicious.';
+  if (category === 'rate_limit') return 'Repeated requests slowed or blocked.';
+  if (category === 'origin') return 'Requests where the origin or router failed.';
+  if (category === 'ssl') return 'Certificate lifecycle events.';
+  if (category === 'dns') return 'Published DNS or routing changes.';
+  if (category === 'cache') return 'Cache changes or served cached traffic.';
+  return 'Operational activity recorded for this domain.';
 }
 async function findByRequestId() {
   if (!requestIdSearch.value.trim()) return;

@@ -64,9 +64,13 @@ assert_contains "$dashboard_asset" "Recommendations" "dashboard bundle should in
 assert_contains "$dashboard_asset" "/recommendations/generate" "dashboard bundle should include recommendation generation API"
 assert_contains "$dashboard_asset" "Guided onboarding" "dashboard bundle should include guided onboarding wizard"
 assert_contains "$dashboard_asset" "/onboarding/answers" "dashboard bundle should include onboarding answer API"
+assert_contains "$dashboard_asset" "Simple view" "dashboard bundle should include beginner Activity toggle"
+assert_contains "$dashboard_asset" "Beginner Activity summary" "dashboard bundle should include beginner Activity summary"
+assert_contains "$dashboard_asset" "Advanced view" "dashboard bundle should preserve advanced Activity view"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 record_step PASS "dashboard-recommendations-bundle" "Recommendation panel and APIs are present in the dashboard bundle"
 record_step PASS "dashboard-onboarding-bundle" "Guided onboarding wizard and APIs are present in the dashboard bundle"
+record_step PASS "dashboard-beginner-activity-bundle" "Beginner Activity UX and Advanced toggle are present in the dashboard bundle"
 
 ./ci/agent_flow_checks.sh >/dev/null
 record_step PASS "agent-flow-checks" "config and metrics failure handling verified"

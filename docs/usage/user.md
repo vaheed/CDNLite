@@ -122,6 +122,9 @@ For proxied records, the DNS table shows the exact public record CDNLite owns:
 - the zone banner reports pending, synced, or failed state, the last successful sync, and the last error
 # Domain History
 
-The domain **Activity** tab shows security decisions and configuration changes
-for the selected domain. Filters support text and date ranges, and each stream
-has independent pagination so high-volume domains remain usable.
+The domain **Activity** tab has **Simple view** for readable protection outcomes
+and **Advanced view** for raw diagnostics. Simple view explains blocked exploit
+attempts, suspicious bots, login abuse, origin errors, SSL actions, DNS changes,
+and cache actions with recommended next steps. Advanced view keeps request-id
+lookup, raw JSON details, export, text/date filters, and independent pagination
+for high-volume domains.
