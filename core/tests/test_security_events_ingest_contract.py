@@ -26,3 +26,17 @@ def test_e2e_global_waf_assertion_filters_newer_rate_limit_events():
     e2e = (repo_root / "ci" / "e2e.sh").read_text()
 
     assert "/api/v1/security/events?domain_id=${DOMAIN_ID}&type=waf_match&limit=10" in e2e
+
+
+def test_e2e_challenge_event_retry_pushes_before_polling_api():
+    repo_root = Path(__file__).resolve().parents[2]
+    e2e = (repo_root / "ci" / "e2e.sh").read_text()
+
+    helper_start = e2e.index("challenge_security_event_visible()")
+    helper_end = e2e.index("\n}\n\nedge_is_healthy", helper_start)
+    helper = e2e[helper_start:helper_end]
+
+    assert "agent_exec '/agent/push_security_events.sh' >/dev/null" in helper
+    assert "security/events?type=rate_limited&limit=100" in helper
+    assert '"\\"decision\\":\\"challenge\\""' in helper
+    assert '"\\"rate_limit_id\\":\\"${CHALLENGE_RATE_LIMIT_RULE_ID}\\""' in helper

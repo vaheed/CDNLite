@@ -234,7 +234,8 @@ config_publish_audit_exists() {
 }
 
 challenge_security_event_visible() {
-  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=20"
+  agent_exec '/agent/push_security_events.sh' >/dev/null
+  api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=rate_limited&limit=100"
   [[ "$HTTP_CODE" == "200" ]] &&
     [[ "$HTTP_BODY" == *"\"decision\":\"challenge\""* ]] &&
     [[ "$HTTP_BODY" == *"\"rate_limit_id\":\"${CHALLENGE_RATE_LIMIT_RULE_ID}\""* ]]
@@ -1047,7 +1048,6 @@ fi
 assert_eq "$challenge_response_verified" "1" "challenge rate-limit response should identify the required challenge"
 # Security events are delivered asynchronously by the edge agent. The event records
 # the configured decision (`challenge`), while the HTTP response says `challenge_required`.
-retry 10 1 agent_exec '/agent/push_security_events.sh'
 retry 20 1 challenge_security_event_visible
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${CHALLENGE_RATE_LIMIT_RULE_ID}"
 assert_http_status "$HTTP_CODE" "200" "challenge rate-limit cleanup failed"
