@@ -15,11 +15,16 @@ def test_admin_auth_schema_and_secret_handling_contract():
 
     assert "CREATE TABLE IF NOT EXISTS admin_users" in schema
     assert "CREATE TABLE IF NOT EXISTS admin_sessions" in schema
+    assert "idx_admin_sessions_user_id" in schema
+    assert "idx_admin_sessions_active_lookup" in schema
+    assert "idx_admin_sessions_expiry" in schema
     assert "password_hash" in schema
     assert "token_hash" in schema
     assert "password_hash($password" in service
     assert "password_verify($password" in service
     assert "hash('sha256', $token)" in service
+    assert "$this->deleteExpiredSessions();" in service.split("public function login", 1)[1].split("public function userForToken", 1)[0]
+    assert "deleteExpiredSessions" not in service.split("public function userForToken", 1)[1].split("public function revokeToken", 1)[0]
     assert "bootstrapUser(" in service
     assert "CDNLITE_BOOTSTRAP_ADMIN_USER" in public_index
     assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=admin" in env_example

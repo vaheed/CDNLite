@@ -24,17 +24,18 @@ class AdminAuthService
 
     public function listUsers(): array
     {
+        $now = time();
         $stmt = Database::pdo()->prepare(
             'SELECT u.id, u.username, u.display_name, u.status, u.created_at, u.updated_at,
-                    COALESCE(COUNT(s.id) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :now), 0) AS active_sessions,
+                    COALESCE(COUNT(s.id) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :active_now), 0) AS active_sessions,
                     MAX(s.created_at) AS last_login_at,
-                    MAX(s.expires_at) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :now) AS latest_session_expires_at
+                    MAX(s.expires_at) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :expiry_now) AS latest_session_expires_at
              FROM admin_users u
              LEFT JOIN admin_sessions s ON s.user_id = u.id
              GROUP BY u.id, u.username, u.display_name, u.status, u.created_at, u.updated_at
              ORDER BY username ASC'
         );
-        $stmt->execute(['now' => time()]);
+        $stmt->execute(['active_now' => $now, 'expiry_now' => $now]);
 
         return array_map(
             fn (array $row): array => $this->publicUser(
@@ -195,6 +196,7 @@ class AdminAuthService
             'created_at' => $now,
             'expires_at' => $expiresAt,
         ]);
+        $this->deleteExpiredSessions();
 
         return [
             'token' => $token,
@@ -211,7 +213,6 @@ class AdminAuthService
         }
 
         try {
-            $this->deleteExpiredSessions();
             $stmt = Database::pdo()->prepare(
                 "SELECT u.id, u.username, u.display_name, u.status, u.created_at, u.updated_at, s.expires_at
                  FROM admin_sessions s

@@ -30,6 +30,8 @@ def test_admin_cli_commands_exist_for_user_maintenance():
     assert "public function deleteUser" in service
     assert "active_sessions" in service
     assert "latest_session_expires_at" in service
+    assert "active_now" in service
+    assert "expiry_now" in service
     assert "cannot_delete_last_active_admin" in service
     assert "revokeSessionsForUser" in service
     assert "sessions_revoked" in admin_password
