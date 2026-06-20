@@ -37,6 +37,9 @@ def test_phase8_schema_links_simple_protection_to_advanced_rules():
         assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS last_generated_at" in schema
         assert f"ALTER TABLE {technical_table} ADD COLUMN IF NOT EXISTS last_applied_at" in schema
 
+    redirect_definition = schema.split("CREATE TABLE IF NOT EXISTS redirect_rules", 1)[1].split(");", 1)[0]
+    assert "user_modified" not in redirect_definition
+
 
 def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
@@ -52,6 +55,8 @@ def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
     assert "'template_key'" in service
     assert "'managed_by'" in service
     assert "'user_modified'" in service
+    assert "tableTracksUserModified" in service
+    assert "'redirect_rules'" not in service.split("private function tableTracksUserModified", 1)[1].split("private function auditResource", 1)[0]
 
     assert "detachManagedRule" in controller
     assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed" in routes

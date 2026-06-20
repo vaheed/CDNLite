@@ -28,6 +28,7 @@ def test_force_https_redirect_is_http_only_and_preserves_request_uri():
     router = read("edge/openresty/lua/router.lua")
 
     assert "rule.managed_by == 'force_https' and ngx.var.scheme == 'http'" in router
+    assert "'https://' .. tostring(host or '')" in router
     assert "ngx.var.request_uri" in router
 
 

@@ -35,9 +35,13 @@ class TrafficRulesService
             if (!in_array($status, [301,302,307,308], true)) { throw new \InvalidArgumentException('invalid_status_code'); }
             $in['status_code'] = $status;
         }
+        $allowed = ['enabled', 'source_path', 'target_url', 'status_code'];
         if (!$this->redirectV2Supported()) {
             unset($in['priority'], $in['match_type'], $in['preserve_query']);
+        } else {
+            $allowed = array_merge($allowed, ['priority', 'match_type', 'preserve_query']);
         }
+        $in = array_intersect_key($in, array_flip($allowed));
         return $this->update('redirect_rules', $domainId, $id, $in);
     }
     public function deleteRedirect(string $domainId, string $id): bool { return $this->delete('redirect_rules', $domainId, $id); }
@@ -1053,7 +1057,7 @@ class TrafficRulesService
     }
     private function update(string $table, string $domainId, string $id, array $in): ?array {
         $q=Database::pdo()->prepare("SELECT * FROM {$table} WHERE id=:id AND domain_id=:domain LIMIT 1"); $q->execute([':id'=>$id,':domain'=>$domainId]); $before=$q->fetch(); if(!$before){return null;}
-        if (($before['managed_by'] ?? null) !== null && !array_key_exists('user_modified', $in)) {
+        if ($this->tableTracksUserModified($table) && ($before['managed_by'] ?? null) !== null && !array_key_exists('user_modified', $in)) {
             $this->markUserModifiedForManagedRule($in);
         }
         $sets=[]; $p=[':id'=>$id,':domain'=>$domainId,':u'=>time()];
@@ -1572,6 +1576,9 @@ class TrafficRulesService
                 return;
             }
         }
+    }
+    private function tableTracksUserModified(string $table): bool {
+        return in_array($table, ['waf_rules', 'rate_limit_rules', 'domain_ip_rules', 'cache_rules', 'domain_header_rules'], true);
     }
     private function auditResource(string $table): string {
         return match ($table) {

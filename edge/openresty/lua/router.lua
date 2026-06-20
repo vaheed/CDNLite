@@ -345,7 +345,10 @@ function M.handle()
   if redirect then
     local target = tostring(redirect.target_url or '')
     if redirect.managed_by == 'force_https' then
-      target = target .. tostring(ngx.var.request_uri or ngx.var.uri or '/')
+      -- Force HTTPS is copied to apex and proxied subdomain hosts. Build the
+      -- destination from the matched request host so subdomains stay on their
+      -- own hostname instead of inheriting the apex domain stored in the rule.
+      target = 'https://' .. tostring(host or '') .. tostring(ngx.var.request_uri or ngx.var.uri or '/')
     end
     ngx.header['Location'] = target
     ngx.header['X-CDNLITE-Rule'] = 'redirect'
