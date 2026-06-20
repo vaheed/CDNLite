@@ -406,6 +406,7 @@ CDNLITE_MMDB_DOWNLOAD_URL=
 CDNLITE_MMDB_DOWNLOAD_INTERVAL_SECONDS=86400
 CDNLITE_MMDB_DOWNLOAD_RETRIES=5
 CDNLITE_MMDB_EXPECTED_SHA256=
+CDNLITE_EDGE_MMDB_FILE=/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb
 POWERADMIN_BIND_ADDRESS=127.0.0.1
 POWERADMIN_PORT=${POWERADMIN_PORT}
 POWERADMIN_TAG=stable
@@ -440,8 +441,10 @@ IMAGE_TAG=${IMAGE_TAG}
 CDNLITE_COMPONENT_MODE=${CDNLITE_COMPONENT_MODE}
 CDNLITE_EDGE_IMAGE=ghcr.io/${REGISTRY_OWNER}/cdnlite-edge:${IMAGE_TAG}
 CDNLITE_EDGE_AGENT_IMAGE=ghcr.io/${REGISTRY_OWNER}/cdnlite-edge-agent:${IMAGE_TAG}
+CDNLITE_MMDB_UPDATER_IMAGE=ghcr.io/${REGISTRY_OWNER}/cdnlite-dnsgeo-mmdb-updater:${IMAGE_TAG}
 CDNLITE_EDGE_BUILD_CONTEXT=${CDNLITE_REPO}#${CDNLITE_REF}:edge
 CDNLITE_EDGE_AGENT_BUILD_CONTEXT=${CDNLITE_REPO}#${CDNLITE_REF}:edge
+DNSGEO_MMDB_UPDATER_BUILD_CONTEXT=${CDNLITE_REPO}#${CDNLITE_REF}:infra/dnsgeo/docker/mmdb-updater
 
 EDGE_ID=${EDGE_ID}
 EDGE_TOKEN=${EDGE_TOKEN}
@@ -462,6 +465,12 @@ EDGE_CONFIG_CACHE_PATH=/var/lib/cdnlite/config.json
 EDGE_SYNC_STATUS_PATH=/var/lib/cdnlite/edge-sync-status.json
 METRIC_PATH=/var/lib/cdnlite/metrics.ndjson
 SECURITY_EVENT_PATH=/var/lib/cdnlite/security-events.ndjson
+CDNLITE_EDGE_MMDB_FILE=/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb
+CDNLITE_MMDB_PROVIDER=dbip-jsdelivr
+CDNLITE_MMDB_DOWNLOAD_URL=
+CDNLITE_MMDB_DOWNLOAD_INTERVAL_SECONDS=86400
+CDNLITE_MMDB_DOWNLOAD_RETRIES=5
+CDNLITE_MMDB_EXPECTED_SHA256=
 EDGE_AGENT_IDLE=0
 
 WITH_PDNS_SECONDARY=${WITH_PDNS_SECONDARY}
@@ -513,6 +522,20 @@ EOF
   else
     cat <<'EOF'
     image: "${CDNLITE_EDGE_AGENT_IMAGE}"
+EOF
+  fi
+}
+
+mmdb_updater_image_block() {
+  if [ "$CDNLITE_COMPONENT_MODE" = "build" ]; then
+    cat <<'EOF'
+    image: cdnlite-dnsgeo-mmdb-updater:upstream-build
+    build:
+      context: "${DNSGEO_MMDB_UPDATER_BUILD_CONTEXT}"
+EOF
+  else
+    cat <<'EOF'
+    image: "${CDNLITE_MMDB_UPDATER_IMAGE}"
 EOF
   fi
 }
@@ -885,16 +908,42 @@ write_edge_compose() {
 name: cdnlite-upstream-edge
 
 services:
+  edge-mmdb-updater:
+EOF
+    mmdb_updater_image_block
+    cat <<'EOF'
+    restart: unless-stopped
+    volumes:
+      - ./runtime/pdns-mmdb:/mmdb
+    environment:
+      MMDB_PROVIDER: ${CDNLITE_MMDB_PROVIDER}
+      MMDB_DOWNLOAD_URL: ${CDNLITE_MMDB_DOWNLOAD_URL}
+      MMDB_DOWNLOAD_INTERVAL_SECONDS: ${CDNLITE_MMDB_DOWNLOAD_INTERVAL_SECONDS}
+      MMDB_DOWNLOAD_RETRIES: ${CDNLITE_MMDB_DOWNLOAD_RETRIES}
+      MMDB_EXPECTED_SHA256: ${CDNLITE_MMDB_EXPECTED_SHA256}
+      MMDB_TARGET_FILE: GeoLite2-City.mmdb
+    healthcheck:
+      test: ["CMD-SHELL", "/usr/local/bin/mmdb-healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 60s
+    networks: [edge-net]
+
   edge:
 EOF
     edge_image_block
     cat <<'EOF'
     restart: unless-stopped
+    depends_on:
+      edge-mmdb-updater:
+        condition: service_healthy
     ports:
       - "${EDGE_HOST_PORT}:8081"
       - "${EDGE_TLS_HOST_PORT}:8443"
     volumes:
       - ./runtime/cdnlite-edge-data:/var/lib/cdnlite
+      - ./runtime/pdns-mmdb:/var/lib/cdnlite/mmdb:ro
     environment:
       EDGE_ID: ${EDGE_ID}
       EDGE_REGION: ${EDGE_REGION}
@@ -903,6 +952,7 @@ EOF
       EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS}
       EDGE_SYNC_STATUS_PATH: ${EDGE_SYNC_STATUS_PATH}
       SECURITY_EVENT_PATH: ${SECURITY_EVENT_PATH}
+      CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1 || exit 1"]
       interval: 2s

@@ -2,6 +2,7 @@ local M = {}
 local identity = require('identity')
 local edge_log = require('edge_log')
 local cjson = require('cjson.safe')
+local geoip = require('geoip')
 
 local function header_has_cache_directive(value)
   if not value then
@@ -118,7 +119,7 @@ function M.forward(domain)
   if static_asset and cache_settings.ignore_query_strings_for_static == true then
     cache_uri = ngx.var.uri or '/'
   end
-  ngx.var.cdnlite_cache_key = table.concat({ngx.var.scheme or '', ngx.var.host or '', cache_uri, ngx.var.http_accept_encoding or '', ngx.var.http_x_cdnlite_country or '', ngx.var.http_cf_ipcountry or ''}, '|')
+  ngx.var.cdnlite_cache_key = table.concat({ngx.var.scheme or '', ngx.var.host or '', cache_uri, ngx.var.http_accept_encoding or '', geoip.request_country()}, '|')
   if edge_ttl and not cache_no_store then
     ngx.header['X-Accel-Expires'] = tostring(edge_ttl)
   end

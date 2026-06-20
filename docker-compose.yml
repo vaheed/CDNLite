@@ -183,10 +183,14 @@ services:
       context: ./edge
       dockerfile: Dockerfile
     depends_on:
-      - core
+      core:
+        condition: service_started
+      pdns-mmdb-updater:
+        condition: service_healthy
     volumes:
       - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
       - ./edge/logs:/var/log/openresty
+      - pdns-mmdb:/var/lib/cdnlite/mmdb:ro
     ports:
       - "${EDGE_HOST_PORT:-8081}:8081"
       - "${EDGE_TLS_HOST_PORT:-8443}:8443"
@@ -207,6 +211,7 @@ services:
       CDNLITE_EDGE_LOG_LEVEL: ${CDNLITE_EDGE_LOG_LEVEL:-info}
       CDNLITE_EDGE_LOG_REQUEST_BODY: ${CDNLITE_EDGE_LOG_REQUEST_BODY:-false}
       CDNLITE_EDGE_DEBUG_HEADERS: ${CDNLITE_EDGE_DEBUG_HEADERS:-false}
+      CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE:-/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb}
 
   edge-agent:
     build:

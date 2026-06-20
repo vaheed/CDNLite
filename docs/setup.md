@@ -202,7 +202,16 @@ Edge and agent settings:
 | `CDNLITE_EDGE_LOG_LEVEL` | Edge diagnostic log level: `debug`, `info`, `warn`, or `error`; default `info`. |
 | `CDNLITE_EDGE_LOG_REQUEST_BODY` | Reserved for future strict-redaction body logging; keep `false`. |
 | `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
+| `CDNLITE_EDGE_MMDB_FILE` | GeoIP MMDB used by the edge for country WAF/origin decisions; default `/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb`. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
+
+The normal root Compose stack mounts the MMDB updater volume into the edge
+container read-only. Standalone edge deployments run their own
+`edge-mmdb-updater` sidecar, using the same downloader as DNSGeo, and mount its
+database into `/var/lib/cdnlite/mmdb`. Country-based WAF rules and country
+origin selection use `X-CDNLITE-Country` or `CF-IPCountry` when a trusted
+upstream sets one, otherwise the edge resolves `remote_addr` through the
+mounted MMDB.
 
 OpenResty writes edge access logs to stdout and diagnostics to stderr, so live
 operations can use:

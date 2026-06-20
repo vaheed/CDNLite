@@ -67,6 +67,7 @@ def test_root_environment_templates_include_edge_runtime_contract():
             "EDGE_SYNC_STATUS_PATH=",
             "EDGE_CONFIG_MAX_STALE_SECONDS=",
             "SECURITY_EVENT_PATH=",
+            "CDNLITE_EDGE_MMDB_FILE=",
             "CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS=",
         ]:
             assert variable in example

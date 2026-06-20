@@ -1,6 +1,6 @@
 FROM openresty/openresty:1.27.1.2-0-alpine
 
-RUN apk add --no-cache lua-cjson openssl ca-certificates \
+RUN apk add --no-cache lua-cjson lua-resty-maxminddb libmaxminddb openssl ca-certificates \
   && mkdir -p /var/cache/cdnlite /var/log/openresty \
   && chown -R nobody:nobody /var/cache/cdnlite /var/log/openresty
 
@@ -8,7 +8,7 @@ ENV LUA_PATH="/usr/local/openresty/lualib/?.lua;/usr/local/openresty/lualib/?/in
 ENV LUA_CPATH="/usr/local/openresty/lualib/?.so;/usr/local/lib/lua/5.1/?.so;/usr/lib/lua/5.1/?.so;;"
 
 RUN /usr/local/openresty/bin/openresty -V \
-  && /usr/local/openresty/luajit/bin/luajit -e "assert(require('cjson.safe'))"
+  && /usr/local/openresty/luajit/bin/luajit -e "assert(require('cjson.safe')); assert(require('resty.maxminddb'))"
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY openresty/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf.template

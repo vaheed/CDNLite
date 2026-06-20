@@ -40,6 +40,40 @@ def test_openresty_uses_origin_host_header_sni_and_docker_visible_logs():
     assert "access_log_format=\"combined\"" in entrypoint
 
 
+def test_edge_country_rules_use_mounted_mmdb_when_headers_are_absent():
+    dockerfile = read("edge/Dockerfile")
+    compose = read("docker-compose.yml")
+    deploy = read("deploy/generate-deployment.sh")
+    nginx = read("edge/openresty/nginx.conf")
+    router = read("edge/openresty/lua/router.lua")
+    proxy = read("edge/openresty/lua/proxy.lua")
+    geoip = read("edge/openresty/lua/geoip.lua")
+    setup = read("docs/setup.md")
+    api = read("docs/api/api.md")
+
+    assert "lua-resty-maxminddb" in dockerfile
+    assert "assert(require('resty.maxminddb'))" in dockerfile
+    assert "pdns-mmdb:/var/lib/cdnlite/mmdb:ro" in compose
+    assert "pdns-mmdb-updater:" in compose
+    assert "condition: service_healthy" in compose
+    assert "CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE:-/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb}" in compose
+    assert "edge-mmdb-updater:" in deploy
+    assert "mmdb_updater_image_block" in deploy
+    assert "./runtime/pdns-mmdb:/var/lib/cdnlite/mmdb:ro" in deploy
+    assert "./runtime/pdns-mmdb:/mmdb" in deploy
+    assert "CDNLITE_MMDB_UPDATER_IMAGE=ghcr.io/${REGISTRY_OWNER}/cdnlite-dnsgeo-mmdb-updater:${IMAGE_TAG}" in deploy
+    assert "DNSGEO_MMDB_UPDATER_BUILD_CONTEXT=${CDNLITE_REPO}#${CDNLITE_REF}:infra/dnsgeo/docker/mmdb-updater" in deploy
+    assert "CDNLITE_EDGE_MMDB_FILE=/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb" in deploy
+    assert "env CDNLITE_EDGE_MMDB_FILE;" in nginx
+    assert "local geoip = require('geoip')" in router
+    assert "return geoip.request_country()" in router
+    assert "geoip.request_country()" in proxy
+    assert "maxminddb.lookup(ip)" in geoip
+    assert "ngx.var.http_x_cdnlite_country or ngx.var.http_cf_ipcountry" in geoip
+    assert "CDNLITE_EDGE_MMDB_FILE" in setup
+    assert "WAF rules support `country_is`" in api
+
+
 def test_edge_log_smoke_script_covers_docker_visible_diagnostics():
     script = read("ci/edge_log_smoke.sh")
 

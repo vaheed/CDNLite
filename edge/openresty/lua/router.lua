@@ -5,6 +5,7 @@ local identity = require('identity')
 local origin_selector = require('origin_selector')
 local ip_rules = require('ip_rules')
 local edge_log = require('edge_log')
+local geoip = require('geoip')
 
 local M = {}
 local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
@@ -75,12 +76,7 @@ local function ensure_request_id()
 end
 
 local function request_country()
-  local country = ngx.var.http_x_cdnlite_country or ngx.var.http_cf_ipcountry or ''
-  country = string.upper(country)
-  if country == '' then
-    return 'DEFAULT'
-  end
-  return country
+  return geoip.request_country()
 end
 
 local function match_cache_rule(cfg, host)

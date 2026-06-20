@@ -11,7 +11,7 @@ relying on those backups.
 | --- | --- |
 | `deploy/starter` | Core, dashboard, and one edge on a single small host. |
 | `deploy/core` | Control plane, database, schedulers, and dashboard. |
-| `deploy/edge` | One independently deployed edge POP and its agent. |
+| `deploy/edge` | One independently deployed edge POP, GeoIP MMDB updater, and agent. |
 | `deploy/dnsgeo` | Supported DNSGeo stack: PostgreSQL, MMDB, Recursor, authoritative PowerDNS, and Poweradmin. |
 | `deploy/powerdns-replica` | PowerDNS secondary for zone transfers. |
 
@@ -100,8 +100,10 @@ docker compose exec core php artisan cdn:db:status
 docker compose exec core php artisan cdn:powerdns:doctor
 ```
 
-Verify an edge through `/health`, then send a Host-header request for a staged
-domain. Verify apex ALIAS and CDN target answers at the same point in time.
+Verify an edge through `/health`, confirm `edge-mmdb-updater` is healthy when
+country WAF or country origin rules are used, then send a Host-header request
+for a staged domain. Verify apex ALIAS and CDN target answers at the same point
+in time.
 
 ## Security Checklist
 
