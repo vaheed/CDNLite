@@ -680,6 +680,23 @@ class TrafficRulesService
         return $rows;
     }
 
+    public function listVerifiedBotSourcesForConfig(string $domainId): array {
+        $s = Database::pdo()->prepare(
+            "SELECT id,bot_class,provider,user_agent_pattern,cidr
+             FROM verified_bot_sources
+             WHERE domain_id=:domain_id AND enabled=true
+             ORDER BY provider ASC, cidr ASC, id ASC"
+        );
+        $s->execute([':domain_id' => $domainId]);
+        return array_map(static fn (array $row): array => [
+            'id' => (string) $row['id'],
+            'bot_class' => (string) $row['bot_class'],
+            'provider' => (string) $row['provider'],
+            'user_agent_pattern' => (string) $row['user_agent_pattern'],
+            'cidr' => (string) $row['cidr'],
+        ], $s->fetchAll());
+    }
+
     public function listRateLimits(string $domainId): array {
         $s = Database::pdo()->prepare('SELECT * FROM rate_limit_rules WHERE domain_id=:domain_id ORDER BY priority ASC, created_at ASC');
         $s->execute([':domain_id' => $domainId]);

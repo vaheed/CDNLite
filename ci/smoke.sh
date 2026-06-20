@@ -118,6 +118,10 @@ bot_protection_columns="$(db_query "SELECT COUNT(*) FROM information_schema.colu
 assert_eq "$bot_protection_columns" "3" "Bot Protection WAF metadata columns are incomplete"
 record_step PASS "schema-bot-protection" "bot class, score, and action columns are present"
 
+verified_bot_source_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='verified_bot_sources' AND column_name IN ('domain_id','bot_class','provider','user_agent_pattern','cidr','enabled');")"
+assert_eq "$verified_bot_source_columns" "6" "verified bot source schema is incomplete"
+record_step PASS "schema-verified-bot-sources" "verified bot source table is present"
+
 rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limits/dry-run' core/public_index.php)"
 assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"
 record_step PASS "schema-rate-limit-dry-run-route" "rate-limit dry-run route is registered"

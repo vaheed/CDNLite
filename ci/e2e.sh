@@ -926,6 +926,16 @@ done
 assert_eq "$bot_event_visible" "1" "bot_match event should preserve classification and action"
 record_step PASS "edge-bot-protection-runtime" "unverified crawler challenge and classified security event observed"
 
+verified_bot_source_id="verified-bot-${RUN_KEY}"
+now="$(date +%s)"
+db_query "INSERT INTO verified_bot_sources (id,domain_id,bot_class,provider,user_agent_pattern,cidr,enabled,created_at,updated_at) VALUES ('${verified_bot_source_id}','${DOMAIN_ID}','verified_search_bot','Google','Googlebot','0.0.0.0/0',true,${now},${now});" >/dev/null
+db_query "UPDATE config_state SET active_snapshot_version=NULL WHERE id=1;" >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
+verified_bot_status="$(curl -sS -o /tmp/e2e-verified-bot-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -A 'Googlebot' "${EDGE_URL}/bot-check?via=edge-verified-bot")"
+assert_eq "$verified_bot_status" "200" "verified search-bot source should allow matching crawler traffic"
+assert_contains "$(cat /tmp/e2e-verified-bot-body.txt)" '"origin_scheme":"https"' "verified bot should continue to origin"
+record_step PASS "edge-verified-bot-allow" "CIDR-authorized search crawler bypassed fake-bot challenge"
+
 # Rate-limit runtime behavior (path-scoped ip_path).
 rate_limit_codes=()
 for i in $(seq 1 65); do

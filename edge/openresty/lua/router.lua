@@ -192,8 +192,21 @@ local function waf_rule_matches(rule, path, method, client_ip, country, ua)
   return false
 end
 
+local function verified_bot_source_matches(domain, client_ip, ua)
+  local sources = domain.verified_bot_sources or {}
+  for _, source in ipairs(sources) do
+    local pattern = optional_string(source.user_agent_pattern)
+    local cidr = optional_string(source.cidr)
+    if pattern ~= '' and cidr ~= '' and string.find(ua, pattern, 1, true) ~= nil and ip_in_cidr(client_ip, cidr) then
+      return source
+    end
+  end
+  return nil
+end
+
 local function apply_waf(cfg, host)
   local rules = cfg.waf_rules or {}
+  local domain = cfg.hosts[host] or {}
   local path = ngx.var.uri or '/'
   local method = ngx.req.get_method() or ''
   local client_ip = ngx.var.remote_addr or ''
@@ -216,6 +229,14 @@ local function apply_waf(cfg, host)
       end
       if ngx.ctx.security_bot_class ~= '' then
         ngx.ctx.security_event_type = 'bot_match'
+      end
+      local verified_bot_source = verified_bot_source_matches(domain, client_ip, ua)
+      if ngx.ctx.security_bot_class == 'unknown_automation' and verified_bot_source then
+        ngx.ctx.security_bot_class = optional_string(verified_bot_source.bot_class)
+        ngx.ctx.security_bot_action = 'allow'
+        ngx.ctx.security_action = 'allow'
+        ngx.ctx.security_event_type = ''
+        return true
       end
       if ngx.ctx.security_action == 'allow' then
         return true

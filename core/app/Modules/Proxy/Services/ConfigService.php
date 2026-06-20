@@ -62,6 +62,7 @@ class ConfigService
                 'headers' => ['X-CDNLITE-Domain' => (string) $domain['id']],
                 'dns_records' => $records,
                 'ssl' => $this->rules->getSslSettings((string) $domain['id']),
+                'verified_bot_sources' => $this->rules->listVerifiedBotSourcesForConfig((string) $domain['id']),
             ];
             $shieldHeaderName = isset($domain['origin_shield_header_name']) ? trim((string) $domain['origin_shield_header_name']) : '';
             $shieldHash = isset($domain['origin_shield_header_value_hash']) ? trim((string) $domain['origin_shield_header_value_hash']) : '';
