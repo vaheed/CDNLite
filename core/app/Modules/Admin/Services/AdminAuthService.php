@@ -22,6 +22,104 @@ class AdminAuthService
         return $this->upsertUser($username, $password, $displayName, 12);
     }
 
+    public function listUsers(): array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT u.id, u.username, u.display_name, u.status, u.created_at, u.updated_at,
+                    COALESCE(COUNT(s.id) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :now), 0) AS active_sessions,
+                    MAX(s.created_at) AS last_login_at,
+                    MAX(s.expires_at) FILTER (WHERE s.revoked_at IS NULL AND s.expires_at > :now) AS latest_session_expires_at
+             FROM admin_users u
+             LEFT JOIN admin_sessions s ON s.user_id = u.id
+             GROUP BY u.id, u.username, u.display_name, u.status, u.created_at, u.updated_at
+             ORDER BY username ASC'
+        );
+        $stmt->execute(['now' => time()]);
+
+        return array_map(
+            fn (array $row): array => $this->publicUser(
+                (string) $row['id'],
+                (string) $row['username'],
+                $row['display_name'] === null ? null : (string) $row['display_name'],
+                (string) $row['status'],
+                (int) $row['created_at'],
+                (int) $row['updated_at']
+            ) + [
+                'active_sessions' => (int) ($row['active_sessions'] ?? 0),
+                'last_login_at' => $row['last_login_at'] === null ? null : (int) $row['last_login_at'],
+                'latest_session_expires_at' => $row['latest_session_expires_at'] === null ? null : (int) $row['latest_session_expires_at'],
+            ],
+            $stmt->fetchAll()
+        );
+    }
+
+    public function changePassword(string $username, string $password): array
+    {
+        $username = $this->normalizeUsername($username);
+        if ($username === '') {
+            throw new \InvalidArgumentException('username_required');
+        }
+        if (strlen($password) < 12) {
+            throw new \InvalidArgumentException('password_min_12');
+        }
+
+        $existing = $this->findUserByUsername($username);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('admin_user_not_found');
+        }
+
+        $now = time();
+        $stmt = Database::pdo()->prepare(
+            'UPDATE admin_users
+             SET password_hash = :password_hash, updated_at = :updated_at
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            'id' => $existing['id'],
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'updated_at' => $now,
+        ]);
+        $this->revokeSessionsForUser((string) $existing['id']);
+
+        return $this->publicUser(
+            (string) $existing['id'],
+            (string) $existing['username'],
+            $existing['display_name'] === null ? null : (string) $existing['display_name'],
+            (string) $existing['status'],
+            (int) $existing['created_at'],
+            $now
+        );
+    }
+
+    public function deleteUser(string $username, bool $force = false): array
+    {
+        $username = $this->normalizeUsername($username);
+        if ($username === '') {
+            throw new \InvalidArgumentException('username_required');
+        }
+
+        $existing = $this->findUserByUsername($username);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('admin_user_not_found');
+        }
+        if (!$force && (string) $existing['status'] === 'active' && $this->activeUserCount() <= 1) {
+            throw new \InvalidArgumentException('cannot_delete_last_active_admin');
+        }
+
+        $this->revokeSessionsForUser((string) $existing['id']);
+        $stmt = Database::pdo()->prepare('DELETE FROM admin_users WHERE id = :id');
+        $stmt->execute(['id' => $existing['id']]);
+
+        return $this->publicUser(
+            (string) $existing['id'],
+            (string) $existing['username'],
+            $existing['display_name'] === null ? null : (string) $existing['display_name'],
+            (string) $existing['status'],
+            (int) $existing['created_at'],
+            (int) $existing['updated_at']
+        );
+    }
+
     public function bootstrapUser(string $username, string $password, ?string $displayName = null): array
     {
         return $this->upsertUser($username, $password, $displayName, 5);
@@ -164,6 +262,22 @@ class AdminAuthService
     {
         $stmt = Database::pdo()->prepare('DELETE FROM admin_sessions WHERE expires_at <= :now OR revoked_at IS NOT NULL');
         $stmt->execute(['now' => time()]);
+    }
+
+    private function revokeSessionsForUser(string $userId): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE admin_sessions
+             SET revoked_at = :revoked_at
+             WHERE user_id = :user_id AND revoked_at IS NULL'
+        );
+        $stmt->execute(['revoked_at' => time(), 'user_id' => $userId]);
+    }
+
+    private function activeUserCount(): int
+    {
+        $stmt = Database::pdo()->query("SELECT COUNT(*) FROM admin_users WHERE status = 'active'");
+        return (int) $stmt->fetchColumn();
     }
 
     private function publicUser(string $id, string $username, ?string $displayName, string $status, int $createdAt, int $updatedAt): array

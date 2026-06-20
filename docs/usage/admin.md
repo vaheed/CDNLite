@@ -15,7 +15,7 @@ CDNLite currently has a simple admin model, not enterprise RBAC.
 
 Production guidance: put the dashboard and API behind external authentication, set `CDNLITE_API_TOKEN`, and disable bootstrap credentials.
 
-## Create Admins
+## Manage Admins
 
 ```bash
 docker compose exec core php artisan cdn:admin:create \
@@ -23,6 +23,34 @@ docker compose exec core php artisan cdn:admin:create \
   --password='replace-with-a-long-password' \
   --display_name='Operations User'
 ```
+
+List dashboard admin users:
+
+```bash
+docker compose exec core php artisan cdn:admin:list --format=table
+```
+
+CDNLite supports multiple active dashboard admins at the same time. Each login
+creates its own browser-session token, and `cdn:admin:list` shows active session
+counts plus the latest session expiry so operators can see concurrent use.
+
+Change an existing admin password. Existing sessions for that admin are revoked:
+
+```bash
+docker compose exec core php artisan cdn:admin:password \
+  --username=operator \
+  --password='replace-with-a-new-long-password'
+```
+
+Delete an admin and revoke their sessions:
+
+```bash
+docker compose exec core php artisan cdn:admin:delete --username=operator
+```
+
+The delete command refuses to remove the last active admin unless `--force=true`
+is supplied. Create or verify another active admin before deleting production
+credentials.
 
 Turn off bootstrap after creating durable users:
 

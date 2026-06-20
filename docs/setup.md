@@ -61,6 +61,14 @@ docker compose exec core php artisan cdn:admin:create \
   --password='replace-with-a-long-password'
 ```
 
+Admin maintenance commands:
+
+```bash
+docker compose exec core php artisan cdn:admin:list --format=table
+docker compose exec core php artisan cdn:admin:password --username=admin --password='replace-with-a-new-long-password'
+docker compose exec core php artisan cdn:admin:delete --username=old-admin
+```
+
 ## Backend Setup
 
 The core image runs PHP from `core/public_index.php` and CLI commands from
