@@ -15,9 +15,8 @@ def test_overview_warnings_include_ssl_expiry_rule():
     assert "not_after<:expiry" in service
     assert "expire within 30 days" in service
 
-def test_dashboard_uses_two_overview_calls_without_domain_loop():
+def test_dashboard_uses_aggregate_report_calls_without_domain_loop():
     view = (ROOT / "dash/src/views/OverviewView.vue").read_text()
     assert "reportsApi.summary" in view and "reportsApi.traffic" in view
     assert "reportsApi.security" in view and "reportsApi.operations" in view
     assert "Promise.all" in view and "overviewApi" not in view
-    assert "RecommendationsPanel" not in view

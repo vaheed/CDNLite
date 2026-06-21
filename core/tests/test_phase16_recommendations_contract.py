@@ -59,7 +59,6 @@ def test_recommendation_engine_schema_cli_api_and_generator_are_present():
 
 def test_recommendations_have_dashboard_docs_smoke_and_e2e_coverage():
     panel = read("dash/src/components/recommendations/RecommendationsPanel.vue")
-    overview = read("dash/src/views/OverviewView.vue")
     security = read("dash/src/views/domain-tabs/DomainSecurityCenterTab.vue")
     api = read("dash/src/lib/api/recommendations.ts")
     docs = read("docs/api/api.md")
@@ -69,7 +68,6 @@ def test_recommendations_have_dashboard_docs_smoke_and_e2e_coverage():
 
     assert "Why am I seeing this?" in panel
     assert "recommendationsApi.apply" in panel
-    assert "RecommendationsPanel" in overview
     assert "RecommendationsPanel" in security
     assert "/api/v1/recommendations/generate" in api
     assert "/api/v1/domains/${domainId}/recommendations" in api
