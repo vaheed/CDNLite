@@ -50,13 +50,22 @@
       <ChartCard title="Failed Jobs" :option="failedJobsChart" />
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-3">
+    <div class="grid gap-4 xl:grid-cols-4">
       <section class="card p-4">
         <h2 class="font-semibold text-slate-950 dark:text-white">Top Domains</h2>
         <ul class="mt-3 divide-y divide-slate-200 dark:divide-white/10">
           <li v-for="domain in traffic?.top_domains ?? []" :key="domain.domain_id" class="flex items-center justify-between py-2 text-sm">
             <span class="truncate text-slate-700 dark:text-slate-200">{{ domain.domain }}</span>
             <span class="font-semibold text-slate-950 dark:text-white">{{ domain.requests }}</span>
+          </li>
+        </ul>
+      </section>
+      <section class="card p-4">
+        <h2 class="font-semibold text-slate-950 dark:text-white">Top Visitor Countries</h2>
+        <ul class="mt-3 divide-y divide-slate-200 dark:divide-white/10">
+          <li v-for="country in traffic?.top_countries ?? []" :key="country.value || 'unknown'" class="flex items-center justify-between gap-3 py-2 text-sm">
+            <span class="truncate text-slate-700 dark:text-slate-200">{{ countryLabel(country.value) }}</span>
+            <span class="font-semibold text-slate-950 dark:text-white">{{ country.requests ?? country.count }}</span>
           </li>
         </ul>
       </section>
@@ -85,11 +94,12 @@
         <h2 class="font-semibold text-slate-950 dark:text-white">Recent Problem Requests</h2>
         <div class="mt-3 overflow-x-auto">
           <table class="min-w-full text-left text-sm">
-            <thead class="text-xs uppercase text-slate-500"><tr><th class="py-2">Time</th><th>Path</th><th>Status</th><th>Edge</th></tr></thead>
+            <thead class="text-xs uppercase text-slate-500"><tr><th class="py-2">Time</th><th>Path</th><th>Country</th><th>Status</th><th>Edge</th></tr></thead>
             <tbody class="divide-y divide-slate-200 dark:divide-white/10">
               <tr v-for="request in traffic?.recent_problem_requests ?? []" :key="request.id">
                 <td class="py-2 text-slate-500">{{ formatTime(request.ts) }}</td>
                 <td class="max-w-56 truncate">{{ request.path || request.host || 'unknown' }}</td>
+                <td>{{ countryLabel(request.client_country) }}</td>
                 <td><StatusBadge :status="request.status >= 500 ? 'critical' : 'warning'" /></td>
                 <td>{{ request.edge_node_id }}</td>
               </tr>
@@ -221,6 +231,12 @@ function formatBucket(timestamp: number) {
 
 function formatTime(timestamp?: number) {
   return timestamp ? new Date(timestamp * 1000).toLocaleString() : 'unknown';
+}
+
+function countryLabel(value?: string | null) {
+  if (!value || value === 'unknown') return 'Unknown';
+  if (value === 'DEFAULT') return 'Default / unresolved';
+  return value;
 }
 
 function deltaText(key: string) {

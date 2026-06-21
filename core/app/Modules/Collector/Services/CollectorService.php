@@ -1032,7 +1032,7 @@ class CollectorService
             $params[':upstream_error'] = '5%';
         }
         if ($search !== '') {
-            $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
+            $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search OR client_country ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
             $params[':search'] = '%' . $search . '%';
         }
         return [$where, $params];

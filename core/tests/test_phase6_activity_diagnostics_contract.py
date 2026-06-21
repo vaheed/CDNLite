@@ -68,6 +68,7 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     usage_api = read("dash/src/lib/api/usage.ts")
     types = read("dash/src/types.ts")
     activity = read("dash/src/views/domain-tabs/DomainActivityTab.vue")
+    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -88,6 +89,8 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "request.origin_id" in activity
     assert "request.upstream_status" in activity
     assert "request.router_error" in activity
+    assert "request.client_country" in activity
+    assert "client_country ILIKE :search" in collector
     assert "/api/v1/domains/{domainId}/activity" in docs
     assert "/api/v1/domains/{domainId}/activity/summary" in docs
     assert "/api/v1/domains/{domainId}/activity/requests" in docs
@@ -101,6 +104,7 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
 
 def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     e2e = read("ci/e2e.sh")
+    agent_flow = read("ci/agent_flow_checks.sh")
 
     assert "activity-edge-request-ingest" in e2e
     assert "activity-edge-502-diagnostics" in e2e
@@ -121,6 +125,8 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     assert "recent origin errors missing 502 request" in e2e
     assert "phase6-secret" in e2e
     assert "activity lookup leaked sensitive query parameter value" in e2e
+    assert '"client_country":"IR"' in agent_flow
+    assert 'items[0].get("client_country") == "IR"' in agent_flow
 
 
 def test_terminal_502_paths_emit_activity_metrics():

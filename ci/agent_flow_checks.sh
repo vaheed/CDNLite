@@ -184,7 +184,7 @@ assert s.get("config_source") == "remote"
 assert isinstance(s.get("last_successful_sync_time"), int)
 PY
 
-metric_line='{"ts":1,"domain_id":"domain-1","edge_node_id":"edge-1","requests_count":1,"bytes_in":2,"bytes_out":3,"status":200}'
+metric_line='{"ts":1,"domain_id":"domain-1","edge_node_id":"edge-1","requests_count":1,"bytes_in":2,"bytes_out":3,"status":200,"client_country":"IR"}'
 printf '%s\n' "$metric_line" > "$METRIC_PATH"
 export MOCK_CURL_MODE="metrics_fail"
 if sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-fail.err"; then
@@ -200,6 +200,14 @@ if [ ! -s "${METRIC_PATH}.payload.response" ]; then
   printf 'FAIL: failed metrics push did not preserve collector response\n' >&2
   exit 1
 fi
+python3 - "${METRIC_PATH}.payload" <<'PY'
+import json,sys
+with open(sys.argv[1], 'r', encoding='utf-8') as f:
+  payload = json.load(f)
+items = payload.get("items")
+assert isinstance(items, list) and len(items) == 1
+assert items[0].get("client_country") == "IR"
+PY
 
 export MOCK_CURL_MODE="metrics_ok"
 sh "$ROOT/edge/agent/push_metrics.sh" >/dev/null 2>"$TMP_DIR/metrics-ok.err"

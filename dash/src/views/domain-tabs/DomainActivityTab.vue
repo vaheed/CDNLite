@@ -111,12 +111,13 @@
         <div class="section-heading"><div><h2>Recent edge requests</h2><p>Request, cache, router, and origin forwarding details captured from edge metrics.</p></div></div>
         <EmptyState v-if="!requests.items.length" title="No request details" message="No edge request metrics have been ingested for this domain yet." />
         <HorizontalScrollFrame v-else :watch-key="requests.items.length">
-          <table class="w-full min-w-[960px] text-left text-sm">
-            <thead class="table-head"><tr><th>Time</th><th>Request</th><th>Status</th><th>Cache</th><th>Origin</th><th>Upstream</th><th>Request ID</th></tr></thead>
+          <table class="w-full min-w-[1080px] text-left text-sm">
+            <thead class="table-head"><tr><th>Time</th><th>Request</th><th>Country</th><th>Status</th><th>Cache</th><th>Origin</th><th>Upstream</th><th>Request ID</th></tr></thead>
             <tbody class="divide-y divide-slate-100 dark:divide-white/5">
               <tr v-for="request in requests.items" :key="request.id">
                 <td class="table-cell whitespace-nowrap">{{ formatDate(request.ts) }}</td>
                 <td class="table-cell"><b>{{ request.method || 'GET' }}</b> <span class="font-mono text-xs">{{ request.host }}{{ request.path }}</span></td>
+                <td class="table-cell">{{ countryLabel(request.client_country) }}</td>
                 <td class="table-cell">{{ request.status }}</td>
                 <td class="table-cell">{{ request.cache_status || 'UNKNOWN' }}</td>
                 <td class="table-cell"><span class="font-mono text-xs">{{ request.origin_id || 'none' }}</span><span v-if="request.origin_host" class="block text-xs text-slate-500">{{ request.origin_host }}</span></td>
@@ -256,7 +257,11 @@ function setAuditLimit(value: number) { auditLimit.value = value; auditOffset.va
 function setAuditOffset(value: number) { auditOffset.value = value; void load(); }
 function toEpoch(value: string) { return value ? Math.floor(new Date(value).getTime() / 1000) : undefined; }
 function percent(value: number) { return `${Math.round(value * 100)}%`; }
-function countryLabel(value: string) { return value && value !== 'unknown' ? value : 'Unknown'; }
+function countryLabel(value?: string | null) {
+  if (!value || value === 'unknown') return 'Unknown';
+  if (value === 'DEFAULT') return 'Default / unresolved';
+  return value;
+}
 function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;

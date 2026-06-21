@@ -183,7 +183,7 @@ Useful admin login response fields:
 | `GET` | `/api/v1/overview` | Aggregate operations summary. |
 | `GET` | `/api/v1/overview/warnings` | Readiness and risk warnings. |
 | `GET` | `/api/v1/reports/summary` | CDN operations KPIs, compare-mode deltas, and ranked warnings. Accepts `domain_id`, `from`, `to`, `bucket`, `compare`, and `limit`. |
-| `GET` | `/api/v1/reports/traffic` | Request, bandwidth, cache-ratio, status, top domain/path/country/edge, and problem-request reports. |
+| `GET` | `/api/v1/reports/traffic` | Request, bandwidth, cache-ratio, status, top domain/path/visitor-country/edge, and problem-request reports. |
 | `GET` | `/api/v1/reports/cache` | Cache status distribution, hit-ratio trend, cache/origin bytes, uncached paths, and purge timeline. Unsupported ingest fields are returned as `null` with an `unavailable` note. |
 | `GET` | `/api/v1/reports/edge` | Edge online/offline counts, geography, heartbeat age, config drift, config errors, traffic, error rates, and node table. |
 | `GET` | `/api/v1/reports/security` | Security events over time, severity/type/action distributions, top attacking IP hashes, attacked domains, and recent events. |
@@ -631,7 +631,7 @@ Settings tips:
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
 | `GET` | `/api/v1/domains/{domainId}/activity` | Paginated mixed domain activity timeline with request, error, audit, and security events. Supports `limit`, `offset`, `type`, `search`, `from`, and `to`; each item includes a `friendly` label/category/intent for Simple Activity while preserving raw `details`. |
 | `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths, visitor countries, origins, edges, recent origin errors, and a beginner summary with grouped WAF, rate-limit, bot, origin, SSL, DNS, cache, and audit counts. |
-| `GET` | `/api/v1/domains/{domainId}/activity/requests` | Paginated edge request and origin diagnostics. Supports `limit`, `offset`, `type=request/error`, `search`, `from`, and `to`. |
+| `GET` | `/api/v1/domains/{domainId}/activity/requests` | Paginated edge request and origin diagnostics, including `client_country` when resolved or `DEFAULT` when unresolved. Supports `limit`, `offset`, `type=request/error`, `search`, `from`, and `to`; search includes request ID, host, path, visitor country, origin, and router error text. |
 | `GET` | `/api/v1/domains/{domainId}/activity/requests/{requestId}` | Find one edge request by request ID from a 5xx page or edge log. |
 | `GET` | `/api/v1/domains/{domainId}/activity/export` | Export the current mixed activity filter as JSON. |
 | `GET` | `/api/v1/domains/{domainId}/security/events` | Domain security event list. |
