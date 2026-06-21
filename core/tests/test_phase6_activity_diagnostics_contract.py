@@ -27,6 +27,7 @@ def test_usage_request_diagnostics_migration_and_schema_are_additive():
         assert field in migration
         assert field in schema
 
+    assert "client_ip TEXT NULL" in schema
     assert "DROP TABLE" not in migration
     assert "TRUNCATE" not in migration
 
@@ -89,7 +90,9 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "request.origin_id" in activity
     assert "request.upstream_status" in activity
     assert "request.router_error" in activity
+    assert "request.client_ip" in activity
     assert "request.client_country" in activity
+    assert "client_ip ILIKE :search" in collector
     assert "client_country ILIKE :search" in collector
     assert "/api/v1/domains/{domainId}/activity" in docs
     assert "/api/v1/domains/{domainId}/activity/summary" in docs
@@ -125,7 +128,9 @@ def test_e2e_covers_real_edge_activity_ingest_and_502_diagnostics():
     assert "recent origin errors missing 502 request" in e2e
     assert "phase6-secret" in e2e
     assert "activity lookup leaked sensitive query parameter value" in e2e
+    assert '"client_ip":"203.0.113.10"' in agent_flow
     assert '"client_country":"IR"' in agent_flow
+    assert 'items[0].get("client_ip") == "203.0.113.10"' in agent_flow
     assert 'items[0].get("client_country") == "IR"' in agent_flow
 
 

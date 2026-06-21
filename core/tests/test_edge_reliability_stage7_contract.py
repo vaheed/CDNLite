@@ -22,6 +22,7 @@ def test_stage7_schema_and_request_id_contract():
     assert "os.getenv('EDGE_ID')" in identity
     assert "request_id" in metrics
     assert "cache_status" in metrics
+    assert "client_ip" in metrics
     assert "local geoip = require('geoip')" in metrics
     assert "client_country" in metrics
     assert "geoip.request_country()" in metrics

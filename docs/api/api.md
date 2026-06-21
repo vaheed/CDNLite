@@ -558,7 +558,7 @@ Register and heartbeat calls update local edge state only; run
 `cdn:dns:reconcile` or use DNS force sync when you need immediate PowerDNS
 publication.
 | `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
-| `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. Edge metrics include `client_country` when the edge resolves a visitor country from `X-CDNLITE-Country`, `CF-IPCountry`, or the configured MMDB. |
+| `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. Edge metrics include `client_ip` and `client_country` when the edge resolves a visitor country from `X-CDNLITE-Country`, `CF-IPCountry`, or the configured MMDB. |
 | `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |
 
 Heartbeat request:
@@ -653,7 +653,7 @@ Settings tips:
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
 | `GET` | `/api/v1/domains/{domainId}/activity` | Paginated mixed domain activity timeline with request, error, audit, and security events. Supports `limit`, `offset`, `type`, `search`, `from`, and `to`; each item includes a `friendly` label/category/intent for Simple Activity while preserving raw `details`. |
 | `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths, visitor countries, origins, edges, recent origin errors, and a beginner summary with grouped WAF, rate-limit, bot, origin, SSL, DNS, cache, and audit counts. |
-| `GET` | `/api/v1/domains/{domainId}/activity/requests` | Paginated edge request and origin diagnostics, including `client_country` when resolved or `DEFAULT` when unresolved. Supports `limit`, `offset`, `type=request/error`, `search`, `from`, and `to`; search includes request ID, host, path, visitor country, origin, and router error text. |
+| `GET` | `/api/v1/domains/{domainId}/activity/requests` | Paginated edge request and origin diagnostics, including `client_ip` and `client_country` when resolved or `DEFAULT` when unresolved. Supports `limit`, `offset`, `type=request/error`, `search`, `from`, and `to`; search includes request ID, host, path, visitor IP, visitor country, origin, and router error text. |
 | `GET` | `/api/v1/domains/{domainId}/activity/requests/{requestId}` | Find one edge request by request ID from a 5xx page or edge log. |
 | `GET` | `/api/v1/domains/{domainId}/activity/export` | Export the current mixed activity filter as JSON. |
 | `GET` | `/api/v1/domains/{domainId}/security/events` | Domain security event list. |

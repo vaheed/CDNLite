@@ -11,6 +11,7 @@ class ReportService
     private const BUCKET_SECONDS = ['minute' => 60, 'hour' => 3600, 'day' => 86400];
     private const CACHE_STATUSES = ['HIT', 'MISS', 'BYPASS', 'EXPIRED', 'STALE', 'UNKNOWN'];
     private const SECURITY_EVENTS = ['waf_match', 'rate_limited', 'bot_match', 'geo_block'];
+    private ?bool $usageRollupClientIpColumnAvailable = null;
 
     public function summary(array $query): array
     {
@@ -275,6 +276,21 @@ class ReportService
         return (array) ($stmt->fetch() ?: []);
     }
 
+    private function usageRollupClientIpColumnAvailable(): bool
+    {
+        if ($this->usageRollupClientIpColumnAvailable !== null) {
+            return $this->usageRollupClientIpColumnAvailable;
+        }
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='usage_rollups'
+             AND column_name = 'client_ip'"
+        );
+        $stmt->execute();
+        $this->usageRollupClientIpColumnAvailable = (int) $stmt->fetchColumn() === 1;
+        return $this->usageRollupClientIpColumnAvailable;
+    }
+
     private function domainExists(string $domainId): bool
     {
         $stmt = Database::pdo()->prepare('SELECT 1 FROM domains WHERE id = :id LIMIT 1');
@@ -428,7 +444,8 @@ class ReportService
     {
         [$where, $params] = $this->usageWhere($range);
         $params[':limit'] = $limit;
-        return array_map([$this, 'requestRow'], $this->rows("SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path, client_country, status, bytes_in, bytes_out, cache_status, origin_id, origin_host, upstream_status, upstream_response_time_ms, request_time_ms, router_error
+        $clientIp = $this->usageRollupClientIpColumnAvailable() ? 'client_ip' : 'NULL AS client_ip';
+        return array_map([$this, 'requestRow'], $this->rows("SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path, {$clientIp}, client_country, status, bytes_in, bytes_out, cache_status, origin_id, origin_host, upstream_status, upstream_response_time_ms, request_time_ms, router_error
                 FROM usage_rollups u {$where}
                   AND (status >= 500 OR origin_status >= 500 OR router_error IS NOT NULL OR request_time_ms >= 1000)
                 ORDER BY ts DESC, id DESC LIMIT :limit", $params));

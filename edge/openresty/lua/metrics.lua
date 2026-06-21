@@ -48,6 +48,7 @@ function M.on_log()
     method = tostring(ngx.req.get_method() or ''),
     path = tostring(ngx.var.uri or ''),
     query = edge_log.redacted_query(),
+    client_ip = tostring(ngx.var.remote_addr or ''),
     client_country = tostring(geoip.request_country() or ''),
     cache_status = cache_status(),
     router_error = tostring(ngx.ctx.router_error or ''),

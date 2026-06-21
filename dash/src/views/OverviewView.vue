@@ -94,11 +94,12 @@
         <h2 class="font-semibold text-slate-950 dark:text-white">Recent Problem Requests</h2>
         <div class="mt-3 overflow-x-auto">
           <table class="min-w-full text-left text-sm">
-            <thead class="text-xs uppercase text-slate-500"><tr><th class="py-2">Time</th><th>Path</th><th>Country</th><th>Status</th><th>Edge</th></tr></thead>
+            <thead class="text-xs uppercase text-slate-500"><tr><th class="py-2">Time</th><th>Path</th><th>Visitor IP</th><th>Country</th><th>Status</th><th>Edge</th></tr></thead>
             <tbody class="divide-y divide-slate-200 dark:divide-white/10">
               <tr v-for="request in traffic?.recent_problem_requests ?? []" :key="request.id">
                 <td class="py-2 text-slate-500">{{ formatTime(request.ts) }}</td>
                 <td class="max-w-56 truncate">{{ request.path || request.host || 'unknown' }}</td>
+                <td class="font-mono text-xs">{{ request.client_ip || 'unknown' }}</td>
                 <td>{{ countryLabel(request.client_country) }}</td>
                 <td><StatusBadge :status="request.status >= 500 ? 'critical' : 'warning'" /></td>
                 <td>{{ request.edge_node_id }}</td>
@@ -234,8 +235,7 @@ function formatTime(timestamp?: number) {
 }
 
 function countryLabel(value?: string | null) {
-  if (!value || value === 'unknown') return 'Unknown';
-  if (value === 'DEFAULT') return 'Default / unresolved';
+  if (!value || value === 'unknown' || value === 'DEFAULT') return 'Others';
   return value;
 }
 

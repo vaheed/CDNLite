@@ -22,7 +22,7 @@ All report endpoints accept:
 | Metric/report | Existing endpoint? | Backend change needed? | Frontend component | Test coverage |
 | --- | --- | --- | --- | --- |
 | Executive KPIs and warnings | Partial: `/api/v1/overview` | Added `/api/v1/reports/summary` with deltas and ranked warnings | `dash/src/views/OverviewView.vue` | `core/tests/test_reports_contract.py` |
-| Traffic time series and top lists | Partial: `/api/v1/usage/summary`, activity APIs | Added `/api/v1/reports/traffic` over `usage_rollups`; visitor countries come from edge `client_country` metrics | Overview traffic charts and tables | `core/tests/test_reports_contract.py` |
+| Traffic time series and top lists | Partial: `/api/v1/usage/summary`, activity APIs | Added `/api/v1/reports/traffic` over `usage_rollups`; visitor IPs and countries come from edge `client_ip` and `client_country` metrics | Overview traffic charts and tables | `core/tests/test_reports_contract.py` |
 | Cache distribution and purge timeline | Partial: `/api/v1/analytics/cache` | Added `/api/v1/reports/cache` over `usage_rollups` and `cache_purge_requests` | Overview cache chart | `core/tests/test_reports_contract.py` |
 | Edge health and traffic | Partial: `/api/v1/edge/nodes` | Added `/api/v1/reports/edge` over `edge_nodes`, config snapshots, and usage | Overview edge health panel | `core/tests/test_reports_contract.py` |
 | Security events | Partial: `/api/v1/security/events`, `/api/v1/security/summary` | Added `/api/v1/reports/security` over security audit events | Overview security chart | `core/tests/test_reports_contract.py` |

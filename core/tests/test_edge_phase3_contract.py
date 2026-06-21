@@ -48,10 +48,12 @@ def test_edge_country_rules_use_mounted_mmdb_when_headers_are_absent():
     router = read("edge/openresty/lua/router.lua")
     proxy = read("edge/openresty/lua/proxy.lua")
     geoip = read("edge/openresty/lua/geoip.lua")
+    maxmind = read("edge/openresty/lua/resty/maxminddb.lua")
     setup = read("docs/setup.md")
     api = read("docs/api/api.md")
 
     assert "libmaxminddb" in dockerfile
+    assert "command -v mmdblookup" in dockerfile
     assert "COPY openresty/lua /etc/openresty/lua" in dockerfile
     assert "resty/maxminddb.lua" in "\n".join(str(path) for path in (ROOT / "edge/openresty/lua").rglob("*.lua"))
     assert "assert(require('resty.maxminddb'))" in dockerfile
@@ -71,6 +73,8 @@ def test_edge_country_rules_use_mounted_mmdb_when_headers_are_absent():
     assert "return geoip.request_country()" in router
     assert "geoip.request_country()" in proxy
     assert "maxminddb.lookup(ip)" in geoip
+    assert "mmdblookup" in maxmind
+    assert "lookup_cache[ip]" in maxmind
     assert "ngx.var.http_x_cdnlite_country or ngx.var.http_cf_ipcountry" in geoip
     assert "CDNLITE_EDGE_MMDB_FILE" in setup
     assert "WAF rules support `country_is`" in api

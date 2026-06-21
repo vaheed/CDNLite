@@ -58,5 +58,6 @@ def test_dashboard_reports_client_and_overview_use_real_report_endpoints():
         assert f"reportsApi.{report}" in overview
     assert "ReportSummary" in types and "ReportTraffic" in types and "ReportOperations" in types
     assert "Top Visitor Countries" in overview
+    assert "request.client_ip" in overview
     assert "request.client_country" in overview
     assert "mock" not in overview.lower()

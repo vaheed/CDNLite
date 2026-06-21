@@ -421,6 +421,7 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
   method TEXT NULL,
   path TEXT NULL,
   query_redacted JSONB NULL,
+  client_ip TEXT NULL,
   client_country TEXT NULL,
   origin_id TEXT NULL,
   origin_host TEXT NULL,
@@ -455,6 +456,10 @@ CREATE INDEX IF NOT EXISTS idx_usage_rollups_status_ts
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_country_ts
   ON usage_rollups(client_country, ts DESC)
   WHERE client_country IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_client_ip_ts
+  ON usage_rollups(client_ip, ts DESC)
+  WHERE client_ip IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS usage_ingest_keys (
   idempotency_key TEXT PRIMARY KEY,

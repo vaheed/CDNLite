@@ -175,7 +175,7 @@ export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; requests_c
 export interface RequestActivity {
   id: Id; ts: number; request_id?: string | null; domain_id: Id; edge_node_id: string;
   host?: string | null; method?: string | null; path?: string | null; query_redacted?: Record<string, unknown>;
-  client_country?: string | null; status: number; bytes_in: number; bytes_out: number;
+  client_ip?: string | null; client_country?: string | null; status: number; bytes_in: number; bytes_out: number;
   cache_status?: string | null; origin_id?: string | null; origin_host?: string | null;
   upstream_status?: string | null; upstream_response_time_ms?: number | null;
   upstream_addr?: string | null; request_time_ms?: number | null; router_error?: string | null;

@@ -1,6 +1,7 @@
 FROM openresty/openresty:1.27.1.2-0-alpine
 
 RUN apk add --no-cache lua-cjson libmaxminddb openssl ca-certificates \
+  && command -v mmdblookup \
   && mkdir -p /var/cache/cdnlite /var/log/openresty \
   && chown -R nobody:nobody /var/cache/cdnlite /var/log/openresty
 

@@ -8,6 +8,7 @@ use App\Support\Uuid;
 class CollectorService
 {
     private ?bool $usageRollupCacheColumnsAvailable = null;
+    private ?bool $usageRollupClientIpColumnAvailable = null;
     /** @var array<string,bool> */
     private array $knownDomainIds = [];
     /** @var array<string,string> */
@@ -48,25 +49,31 @@ class CollectorService
         }
 
         $pdo->beginTransaction();
-        $stmt = $this->usageRollupCacheColumnsAvailable()
-            ? $pdo->prepare(
+        if ($this->usageRollupCacheColumnsAvailable()) {
+            $clientIpColumn = $this->usageRollupClientIpColumnAvailable() ? 'client_ip, ' : '';
+            $clientIpParam = $this->usageRollupClientIpColumnAvailable() ? ':client_ip, ' : '';
+            $stmt = $pdo->prepare(sprintf(
                 'INSERT INTO usage_rollups
                  (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status,
                   cache_status, rule_id, request_id, origin_status, origin_time_ms,
-                  host, method, path, query_redacted, client_country, origin_id, origin_host,
+                  host, method, path, query_redacted, %sclient_country, origin_id, origin_host,
                   upstream_status, upstream_response_time_ms, upstream_addr, request_time_ms,
                   router_error, security_event_type)
                  VALUES
                  (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status,
                   :cache_status, :rule_id, :request_id, :origin_status, :origin_time_ms,
-                  :host, :method, :path, :query_redacted, :client_country, :origin_id, :origin_host,
+                  :host, :method, :path, :query_redacted, %s:client_country, :origin_id, :origin_host,
                   :upstream_status, :upstream_response_time_ms, :upstream_addr, :request_time_ms,
-                  :router_error, :security_event_type)'
-            )
-            : $pdo->prepare(
+                  :router_error, :security_event_type)',
+                $clientIpColumn,
+                $clientIpParam
+            ));
+        } else {
+            $stmt = $pdo->prepare(
                 'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
                  VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
             );
+        }
 
         $count = 0;
         $skippedUnknownDomains = 0;
@@ -98,6 +105,9 @@ class CollectorService
                     $params[':method'] = isset($item['method']) ? (string) $item['method'] : null;
                     $params[':path'] = isset($item['path']) ? (string) $item['path'] : null;
                     $params[':query_redacted'] = isset($item['query']) ? json_encode($item['query'], JSON_UNESCAPED_SLASHES) : (isset($item['query_redacted']) ? json_encode($item['query_redacted'], JSON_UNESCAPED_SLASHES) : null);
+                    if ($this->usageRollupClientIpColumnAvailable()) {
+                        $params[':client_ip'] = isset($item['client_ip']) ? (string) $item['client_ip'] : null;
+                    }
                     $params[':client_country'] = isset($item['client_country']) ? (string) $item['client_country'] : null;
                     $params[':origin_id'] = isset($item['origin_id']) ? (string) $item['origin_id'] : null;
                     $params[':origin_host'] = isset($item['origin_host']) ? (string) $item['origin_host'] : null;
@@ -252,11 +262,7 @@ class CollectorService
         $count = Database::pdo()->prepare('SELECT COUNT(*) FROM usage_rollups WHERE ' . implode(' AND ', $where));
         $count->execute($params);
         $stmt = Database::pdo()->prepare(
-            "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
-                    query_redacted, client_country, status, bytes_in, bytes_out,
-                    cache_status, origin_id, origin_host, upstream_status,
-                    upstream_response_time_ms, upstream_addr, request_time_ms,
-                    router_error, security_event_type, rule_id
+            "SELECT " . $this->usageRollupRequestSelectColumns() . "
              FROM usage_rollups
              WHERE " . implode(' AND ', $where) . "
              ORDER BY ts DESC, id DESC
@@ -399,11 +405,7 @@ class CollectorService
     public function findRequest(string $domainId, string $requestId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
-                    query_redacted, client_country, status, bytes_in, bytes_out,
-                    cache_status, origin_id, origin_host, upstream_status,
-                    upstream_response_time_ms, upstream_addr, request_time_ms,
-                    router_error, security_event_type, rule_id
+            "SELECT " . $this->usageRollupRequestSelectColumns() . "
              FROM usage_rollups
              WHERE domain_id=:domain_id AND request_id=:request_id
              ORDER BY ts DESC, id DESC
@@ -712,6 +714,31 @@ class CollectorService
         return $this->usageRollupCacheColumnsAvailable;
     }
 
+    private function usageRollupClientIpColumnAvailable(): bool
+    {
+        if ($this->usageRollupClientIpColumnAvailable !== null) {
+            return $this->usageRollupClientIpColumnAvailable;
+        }
+        $stmt = Database::pdo()->prepare(
+            "SELECT COUNT(*) FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='usage_rollups'
+             AND column_name = 'client_ip'"
+        );
+        $stmt->execute();
+        $this->usageRollupClientIpColumnAvailable = (int) $stmt->fetchColumn() === 1;
+        return $this->usageRollupClientIpColumnAvailable;
+    }
+
+    private function usageRollupRequestSelectColumns(): string
+    {
+        $clientIp = $this->usageRollupClientIpColumnAvailable() ? 'client_ip' : 'NULL AS client_ip';
+        return "id, ts, request_id, domain_id, edge_node_id, host, method, path,
+                query_redacted, {$clientIp}, client_country, status, bytes_in, bytes_out,
+                cache_status, origin_id, origin_host, upstream_status,
+                upstream_response_time_ms, upstream_addr, request_time_ms,
+                router_error, security_event_type, rule_id";
+    }
+
     private function durationMs(mixed $value): ?int
     {
         if ($value === null || $value === '') {
@@ -989,11 +1016,7 @@ class CollectorService
     private function timelineRequests(string $domainId, int $limit, ?int $cursor, ?int $from, ?int $to, string $search, bool $errorsOnly): array
     {
         [$where, $params] = $this->timelineRequestWhere($domainId, $cursor, $from, $to, $search, $errorsOnly);
-        $sql = "SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
-                       query_redacted, client_country, status, bytes_in, bytes_out,
-                       cache_status, origin_id, origin_host, upstream_status,
-                       upstream_response_time_ms, upstream_addr, request_time_ms,
-                       router_error, security_event_type, rule_id
+        $sql = "SELECT " . $this->usageRollupRequestSelectColumns() . "
                 FROM usage_rollups
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY ts DESC, id DESC
@@ -1032,7 +1055,8 @@ class CollectorService
             $params[':upstream_error'] = '5%';
         }
         if ($search !== '') {
-            $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search OR client_country ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
+            $clientIpSearch = $this->usageRollupClientIpColumnAvailable() ? ' OR client_ip ILIKE :search' : '';
+            $where[] = '(request_id ILIKE :search OR host ILIKE :search OR path ILIKE :search' . $clientIpSearch . ' OR client_country ILIKE :search OR origin_id ILIKE :search OR router_error ILIKE :search)';
             $params[':search'] = '%' . $search . '%';
         }
         return [$where, $params];
@@ -1113,11 +1137,7 @@ class CollectorService
 
     private function recentOriginErrors(string $whereSql, array $params): array
     {
-        $stmt = Database::pdo()->prepare("SELECT id, ts, request_id, domain_id, edge_node_id, host, method, path,
-                                                 query_redacted, client_country, status, bytes_in, bytes_out,
-                                                 cache_status, origin_id, origin_host, upstream_status,
-                                                 upstream_response_time_ms, upstream_addr, request_time_ms,
-                                                 router_error, security_event_type, rule_id
+        $stmt = Database::pdo()->prepare("SELECT " . $this->usageRollupRequestSelectColumns() . "
                                           FROM usage_rollups {$whereSql}
                                           AND (status >= 500 OR router_error IS NOT NULL OR upstream_status LIKE '5%')
                                           ORDER BY ts DESC, id DESC
