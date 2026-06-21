@@ -53,6 +53,10 @@ finish() {
     collect_diagnostics
   fi
   write_reports
+  if [[ $rc -ne 0 && -s "$REPORT_MD" ]]; then
+    echo "----- ${REPORT_MD} -----" >&2
+    cat "$REPORT_MD" >&2 || true
+  fi
   exit "$rc"
 }
 trap finish EXIT
