@@ -24,18 +24,23 @@
       search-placeholder="Search nodes, regions, or IPs..."
       :rows="rows"
       :columns="columns"
+      compact
+      sticky-first-column
+      min-width="min-w-[1120px]"
     >
       <template #identity="{ row }">
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <span class="block max-w-48 truncate font-mono text-xs font-semibold text-slate-800 dark:text-slate-200" :title="String(row.edge_id)">{{ row.edge_id }}</span>
-            <StatusBadge v-if="row.identity_status === 'warning'" status="warning" label="Suspicious" />
+            <span class="block max-w-64 truncate font-mono text-xs font-semibold text-slate-800 dark:text-slate-200" :title="String(row.edge_id)">{{ row.edge_id }}</span>
+            <StatusBadge v-if="row.identity_status === 'warning'" status="warning" label="Suspicious" compact />
           </div>
-          <span class="mt-1 block text-xs text-slate-400">Edge identity</span>
+          <span class="mt-1 block max-w-64 truncate text-xs text-slate-400" :title="String(row.hostname || 'Unknown host')">{{ row.hostname || 'Unknown host' }}</span>
         </div>
       </template>
-      <template #hostname="{ value }"><span class="block max-w-48 truncate font-medium" :title="String(value || 'Unknown')">{{ value || 'Unknown' }}</span></template>
-      <template #public_ip="{ value }"><code class="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700 dark:bg-white/[0.06] dark:text-slate-200">{{ value || 'Not reported' }}</code></template>
+      <template #public_ip="{ value }">
+        <button v-if="value" type="button" class="inline-flex max-w-40 items-center rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700 transition hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:bg-white/[0.06] dark:text-slate-200 dark:hover:bg-white/10" :title="`Copy ${value}`" @click="copyText(String(value))">{{ value }}</button>
+        <span v-else class="text-xs text-slate-400">Not reported</span>
+      </template>
       <template #region="{ row }">
         <div class="whitespace-nowrap">
           <span class="font-medium">{{ row.region || 'Unassigned' }}</span>
@@ -44,8 +49,8 @@
       </template>
       <template #modes="{ row }">
         <div class="flex flex-wrap gap-1.5">
-          <StatusBadge v-if="row.geo_enabled" status="ok" label="Geo" />
-          <StatusBadge v-if="row.anycast_enabled" status="info" label="Anycast" />
+          <StatusBadge v-if="row.geo_enabled" status="ok" label="Geo" compact />
+          <StatusBadge v-if="row.anycast_enabled" status="info" label="Anycast" compact />
           <span v-if="!row.geo_enabled && !row.anycast_enabled" class="text-xs text-slate-400">Standard</span>
         </div>
       </template>
@@ -53,7 +58,7 @@
       <template #heartbeat="{ value }"><span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">{{ value }}</span></template>
       <template #config="{ row }">
         <div class="min-w-0">
-          <StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" />
+          <StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact />
           <p class="mt-1 text-xs text-slate-400">
             Applied {{ row.applied_config_version ? `v${row.applied_config_version}` : 'none' }}
             <span v-if="row.last_config_pull_at"> · Pulled {{ formatDate(row.last_config_pull_at as number | null | undefined) }}</span>
@@ -63,7 +68,43 @@
           </p>
         </div>
       </template>
-      <template #health="{ row }"><StatusBadge :status="String(row.health)" /></template>
+      <template #health="{ row }"><StatusBadge :status="String(row.health)" compact /></template>
+      <template #mobileCard="{ row }">
+        <div class="space-y-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate font-mono text-sm font-semibold text-slate-950 dark:text-white" :title="String(row.edge_id)">{{ row.edge_id }}</p>
+              <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400" :title="String(row.hostname || 'Unknown host')">{{ row.hostname || 'Unknown host' }}</p>
+            </div>
+            <StatusBadge :status="String(row.health)" compact />
+          </div>
+          <div class="grid gap-3 text-xs sm:grid-cols-2">
+            <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+              <span class="block font-semibold uppercase text-slate-500">Public IP</span>
+              <button v-if="row.public_ip" type="button" class="mt-1 max-w-full truncate rounded-md bg-slate-100 px-2 py-1 font-mono text-slate-700 dark:bg-white/[0.06] dark:text-slate-200" @click="copyText(String(row.public_ip))">{{ row.public_ip }}</button>
+              <span v-else class="mt-1 block text-slate-400">Not reported</span>
+            </div>
+            <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+              <span class="block font-semibold uppercase text-slate-500">Region</span>
+              <span class="mt-1 block text-slate-800 dark:text-slate-100">{{ row.region || 'Unassigned' }}<span v-if="row.country">, {{ row.country }}</span></span>
+            </div>
+            <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+              <span class="block font-semibold uppercase text-slate-500">Config</span>
+              <span class="mt-1 flex flex-wrap items-center gap-2"><StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact /><span class="text-slate-500">v{{ row.applied_config_version || 'none' }}</span></span>
+            </div>
+            <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
+              <span class="block font-semibold uppercase text-slate-500">Heartbeat</span>
+              <span class="mt-1 block text-slate-800 dark:text-slate-100">{{ row.heartbeat }}</span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <StatusBadge v-if="row.geo_enabled" status="ok" label="Geo" compact />
+            <StatusBadge v-if="row.anycast_enabled" status="info" label="Anycast" compact />
+            <StatusBadge v-if="row.identity_status === 'warning'" status="warning" label="Suspicious identity" compact />
+            <span v-if="!row.geo_enabled && !row.anycast_enabled" class="text-xs text-slate-400">Standard routing</span>
+          </div>
+        </div>
+      </template>
     </DataTable>
 
     <div class="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
@@ -238,15 +279,14 @@ const warnings = computed(() => [
   ...(dns.value?.warnings ?? []).map(warning => `${warning.edge_id}: ${warning.error}`),
 ]);
 const columns = [
-  { key: 'identity', label: 'Identity', class: 'min-w-52' },
-  { key: 'hostname', label: 'Hostname' },
-  { key: 'public_ip', label: 'Public IP' },
-  { key: 'region', label: 'Region' },
-  { key: 'modes', label: 'Modes', sortable: false },
-  { key: 'version', label: 'Version' },
-  { key: 'heartbeat', label: 'Heartbeat' },
-  { key: 'config', label: 'Config' },
-  { key: 'health', label: 'Health' },
+  { key: 'identity', label: 'Identity', class: 'min-w-72' },
+  { key: 'public_ip', label: 'Public IP', class: 'min-w-40' },
+  { key: 'region', label: 'Region', class: 'min-w-36' },
+  { key: 'modes', label: 'Modes', sortable: false, class: 'min-w-28' },
+  { key: 'version', label: 'Version', class: 'min-w-24' },
+  { key: 'heartbeat', label: 'Heartbeat', class: 'min-w-44' },
+  { key: 'config', label: 'Config', class: 'min-w-64' },
+  { key: 'health', label: 'Health', class: 'min-w-28' },
 ];
 const healthCounts = computed(() => ({
   ok: rows.value.filter(row => row.health === 'ok').length,
@@ -314,6 +354,11 @@ function configStatusLabel(row: { applied_config_version?: number | null; config
   if (row.applied_config_version === null) return 'Pending';
   if ((row.applied_config_version ?? 0) < latestVersion) return 'Stale';
   return 'Ahead';
+}
+
+async function copyText(text: string) {
+  if (!text || !navigator.clipboard?.writeText) return;
+  await navigator.clipboard.writeText(text);
 }
 
 async function load() {

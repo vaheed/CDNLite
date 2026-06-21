@@ -1,9 +1,10 @@
 <template>
-  <div v-if="!dismissed" class="panel-section space-y-4">
-    <div class="flex flex-wrap items-start justify-between gap-3">
+  <div v-if="!dismissed" class="panel-section space-y-5">
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-5 dark:border-white/10">
       <div>
-        <h3 class="text-sm font-semibold uppercase tracking-normal text-slate-700 dark:text-slate-200">Guided onboarding</h3>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Answer a few setup questions and CDNLite will recommend a starter profile.</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Guided setup</p>
+        <h3 class="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Tune the starter protection profile</h3>
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">Answer a few operational questions and CDNLite will recommend a focused security baseline for this domain.</p>
       </div>
       <StatusBadge :status="state?.status === 'completed' ? 'healthy' : state?.status === 'skipped' ? 'warning' : 'info'" :label="state?.status ?? 'not started'" />
     </div>
@@ -11,90 +12,125 @@
     <div v-if="error" class="state-error">{{ error }}</div>
     <div v-if="message" role="status" class="notice-info">{{ message }}</div>
 
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <label class="field-label">
-        Site type
-        <select v-model="answers.site_type" class="input-field">
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <SelectField id="onboarding-site-type" v-model="answers.site_type" label="Site type" helper="Used to choose sensible rule groups.">
           <option value="website">Website</option>
           <option value="saas">SaaS app</option>
           <option value="api">API</option>
           <option value="ecommerce">E-commerce</option>
-        </select>
-      </label>
-      <label class="field-label">
-        Framework
-        <select v-model="answers.framework" class="input-field">
+      </SelectField>
+      <SelectField id="onboarding-framework" v-model="answers.framework" label="Framework" helper="Helps avoid noisy generic rules.">
           <option value="other">Other</option>
           <option value="wordpress">WordPress</option>
           <option value="laravel">Laravel</option>
           <option value="node">Node.js</option>
-        </select>
-      </label>
-      <div class="field-label">
-        Countries served
-        <div class="mt-1 space-y-2">
-          <select v-model="countryPicker" class="input-field" autocomplete="off" @change="addSelectedCountry">
+      </SelectField>
+      <FormField label="Countries served" helper="Leave empty to use global defaults for all regions.">
+        <div class="space-y-2">
+          <div class="relative">
+            <select id="onboarding-countries" v-model="countryPicker" class="input h-11 appearance-none pr-10" autocomplete="off" @change="addSelectedCountry">
             <option value="">Select a country</option>
             <option v-for="country in countryOptions" :key="country.code" :value="country.code" :disabled="selectedCountries.includes(country.code)">
               {{ country.name }} ({{ country.code }})
             </option>
-          </select>
-          <div class="flex min-h-9 flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950">
-            <button v-for="code in selectedCountries" :key="code" type="button" class="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100" @click="removeCountry(code)">
-              {{ countryName(code) }} <span class="font-mono text-[11px]">{{ code }}</span>
+            </select>
+            <ChevronDown class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          </div>
+          <div class="flex min-h-11 flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2 dark:border-white/10 dark:bg-slate-950/60">
+            <button v-for="code in selectedCountries" :key="code" type="button" class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 text-xs font-semibold text-sky-700 shadow-sm transition hover:border-sky-300 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100" :aria-label="`Remove ${countryName(code)}`" @click="removeCountry(code)">
+              {{ countryName(code) }} <span class="font-mono text-[11px]">{{ code }}</span><X class="h-3 w-3" />
             </button>
-            <span v-if="!selectedCountries.length" class="px-1 py-1 text-xs font-normal text-slate-500 dark:text-slate-400">No country selected. CDNLite will use global defaults.</span>
+            <span v-if="!selectedCountries.length" class="px-1 py-2 text-xs font-normal text-slate-500 dark:text-slate-400">Global default: serve every country unless a profile narrows it.</span>
           </div>
         </div>
+      </FormField>
+      <div class="grid gap-2">
+        <CheckboxField v-model="answers.has_login" label="Users log in" helper="Protect sessions and account paths." />
+        <CheckboxField v-model="answers.has_api" label="Has an API" helper="Prefer API-aware rate limits." />
       </div>
-      <div class="grid gap-2 text-sm text-slate-600 dark:text-slate-300">
-        <label class="inline-flex items-center gap-2"><input v-model="answers.has_login" type="checkbox" class="h-4 w-4 rounded border-slate-300" /> Users log in</label>
-        <label class="inline-flex items-center gap-2"><input v-model="answers.has_api" type="checkbox" class="h-4 w-4 rounded border-slate-300" /> Has an API</label>
-        <label class="inline-flex items-center gap-2"><input v-model="answers.sells_products" type="checkbox" class="h-4 w-4 rounded border-slate-300" /> Sells products</label>
-        <label class="inline-flex items-center gap-2"><input v-model="answers.under_attack" type="checkbox" class="h-4 w-4 rounded border-slate-300" /> Currently under attack</label>
-      </div>
+    </div>
+    <div class="grid gap-3 md:grid-cols-2">
+      <CheckboxField v-model="answers.sells_products" label="Sells products" helper="Include checkout and product inventory protections." />
+      <CheckboxField v-model="answers.under_attack" label="Currently under attack" helper="Raises the recommended posture only when active traffic needs tighter handling." />
     </div>
 
     <div v-if="state" class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
-      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/[0.03]">
-        <p class="text-xs font-semibold uppercase text-slate-500">Recommendation</p>
-        <p class="mt-1 text-base font-semibold text-slate-950 dark:text-white">{{ state.recommendation.name }}</p>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ state.recommendation.reason }}</p>
-        <p v-if="preview" class="mt-2 text-xs text-slate-500">{{ preview.profile_preview.intents.length }} protection outcomes and {{ previewRuleCount }} technical rules will be generated.</p>
+      <div class="rounded-xl border border-cyan-200 bg-cyan-50/70 p-4 dark:border-cyan-300/20 dark:bg-cyan-400/10">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-wide text-cyan-800 dark:text-cyan-200">Recommendation</p>
+            <p class="mt-1 text-lg font-semibold text-slate-950 dark:text-white">{{ state.recommendation.name }}</p>
+            <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ state.recommendation.reason }}</p>
+          </div>
+          <StatusBadge :status="riskStatus(preview?.profile_preview.risk)" :label="riskLabel(preview?.profile_preview.risk)" />
+        </div>
+        <div class="mt-4 grid gap-2 sm:grid-cols-3">
+          <div class="rounded-lg border border-cyan-200 bg-white/80 p-3 dark:border-cyan-300/20 dark:bg-slate-950/30">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Outcomes</span>
+            <strong class="mt-1 block text-xl text-slate-950 dark:text-white">{{ preview?.profile_preview.intents.length ?? state.progress.length }}</strong>
+          </div>
+          <div class="rounded-lg border border-cyan-200 bg-white/80 p-3 dark:border-cyan-300/20 dark:bg-slate-950/30">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Generated rules</span>
+            <strong class="mt-1 block text-xl text-slate-950 dark:text-white">{{ previewRuleCount }}</strong>
+          </div>
+          <button type="button" class="button-primary h-auto min-h-14 justify-center" :disabled="busy || !state" @click="applyProfile">
+            <ShieldCheck class="h-4 w-4" /> Apply profile
+          </button>
+        </div>
       </div>
-      <div class="rounded-lg border border-slate-200 p-3 dark:border-white/10">
-        <p class="text-xs font-semibold uppercase text-slate-500">Setup progress</p>
-        <div class="mt-2 grid gap-2">
-          <div v-for="step in state.progress" :key="step.key" class="flex items-center justify-between gap-2 text-sm">
-            <span class="text-slate-600 dark:text-slate-300">{{ step.label }}</span>
-            <StatusBadge :status="step.status === 'complete' ? 'healthy' : 'unknown'" :label="step.status" />
+      <div class="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Setup progress</p>
+        <div class="mt-3 space-y-3">
+          <div v-for="(step, index) in state.progress" :key="step.key" class="flex gap-3 text-sm">
+            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-bold" :class="step.status === 'complete' ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-300/20 dark:bg-emerald-400/10 dark:text-emerald-200' : index === nextStepIndex ? 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-300/20 dark:bg-cyan-400/10 dark:text-cyan-200' : 'border-slate-200 bg-slate-50 text-slate-400 dark:border-white/10 dark:bg-white/[0.03]'">
+              <Check v-if="step.status === 'complete'" class="h-4 w-4" />
+              <span v-else>{{ index + 1 }}</span>
+            </span>
+            <span class="min-w-0">
+              <span class="block font-medium text-slate-800 dark:text-slate-100">{{ step.label }}</span>
+              <span class="mt-0.5 block text-xs capitalize text-slate-500 dark:text-slate-400">{{ step.status === 'complete' ? 'Complete' : index === nextStepIndex ? 'Current step' : 'Pending' }}</span>
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <div v-if="preview" class="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.03]">
+    <div v-if="preview" class="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p class="text-xs font-semibold uppercase text-slate-500">Full preview details</p>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Full preview details</p>
           <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">These exact managed rules will be generated if you apply the recommendation.</p>
         </div>
         <StatusBadge status="info" :label="`${previewRuleCount} rules`" />
       </div>
       <div class="mt-3 space-y-3">
-        <div v-for="intent in preview.profile_preview.intents" :key="intent.intent_key" class="rounded-lg border border-slate-200 p-3 dark:border-white/10">
-          <p class="font-semibold text-slate-950 dark:text-white">{{ intent.name }}</p>
-          <p class="mt-1 text-xs text-slate-500">Mode: {{ intent.mode }} · Risk: {{ intent.risk }}</p>
-          <div class="mt-3 grid gap-3">
-            <details v-for="rule in intent.rules" :key="`${intent.intent_key}:${rule.rule_table}:${rule.template_key}`" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/40" open>
-              <summary class="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-100">
-                {{ humanize(rule.rule_table) }} · {{ rule.template_key }}
-              </summary>
-              <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ ruleEffect(rule) }}</p>
-              <pre class="mt-3 max-h-80 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-white">{{ JSON.stringify(rule.payload ?? {}, null, 2) }}</pre>
-            </details>
+        <Accordion v-for="intent in preview.profile_preview.intents" :key="intent.intent_key" :title="intent.name" :subtitle="`${intent.rules.length} rules · ${modeLabel(intent.mode)} · ${riskLabel(intent.risk)}`" :default-open="preview.profile_preview.intents.length === 1">
+          <div class="mb-3 flex flex-wrap gap-2">
+            <StatusBadge status="info" :label="modeLabel(intent.mode)" />
+            <StatusBadge :status="riskStatus(intent.risk)" :label="riskLabel(intent.risk)" />
           </div>
-        </div>
+          <div class="mt-3 grid gap-3">
+            <div v-for="rule in intent.rules" :key="`${intent.intent_key}:${rule.rule_table}:${rule.template_key}`" class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/40">
+              <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ humanize(rule.rule_table) }}</p>
+                  <p class="mt-1 break-words font-mono text-xs text-slate-500 dark:text-slate-400">{{ rule.template_key }}</p>
+                  <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{{ ruleEffect(rule) }}</p>
+                </div>
+                <StatusBadge status="unknown" :label="rule.managed_by || 'Managed'" />
+              </div>
+              <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                <div class="rounded-lg bg-white p-2 dark:bg-white/[0.04]"><dt class="font-semibold uppercase text-slate-500">Type</dt><dd class="mt-1 font-mono text-slate-800 dark:text-slate-100">{{ rule.rule_table }}</dd></div>
+                <div class="rounded-lg bg-white p-2 dark:bg-white/[0.04]"><dt class="font-semibold uppercase text-slate-500">Mode</dt><dd class="mt-1 text-slate-800 dark:text-slate-100">{{ modeLabel(intent.mode) }}</dd></div>
+                <div class="rounded-lg bg-white p-2 dark:bg-white/[0.04]"><dt class="font-semibold uppercase text-slate-500">Risk</dt><dd class="mt-1 text-slate-800 dark:text-slate-100">{{ riskLabel(intent.risk) }}</dd></div>
+              </dl>
+              <details class="mt-3 rounded-lg border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950">
+                <summary class="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:text-slate-200">Advanced details</summary>
+                <pre class="max-h-80 overflow-auto border-t border-slate-200 p-3 text-xs text-slate-800 dark:border-white/10 dark:text-slate-100">{{ JSON.stringify(rule.payload ?? {}, null, 2) }}</pre>
+              </details>
+            </div>
+          </div>
+        </Accordion>
       </div>
     </div>
 
@@ -117,7 +153,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { Eye, ShieldCheck, Sparkles } from 'lucide-vue-next';
+import { Check, ChevronDown, Eye, ShieldCheck, Sparkles, X } from 'lucide-vue-next';
+import Accordion from '@/components/ui/Accordion.vue';
+import CheckboxField from '@/components/ui/CheckboxField.vue';
+import FormField from '@/components/ui/FormField.vue';
+import SelectField from '@/components/ui/SelectField.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { protectionApi } from '@/lib/api/protection';
 import type { OnboardingAnswers, OnboardingPreview, OnboardingState } from '@/types';
@@ -158,6 +198,7 @@ const countryOptions = [
   { code: 'BR', name: 'Brazil' },
 ];
 const previewRuleCount = computed(() => preview.value?.profile_preview.intents.reduce((total, intent) => total + intent.rules.length, 0) ?? 0);
+const nextStepIndex = computed(() => state.value?.progress.findIndex((step) => step.status !== 'complete') ?? -1);
 
 async function load() {
   error.value = '';
@@ -244,6 +285,21 @@ function normalizeCountries(values: string[]) {
 
 function humanize(value: string) {
   return value.replaceAll('_', ' ');
+}
+
+function riskStatus(risk?: string): 'ok' | 'warning' | 'critical' | 'info' {
+  if (risk === 'risky') return 'critical';
+  if (risk === 'moderate') return 'warning';
+  if (risk === 'safe') return 'ok';
+  return 'info';
+}
+
+function riskLabel(risk?: string) {
+  return risk ? `${humanize(risk)} risk` : 'Risk pending';
+}
+
+function modeLabel(mode?: string) {
+  return humanize(mode || 'recommended');
 }
 
 function ruleEffect(rule: { payload?: Record<string, unknown>; rule_table: string }) {
