@@ -170,7 +170,7 @@ Core settings:
 | `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` | Age after which an in-progress SSL job can be reclaimed by the scheduler and retried. |
 | `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` | Seconds between SSL scheduler loops for queued issuance and renewals; default `30`. |
 | `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
-| `CDNLITE_BOOTSTRAP_EDGE_*`, `EDGE_ID`, `EDGE_TOKEN` | Local edge token bootstrap. |
+| `CDNLITE_BOOTSTRAP_EDGE_*`, `CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS`, `EDGE_ID`, `EDGE_TOKEN`, `EDGE_2_*` | Local edge token bootstrap and the bundled two-edge test topology. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
 | `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
 | `CDNLITE_CDN_ZONE` | Authoritative zone containing stable site targets and the shared proxy record. |
@@ -365,8 +365,8 @@ the same default run through the manual `run_dns_stress` workflow input.
 See [DNS Stress Testing](stress-testing.md) for the complete destructive-run
 procedure, configuration variables, assertions, reports, and recovery steps.
 
-The DNS acceptance flow verifies Core-created zones, raw ALIAS/CNAME/LUA
-records, ALIAS expansion with `dig`, edge health reconciliation, stale record
+The DNS acceptance flow verifies Core-created zones, raw CNAME/LUA
+records, apex LUA answers with `dig`, edge health reconciliation, stale record
 deletion, persisted failure state, and recovery. Static Lua answers are used
 only for deterministic documentation-range CI fixtures.
 

@@ -66,7 +66,7 @@ def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
     assert "dns_records_exact_value_idx" in schema
 
 
-def test_apex_alias_can_coexist_with_mail_and_verification_records():
+def test_apex_proxy_can_coexist_with_mail_and_verification_records():
     service = read("core/app/Modules/Dns/Services/DnsService.php")
 
     assert "$proxied && $existingProxied" in service
@@ -109,9 +109,10 @@ def test_main_e2e_waits_for_the_reconciled_powerdns_zone():
     e2e = read("ci/e2e.sh")
 
     assert "pdns_zone_is_ready()" in e2e
-    assert "retry 40 1 pdns_zone_is_ready" in e2e
+    assert "pdns_zone_rrset_is_ready()" in e2e
+    assert "retry 40 1 pdns_zone_rrset_is_ready" in e2e
     assert "'.name == $zone'" in e2e
-    assert 'select(.name == $name and .type == "ALIAS")' in e2e
+    assert 'select(.name == $name and .type == "LUA")' in e2e
 
 
 def test_main_e2e_waits_for_a_healthy_edge_heartbeat():
@@ -135,8 +136,9 @@ def test_edge_state_and_shared_proxy_contract():
     assert "CREATE TABLE IF NOT EXISTS edge_state_generations" in schema
     assert "e.health_status = 'healthy'" in schema
     assert "e.anycast_enabled AS anycast" in schema
-    assert "ORDER BY anycast DESC" in service
-    assert "array_merge($pool['anycast'][$family], $pool['unicast'][$family])" in service
+    renderer = read("core/app/Modules/Dns/Services/EdgeDnsPoolRenderer.php")
+    assert "ORDER BY anycast DESC" in renderer
+    assert "array_merge($pool['anycast'][$family], $pool['unicast'][$family])" in renderer
     assert "'anycast_ipv4'" in settings
     assert "'anycast_ipv6'" in settings
     assert "ipv4_list_optional" in settings
@@ -148,7 +150,7 @@ def test_edge_state_and_shared_proxy_contract():
     assert "$staticAnycast[$family] !== []" in service
     assert "$staticAnycast[$family]," in service
     assert "'shared_proxy_static_anycast:' . $type" in service
-    assert "$this->health->luaRecord($type, $targets)" in service
+    assert "$this->renderer->luaRecord($type)" in service
     assert "CDNLITE_CDN_ZONE" in settings
     assert "CDNLITE_CDN_PROXY_HOST" in settings
     assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings

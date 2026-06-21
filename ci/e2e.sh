@@ -227,6 +227,28 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+edge_config_origin_restored() {
+  local domain="$1"
+  docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$domain\" <<'PY'
+import json
+import sys
+
+path, host = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+    cfg = json.load(fh)
+for item in cfg.get('hosts', []):
+    if item.get('hostname') != host:
+        continue
+    raw = json.dumps(item, sort_keys=True)
+    if '127.0.0.1' in raw:
+        sys.exit(1)
+    if 'origin-tls' not in raw:
+        sys.exit(1)
+    sys.exit(0)
+sys.exit(1)
+PY"
+}
+
 config_publish_audit_exists() {
   local count
   count="$(db_query "SELECT COUNT(*) FROM audit_log WHERE event IN ('config.publish', 'config.publish.reused');")"
@@ -254,6 +276,16 @@ pdns_zone_is_ready() {
     "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${zone}" \
     -o "$output" &&
     jq -e --arg zone "$zone" '.name == $zone' "$output" >/dev/null
+}
+
+pdns_zone_rrset_is_ready() {
+  local zone="$1"
+  local name="$2"
+  local type="$3"
+  local output="$4"
+  pdns_zone_is_ready "$zone" "$output" &&
+    jq -e --arg name "$name" --arg type "$type" \
+      '.rrsets[] | select(.name == $name and .type == $type)' "$output" >/dev/null
 }
 
 agent_exec() {
@@ -944,15 +976,15 @@ if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
   retry 20 1 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
     "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost" >/dev/null
   zone_file="$(mktemp)"
-  retry 40 1 pdns_zone_is_ready "${TEST_DOMAIN}." "$zone_file"
+  retry 40 1 pdns_zone_rrset_is_ready "${TEST_DOMAIN}." "${TEST_DOMAIN}." "LUA" "$zone_file"
   zone_json="$(cat "$zone_file")"
   rm -f "$zone_file"
-  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and .type == "ALIAS") | .type' <<<"$zone_json")"
-  assert_eq "$apex_type" "ALIAS" "proxied apex must be stored as PowerDNS ALIAS"
-  if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$zone_json" >/dev/null; then
-    fail "proxied apex must not contain Core-written A/AAAA rrsets"
+  apex_type="$(jq -r --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and .type == "LUA") | .type' <<<"$zone_json")"
+  assert_eq "$apex_type" "LUA" "proxied apex must be stored as PowerDNS LUA"
+  if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "ALIAS" or .type == "CNAME"))' <<<"$zone_json" >/dev/null; then
+    fail "proxied apex must not contain ALIAS or CNAME rrsets"
   fi
-  record_step PASS "powerdns-sync-positive" "proxied apex is an ALIAS in real PowerDNS"
+  record_step PASS "powerdns-sync-positive" "proxied apex is LUA in real PowerDNS"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \
     -X PATCH "${POWERDNS_PUBLIC_API_URL}/api/v1/servers/localhost/zones/${TEST_DOMAIN}." \
@@ -1197,6 +1229,7 @@ restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_scheme":"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "DNS record origin restore failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
+retry 40 1 edge_config_origin_restored "${TEST_DOMAIN}"
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verified"
 
 edge_post_code="$(curl -s -o /tmp/e2e-edge-post.txt -w '%{http_code}' \

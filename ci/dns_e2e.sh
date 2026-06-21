@@ -87,6 +87,14 @@ rrset_content() {
     '.rrsets[] | select(.name == $name and .type == $type) | .records[].content' <<<"$json"
 }
 
+rrset_exists() {
+  local zone="$1"
+  local name="$2"
+  local type="$3"
+  zone_json "$zone" | jq -e --arg name "$name" --arg type "$type" \
+    '.rrsets[] | select(.name == $name and .type == $type)' >/dev/null
+}
+
 answer_set() {
   local name="$1"
   local type="${2:-A}"
@@ -188,21 +196,24 @@ force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after verified delegation failed"
 assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "true" "verified delegation sync should pass"
 purge_dns_caches
+retry 40 1 rrset_exists "$TEST_ZONE" "$TEST_ZONE" LUA
 
 customer_zone="$(zone_json "$TEST_ZONE")"
 cdn_zone="$(zone_json "$CDN_ZONE_FQDN")"
-site_target="$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)"
-assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS missing"
+site_target="$(rrset_content "$cdn_zone" "site-${DOMAIN_ID}.${CDN_ZONE_FQDN}" CNAME)"
+apex_lua="$(rrset_content "$customer_zone" "$TEST_ZONE" LUA)"
+assert_contains "$apex_lua" "$EDGE_EU" "apex LUA missing EU edge"
+assert_contains "$apex_lua" "$EDGE_US" "apex LUA missing US edge"
 assert_eq "$(rrset_content "$customer_zone" "www.${TEST_ZONE}" CNAME)" "$site_target" "www CNAME target mismatch"
 assert_eq "$(rrset_content "$customer_zone" "direct.${TEST_ZONE}" A)" "192.0.2.99" "unproxied A mismatch"
-if jq -e --arg name "$TEST_ZONE" '.rrsets[] | select(.name == $name and (.type == "A" or .type == "AAAA"))' <<<"$customer_zone" >/dev/null; then
-  fail "Core wrote flattened A/AAAA records at the proxied apex"
+if jq -e --arg name "$TEST_ZONE" '.rrsets[] | select(.name == $name and (.type == "ALIAS" or .type == "CNAME"))' <<<"$customer_zone" >/dev/null; then
+  fail "Core wrote ALIAS or CNAME at the proxied apex"
 fi
 assert_eq "$(rrset_content "$cdn_zone" "$site_target" CNAME)" "$PROXY_FQDN" "site target CNAME mismatch"
 lua_a="$(rrset_content "$cdn_zone" "$PROXY_FQDN" LUA)"
 assert_contains "$lua_a" "$EDGE_EU" "shared Lua record missing EU edge"
 assert_contains "$lua_a" "$EDGE_US" "shared Lua record missing US edge"
-record_step PASS "raw-zone-model" "raw zones contain ALIAS, CNAME, unproxied A, site CNAME, and shared Lua"
+record_step PASS "raw-zone-model" "raw zones contain apex Lua, CNAME, unproxied A, site CNAME, and shared Lua"
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"192.0.2.11","ttl":60,"proxied":true,"origin_host":"origin-backup"}'
@@ -218,24 +229,24 @@ record_step PASS "duplicate-proxy-becomes-second-origin" "second proxied apex ta
 
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":60,\"priority\":10,\"proxied\":false}"
-assert_http_status "$HTTP_CODE" "201" "apex MX must coexist with proxied ALIAS"
+assert_http_status "$HTTP_CODE" "201" "apex MX must coexist with proxied LUA"
 MX_ID="$(json_get "$HTTP_BODY" '.data.id')"
 force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after apex MX create failed"
 customer_zone="$(zone_json "$TEST_ZONE")"
-assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS disappeared after MX create"
-assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX missing beside ALIAS"
-record_step PASS "apex-alias-mx-coexist" "PowerDNS apex contains both ALIAS and MX rrsets"
+assert_contains "$(rrset_content "$customer_zone" "$TEST_ZONE" LUA)" "$EDGE_EU" "apex LUA disappeared after MX create"
+assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX missing beside LUA"
+record_step PASS "apex-lua-mx-coexist" "PowerDNS apex contains both LUA and MX rrsets"
 
 apex_answers="$(answer_set "$TEST_DOMAIN")"
 site_answers="$(answer_set "${site_target%.}")"
 proxy_answers="$(answer_set "${PROXY_FQDN%.}")"
 www_answers="$(answer_set "www.${TEST_DOMAIN}")"
-[[ -n "$apex_answers" ]] || fail "apex ALIAS returned no A answers (site='${site_answers}' proxy='${proxy_answers}' www='${www_answers}')"
-assert_eq "$apex_answers" "$site_answers" "apex ALIAS and site target answer sets differ"
+[[ -n "$apex_answers" ]] || fail "apex LUA returned no A answers (site='${site_answers}' proxy='${proxy_answers}' www='${www_answers}')"
+assert_eq "$apex_answers" "$proxy_answers" "apex LUA and shared proxy answer sets differ"
 assert_eq "$site_answers" "$proxy_answers" "site target and shared proxy answer sets differ"
 assert_eq "$www_answers" "$site_answers" "www CNAME and site target answer sets differ"
-record_step PASS "alias-dig-equivalence" "apex, www, site target, and proxy resolve to the same A set"
+record_step PASS "lua-dig-equivalence" "apex, www, site target, and proxy resolve to the same A set"
 
 docker compose exec -T core php artisan cdn:domains:verify-all >/tmp/dns-e2e-verify-all.json
 assert_eq "$(jq -r --arg id "$DOMAIN_ID" '[.data.domains[] | select(.id == $id)] | length' /tmp/dns-e2e-verify-all.json)" \
@@ -259,7 +270,7 @@ db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHER
 force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after delegation restoration failed"
 customer_zone="$(zone_json "$TEST_ZONE")"
-assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" ALIAS)" "$site_target" "apex ALIAS did not republish"
+assert_contains "$(rrset_content "$customer_zone" "$TEST_ZONE" LUA)" "$EDGE_EU" "apex LUA did not republish"
 assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZONE}" "apex MX did not republish"
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records"
 assert_eq "$(jq -r '[.data[] | select(.readonly != true and .status == "active") | .effective_status] | unique | join(",")' <<<"$HTTP_BODY")" "active" \

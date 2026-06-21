@@ -21,14 +21,28 @@ def test_edge_pool_schema_and_api_contract():
     assert "public function pools(): array" in service
 
 
+def test_compose_runs_two_test_edges_with_public_ip_metadata():
+    compose = read("docker-compose.yml")
+
+    assert "edge-2:" in compose
+    assert "edge-agent-2:" in compose
+    assert "CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS" in compose
+    assert "EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-203.0.113.10}" in compose
+    assert "EDGE_COUNTRY: ${EDGE_COUNTRY:-US}" in compose
+    assert "EDGE_PUBLIC_IP: ${EDGE_2_PUBLIC_IP:-198.51.100.20}" in compose
+    assert "EDGE_COUNTRY: ${EDGE_2_COUNTRY:-DE}" in compose
+
+
 def test_platform_dns_plan_contract():
     dns = read("core/app/Modules/Dns/Services/EdgeDnsService.php")
+    renderer = read("core/app/Modules/Dns/Services/EdgeDnsPoolRenderer.php")
     routes = read("core/public_index.php")
     settings = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
 
-    assert "SELECT * FROM edge_state" in dns
+    assert "SELECT * FROM edge_state" in renderer
     assert "'shared_proxy:' . $type" in dns
-    assert "ORDER BY anycast DESC" in dns
+    assert "ORDER BY anycast DESC" in renderer
+    assert "luaRecord(string $type)" in renderer
     assert "edge_state_generations" in dns
     assert "desiredRrsets(bool $persistGeneration = false)" in dns
     assert "/api/v1/edges/dns" in routes

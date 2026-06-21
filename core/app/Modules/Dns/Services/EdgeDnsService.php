@@ -9,14 +9,14 @@ class EdgeDnsService
 {
     private PowerDnsService $powerDns;
     private PowerDnsRecordBuilder $records;
-    private EdgeHealthRecordBuilder $health;
+    private EdgeDnsPoolRenderer $renderer;
     private SettingsRepository $settings;
 
     public function __construct()
     {
         $this->powerDns = new PowerDnsService();
         $this->records = new PowerDnsRecordBuilder();
-        $this->health = new EdgeHealthRecordBuilder();
+        $this->renderer = new EdgeDnsPoolRenderer();
         $this->settings = new SettingsRepository();
     }
 
@@ -34,7 +34,7 @@ class EdgeDnsService
     {
         $zone = $this->cdnZone();
         $ttl = $this->ttl();
-        $pool = $this->activeEdgePool();
+        $pool = $this->renderer->pool();
         if ($persistGeneration) {
             $this->persistGeneration($pool);
         }
@@ -54,8 +54,7 @@ class EdgeDnsService
                 );
                 continue;
             }
-            $targets = array_merge($pool['anycast'][$family], $pool['unicast'][$family]);
-            $content = $this->health->luaRecord($type, $targets);
+            $content = $this->renderer->luaRecord($type);
             if ($content === null) {
                 continue;
             }
@@ -88,7 +87,7 @@ class EdgeDnsService
 
     public function validate(): array
     {
-        $pool = $this->activeEdgePool();
+        $pool = $this->renderer->pool();
         return [
             'cdn_zone' => $this->cdnZone(),
             'proxy_host' => $this->proxyHost(),
@@ -102,7 +101,7 @@ class EdgeDnsService
 
     public function status(): array
     {
-        $pool = $this->activeEdgePool();
+        $pool = $this->renderer->pool();
         $stmt = Database::pdo()->prepare(
             'SELECT desired_hash, last_success_at FROM dns_sync_state WHERE zone_name = :zone LIMIT 1'
         );
@@ -143,59 +142,6 @@ class EdgeDnsService
         ];
         $rrset['desired_hash'] = hash('sha256', json_encode($rrset, JSON_UNESCAPED_SLASHES) ?: '[]');
         return $rrset;
-    }
-
-    private function activeEdgePool(): array
-    {
-        $rows = Database::pdo()->query(
-            'SELECT * FROM edge_state ORDER BY anycast DESC, region ASC, edge_id ASC, ip_family ASC, ip ASC'
-        )->fetchAll();
-        $nodes = [];
-        $warnings = [];
-        $anycast = ['ipv4' => [], 'ipv6' => []];
-        $unicast = ['ipv4' => [], 'ipv6' => []];
-        $seen = ['anycast' => ['ipv4' => [], 'ipv6' => []], 'unicast' => ['ipv4' => [], 'ipv6' => []]];
-
-        foreach ($rows as $row) {
-            if (!(bool) $row['healthy']) {
-                $warnings[] = ['edge_id' => (string) $row['edge_id'], 'error' => 'edge_not_healthy'];
-                continue;
-            }
-            $ip = trim((string) $row['ip']);
-            $family = (string) $row['ip_family'] === 'AAAA' ? 'ipv6' : 'ipv4';
-            $bucket = (bool) $row['anycast'] ? 'anycast' : 'unicast';
-            if (!isset($seen[$bucket][$family][$ip])) {
-                $seen[$bucket][$family][$ip] = true;
-                $target = [
-                    'ip' => $ip,
-                    'country' => (string) $row['country'],
-                    'continent' => (string) $row['continent'],
-                ];
-                if ($bucket === 'anycast') {
-                    $anycast[$family][] = $target;
-                } else {
-                    $unicast[$family][] = $target;
-                }
-            }
-            $nodes[] = [
-                'edge_id' => (string) $row['edge_id'],
-                'ip' => $ip,
-                'ip_family' => (string) $row['ip_family'],
-                'region' => (string) $row['region'],
-                'country' => (string) $row['country'],
-                'continent' => (string) $row['continent'],
-                'anycast' => (bool) $row['anycast'],
-                'healthy' => true,
-                'last_check_at' => (int) $row['last_check_at'],
-            ];
-        }
-
-        return [
-            'nodes' => $nodes,
-            'warnings' => $warnings,
-            'anycast' => $anycast,
-            'unicast' => $unicast,
-        ];
     }
 
     private function persistGeneration(array $pool): void

@@ -1,6 +1,6 @@
 <template>
   <section class="space-y-6">
-    <PageHeader eyebrow="Infrastructure" title="DNS Operations" description="Configure and inspect PowerDNS, DNSGeo, ALIAS readiness, desired records, and zone convergence.">
+    <PageHeader eyebrow="Infrastructure" title="DNS Operations" description="Configure and inspect PowerDNS, DNSGeo, edge LUA readiness, desired records, and zone convergence.">
       <template #actions>
         <button class="button-secondary" :disabled="busy" @click="runDryRun">Dry run</button>
         <button class="button-primary" :disabled="busy" @click="forceSync">{{ busy ? 'Working...' : 'Force sync now' }}</button>
@@ -73,7 +73,7 @@ const setupRows = computed(() => {
     { label: 'API key configured', value: setup?.api_key_configured ? 'Yes' : 'No' },
     { label: 'CDN zone', value: setup?.cdn_zone || 'Not configured' },
     { label: 'CDN proxy host', value: setup?.cdn_proxy_host || 'Not configured' },
-    { label: 'Apex proxy mode', value: setup?.apex_proxy_mode || 'ALIAS' },
+    { label: 'Apex proxy mode', value: setup?.apex_proxy_mode || 'LUA' },
   ];
 });
 const dnsGeoRows = computed(() => {
@@ -81,7 +81,7 @@ const dnsGeoRows = computed(() => {
   return [
     { label: 'PowerDNS auth', ok: !!status?.powerdns_auth }, { label: 'PostgreSQL', ok: !!status?.postgresql },
     { label: 'MMDB updater', ok: !!status?.mmdb }, { label: 'EDNS subnet', ok: !!status?.edns_subnet_processing },
-    { label: 'Lua records', ok: !!status?.lua_records }, { label: 'ALIAS expansion', ok: !!status?.alias_expansion },
+    { label: 'Lua records', ok: !!status?.lua_records }, { label: 'No apex ALIAS', ok: !status?.alias_expansion },
     { label: 'Resolver', ok: !!status?.resolver_configured }, { label: 'API private', ok: !status?.api_publicly_exposed },
   ];
 });

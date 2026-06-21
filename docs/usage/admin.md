@@ -91,7 +91,7 @@ Settings changes should be followed by readiness checks and, where relevant, con
 ## Operate DNS
 
 Open `DNS Operations` to inspect the PowerDNS API connection, API-key presence,
-CDN zone, shared proxy hostname, mandatory apex `ALIAS` mode, and bundled
+CDN zone, shared proxy hostname, mandatory apex `LUA` mode, and bundled
 DNSGeo capabilities. The page lists convergence and errors per zone and shows
 the complete desired RRset preview. Static proxy anycast IPv4/IPv6 values are
 managed from `Settings` under Edge DNS / Anycast; enter one or more addresses

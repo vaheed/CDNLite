@@ -22,8 +22,8 @@ def test_dns_operations_api_exposes_setup_sync_and_operator_actions():
     ]:
         assert endpoint in routes
     for capability in [
-        "'apex_proxy_mode' => 'ALIAS'",
-        "'alias_expansion' => true",
+        "'apex_proxy_mode' => 'LUA'",
+        "'alias_expansion' => false",
         "'lua_records' => true",
         "'edns_subnet_processing' => true",
         "last_success_at",
@@ -45,6 +45,6 @@ def test_dashboard_has_dns_operations_and_no_snapshot_navigation():
     assert "/config-snapshots" not in nav
     assert "Force sync now" in operations
     assert "Dry run" in operations
-    assert "ALIAS expansion" in operations
-    assert "Proxied apex records publish as ALIAS" in records
+    assert "No apex ALIAS" in operations
+    assert "Proxied apex records publish as PowerDNS LUA" in records
     assert "proxied subdomains publish as CNAME" in records

@@ -38,6 +38,7 @@ services:
       CDNLITE_BOOTSTRAP_EDGE_TOKEN: ${CDNLITE_BOOTSTRAP_EDGE_TOKEN:-1}
       CDNLITE_BOOTSTRAP_EDGE_ID: ${CDNLITE_BOOTSTRAP_EDGE_ID:-}
       CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE: ${CDNLITE_BOOTSTRAP_EDGE_TOKEN_VALUE:-}
+      CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS: ${CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS:-edge-local-2:edge-dev-token-2}
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE:-cdn.example.net}
@@ -78,7 +79,7 @@ services:
       CDNLITE_POWERDNS_RETRIES: ${CDNLITE_POWERDNS_RETRIES:-3}
       CDNLITE_POWERDNS_RETRY_SLEEP_MS: ${CDNLITE_POWERDNS_RETRY_SLEEP_MS:-250}
       CDNLITE_POWERDNS_TIMEOUT_SECONDS: ${CDNLITE_POWERDNS_TIMEOUT_SECONDS:-10}
-      CDNLITE_POWERADMIN_URL: ${CDNLITE_POWERADMIN_URL:-http://localhost:9191}
+      CDNLITE_POWERADMIN_URL: ${CDNLITE_POWERADMIN_URL:-http://localhost:${POWERADMIN_HOST_PORT:-8084}}
     ports:
       - "${CORE_HOST_PORT:-8080}:8080"
     healthcheck:
@@ -201,7 +202,7 @@ services:
       retries: 60
     environment:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
-      EDGE_REGION: ${EDGE_REGION:-local}
+      EDGE_REGION: ${EDGE_REGION:-us-test}
       DEV_MODE: ${DEV_MODE:-0}
       CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-60s}
       EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS:-0}
@@ -224,10 +225,10 @@ services:
       EDGE_ID: ${EDGE_ID:-edge-local-1}
       DEV_MODE: ${DEV_MODE:-0}
       EDGE_HOSTNAME: ${EDGE_HOSTNAME:-edge-local-1}
-      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-auto}
-      EDGE_REGION: ${EDGE_REGION:-local}
-      EDGE_COUNTRY: ${EDGE_COUNTRY:-}
-      EDGE_CONTINENT: ${EDGE_CONTINENT:-}
+      EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-203.0.113.10}
+      EDGE_REGION: ${EDGE_REGION:-us-test}
+      EDGE_COUNTRY: ${EDGE_COUNTRY:-US}
+      EDGE_CONTINENT: ${EDGE_CONTINENT:-NA}
       EDGE_VERSION: ${EDGE_VERSION:-v1}
       EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}
       EDGE_CONFIG_PATH: ${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}
@@ -239,6 +240,64 @@ services:
       EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE:-0}
     volumes:
       - ${EDGE_CONFIG_DIR:-./edge/config}:/var/lib/cdnlite
+
+  edge-2:
+    build:
+      context: ./edge
+      dockerfile: Dockerfile
+    depends_on:
+      core:
+        condition: service_started
+      pdns-mmdb-updater:
+        condition: service_healthy
+    volumes:
+      - edge2-config:/var/lib/cdnlite
+      - pdns-mmdb:/var/lib/cdnlite/mmdb:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1 || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+    environment:
+      EDGE_ID: ${EDGE_2_ID:-edge-local-2}
+      EDGE_REGION: ${EDGE_2_REGION:-de-test}
+      DEV_MODE: ${DEV_MODE:-0}
+      CDNLITE_CACHE_DEFAULT_TTL: ${CDNLITE_CACHE_DEFAULT_TTL:-60s}
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS:-0}
+      EDGE_SYNC_STATUS_PATH: /var/lib/cdnlite/edge-sync-status.json
+      SECURITY_EVENT_PATH: /var/lib/cdnlite/security-events.ndjson
+      CDNLITE_EDGE_LOG_FORMAT: ${CDNLITE_EDGE_LOG_FORMAT:-json}
+      CDNLITE_EDGE_LOG_LEVEL: ${CDNLITE_EDGE_LOG_LEVEL:-info}
+      CDNLITE_EDGE_LOG_REQUEST_BODY: ${CDNLITE_EDGE_LOG_REQUEST_BODY:-false}
+      CDNLITE_EDGE_DEBUG_HEADERS: ${CDNLITE_EDGE_DEBUG_HEADERS:-false}
+      CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE:-/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb}
+
+  edge-agent-2:
+    build:
+      context: ./edge
+      dockerfile: agent/Dockerfile
+    depends_on:
+      - core
+    environment:
+      CORE_URL: ${CORE_URL:-http://core:8080}
+      EDGE_ID: ${EDGE_2_ID:-edge-local-2}
+      DEV_MODE: ${DEV_MODE:-0}
+      EDGE_HOSTNAME: ${EDGE_2_HOSTNAME:-edge-local-2}
+      EDGE_PUBLIC_IP: ${EDGE_2_PUBLIC_IP:-198.51.100.20}
+      EDGE_REGION: ${EDGE_2_REGION:-de-test}
+      EDGE_COUNTRY: ${EDGE_2_COUNTRY:-DE}
+      EDGE_CONTINENT: ${EDGE_2_CONTINENT:-EU}
+      EDGE_VERSION: ${EDGE_2_VERSION:-v1}
+      EDGE_TOKEN: ${EDGE_2_TOKEN:-edge-dev-token-2}
+      EDGE_CONFIG_PATH: /var/lib/cdnlite/config.json
+      EDGE_CONFIG_CACHE_PATH: /var/lib/cdnlite/config.json
+      EDGE_SYNC_STATUS_PATH: /var/lib/cdnlite/edge-sync-status.json
+      EDGE_CONFIG_MAX_STALE_SECONDS: ${EDGE_CONFIG_MAX_STALE_SECONDS:-0}
+      METRIC_PATH: /var/lib/cdnlite/metrics.ndjson
+      SECURITY_EVENT_PATH: /var/lib/cdnlite/security-events.ndjson
+      EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE:-0}
+    volumes:
+      - edge2-config:/var/lib/cdnlite
 
   dashboard:
     build:
@@ -438,7 +497,7 @@ services:
     volumes:
       - pdns-postgres-tls:/certs/postgres:ro
     ports:
-      - "127.0.0.1:${POWERADMIN_HOST_PORT:-8084}:80"
+      - "${POWERADMIN_HOST_PORT:-8084}:80"
     healthcheck:
       test: ["CMD-SHELL", "/usr/local/bin/poweradmin-healthcheck.sh"]
       interval: 5s
@@ -450,6 +509,7 @@ volumes:
   pdns-pgdata:
   pdns-postgres-tls:
   pdns-mmdb:
+  edge2-config:
 
 networks:
   default:

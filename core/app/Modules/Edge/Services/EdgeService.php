@@ -2,6 +2,8 @@
 
 namespace App\Modules\Edge\Services;
 
+use App\Modules\Dns\Services\DnsReconciler;
+use App\Modules\Dns\Services\EdgeDnsPoolRenderer;
 use App\Support\Database;
 use App\Support\Uuid;
 
@@ -64,6 +66,7 @@ class EdgeService
     {
         $edgeId = (string) ($input['edge_id'] ?? '');
         $now = time();
+        $beforeDnsPool = $this->edgeDnsPoolHash();
 
         $publicIp = (string) ($input['public_ip'] ?? '');
         $publicIpv4 = (string) ($input['public_ipv4'] ?? $publicIp);
@@ -138,11 +141,13 @@ class EdgeService
         $stmt = Database::pdo()->prepare('SELECT * FROM edge_nodes WHERE edge_id = :edge_id LIMIT 1');
         $stmt->execute([':edge_id' => $edgeId]);
         $edge = $this->castRow((array) $stmt->fetch());
+        $this->reconcileDnsIfEdgePoolChanged($beforeDnsPool);
         return $edge;
     }
 
     public function heartbeat(array $input): bool
     {
+        $beforeDnsPool = $this->edgeDnsPoolHash();
         $publicIp = (string) ($input['public_ip'] ?? '');
         $publicIpv4 = (string) ($input['public_ipv4'] ?? $publicIp);
         $stmt = Database::pdo()->prepare(
@@ -185,7 +190,11 @@ class EdgeService
             ':config_apply_error' => isset($input['config_apply_error']) ? (string) $input['config_apply_error'] : null,
             ':updated_at' => $now,
         ]);
-        return $stmt->rowCount() > 0;
+        $changed = $stmt->rowCount() > 0;
+        if ($changed) {
+            $this->reconcileDnsIfEdgePoolChanged($beforeDnsPool);
+        }
+        return $changed;
     }
 
     public function registerToken(string $edgeId, string $token): void
@@ -231,6 +240,20 @@ class EdgeService
         $region = preg_replace('/[^a-z0-9-]/', '-', $region) ?? '';
         $region = trim($region, '-');
         return $region === '' ? 'unknown' : $region;
+    }
+
+    private function edgeDnsPoolHash(): string
+    {
+        return (new EdgeDnsPoolRenderer())->stateHash();
+    }
+
+    private function reconcileDnsIfEdgePoolChanged(string $beforeHash): void
+    {
+        if ($beforeHash === $this->edgeDnsPoolHash()) {
+            return;
+        }
+
+        (new DnsReconciler())->reconcile(false);
     }
 
     private function normalizeCode(string $code): string

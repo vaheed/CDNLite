@@ -227,6 +227,17 @@ if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
             Logger::warn('edge_token_bootstrap_failed', ['error' => $e->getMessage()]);
         }
     }
+    foreach (array_filter(array_map('trim', explode(',', (string) getenv('CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS')))) as $pair) {
+        [$extraEdgeId, $extraToken] = array_pad(array_map('trim', explode(':', $pair, 2)), 2, '');
+        if ($extraEdgeId === '' || $extraToken === '') {
+            continue;
+        }
+        try {
+            $edgeService->registerToken($extraEdgeId, $extraToken);
+        } catch (\Throwable $e) {
+            Logger::warn('edge_extra_token_bootstrap_failed', ['edge_id' => $extraEdgeId, 'error' => $e->getMessage()]);
+        }
+    }
 }
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_ADMIN_USER', false)) {

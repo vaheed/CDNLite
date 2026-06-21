@@ -16,7 +16,7 @@ def test_routing_schema_and_planner_contract():
     assert "CHECK (routing_mode IN ('geo', 'anycast', 'dns_only'))" in schema
     assert "activeEdgeIps" not in planner
     assert "no_healthy_edge_ips_for_apex" not in planner
-    assert "return $this->result('ALIAS', $canonical" in planner
+    assert "return $this->result('LUA', 'managed edge pool'" in planner
     assert "return $this->result('CNAME'" in planner
     assert "canonicalHostname" in planner
     assert "routing_policy" in planner

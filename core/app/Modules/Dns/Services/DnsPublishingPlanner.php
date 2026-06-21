@@ -70,7 +70,7 @@ class DnsPublishingPlanner
         $canonical = $this->canonicalHostname((string) ($record['id'] ?? ''), (string) $domain['id']);
 
         if ($isApex) {
-            return $this->result('ALIAS', $canonical, $policy);
+            return $this->result('LUA', 'managed edge pool', $policy);
         }
         return $this->result('CNAME', $canonical, $policy);
     }

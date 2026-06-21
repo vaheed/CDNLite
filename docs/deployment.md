@@ -150,7 +150,7 @@ docker compose exec core php artisan cdn:powerdns:doctor
 
 Verify an edge through `/health`, confirm `edge-mmdb-updater` is healthy when
 country WAF or country origin rules are used, then send a Host-header request
-for a staged domain. Verify apex ALIAS and CDN target answers at the same point
+for a staged domain. Verify apex LUA and CDN target answers at the same point
 in time.
 
 ## Security Checklist

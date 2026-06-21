@@ -341,8 +341,9 @@ DNS tips:
 - Additional proxied records at the same DNS name are stored and returned as
   DNS records. CDNLite no longer silently converts them into hidden backup
   origins or returns an earlier record ID.
-- A proxied apex (`@`) publishes `ALIAS` to the domain's stable CDN site
-  target. A proxied subdomain publishes `CNAME` to the same target.
+- A proxied apex (`@`) publishes PowerDNS `LUA` `A`/`AAAA` records from the
+  canonical edge pool. A proxied subdomain publishes `CNAME` to the stable site
+  target.
 - A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.
 - Keep TTL low during migration, then increase it after a stable cutover.
 - Use `preview-routing` before changing Geo DNS routes on a production record.

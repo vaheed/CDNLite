@@ -57,7 +57,7 @@ The default model contains:
 - 1,000 DNS records per domain.
 - 10,000,000 logical DNS records.
 - 10 edge nodes across at least three regions.
-- Proxied apex ALIAS and subdomain CNAME records.
+- Proxied apex LUA and subdomain CNAME records.
 - Ten edge-health transitions with concurrent customer DNS changes.
 
 Plan substantial time, memory, PostgreSQL storage, and PowerDNS storage. The

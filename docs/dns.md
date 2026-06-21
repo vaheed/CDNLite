@@ -40,8 +40,8 @@ The root `docker-compose.yml` starts the project DNS stack by default:
 - `pdns-postgres`: PostgreSQL backend dedicated to DNS data.
 - `pdns-db-init`: idempotent PowerDNS and Poweradmin schema initialization.
 - `pdns-mmdb-updater`: GeoIP MMDB downloader and freshness loop.
-- `pdns-recursor`: recursive resolver used only for authoritative ALIAS expansion.
-- `pdns-auth`: PowerDNS Authoritative 5.x with PostgreSQL, Lua records, EDNS Client Subnet, and ALIAS expansion.
+- `pdns-recursor`: recursive resolver kept available for local recursive checks.
+- `pdns-auth`: PowerDNS Authoritative 5.x with PostgreSQL, Lua records, and EDNS Client Subnet.
 - `poweradmin`: operator UI backed by the same DNS database.
 
 Start the product with:
@@ -103,26 +103,25 @@ newline-separated IP addresses, such as `203.0.113.10, 203.0.113.11`. When
 static anycast IPs are configured, the shared proxy host publishes plain `A` or
 `AAAA` rrsets containing all configured addresses for that family and
 completely bypasses DNSGeo Lua, country routing, and continent routing for that
-family. CDNLite continues to keep customer zones stable: proxied apex records
-still point by `ALIAS` to the stable site target, and proxied subdomains still
-point by `CNAME` to the stable site target.
+family. CDNLite keeps proxied subdomains on stable `CNAME` targets, while
+proxied apex records publish direct PowerDNS `LUA` answers from the same
+canonical edge pool as the shared proxy host.
 
-Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host.
-Proxied customer apex records are always published as `ALIAS` to that stable
-site target. Proxied subdomains are always published as `CNAME`. CDNLite has no
-apex address-flattening mode and never copies edge IPs into customer zones.
-Changing an edge IP or health state therefore changes only the shared proxy
-rrsets; customer zones and site CNAMEs are not rewritten. Edge heartbeat and
-registration requests only update local eligibility state, so they stay fast
-even if PowerDNS is slow. The next reconcile or force sync publishes the latest
-shared proxy rrsets and records distinct edge-state hashes in
+Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host for
+proxied subdomains. Proxied customer apex records are always published as
+PowerDNS `LUA` `A`/`AAAA` content at the zone apex, never as `ALIAS` or
+`CNAME`. DNS-only apex `A` and `AAAA` records remain normal address records.
+Changing an edge IP or health state updates the shared proxy LUA and every
+managed proxied apex LUA record through reconciliation. Edge heartbeat and
+registration requests trigger reconciliation only when the effective DNS edge
+pool changes. Each generation records distinct edge-state hashes in
 `edge_state_generations` for inspection and test assertions.
 
 For DNS-only `A` and `AAAA` records, content must remain an IPv4 or IPv6
 address respectively. For proxied `A` and `AAAA` records, the dashboard content
 field is the private default origin and accepts either an IP address or a
 hostname. Country origin overrides use the same IP-or-hostname rule and do not
-change the public ALIAS/CNAME records.
+change the public LUA/CNAME records.
 
 Core operational credentials remain database-backed platform settings. Configure its API URL as `http://pdns-auth:8081`, server ID as `localhost`, and use the same API key through the admin settings API or UI.
 
@@ -226,7 +225,7 @@ delegation no longer matches. Set
 
 Adding another proxied A/AAAA target at a hostname that already has a proxied
 record creates another origin row for the same host. CDNLite keeps the public
-ALIAS or CNAME stable and balances between the enabled origin targets.
+LUA or CNAME stable and balances between the enabled origin targets.
 
-At the zone apex, the PowerDNS `ALIAS` used for proxying may coexist with normal
+At the zone apex, the PowerDNS `LUA` used for proxying may coexist with normal
 apex records such as `MX`, `TXT`, and `CAA`. A real `CNAME` remains exclusive.

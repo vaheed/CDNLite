@@ -9,7 +9,8 @@ class DnsDesiredStateBuilder
     public function __construct(
         private DnsPublishingPlanner $planner = new DnsPublishingPlanner(),
         private EdgeDnsService $edgeDns = new EdgeDnsService(),
-        private PowerDnsRecordBuilder $records = new PowerDnsRecordBuilder()
+        private PowerDnsRecordBuilder $records = new PowerDnsRecordBuilder(),
+        private EdgeDnsPoolRenderer $edgePool = new EdgeDnsPoolRenderer()
     ) {
     }
 
@@ -29,6 +30,19 @@ class DnsDesiredStateBuilder
         foreach ($stmt->fetchAll() as $row) {
             $domain = ['id' => (string) $row['site_id'], 'domain' => (string) $row['domain']];
             $record = $this->castRecord((array) $row);
+            if ($record['proxied'] === true && $this->isApex((string) $record['name'], (string) $domain['domain'])) {
+                foreach ($this->edgePool->luaRecords() as $type => $content) {
+                    $rrsets[] = $this->rrset(
+                        (string) $domain['domain'],
+                        '@',
+                        'LUA',
+                        (int) $record['ttl'],
+                        [$content],
+                        'dns_record:' . $record['id'] . ':apex_lua:' . $type
+                    );
+                }
+                continue;
+            }
             $plan = $this->planner->plan($domain, $record);
             $contents = array_values(array_map(
                 fn (mixed $content): string => $this->normalizeContent(
@@ -157,6 +171,13 @@ class DnsDesiredStateBuilder
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];
         return $row;
+    }
+
+    private function isApex(string $name, string $domain): bool
+    {
+        $name = strtolower(rtrim(trim($name), '.'));
+        $domain = strtolower(rtrim(trim($domain), '.'));
+        return $name === '' || $name === '@' || $name === $domain;
     }
 
     private function normalizeContent(string $type, string $content, ?int $priority): string

@@ -12,7 +12,8 @@ class DnsReconciler
         private DnsDesiredStateBuilder $builder = new DnsDesiredStateBuilder(),
         private PowerDnsService $powerDns = new PowerDnsService(),
         private DnsSyncStateService $syncState = new DnsSyncStateService(),
-        private PowerDnsSoaService $soa = new PowerDnsSoaService()
+        private PowerDnsSoaService $soa = new PowerDnsSoaService(),
+        private EdgeDnsPoolRenderer $edgePool = new EdgeDnsPoolRenderer()
     ) {
     }
 
@@ -119,7 +120,50 @@ class DnsReconciler
     {
         $desired = $this->builder->build();
         $zones = $this->byZone($desired);
-        return ['rrsets' => $desired, 'zones' => count($zones), 'changes' => count($desired), 'soa' => $this->soa->preview($zones)];
+        return [
+            'rrsets' => $desired,
+            'zones' => count($zones),
+            'changes' => count($desired),
+            'counts' => $this->previewCounts($desired),
+            'errors' => $this->edgePool->luaRecords() === [] ? ['no_eligible_edge_ips'] : [],
+            'soa' => $this->soa->preview($zones),
+        ];
+    }
+
+    private function previewCounts(array $desired): array
+    {
+        $counts = [
+            'zones_scanned' => count($this->byZone($desired)),
+            'proxied_apex_records_scanned' => 0,
+            'apex_lua_records_to_create_or_update' => 0,
+            'platform_proxy_lua_records_to_update' => 0,
+            'old_managed_apex_alias_records_to_remove' => 0,
+            'skipped_uncertain_ownership' => 0,
+            'errors' => 0,
+        ];
+
+        foreach ($desired as $rrset) {
+            $source = (string) ($rrset['source'] ?? '');
+            if (str_contains($source, ':apex_lua:')) {
+                $counts['proxied_apex_records_scanned']++;
+                $counts['apex_lua_records_to_create_or_update']++;
+            }
+            if (str_starts_with($source, 'shared_proxy:')) {
+                $counts['platform_proxy_lua_records_to_update']++;
+            }
+        }
+
+        foreach ($this->storedIdentities() as $rrset) {
+            if (strtoupper((string) $rrset['rrset_type']) === 'ALIAS') {
+                $counts['old_managed_apex_alias_records_to_remove']++;
+            }
+        }
+
+        if ($this->edgePool->luaRecords() === []) {
+            $counts['errors']++;
+        }
+
+        return $counts;
     }
 
     private function byZone(array $desired): array

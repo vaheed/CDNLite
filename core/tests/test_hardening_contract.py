@@ -280,8 +280,8 @@ echo json_encode($result, JSON_UNESCAPED_SLASHES);
     assert updated["data"]["proxied"] is True
     assert updated["data"]["origin_type"] == "A"
     assert updated["data"]["origin_content"] == "127.0.0.2"
-    assert updated["data"]["public_type"] == "ALIAS"
-    assert updated["data"]["public_content"] == f"site-{domain_id}.cdn.example.net."
+    assert updated["data"]["public_type"] == "LUA"
+    assert updated["data"]["public_content"] == "managed edge pool"
     assert "canonical_edge_hostname" not in updated["data"]
 
     non_apex = run_artisan(

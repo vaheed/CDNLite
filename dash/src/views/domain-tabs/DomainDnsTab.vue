@@ -6,7 +6,7 @@
         <p class="text-xs text-slate-500">
           <span v-if="dnsStatus?.last_success_at">Last synced {{ new Date(dnsStatus.last_success_at * 1000).toLocaleString() }}.</span>
           <span v-else>Waiting for the first successful zone sync.</span>
-          Proxied apex records publish as ALIAS; proxied subdomains publish as CNAME.
+          Proxied apex records publish as PowerDNS LUA; proxied subdomains publish as CNAME.
         </p>
         <p v-if="dnsStatus?.last_error" class="mt-1 text-xs text-rose-600">{{ dnsStatus.last_error }}</p>
         <p class="mt-1 text-xs text-slate-500">Records can be prepared before delegation. They publish automatically after nameserver verification and are withdrawn if delegation moves away.</p>
@@ -68,7 +68,7 @@
 
       <div v-if="form.proxied" class="notice-info">
         <Cloud class="mt-0.5 h-5 w-5 shrink-0" />
-        <p>{{ isApex(form.name) ? 'The apex is published as a PowerDNS ALIAS' : 'This subdomain is published as a CNAME' }} to the stable site target. Origins remain private backend targets.</p>
+        <p>{{ isApex(form.name) ? 'The apex is published as PowerDNS LUA from the shared edge pool' : 'This subdomain is published as a CNAME to the stable site target' }}. Origins remain private backend targets.</p>
       </div>
       <p v-if="error" class="state-error">{{ error }}</p>
       <div class="flex justify-end gap-2"><button type="button" class="button-secondary" @click="editing = false">Cancel</button><button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save record' }}</button></div>

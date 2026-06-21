@@ -37,7 +37,7 @@ describe('DomainDnsTab retry actions', () => {
         proxied: true,
         origin_type: 'A',
         origin_content: '203.0.113.10',
-        public_type: 'ALIAS',
+        public_type: 'CNAME',
         public_content: 'example.test.',
         origin_host: 'origin.example.test',
         origin_tls_verify: 'ignore',
