@@ -73,8 +73,8 @@ audit APIs provide bounded `limit`/`offset` queries, and the domain Activity tab
 applies `domain_id` at the API boundary. Event Viewer consumes global bounded
 operations APIs instead of issuing one request per domain.
 
-Edge country resolution is shared by Geo origin routing, cache keys, and usage
-reporting. The edge first trusts `X-CDNLITE-Country` or `CF-IPCountry` for
+Edge country resolution is shared by proxy origin selection, cache keys, and
+usage reporting. The edge first trusts `X-CDNLITE-Country` or `CF-IPCountry` for
 controlled upstream integrations and tests, then falls back to the mounted MMDB.
 Resolved values are sent to core as `client_country` in usage metrics, which
 feeds per-domain Activity summaries and dashboard traffic reports.

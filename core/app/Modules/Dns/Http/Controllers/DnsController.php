@@ -70,6 +70,10 @@ class DnsController
 
     public function create(string $domainId, array $input): array
     {
+        $geoRoutes = $this->extractGeoRoutes($input);
+        if ($geoRoutes instanceof \RuntimeException) {
+            return ['error' => $geoRoutes->getMessage(), 'status' => 422];
+        }
         $policy = $this->validateRoutingPolicy($input);
         if ($policy !== null) {
             return $policy;
@@ -129,9 +133,21 @@ class DnsController
         if ($apex !== null) {
             return $apex;
         }
+        $geoPreflight = $this->validateInlineGeoRoutes($input, $geoRoutes);
+        if ($geoPreflight !== null) {
+            return $geoPreflight;
+        }
 
         try {
-            return ['data' => $this->service->create($domainId, $input)];
+            $record = $this->service->create($domainId, $input);
+            if ($geoRoutes !== null) {
+                if (!empty($record['proxied'])) {
+                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
+                }
+                $this->geo->replace($domainId, (string) $record['id'], $geoRoutes);
+                $record = $this->service->find($domainId, (string) $record['id']) ?? $record;
+            }
+            return ['data' => $record];
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
             if ($message === 'domain_not_found') {
@@ -140,7 +156,7 @@ class DnsController
             if (in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)) {
                 return ['error' => $message, 'status' => 409];
             }
-            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
+            if (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'proxy_and_geodns_are_mutually_exclusive', 'geodns_record_type_not_supported', 'invalid_geodns_ipv4_answer', 'invalid_geodns_ipv6_answer', 'invalid_country_code', 'invalid_continent_code', 'geo_default_route_required', 'geo_answer_type_mismatch', 'invalid_geo_route_scope'], true)) {
                 return ['error' => $message, 'status' => 422];
             }
             $payload = $this->dnsPublishFailure($message);
@@ -153,6 +169,10 @@ class DnsController
 
     public function update(string $domainId, string $recordId, array $input): array
     {
+        $geoRoutes = $this->extractGeoRoutes($input);
+        if ($geoRoutes instanceof \RuntimeException) {
+            return ['error' => $geoRoutes->getMessage(), 'status' => 422];
+        }
         $policy = $this->validateRoutingPolicy($input);
         if ($policy !== null) {
             return $policy;
@@ -247,15 +267,26 @@ class DnsController
             if ($apex !== null) {
                 return $apex;
             }
+            $geoPreflight = $this->validateInlineGeoRoutes(array_merge($current, $input), $geoRoutes);
+            if ($geoPreflight !== null) {
+                return $geoPreflight;
+            }
         }
 
         try {
             $record = $this->service->update($domainId, $recordId, $input);
+            if ($record !== null && $geoRoutes !== null) {
+                if (!empty($record['proxied'])) {
+                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
+                }
+                $this->geo->replace($domainId, $recordId, $geoRoutes);
+                $record = $this->service->find($domainId, $recordId) ?? $record;
+            }
         } catch (\RuntimeException $e) {
             $message = $e->getMessage();
             if (in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true)) {
                 $payload = ['error' => $message, 'status' => 409];
-            } elseif (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured'], true)) {
+            } elseif (in_array($message, ['anycast_requires_proxied_record', 'global_anycast_not_configured', 'proxy_and_geodns_are_mutually_exclusive', 'geodns_record_type_not_supported', 'invalid_geodns_ipv4_answer', 'invalid_geodns_ipv6_answer', 'invalid_country_code', 'invalid_continent_code', 'geo_default_route_required', 'geo_answer_type_mismatch', 'invalid_geo_route_scope'], true)) {
                 $payload = ['error' => $message, 'status' => 422];
             } else {
                 $payload = $this->dnsPublishFailure($message);
@@ -310,7 +341,11 @@ class DnsController
         try {
             $routes = $this->geo->replace($domainId, $recordId, $input['routes']);
         } catch (\RuntimeException $e) {
-            return $this->dnsPublishFailure($e->getMessage(), 502);
+            $message = $e->getMessage();
+            if (in_array($message, ['proxy_and_geodns_are_mutually_exclusive', 'geodns_record_type_not_supported', 'invalid_geodns_ipv4_answer', 'invalid_geodns_ipv6_answer', 'invalid_country_code', 'invalid_continent_code', 'geo_default_route_required', 'geo_answer_type_mismatch', 'invalid_geo_route_scope'], true)) {
+                return ['error' => $message, 'status' => 422];
+            }
+            return $this->dnsPublishFailure($message, 502);
         }
         return $routes === null
             ? ['error' => 'record_not_found', 'status' => 404]
@@ -344,6 +379,69 @@ class DnsController
             return ['error' => 'geo_origins_must_be_object', 'field' => 'geo_origins', 'status' => 422];
         }
         return null;
+    }
+
+    /**
+     * @return list<array<string, mixed>>|\RuntimeException|null
+     */
+    private function extractGeoRoutes(array &$input): array|\RuntimeException|null
+    {
+        if (!array_key_exists('geo_routes', $input)) {
+            return null;
+        }
+        if (!is_array($input['geo_routes'])) {
+            return new \RuntimeException('geo_routes_array_required');
+        }
+        $routes = $input['geo_routes'];
+        unset($input['geo_routes']);
+        if (($input['proxied'] ?? false) && $routes !== []) {
+            return new \RuntimeException('proxy_and_geodns_are_mutually_exclusive');
+        }
+        return $routes;
+    }
+
+    private function validateInlineGeoRoutes(array $record, ?array $routes): ?array
+    {
+        if ($routes === null || $routes === []) {
+            return null;
+        }
+        if (!empty($record['proxied'])) {
+            return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
+        }
+        $type = strtoupper((string) ($record['type'] ?? ''));
+        if (!in_array($type, ['A', 'AAAA'], true)) {
+            return ['error' => 'geodns_record_type_not_supported', 'status' => 422];
+        }
+        $hasDefault = false;
+        foreach ($routes as $route) {
+            if (!is_array($route)) {
+                return ['error' => 'geo_routes_array_required', 'status' => 422];
+            }
+            $scope = (string) ($route['route_scope'] ?? '');
+            if ($scope === '') {
+                $scope = empty($route['country_code'] ?? '') && empty($route['continent_code'] ?? '') ? 'default' : (!empty($route['country_code'] ?? '') ? 'country' : 'continent');
+            }
+            if (!in_array($scope, ['default', 'country', 'continent'], true)) {
+                return ['error' => 'invalid_geo_route_scope', 'status' => 422];
+            }
+            if ($scope === 'country' && !in_array(strtoupper(trim((string) ($route['country_code'] ?? ''))), GeoRoutingService::COUNTRIES, true)) {
+                return ['error' => 'invalid_country_code', 'status' => 422];
+            }
+            if ($scope === 'continent' && !in_array(strtoupper(trim((string) ($route['continent_code'] ?? ''))), GeoRoutingService::CONTINENTS, true)) {
+                return ['error' => 'invalid_continent_code', 'status' => 422];
+            }
+            $hasDefault = $hasDefault || $scope === 'default';
+            $answerType = strtoupper((string) ($route['answer_type'] ?? $type));
+            if ($answerType !== $type) {
+                return ['error' => 'geo_answer_type_mismatch', 'status' => 422];
+            }
+            $answer = trim((string) ($route['answer_value'] ?? ''));
+            $flag = $type === 'AAAA' ? FILTER_FLAG_IPV6 : FILTER_FLAG_IPV4;
+            if ($answer === '' || filter_var($answer, FILTER_VALIDATE_IP, $flag) === false) {
+                return ['error' => $type === 'AAAA' ? 'invalid_geodns_ipv6_answer' : 'invalid_geodns_ipv4_answer', 'status' => 422];
+            }
+        }
+        return $hasDefault ? null : ['error' => 'geo_default_route_required', 'status' => 422];
     }
 
     private function dnsPublishFailure(string $message, int $status = 502): array

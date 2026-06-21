@@ -168,6 +168,10 @@ record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.colum
 assert_eq "$record_origin_columns" "5" "DNS record origin columns are incomplete"
 record_step PASS "schema-dns-record-origin-columns" "record-level origin columns are present"
 
+geo_route_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_record_geo_routes' AND column_name IN ('route_scope','country_code','continent_code','answer_type','answer_value','enabled');")"
+assert_eq "$geo_route_columns" "6" "raw GeoDNS route columns are incomplete"
+record_step PASS "schema-raw-geodns-route-columns" "raw GeoDNS route columns are present"
+
 retry 30 1 docker compose exec -T origin-tls wget -qO- --no-check-certificate https://127.0.0.1/ >/dev/null
 retry 30 1 docker compose exec -T origin-http wget -qO- http://127.0.0.1/ >/dev/null
 record_step PASS "origin-fixtures-health" "HTTPS and HTTP origin fixtures are reachable"

@@ -123,8 +123,26 @@ pool changes. Each generation records distinct edge-state hashes in
 For DNS-only `A` and `AAAA` records, content must remain an IPv4 or IPv6
 address respectively. For proxied `A` and `AAAA` records, the dashboard content
 field is the private default origin and accepts either an IP address or a
-hostname. Country origin overrides use the same IP-or-hostname rule and do not
-change the public LUA/CNAME records.
+hostname. Proxy origin overrides are edge proxy configuration and do not change
+the public LUA/CNAME records.
+
+## Raw GeoDNS Records
+
+Raw GeoDNS is a third DNS record mode, separate from normal DNS-only records and
+proxied CDN records. It is currently supported for DNS-only `A` and `AAAA`
+records. Users enter the record type, name, required default answer, TTL, and
+optional country or continent answers. Users never enter Lua.
+
+Core stores these answers in `dns_record_geo_routes` and publishes one PowerDNS
+`LUA` rrset for the record. Generated Lua checks country routes first, then
+continent routes, then returns the default answer. Country codes are ISO
+3166-1 alpha-2 values, and continent codes are `AF`, `AN`, `AS`, `EU`, `NA`,
+`OC`, and `SA`.
+
+Proxy and raw GeoDNS are mutually exclusive. Enabling proxy removes raw GeoDNS
+routes, and attempts to save proxy plus raw GeoDNS routes are rejected with
+`proxy_and_geodns_are_mutually_exclusive`. CNAME GeoDNS is disabled because the
+current supported raw GeoDNS publisher only emits safe A/AAAA Lua answers.
 
 Core operational credentials remain database-backed platform settings. Configure its API URL as `http://pdns-auth:8081`, server ID as `localhost`, and use the same API key through the admin settings API or UI.
 

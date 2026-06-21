@@ -895,6 +895,30 @@ create_dns '{"type":"TXT","name":"_verify","content":"hello-verify","ttl":120,"p
 create_dns "{\"type\":\"MX\",\"name\":\"@\",\"content\":\"mail.${TEST_DOMAIN}.\",\"ttl\":300,\"priority\":10,\"proxied\":false}"
 record_step PASS "dns-create-multi" "dns_ids=${DNS_IDS[*]}"
 
+raw_geodns_payload="$(jq -nc '{
+  type:"A", name:"geo", content:"203.0.113.10", ttl:300, proxied:false,
+  geo_routes:[
+    {route_scope:"default", answer_type:"A", answer_value:"203.0.113.10", enabled:true},
+    {route_scope:"country", country_code:"US", answer_type:"A", answer_value:"198.51.100.10", enabled:true},
+    {route_scope:"continent", continent_code:"EU", answer_type:"A", answer_value:"198.51.100.20", enabled:true}
+  ]
+}')"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" "$raw_geodns_payload"
+assert_http_status "$HTTP_CODE" "201" "raw GeoDNS record create failed"
+RAW_GEODNS_ID="$(json_get "$HTTP_BODY" '.data.id')"
+DNS_IDS+=("$RAW_GEODNS_ID")
+raw_geodns_count="$(json_get "$HTTP_BODY" '.data.geo_routes_count')"
+assert_eq "$raw_geodns_count" "2" "raw GeoDNS response should count non-default rules"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${RAW_GEODNS_ID}/geo-routes"
+assert_http_status "$HTTP_CODE" "200" "raw GeoDNS route list failed"
+assert_contains "$HTTP_BODY" '"route_scope":"country"' "raw GeoDNS country route missing"
+assert_contains "$HTTP_BODY" '"continent_code":"EU"' "raw GeoDNS continent route missing"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+  '{"type":"A","name":"bad-geo","content":"203.0.113.11","ttl":300,"proxied":true,"geo_routes":[{"route_scope":"default","answer_type":"A","answer_value":"203.0.113.11","enabled":true}]}'
+assert_http_status "$HTTP_CODE" "422" "proxy plus raw GeoDNS should be rejected"
+assert_contains "$HTTP_BODY" "proxy_and_geodns_are_mutually_exclusive" "proxy plus raw GeoDNS rejection mismatch"
+record_step PASS "dns-raw-geodns" "raw GeoDNS routes stored and proxy conflict rejected"
+
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"content":"1.1.1.2","ttl":120}'
 assert_http_status "$HTTP_CODE" "200" "dns update failed"
 updated_dns_content="$(json_get "$HTTP_BODY" '.data.content')"
@@ -993,6 +1017,10 @@ if [[ "${POWERDNS_ENABLED:-1}" == "1" ]]; then
   if jq -e --arg name "${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and (.type == "ALIAS" or .type == "CNAME"))' <<<"$zone_json" >/dev/null; then
     fail "proxied apex must not contain ALIAS or CNAME rrsets"
   fi
+  geo_lua="$(jq -r --arg name "geo.${TEST_DOMAIN}." '.rrsets[] | select(.name == $name and .type == "LUA") | .records[].content' <<<"$zone_json")"
+  assert_contains "$geo_lua" "country('US')" "raw GeoDNS LUA missing country route"
+  assert_contains "$geo_lua" "continent('EU')" "raw GeoDNS LUA missing continent route"
+  assert_contains "$geo_lua" "203.0.113.10" "raw GeoDNS LUA missing default answer"
   record_step PASS "powerdns-sync-positive" "proxied apex is LUA in real PowerDNS"
 
   bad_code="$(curl -sS -o /tmp/pdns-bad.txt -w '%{http_code}' \

@@ -14,6 +14,9 @@ def test_record_routing_and_geo_schema():
     assert "canonical_edge_hostname" not in schema
     assert "edge_target" not in schema
     assert "CREATE TABLE IF NOT EXISTS dns_record_geo_routes" in schema
+    assert "route_scope TEXT NOT NULL DEFAULT 'country'" in schema
+    assert "continent_code TEXT NULL" in schema
+    assert "CHECK (answer_type IN ('A', 'AAAA'))" in schema
     assert "('standard', 'geo', 'anycast', 'geo_anycast')" in schema
 
 
@@ -47,31 +50,35 @@ def test_dashboard_record_level_routing_contract():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
     assert "Default origin IP or hostname" in view
     assert "Proxy through CDNLite" in view
-    assert "Default origin protocol" in view
-    assert "origin_scheme: form.origin_scheme" in view
-    assert "...originProtocolPayload(form.origin_scheme)" in view
-    assert "Geo origin routing" in view
-    assert "country-specific origins" in view
-    assert "geoOriginPayload" in view
+    assert "GeoDNS answers" in view
+    assert "countryOptions" in view
+    assert "continentOptions" in view
+    assert "geoRoutePayload" in view
+    assert "origin_scheme: form.origin_scheme" not in view
+    assert "...originProtocolPayload(form.origin_scheme)" not in view
+    assert "Geo origin routing" not in view
+    assert "country-specific origins" not in view
+    assert "geoOriginPayload" not in view
     assert "Anycast IPv4" not in view
     assert "Edge node ID" not in view
     assert "Route to edge country" not in view
 
 
-def test_dashboard_geo_origins_are_independent_from_proxy_status():
+def test_dashboard_geo_answers_are_mutually_exclusive_with_proxy():
     view = read("dash/src/views/domain-tabs/DomainDnsTab.vue")
-    assert ':disabled="!form.proxied"' not in view
-    assert 'v-if="form.geo_enabled && form.proxied"' not in view
-    assert "if (form.proxied && form.geo_enabled)" not in view
+    assert ':disabled="form.proxied || !geoDnsTypeSupported"' in view
+    assert "if (form.proxied) form.geo_enabled = false" in view
+    assert "if (form.geo_enabled) form.proxied = false" in view
     assert "if (form.geo_enabled)" in view
-    assert "origin_host: form.content.trim()" in view
-    assert "scheme: origin.scheme === 'https' ? 'https' : 'http'" in view
+    assert "origin_host: form.proxied ? form.content.trim() : undefined" in view
 
 
-def test_local_development_edges_are_selectable():
+def test_raw_geodns_does_not_validate_against_edge_countries():
     service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
-    assert "'LOCAL'" in service
-    assert "Local development" in service
+    assert "edge_country_unavailable" not in service
+    assert "countryAvailable" not in service
+    assert "invalid_geodns_ipv4_answer" in service
+    assert "invalid_geodns_ipv6_answer" in service
 
 
 def test_powerdns_lua_records_are_expressions_not_chunks():

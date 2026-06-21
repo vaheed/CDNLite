@@ -50,6 +50,7 @@ export interface DnsRecord {
   origin_type?: string; origin_content?: string; public_type?: string; public_content?: string;
   origin_host?: string | null; origin_tls_verify?: 'verify' | 'ignore'; origin_scheme?: 'http' | 'https' | null;
   origin_status?: string; geo_origins?: Record<string, { host: string; scheme?: 'http' | 'https'; port?: 80 | 443 | number; tls_verify?: 'verify' | 'ignore' }>;
+  geo_routes?: GeoRoute[];
   routing_policy?: 'standard' | 'geo' | 'anycast' | 'geo_anycast';
   geo_routes_count?: number;
   managed_by?: string | null; readonly?: boolean;
@@ -62,7 +63,11 @@ export interface DomainRoutingSettings {
 }
 export interface DnsRoutingPreview { type: string; content: string; routing_mode: string; powerdns: string; warning?: string | null; }
 export interface EdgeCountry { country_code: string; name?: string; node_count: number; has_ipv4: boolean; has_ipv6: boolean; }
-export interface GeoRoute { id?: Id; country_code?: string | null; edge_country_code?: string; enabled?: boolean; }
+export type GeoRouteScope = 'default' | 'country' | 'continent';
+export interface GeoRoute {
+  id?: Id; route_scope?: GeoRouteScope; country_code?: string | null; continent_code?: string | null;
+  answer_type?: 'A' | 'AAAA'; answer_value?: string; enabled?: boolean;
+}
 
 export interface RedirectRule { id: Id; enabled: boolean; source_path: string; target_url: string; status_code: number; priority: number; match_type: string; preserve_query: boolean; }
 export interface PageRule { id: Id; enabled: boolean; pattern?: string; path_pattern?: string; priority: number; actions: Record<string, unknown>; }

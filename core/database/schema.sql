@@ -169,27 +169,41 @@ CREATE TABLE IF NOT EXISTS edge_pool_members (
 CREATE TABLE IF NOT EXISTS dns_record_geo_routes (
   id TEXT PRIMARY KEY,
   dns_record_id TEXT NOT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
+  route_scope TEXT NOT NULL DEFAULT 'country',
   country_code TEXT NULL,
+  continent_code TEXT NULL,
   edge_node_id TEXT NULL REFERENCES edge_nodes(id) ON DELETE SET NULL,
   edge_pool_id TEXT NULL REFERENCES edge_pools(id) ON DELETE SET NULL,
-  answer_type TEXT NOT NULL DEFAULT 'EDGE_PROXY',
+  answer_type TEXT NOT NULL,
   answer_value TEXT NULL,
   priority INTEGER NOT NULL DEFAULT 0,
   weight INTEGER NOT NULL DEFAULT 100,
   enabled BOOLEAN NOT NULL DEFAULT true,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
+  CHECK (route_scope IN ('default', 'country', 'continent')),
   CHECK (country_code IS NULL OR country_code ~ '^[A-Z]{2}$'),
-  CHECK (answer_type IN ('A', 'AAAA', 'CNAME', 'EDGE_PROXY')),
+  CHECK (continent_code IS NULL OR continent_code IN ('AF', 'AN', 'AS', 'EU', 'NA', 'OC', 'SA')),
+  CHECK (answer_type IN ('A', 'AAAA')),
+  CHECK (edge_node_id IS NULL AND edge_pool_id IS NULL AND answer_value IS NOT NULL),
   CHECK (
-    (edge_node_id IS NOT NULL AND edge_pool_id IS NULL)
-    OR (edge_node_id IS NULL AND edge_pool_id IS NOT NULL)
-    OR (edge_node_id IS NULL AND edge_pool_id IS NULL AND answer_value IS NOT NULL)
+    (route_scope = 'default' AND country_code IS NULL AND continent_code IS NULL)
+    OR (route_scope = 'country' AND country_code IS NOT NULL AND continent_code IS NULL)
+    OR (route_scope = 'continent' AND country_code IS NULL AND continent_code IS NOT NULL)
   )
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS dns_record_geo_routes_default_idx
+  ON dns_record_geo_routes (dns_record_id)
+  WHERE route_scope = 'default';
+
 CREATE UNIQUE INDEX IF NOT EXISTS dns_record_geo_routes_country_idx
-  ON dns_record_geo_routes (dns_record_id, COALESCE(country_code, 'DEFAULT'));
+  ON dns_record_geo_routes (dns_record_id, country_code)
+  WHERE route_scope = 'country';
+
+CREATE UNIQUE INDEX IF NOT EXISTS dns_record_geo_routes_continent_idx
+  ON dns_record_geo_routes (dns_record_id, continent_code)
+  WHERE route_scope = 'continent';
 
 CREATE TABLE IF NOT EXISTS domain_origins (
   id TEXT PRIMARY KEY,

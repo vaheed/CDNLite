@@ -29,7 +29,7 @@ CDNLite lets operators register domains, manage DNS records, define origins, con
 ## Key Features
 
 - Domain lifecycle management with nameserver verification and activation.
-- DNS records with proxy toggles, DNS-only records, anycast routing, and Geo DNS route previews.
+- DNS records with proxy toggles, DNS-only records, anycast routing, and raw GeoDNS A/AAAA answers.
 - Multi-origin support with independent origins and scheduled health checks.
 - Cache settings, cache rules, and purge request history.
 - Redirects, page rules, WAF rules, rate limits, custom headers, and IP access rules.

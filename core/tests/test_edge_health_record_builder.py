@@ -31,6 +31,53 @@ echo $builder->luaRecord($argv[1], json_decode($argv[2], true));
     return result.stdout
 
 
+def build_raw_geodns_record(routes: list[dict], dns_type: str = "A") -> str:
+    php = """
+require 'core/app/Modules/Dns/Services/RawGeoDnsRecordBuilder.php';
+
+$builder = new App\\Modules\\Dns\\Services\\RawGeoDnsRecordBuilder();
+
+echo $builder->luaRecord($argv[1], json_decode($argv[2], true));
+"""
+
+    result = subprocess.run(
+        ["php", "-r", php, dns_type, json.dumps(routes)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    return result.stdout
+
+
+def test_raw_geodns_country_continent_default_precedence():
+    record = build_raw_geodns_record([
+        {"route_scope": "default", "answer_type": "A", "answer_value": "203.0.113.10", "enabled": True},
+        {"route_scope": "continent", "continent_code": "EU", "answer_type": "A", "answer_value": "198.51.100.20", "enabled": True},
+        {"route_scope": "country", "country_code": "DE", "answer_type": "A", "answer_value": "198.51.100.30", "enabled": True},
+    ])
+
+    assert record == (
+        'A ";'
+        "if country('DE') then return '198.51.100.30' "
+        "elseif continent('EU') then return '198.51.100.20' "
+        "else return '203.0.113.10' end"
+        '"'
+    )
+
+
+def test_raw_geodns_aaaa_record_shape():
+    record = build_raw_geodns_record([
+        {"route_scope": "default", "answer_type": "AAAA", "answer_value": "2001:db8::10", "enabled": True},
+        {"route_scope": "country", "country_code": "US", "answer_type": "AAAA", "answer_value": "2001:db8::20", "enabled": True},
+    ], "AAAA")
+
+    assert record.startswith('AAAA ";if country')
+    assert "country('US') then return '2001:db8::20'" in record
+    assert "else return '2001:db8::10' end" in record
+
+
 def test_simple_country_geo_record():
     record = build_record([
         {

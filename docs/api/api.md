@@ -315,8 +315,8 @@ Tips:
 | `GET` | `/api/v1/domains/{domainId}/routing` | Show domain routing settings. |
 | `PATCH` | `/api/v1/domains/{domainId}/routing` | Update routing mode and health options. |
 | `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing` | Preview routing result. |
-| `GET` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | List Geo DNS routes. |
-| `PUT` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | Replace Geo DNS routes. |
+| `GET` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | List raw GeoDNS answer routes. |
+| `PUT` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | Replace raw GeoDNS answer routes. |
 
 Record request:
 
@@ -333,11 +333,31 @@ Record request:
 
 Routing mode values include `geo`, `anycast`, and `dns_only`.
 
+Raw GeoDNS records are DNS-only A/AAAA records with a required default route and optional country or continent routes. Proxy and GeoDNS are mutually exclusive; attempts to save both return `proxy_and_geodns_are_mutually_exclusive`.
+
+```json
+{
+  "type": "A",
+  "name": "www",
+  "content": "203.0.113.10",
+  "ttl": 300,
+  "proxied": false,
+  "geo_routes": [
+    { "route_scope": "default", "answer_type": "A", "answer_value": "203.0.113.10", "enabled": true },
+    { "route_scope": "country", "country_code": "US", "answer_type": "A", "answer_value": "198.51.100.10", "enabled": true },
+    { "route_scope": "continent", "continent_code": "EU", "answer_type": "A", "answer_value": "198.51.100.20", "enabled": true }
+  ]
+}
+```
+
 DNS tips:
 
 - Domain DNS record lists include readonly platform `NS` rows derived from current nameserver settings. They are published for the customer zone even while user records wait for delegation verification.
 - Keep MX, TXT verification, SPF, DKIM, and DMARC records DNS-only.
 - Use proxied records only for HTTP/HTTPS traffic intended for the CDN edge.
+- Raw GeoDNS records publish an internal PowerDNS `LUA` rrset. Users provide
+  only typed DNS answers; country rules win over continent rules, and continent
+  rules win over the default answer.
 - Additional proxied records at the same DNS name are stored and returned as
   DNS records. CDNLite no longer silently converts them into hidden backup
   origins or returns an earlier record ID.

@@ -53,7 +53,7 @@ private CDN without depending on a public CDN vendor.
 ## Features
 
 - Domain lifecycle, nameserver verification, activation, and deletion.
-- DNS records with proxy toggles, anycast, DNS-only mode, GeoDNS routes, and bundled DNSGeo/PowerDNS publishing.
+- DNS records with proxy toggles, anycast, DNS-only mode, raw GeoDNS A/AAAA answers, and bundled DNSGeo/PowerDNS publishing.
 - Origin management with primary/backup origins and scheduled health checks.
 - Cache settings, cache rules, purge workflows, and cache analytics.
 - Redirects, page rules, WAF rules, rate limits, response headers, and IP access rules.

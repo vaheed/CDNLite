@@ -674,13 +674,13 @@ paths:
       - $ref: "#/components/parameters/RecordId"
     get:
       tags: [DNS]
-      summary: List Geo DNS routes
+      summary: List raw GeoDNS answer routes
       responses:
         "200":
           $ref: "#/components/responses/GenericArray"
     put:
       tags: [DNS]
-      summary: Replace Geo DNS routes
+      summary: Replace raw GeoDNS answer routes
       requestBody:
         required: true
         content:
@@ -2115,6 +2115,11 @@ components:
           nullable: true
         routing_policy:
           type: string
+        geo_routes:
+          type: array
+          description: Raw GeoDNS routes for DNS-only A/AAAA records. Include one default route; proxy and GeoDNS are mutually exclusive.
+          items:
+            $ref: "#/components/schemas/GeoRoute"
       additionalProperties: true
     DnsRecordPatchRequest:
       type: object
@@ -2142,6 +2147,11 @@ components:
           enum: [active, disabled]
         routing_policy:
           type: string
+        geo_routes:
+          type: array
+          description: Raw GeoDNS routes for DNS-only A/AAAA records. Send an empty array to disable GeoDNS.
+          items:
+            $ref: "#/components/schemas/GeoRoute"
       additionalProperties: true
     RoutingSettingsRequest:
       type: object
@@ -2162,13 +2172,23 @@ components:
     GeoRoute:
       type: object
       properties:
-        scope:
+        route_scope:
           type: string
-          enum: [country, continent, region, default]
-        code:
+          enum: [default, country, continent]
+        country_code:
           type: string
-        target:
+          nullable: true
+        continent_code:
           type: string
+          enum: [AF, AN, AS, EU, NA, OC, SA]
+          nullable: true
+        answer_type:
+          type: string
+          enum: [A, AAAA]
+        answer_value:
+          type: string
+        enabled:
+          type: boolean
       additionalProperties: true
     Origin:
       type: object

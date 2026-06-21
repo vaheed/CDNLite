@@ -10,7 +10,8 @@ class DnsDesiredStateBuilder
         private DnsPublishingPlanner $planner = new DnsPublishingPlanner(),
         private EdgeDnsService $edgeDns = new EdgeDnsService(),
         private PowerDnsRecordBuilder $records = new PowerDnsRecordBuilder(),
-        private EdgeDnsPoolRenderer $edgePool = new EdgeDnsPoolRenderer()
+        private EdgeDnsPoolRenderer $edgePool = new EdgeDnsPoolRenderer(),
+        private RawGeoDnsRecordBuilder $rawGeoDns = new RawGeoDnsRecordBuilder()
     ) {
     }
 
@@ -42,6 +43,21 @@ class DnsDesiredStateBuilder
                     );
                 }
                 continue;
+            }
+            $geoRoutes = $record['proxied'] === false ? $this->geoRoutes((string) $record['id']) : [];
+            if ($geoRoutes !== []) {
+                $luaRecord = $this->rawGeoDns->luaRecord((string) $record['type'], $geoRoutes);
+                if ($luaRecord !== null) {
+                    $rrsets[] = $this->rrset(
+                        (string) $domain['domain'],
+                        (string) $record['name'],
+                        'LUA',
+                        (int) $record['ttl'],
+                        [$luaRecord],
+                        'dns_record:' . $record['id'] . ':raw_geodns'
+                    );
+                    continue;
+                }
             }
             $plan = $this->planner->plan($domain, $record);
             $contents = array_values(array_map(
@@ -171,6 +187,25 @@ class DnsDesiredStateBuilder
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];
         return $row;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function geoRoutes(string $recordId): array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT route_scope, country_code, continent_code, answer_type, answer_value, enabled
+             FROM dns_record_geo_routes
+             WHERE dns_record_id = :record_id
+             ORDER BY CASE route_scope WHEN 'default' THEN 0 WHEN 'country' THEN 1 ELSE 2 END,
+                      country_code NULLS LAST, continent_code NULLS LAST, priority, id"
+        );
+        $stmt->execute(['record_id' => $recordId]);
+        return array_map(static function (array $row): array {
+            $row['enabled'] = in_array($row['enabled'], [true, 1, '1', 't', 'true'], true);
+            return $row;
+        }, $stmt->fetchAll());
     }
 
     private function isApex(string $name, string $domain): bool

@@ -35,7 +35,7 @@ class DnsService
             return [];
         }
         $stmt = Database::pdo()->prepare(
-            'SELECT r.*, (SELECT COUNT(*) FROM dns_record_geo_routes g WHERE g.dns_record_id = r.id) AS geo_routes_count
+            'SELECT r.*, (SELECT COUNT(*) FROM dns_record_geo_routes g WHERE g.dns_record_id = r.id AND g.enabled = true AND g.route_scope <> \'default\') AS geo_routes_count
              FROM dns_records r WHERE r.domain_id = :domain_id ORDER BY r.id ASC'
         );
         $stmt->execute([':domain_id' => $domainId]);
@@ -343,6 +343,11 @@ class DnsService
         if ($updated === null) {
             return null;
         }
+        if (!empty($updated['proxied'])) {
+            Database::pdo()->prepare('DELETE FROM dns_record_geo_routes WHERE dns_record_id = :id')
+                ->execute(['id' => $recordId]);
+            $updated['geo_routes_count'] = 0;
+        }
         $this->origins->syncFromDnsRecord($domainId, $updated);
         $this->reconcile($domainId);
         $this->ensureManagedSslForProxiedRecord($domainId, $updated);
@@ -472,7 +477,10 @@ class DnsService
 
     public function find(string $domainId, string $recordId): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT * FROM dns_records WHERE domain_id = :domain_id AND id = :id LIMIT 1');
+        $stmt = Database::pdo()->prepare(
+            'SELECT r.*, (SELECT COUNT(*) FROM dns_record_geo_routes g WHERE g.dns_record_id = r.id AND g.enabled = true AND g.route_scope <> \'default\') AS geo_routes_count
+             FROM dns_records r WHERE r.domain_id = :domain_id AND r.id = :id LIMIT 1'
+        );
         $stmt->execute([':domain_id' => $domainId, ':id' => $recordId]);
         $row = $stmt->fetch();
         return $row === false ? null : $this->castRow((array) $row);
