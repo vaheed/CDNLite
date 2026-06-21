@@ -25,16 +25,15 @@
       :rows="rows"
       :columns="columns"
       compact
-      sticky-first-column
-      min-width="min-w-[1120px]"
+      min-width="min-w-[980px]"
     >
       <template #identity="{ row }">
         <div class="min-w-0">
           <div class="flex items-center gap-2">
-            <span class="block max-w-64 truncate font-mono text-xs font-semibold text-slate-800 dark:text-slate-200" :title="String(row.edge_id)">{{ row.edge_id }}</span>
+            <span class="block max-w-44 truncate font-mono text-xs font-semibold text-slate-700 dark:text-slate-300" :title="String(row.edge_id)">{{ row.edge_id }}</span>
             <StatusBadge v-if="row.identity_status === 'warning'" status="warning" label="Suspicious" compact />
           </div>
-          <span class="mt-1 block max-w-64 truncate text-xs text-slate-400" :title="String(row.hostname || 'Unknown host')">{{ row.hostname || 'Unknown host' }}</span>
+          <span class="mt-1 block max-w-44 truncate text-xs text-slate-500 dark:text-slate-400" :title="String(row.hostname || 'Unknown host')">{{ row.hostname || 'Unknown host' }}</span>
         </div>
       </template>
       <template #public_ip="{ value }">
@@ -55,13 +54,13 @@
         </div>
       </template>
       <template #version="{ value }"><span class="whitespace-nowrap text-xs font-medium">{{ value || 'Unknown' }}</span></template>
-      <template #heartbeat="{ value }"><span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">{{ value }}</span></template>
+      <template #heartbeat="{ row }"><span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400" :title="String(row.heartbeatExact)">{{ row.heartbeat }}</span></template>
       <template #config="{ row }">
         <div class="min-w-0">
           <StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact />
           <p class="mt-1 text-xs text-slate-400">
-            Applied {{ row.applied_config_version ? `v${row.applied_config_version}` : 'none' }}
-            <span v-if="row.last_config_pull_at"> · Pulled {{ formatDate(row.last_config_pull_at as number | null | undefined) }}</span>
+            {{ row.applied_config_version ? `v${row.applied_config_version}` : 'none' }}
+            <span v-if="row.last_config_pull_at" :title="formatDate(row.last_config_pull_at as number | null | undefined)"> · {{ timeAgo(row.last_config_pull_at as number | null | undefined) }}</span>
           </p>
           <p v-if="row.config_apply_error" class="mt-1 max-w-64 truncate text-xs text-red-600 dark:text-red-300" :title="String(row.config_apply_error)">
             {{ row.config_apply_error }}
@@ -90,11 +89,11 @@
             </div>
             <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
               <span class="block font-semibold uppercase text-slate-500">Config</span>
-              <span class="mt-1 flex flex-wrap items-center gap-2"><StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact /><span class="text-slate-500">v{{ row.applied_config_version || 'none' }}</span></span>
+              <span class="mt-1 flex flex-wrap items-center gap-2"><StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact /><span class="text-slate-500">v{{ row.applied_config_version || 'none' }}</span><span v-if="row.last_config_pull_at" class="text-slate-500" :title="formatDate(row.last_config_pull_at as number | null | undefined)">· {{ timeAgo(row.last_config_pull_at as number | null | undefined) }}</span></span>
             </div>
             <div class="rounded-lg bg-white p-3 dark:bg-white/[0.04]">
               <span class="block font-semibold uppercase text-slate-500">Heartbeat</span>
-              <span class="mt-1 block text-slate-800 dark:text-slate-100">{{ row.heartbeat }}</span>
+              <span class="mt-1 block text-slate-800 dark:text-slate-100" :title="String(row.heartbeatExact)">{{ row.heartbeat }}</span>
             </div>
           </div>
           <div class="flex flex-wrap gap-1.5">
@@ -251,7 +250,7 @@ import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
 import { useVisibilityPolling } from '@/lib/data/polling';
 import { heartbeatStatus } from '@/lib/utils/diagnostics';
-import { formatDate } from '@/lib/utils/format';
+import { formatDate, timeAgo } from '@/lib/utils/format';
 import type { ConfigSnapshotSummary, EdgeDnsStatus, EdgeNode, EdgePool } from '@/types';
 
 const edges = ref<EdgeNode[]>([]);
@@ -271,7 +270,8 @@ const rows = computed(() => edges.value.map(edge => ({
   ...edge,
   public_ip: edge.public_ip || edge.public_ipv4 || edge.public_ipv6 || '',
   health: heartbeatStatus(edge),
-  heartbeat: formatDate(edge.last_heartbeat_at ?? edge.last_heartbeat),
+  heartbeat: timeAgo(edge.last_heartbeat_at ?? edge.last_heartbeat),
+  heartbeatExact: formatDate(edge.last_heartbeat_at ?? edge.last_heartbeat),
 })));
 const warnings = computed(() => [
   ...edges.value.filter(edge => !edge.public_ipv4 && !edge.public_ipv6 && !edge.public_ip).map(edge => `${edge.edge_id} has no public IP.`),
@@ -279,7 +279,7 @@ const warnings = computed(() => [
   ...(dns.value?.warnings ?? []).map(warning => `${warning.edge_id}: ${warning.error}`),
 ]);
 const columns = [
-  { key: 'identity', label: 'Identity', class: 'min-w-72' },
+  { key: 'identity', label: 'Identity', class: 'min-w-52' },
   { key: 'public_ip', label: 'Public IP', class: 'min-w-40' },
   { key: 'region', label: 'Region', class: 'min-w-36' },
   { key: 'modes', label: 'Modes', sortable: false, class: 'min-w-28' },
