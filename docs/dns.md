@@ -104,15 +104,18 @@ static anycast IPs are configured, the shared proxy host publishes plain `A` or
 `AAAA` rrsets containing all configured addresses for that family and
 completely bypasses DNSGeo Lua, country routing, and continent routing for that
 family. CDNLite keeps proxied subdomains on stable `CNAME` targets, while
-proxied apex records publish direct PowerDNS `LUA` answers from the same
-canonical edge pool as the shared proxy host.
+proxied apex records publish from the same canonical edge-pool renderer as the
+shared proxy host: direct `A`/`AAAA` when static anycast is configured, and
+PowerDNS `LUA` otherwise.
 
 Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host for
-proxied subdomains. Proxied customer apex records are always published as
-PowerDNS `LUA` `A`/`AAAA` content at the zone apex, never as `ALIAS` or
-`CNAME`. DNS-only apex `A` and `AAAA` records remain normal address records.
-Changing an edge IP or health state updates the shared proxy LUA and every
-managed proxied apex LUA record through reconciliation. Edge heartbeat and
+proxied subdomains. Proxied customer apex records are always published directly
+at the zone apex, never as `ALIAS` or `CNAME`. Static anycast settings publish
+normal managed apex `A`/`AAAA`; otherwise CDNLite publishes PowerDNS `LUA`
+`A`/`AAAA` content. DNS-only apex `A` and `AAAA` records remain normal address
+records. Changing an edge IP, health state, or static anycast setting updates
+the shared proxy records and every managed proxied apex record through
+reconciliation. Edge heartbeat and
 registration requests trigger reconciliation only when the effective DNS edge
 pool changes. Each generation records distinct edge-state hashes in
 `edge_state_generations` for inspection and test assertions.

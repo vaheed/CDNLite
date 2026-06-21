@@ -41,29 +41,14 @@ class EdgeDnsService
         $rrsets = [
             $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
         ];
-        $staticAnycast = $this->staticAnycastIps();
-
-        foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
-            if ($staticAnycast[$family] !== []) {
-                $rrsets[] = $this->desired(
-                    $this->proxyLabel(),
-                    $type,
-                    $ttl,
-                    $staticAnycast[$family],
-                    'shared_proxy_static_anycast:' . $type
-                );
-                continue;
-            }
-            $content = $this->renderer->luaRecord($type);
-            if ($content === null) {
-                continue;
-            }
+        foreach ($this->renderer->edgeSelectionRrsets() as $edgeRrset) {
             $rrsets[] = $this->desired(
                 $this->proxyLabel(),
-                'LUA',
+                (string) $edgeRrset['rrset_type'],
                 $ttl,
-                [$content],
-                'shared_proxy:' . $type
+                (array) $edgeRrset['records'],
+                ((string) $edgeRrset['mode'] === 'static_anycast' ? 'shared_proxy_static_anycast:' : 'shared_proxy:')
+                    . (string) $edgeRrset['dns_type']
             );
         }
         $targets = Database::pdo()->query(
@@ -91,7 +76,7 @@ class EdgeDnsService
         return [
             'cdn_zone' => $this->cdnZone(),
             'proxy_host' => $this->proxyHost(),
-            'static_anycast' => $this->staticAnycastIps(),
+            'static_anycast' => $this->renderer->staticAnycastIps(),
             'active_edge_nodes' => $pool['nodes'],
             'generated_edge_hostnames' => [$this->proxyHost() . '.'],
             'customer_records' => [],
@@ -111,7 +96,7 @@ class EdgeDnsService
         return [
             'cdn_zone' => $this->cdnZone(),
             'proxy_host' => $this->proxyHost(),
-            'static_anycast' => $this->staticAnycastIps(),
+            'static_anycast' => $this->renderer->staticAnycastIps(),
             'powerdns_enabled' => $this->powerDns->isEnabled(),
             'records' => $this->desiredRrsets(),
             'edge_state' => $pool['nodes'],
@@ -171,27 +156,6 @@ class EdgeDnsService
     private function proxyLabel(): string
     {
         return substr($this->proxyHost(), 0, -strlen('.' . $this->cdnZone()));
-    }
-
-    private function staticAnycastIps(): array
-    {
-        return [
-            'ipv4' => $this->settingIpList('anycast_ipv4'),
-            'ipv6' => $this->settingIpList('anycast_ipv6'),
-        ];
-    }
-
-    private function settingIpList(string $name): array
-    {
-        $value = $this->settings->value('platform.edge_dns', $name);
-        if (is_array($value)) {
-            return array_values(array_filter(array_map(
-                static fn (mixed $ip): string => trim((string) $ip),
-                $value
-            )));
-        }
-        $value = trim((string) $value);
-        return $value === '' ? [] : [$value];
     }
 
     private function ttl(): int

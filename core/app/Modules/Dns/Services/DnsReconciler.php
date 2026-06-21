@@ -125,7 +125,7 @@ class DnsReconciler
             'zones' => count($zones),
             'changes' => count($desired),
             'counts' => $this->previewCounts($desired),
-            'errors' => $this->edgePool->luaRecords() === [] ? ['no_eligible_edge_ips'] : [],
+            'errors' => $this->edgePool->edgeSelectionRrsets() === [] ? ['no_eligible_edge_ips'] : [],
             'soa' => $this->soa->preview($zones),
         ];
     }
@@ -144,7 +144,7 @@ class DnsReconciler
 
         foreach ($desired as $rrset) {
             $source = (string) ($rrset['source'] ?? '');
-            if (str_contains($source, ':apex_lua:')) {
+            if (str_contains($source, ':apex_lua:') || str_contains($source, ':apex_static_anycast:')) {
                 $counts['proxied_apex_records_scanned']++;
                 $counts['apex_lua_records_to_create_or_update']++;
             }
@@ -159,7 +159,7 @@ class DnsReconciler
             }
         }
 
-        if ($this->edgePool->luaRecords() === []) {
+        if ($this->edgePool->edgeSelectionRrsets() === []) {
             $counts['errors']++;
         }
 

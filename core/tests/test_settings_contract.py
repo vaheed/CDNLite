@@ -31,6 +31,15 @@ def test_secrets_are_masked_and_powerdns_uses_repository():
     assert "platform.powerdns" in powerdns
 
 
+def test_edge_dns_settings_trigger_dns_reconciliation():
+    controller = read("core/app/Modules/Settings/Http/Controllers/SettingsController.php")
+
+    assert "use App\\Modules\\Dns\\Services\\DnsReconciler;" in controller
+    assert "$group === 'platform.edge_dns'" in controller
+    assert "'dns_reconcile'" in controller
+    assert "->reconcile(false)" in controller
+
+
 def test_powerdns_operational_config_cannot_return_to_env():
     repository = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
     compose = read("docker-compose.yml")

@@ -341,8 +341,9 @@ DNS tips:
 - Additional proxied records at the same DNS name are stored and returned as
   DNS records. CDNLite no longer silently converts them into hidden backup
   origins or returns an earlier record ID.
-- A proxied apex (`@`) publishes PowerDNS `LUA` `A`/`AAAA` records from the
-  canonical edge pool. A proxied subdomain publishes `CNAME` to the stable site
+- A proxied apex (`@`) publishes direct managed apex records from the canonical
+  edge pool: static anycast `A`/`AAAA` when configured, otherwise PowerDNS
+  `LUA` `A`/`AAAA`. A proxied subdomain publishes `CNAME` to the stable site
   target.
 - A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.
 - Keep TTL low during migration, then increase it after a stable cutover.
@@ -619,7 +620,7 @@ Settings tips:
 
 - Validate settings payloads before saving when building custom admin tooling.
 - Test PowerDNS after changing API URL, server ID, or API key.
-- `platform.edge_dns.anycast_ipv4` and `platform.edge_dns.anycast_ipv6` are optional static proxy anycast IP lists. Values may be arrays or comma/space/newline-separated strings. When set, the shared proxy host publishes plain A/AAAA records containing all configured addresses for those families and bypasses DNSGeo Lua routing.
+- `platform.edge_dns.anycast_ipv4` and `platform.edge_dns.anycast_ipv6` are optional static proxy anycast IP lists. Values may be arrays or comma/space/newline-separated strings. When set, the shared proxy host and managed records with proxy enabled at the zone apex publish plain A/AAAA records containing all configured addresses for those families and bypass DNSGeo Lua routing. DNS-only records and proxied subdomain CNAME records are not rewritten to anycast addresses.
 - Record the actor when settings are changed through automation so audit trails remain useful.
 
 ## Analytics

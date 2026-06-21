@@ -149,9 +149,10 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -d '{"type":"TXT","name":"@","content":"v=spf1 include:_spf.example.net ~all","ttl":300,"proxied":false}'
 ```
 
-The apex input keeps its origin type, but public DNS publishes direct
-PowerDNS `LUA` `A`/`AAAA` answers from the canonical edge pool. The proxied
-`www` record publishes `CNAME` to the stable site target.
+The apex input keeps its origin type, but public DNS publishes direct answers
+from the canonical edge pool: static anycast `A`/`AAAA` when configured,
+otherwise PowerDNS `LUA` `A`/`AAAA`. The proxied `www` record publishes
+`CNAME` to the stable site target.
 
 Cutover checklist:
 

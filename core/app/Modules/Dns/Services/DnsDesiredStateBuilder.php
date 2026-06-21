@@ -31,14 +31,14 @@ class DnsDesiredStateBuilder
             $domain = ['id' => (string) $row['site_id'], 'domain' => (string) $row['domain']];
             $record = $this->castRecord((array) $row);
             if ($record['proxied'] === true && $this->isApex((string) $record['name'], (string) $domain['domain'])) {
-                foreach ($this->edgePool->luaRecords() as $type => $content) {
+                foreach ($this->edgePool->edgeSelectionRrsets() as $edgeRrset) {
                     $rrsets[] = $this->rrset(
                         (string) $domain['domain'],
                         '@',
-                        'LUA',
+                        (string) $edgeRrset['rrset_type'],
                         (int) $record['ttl'],
-                        [$content],
-                        'dns_record:' . $record['id'] . ':apex_lua:' . $type
+                        (array) $edgeRrset['records'],
+                        'dns_record:' . $record['id'] . ':apex_' . (string) $edgeRrset['mode'] . ':' . (string) $edgeRrset['dns_type']
                     );
                 }
                 continue;

@@ -162,7 +162,7 @@ export interface EdgeDnsStatus { cdn_zone: string; proxy_host: string; static_an
 export interface DnsZoneStatus { zone_name: string; status: string; pending_changes: number; desired_rrsets: number; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; desired_hash?: string | null; applied_hash?: string | null; converged: boolean; }
 export interface DomainDnsStatus { zone: string; status: string; last_attempt_at?: number | null; last_success_at?: number | null; last_error?: string | null; pending_changes: number; converged: boolean; }
 export interface DnsOperations {
-  setup: { enabled: boolean; configured: boolean; api_url: string; server_id: string; api_key_configured: boolean; cdn_zone: string; cdn_proxy_host: string; static_anycast?: { ipv4: string[]; ipv6: string[] }; apex_proxy_mode: 'LUA'; bundled_dnsgeo: boolean; poweradmin_url: string; api: { ok?: boolean; error?: string } };
+  setup: { enabled: boolean; configured: boolean; api_url: string; server_id: string; api_key_configured: boolean; cdn_zone: string; cdn_proxy_host: string; static_anycast?: { ipv4: string[]; ipv6: string[] }; apex_proxy_mode: 'DIRECT'; bundled_dnsgeo: boolean; poweradmin_url: string; api: { ok?: boolean; error?: string } };
   dnsgeo: { powerdns_auth: boolean; postgresql: boolean; mmdb: boolean; edns_subnet_processing: boolean; lua_records: boolean; alias_expansion: boolean; resolver_configured: boolean; resolver: string; api_publicly_exposed: boolean };
 }
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }

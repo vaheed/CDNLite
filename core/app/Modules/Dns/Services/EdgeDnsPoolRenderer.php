@@ -2,12 +2,14 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 
 class EdgeDnsPoolRenderer
 {
     public function __construct(
-        private EdgeHealthRecordBuilder $health = new EdgeHealthRecordBuilder()
+        private EdgeHealthRecordBuilder $health = new EdgeHealthRecordBuilder(),
+        private SettingsRepository $settings = new SettingsRepository()
     ) {
     }
 
@@ -84,8 +86,60 @@ class EdgeDnsPoolRenderer
         return $records;
     }
 
+    public function staticAnycastIps(): array
+    {
+        return [
+            'ipv4' => $this->settingIpList('anycast_ipv4'),
+            'ipv6' => $this->settingIpList('anycast_ipv6'),
+        ];
+    }
+
+    public function edgeSelectionRrsets(): array
+    {
+        $rrsets = [];
+        $staticAnycast = $this->staticAnycastIps();
+
+        foreach (['A' => 'ipv4', 'AAAA' => 'ipv6'] as $type => $family) {
+            if ($staticAnycast[$family] !== []) {
+                $rrsets[] = [
+                    'dns_type' => $type,
+                    'rrset_type' => $type,
+                    'records' => $staticAnycast[$family],
+                    'mode' => 'static_anycast',
+                ];
+                continue;
+            }
+
+            $content = $this->luaRecord($type);
+            if ($content === null) {
+                continue;
+            }
+            $rrsets[] = [
+                'dns_type' => $type,
+                'rrset_type' => 'LUA',
+                'records' => [$content],
+                'mode' => 'lua',
+            ];
+        }
+
+        return $rrsets;
+    }
+
     public function stateHash(): string
     {
         return hash('sha256', json_encode($this->pool()['nodes'], JSON_UNESCAPED_SLASHES) ?: '[]');
+    }
+
+    private function settingIpList(string $name): array
+    {
+        $value = $this->settings->value('platform.edge_dns', $name);
+        if (is_array($value)) {
+            return array_values(array_filter(array_map(
+                static fn (mixed $ip): string => trim((string) $ip),
+                $value
+            )));
+        }
+        $value = trim((string) $value);
+        return $value === '' ? [] : [$value];
     }
 }

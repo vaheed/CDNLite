@@ -73,7 +73,7 @@ const setupRows = computed(() => {
     { label: 'API key configured', value: setup?.api_key_configured ? 'Yes' : 'No' },
     { label: 'CDN zone', value: setup?.cdn_zone || 'Not configured' },
     { label: 'CDN proxy host', value: setup?.cdn_proxy_host || 'Not configured' },
-    { label: 'Apex proxy mode', value: setup?.apex_proxy_mode || 'LUA' },
+    { label: 'Apex proxy mode', value: setup?.apex_proxy_mode || 'DIRECT' },
   ];
 });
 const dnsGeoRows = computed(() => {

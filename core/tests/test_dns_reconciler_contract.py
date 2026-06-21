@@ -24,6 +24,8 @@ def test_desired_state_schema_and_reconciler_lock_contract():
     builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
     assert "ON CONFLICT (zone_name, rrset_name, rrset_type, owner) DO UPDATE" in builder
     assert "generation_id <> :generation" in builder
+    assert "$this->edgePool->edgeSelectionRrsets()" in builder
+    assert "':apex_' . (string) $edgeRrset['mode']" in builder
     assert "$recordType === 'TXT'" in builder
     assert "$recordType === 'MX'" in builder
     assert "sprintf('%d %s', $priority ?? 0, $target)" in builder
@@ -64,6 +66,18 @@ def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
     assert "DNS_RECORD_TYPES" in validator
     assert "dnsRecordName" in validator
     assert "dns_records_exact_value_idx" in schema
+
+
+def test_edge_pool_dns_only_applies_to_proxied_records():
+    builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
+    planner = read("core/app/Modules/Dns/Services/DnsPublishingPlanner.php")
+
+    assert "$record['proxied'] === true && $this->isApex" in builder
+    assert "$this->edgePool->edgeSelectionRrsets()" in builder
+    assert "continue;" in builder
+    assert "($record['proxied'] ?? false) !== true" in planner
+    assert "return $this->result($origin['type'], $origin['content'], $policy);" in planner
+    assert "return $this->result('CNAME', $canonical, $policy);" in planner
 
 
 def test_apex_proxy_can_coexist_with_mail_and_verification_records():
@@ -146,11 +160,12 @@ def test_edge_state_and_shared_proxy_contract():
     assert "normalizeOptionalIpList" in settings
     assert "FILTER_FLAG_IPV4" in settings
     assert "FILTER_FLAG_IPV6" in settings
-    assert "staticAnycastIps()" in service
-    assert "$staticAnycast[$family] !== []" in service
-    assert "$staticAnycast[$family]," in service
-    assert "'shared_proxy_static_anycast:' . $type" in service
-    assert "$this->renderer->luaRecord($type)" in service
+    assert "staticAnycastIps()" in renderer
+    assert "edgeSelectionRrsets()" in renderer
+    assert "$staticAnycast[$family] !== []" in renderer
+    assert "'rrset_type' => $type" in renderer
+    assert "'shared_proxy_static_anycast:'" in service
+    assert "$this->renderer->edgeSelectionRrsets()" in service
     assert "CDNLITE_CDN_ZONE" in settings
     assert "CDNLITE_CDN_PROXY_HOST" in settings
     assert "CDNLITE_EDGE_BASE_DOMAIN" not in settings

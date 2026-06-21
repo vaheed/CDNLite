@@ -115,7 +115,7 @@ The dashboard can export Markdown reports for operational snapshots. Use these f
 - Treat edge developer tools as local/private helpers only.
 For proxied records, the DNS table shows the exact public record CDNLite owns:
 
-- apex `@` publishes PowerDNS `LUA` `A`/`AAAA` answers from the edge pool
+- apex `@` publishes static anycast `A`/`AAAA` when configured, otherwise PowerDNS `LUA` `A`/`AAAA` answers from the edge pool
 - subdomains publish `CNAME site-<domain-id>.<cdn-zone>.`
 - the private origin remains visible separately and is never presented as the public DNS answer
 - each proxied host can have multiple independent origin addresses

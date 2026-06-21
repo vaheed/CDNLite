@@ -2,6 +2,7 @@
 
 namespace App\Modules\Settings\Http\Controllers;
 
+use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\PowerDnsService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 
@@ -24,7 +25,11 @@ class SettingsController
     public function update(string $group, array $body, ?string $actor): array
     {
         $values = isset($body['values']) && is_array($body['values']) ? $body['values'] : $body;
-        return $this->repository->patch($group, $values, $actor);
+        $result = $this->repository->patch($group, $values, $actor);
+        if ($group === 'platform.edge_dns') {
+            $result['dns_reconcile'] = (new DnsReconciler())->reconcile(false);
+        }
+        return $result;
     }
 
     public function validate(array $body): array

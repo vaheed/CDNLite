@@ -238,10 +238,15 @@ with open(path, 'r', encoding='utf-8', errors='replace') as fh:
     cfg = json.load(fh)
 if not isinstance(cfg, dict):
     sys.exit(1)
-for item in cfg.get('hosts', []):
+hosts = cfg.get('hosts', {})
+if isinstance(hosts, dict):
+    candidates = [hosts.get(host)]
+else:
+    candidates = hosts
+for item in candidates:
     if not isinstance(item, dict):
         continue
-    if item.get('hostname') != host:
+    if isinstance(hosts, list) and item.get('hostname') != host:
         continue
     raw = json.dumps(item, sort_keys=True)
     if '127.0.0.1' in raw:
