@@ -2,7 +2,7 @@
   <div v-if="!dismissed" class="panel-section space-y-5">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-5 dark:border-white/10">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Guided setup</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">Guided onboarding</p>
         <h3 class="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">Tune the starter protection profile</h3>
         <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">Answer a few operational questions and CDNLite will recommend a focused security baseline for this domain.</p>
       </div>
