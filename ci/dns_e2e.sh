@@ -143,19 +143,6 @@ docker compose exec -T pdns-auth sh -ec \
    grep -Eq '^resolver=.+:5300$' /etc/powerdns/pdns.d/00-local.conf"
 record_step PASS "alias-runtime-config" "PowerDNS has expand-alias=yes and a separate resolver"
 
-if ! retry 20 2 docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json 2>/tmp/dns-e2e-doctor.err; then
-  doctor_detail="stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
-  record_step FAIL "powerdns-doctor" "$doctor_detail"
-  fail "PowerDNS doctor command failed ${doctor_detail}"
-fi
-doctor_api_ok="$(jq -r '.data.api.ok // false' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'false')"
-if [[ "$doctor_api_ok" != "true" ]]; then
-  doctor_detail="body=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
-  record_step FAIL "powerdns-doctor" "$doctor_detail"
-  fail "PowerDNS doctor should pass ${doctor_detail}"
-fi
-record_step PASS "powerdns-doctor" "Core PowerDNS doctor passed"
-
 now="$(date +%s)"
 db_query "
 INSERT INTO edge_nodes (
@@ -172,6 +159,19 @@ ON CONFLICT (edge_id) DO UPDATE SET
   status='online', is_enabled=true, last_heartbeat=$now, last_heartbeat_at=$now,
   health_status='healthy', updated_at=$now;" >/dev/null
 record_step PASS "edge-state-seed" "two healthy regional edges seeded"
+
+if ! retry 20 2 docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json 2>/tmp/dns-e2e-doctor.err; then
+  doctor_detail="stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  record_step FAIL "powerdns-doctor" "$doctor_detail"
+  fail "PowerDNS doctor command failed ${doctor_detail}"
+fi
+doctor_api_ok="$(jq -r '.data.api.ok // false' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'false')"
+if [[ "$doctor_api_ok" != "true" ]]; then
+  doctor_detail="body=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  record_step FAIL "powerdns-doctor" "$doctor_detail"
+  fail "PowerDNS doctor should pass ${doctor_detail}"
+fi
+record_step PASS "powerdns-doctor" "Core PowerDNS doctor passed"
 
 api_post "${CORE_URL}/api/v1/domains" \
   "{\"name\":\"DNS E2E ${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN}\"}"
