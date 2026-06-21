@@ -195,6 +195,7 @@ export interface ActivitySummary {
   total_requests: number; forwarded_requests: number; bytes_in: number; bytes_out: number;
   cache_hit_ratio: number; status_counts: Record<string, number>;
   top_paths: Array<{ value: string; count: number }>;
+  top_countries: Array<{ value: string; count: number }>;
   top_origins: Array<{ value: string; count: number }>;
   top_edge_nodes: Array<{ value: string; count: number }>;
   recent_origin_errors: RequestActivity[];
@@ -243,6 +244,55 @@ export interface Overview {
   ssl_expiring_count: number; top_domains: OverviewDomain[]; recent_snapshots: OverviewSnapshot[];
 }
 export interface OverviewWarning { severity: 'warning' | 'critical' | 'info'; message: string; link: string; }
+export interface ReportQuery { domain_id?: Id; from?: number; to?: number; bucket?: UsageBucket; compare?: boolean; limit?: number; }
+export interface ReportTimeRange { from: number; to: number; bucket: UsageBucket; domain_id?: Id | null; }
+export interface ReportPoint { bucket_ts: number; value?: number; count?: number; requests_count?: number; bytes_in?: number; bytes_out?: number; }
+export interface ReportKpis {
+  total_requests: number; bandwidth_in_bytes: number; bandwidth_out_bytes: number; cache_hit_ratio: number;
+  active_domains: number; online_edges: number; offline_edges: number; security_events: number; waf_blocks: number;
+  rate_limited_requests: number; origin_errors: number; ssl_expiring_count: number; pending_dns_changes: number; failed_jobs: number;
+}
+export interface ReportWarning { severity: 'warning' | 'critical' | 'info'; message: string; link: string; count?: number; }
+export interface ReportSummary { time_range: ReportTimeRange; previous_time_range?: ReportTimeRange | null; kpis: ReportKpis; deltas?: Record<string, { absolute: number; percent: number | null }> | null; warnings: ReportWarning[]; generated_at: number; }
+export interface ReportDistributionRow { value?: string; status?: string; status_class?: string; severity?: string; action?: string; count: number; requests?: number; bytes_out?: number; }
+export interface ReportTraffic {
+  time_range: ReportTimeRange; requests: ReportPoint[]; bandwidth: { in: ReportPoint[]; out: ReportPoint[] };
+  cache_hit_ratio: ReportPoint[]; status_distribution: ReportDistributionRow[]; top_domains: OverviewDomain[];
+  top_paths: ReportDistributionRow[]; top_countries: ReportDistributionRow[]; top_edge_nodes: Array<{ edge_node_id: string; hostname?: string | null; requests: number; bytes_out: number }>;
+  recent_problem_requests: RequestActivity[]; generated_at: number;
+}
+export interface ReportCache {
+  time_range: ReportTimeRange; status_distribution: Array<{ status: string; count: number; bytes_out: number }>;
+  hit_ratio_trend: ReportPoint[]; bytes: { served_from_cache_bytes: number; served_from_origin_bytes: number };
+  top_uncached_paths: Array<{ path: string; requests: number; bytes_out: number }>; purge_timeline: ReportPoint[];
+  cache_rule_match_counts: null | ReportDistributionRow[]; unavailable?: Record<string, string>; generated_at: number;
+}
+export interface ReportEdge {
+  time_range: ReportTimeRange; counts: { online: number; offline: number; total: number };
+  by_region: ReportDistributionRow[]; by_country: ReportDistributionRow[]; last_heartbeat_age: Array<{ edge_id: string; hostname: string; age_seconds: number }>;
+  config_version_drift: Array<{ edge_id: string; hostname: string; applied_config_version?: number | null; latest_config_version: number; drift: boolean }>;
+  failed_config_pulls: Array<{ edge_id: string; hostname: string; config_apply_error: string; last_config_pull_at?: number | null }>;
+  traffic_by_edge_node: Array<{ edge_node_id: string; hostname?: string | null; requests: number; bytes_out: number }>;
+  error_rate_by_edge_node: Array<{ edge_node_id: string; hostname?: string | null; requests: number; errors: number; error_rate: number }>;
+  nodes: EdgeNode[]; generated_at: number;
+}
+export interface ReportSecurity {
+  time_range: ReportTimeRange; events_over_time: ReportPoint[]; by_severity: ReportDistributionRow[]; by_type: ReportDistributionRow[];
+  waf_actions: ReportDistributionRow[]; rate_limit_actions: ReportDistributionRow[]; top_attacking_ips: ReportDistributionRow[];
+  top_attacked_domains: Array<{ domain_id?: Id | null; name?: string | null; count: number }>; recent_critical_events: SecurityEvent[];
+  unavailable?: Record<string, string>; generated_at: number;
+}
+export interface ReportReliability {
+  time_range: ReportTimeRange; ssl_statuses: ReportDistributionRow[]; certificates_expiring_soon: SslCertificate[];
+  acme_job_progress: ReportDistributionRow[]; dns_zones: { total: number; converged: number; pending: number };
+  powerdns_sync_status: ReportDistributionRow[]; nameserver_verification_status: ReportDistributionRow[]; recent_dns_errors: unknown[];
+  pending_dns_changes: DnsZoneStatus[]; origin_health_counts: ReportDistributionRow[]; generated_at: number;
+}
+export interface ReportOperations {
+  time_range: ReportTimeRange; job_queue_status_counts: ReportDistributionRow[]; failed_jobs_over_time: ReportPoint[];
+  recent_jobs: SystemJob[]; event_timeline: unknown[]; recent_audit_entries: AuditEntry[]; most_active_actors: ReportDistributionRow[];
+  most_changed_resources: ReportDistributionRow[]; recent_config_snapshots: ConfigSnapshotSummary[]; generated_at: number;
+}
 export interface Recommendation {
   id: Id; domain_id: Id; domain_name?: string; type: string; title: string; message: string; why: string;
   confidence: number; risk: ProtectionRisk; impact: 'security' | 'reliability' | 'performance' | 'ssl' | string;

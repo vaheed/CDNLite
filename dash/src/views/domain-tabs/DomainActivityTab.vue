@@ -68,10 +68,14 @@
         <PaginationControls :total="timeline.total" :limit="timelineLimit" :offset="timelineOffset" @update:limit="setTimelineLimit" @update:offset="setTimelineOffset" />
       </section>
 
-      <section v-if="activityMode === 'advanced'" class="grid gap-4 xl:grid-cols-3">
+      <section v-if="activityMode === 'advanced'" class="grid gap-4 xl:grid-cols-4">
         <div class="panel-section space-y-3">
           <h2 class="text-base font-semibold">Top paths</h2>
           <p v-for="row in summary?.top_paths || []" :key="row.value" class="flex justify-between gap-3 text-sm"><span class="truncate font-mono">{{ row.value }}</span><b>{{ row.count }}</b></p>
+        </div>
+        <div class="panel-section space-y-3">
+          <h2 class="text-base font-semibold">Top visitor countries</h2>
+          <p v-for="row in summary?.top_countries || []" :key="row.value" class="flex justify-between gap-3 text-sm"><span class="truncate font-mono">{{ countryLabel(row.value) }}</span><b>{{ row.count }}</b></p>
         </div>
         <div class="panel-section space-y-3">
           <h2 class="text-base font-semibold">Top origins</h2>
@@ -252,6 +256,7 @@ function setAuditLimit(value: number) { auditLimit.value = value; auditOffset.va
 function setAuditOffset(value: number) { auditOffset.value = value; void load(); }
 function toEpoch(value: string) { return value ? Math.floor(new Date(value).getTime() / 1000) : undefined; }
 function percent(value: number) { return `${Math.round(value * 100)}%`; }
+function countryLabel(value: string) { return value && value !== 'unknown' ? value : 'Unknown'; }
 function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;

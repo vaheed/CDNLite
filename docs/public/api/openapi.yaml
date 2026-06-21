@@ -20,6 +20,7 @@ tags:
   - name: Health
   - name: Admin
   - name: Operations
+  - name: Reports
   - name: Recommendations
   - name: Domains
   - name: DNS
@@ -136,6 +137,72 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/reports/summary:
+    get:
+      tags: [Reports]
+      summary: CDN operations KPIs, compare deltas, and ranked warnings
+      parameters:
+        - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/ReportFrom"
+        - $ref: "#/components/parameters/ReportTo"
+        - $ref: "#/components/parameters/ReportBucket"
+        - $ref: "#/components/parameters/ReportCompare"
+        - $ref: "#/components/parameters/ReportLimit"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/reports/traffic:
+    get:
+      tags: [Reports]
+      summary: Traffic, bandwidth, status, cache-ratio, top lists, and problem requests
+      parameters: &reportParameters
+        - $ref: "#/components/parameters/DomainIdQuery"
+        - $ref: "#/components/parameters/ReportFrom"
+        - $ref: "#/components/parameters/ReportTo"
+        - $ref: "#/components/parameters/ReportBucket"
+        - $ref: "#/components/parameters/ReportCompare"
+        - $ref: "#/components/parameters/ReportLimit"
+      responses: &reportResponses
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/reports/cache:
+    get:
+      tags: [Reports]
+      summary: Cache distribution, hit trend, cache/origin bytes, uncached paths, and purge timeline
+      parameters: *reportParameters
+      responses: *reportResponses
+  /api/v1/reports/edge:
+    get:
+      tags: [Reports]
+      summary: Edge health, geography, config drift, traffic, error rates, and node table
+      parameters: *reportParameters
+      responses: *reportResponses
+  /api/v1/reports/security:
+    get:
+      tags: [Reports]
+      summary: Security event trends, distributions, top sources, attacked domains, and recent events
+      parameters: *reportParameters
+      responses: *reportResponses
+  /api/v1/reports/reliability:
+    get:
+      tags: [Reports]
+      summary: SSL, ACME, DNS convergence, PowerDNS, nameserver, DNS error, and origin health reports
+      parameters: *reportParameters
+      responses: *reportResponses
+  /api/v1/reports/operations:
+    get:
+      tags: [Reports]
+      summary: Job queues, failed jobs, audit activity, actors, changed resources, and snapshots
+      parameters: *reportParameters
+      responses: *reportResponses
   /api/v1/recommendations:
     get:
       tags: [Recommendations]
@@ -1581,6 +1648,45 @@ components:
         type: integer
         minimum: 1
         maximum: 500
+    ReportFrom:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: Unix timestamp lower bound.
+    ReportTo:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: Unix timestamp upper bound.
+    ReportBucket:
+      name: bucket
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [minute, hour, day]
+        default: hour
+    ReportCompare:
+      name: compare
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+    ReportLimit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
     Offset:
       name: offset
       in: query

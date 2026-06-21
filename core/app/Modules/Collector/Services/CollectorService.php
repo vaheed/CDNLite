@@ -388,6 +388,7 @@ class CollectorService
                 '502' => (int) ($row['status_502'] ?? 0),
             ],
             'top_paths' => $this->topUsageDimension('path', $whereSql, $params),
+            'top_countries' => $this->topUsageDimension('client_country', $whereSql, $params),
             'top_origins' => $this->topUsageDimension('origin_id', $whereSql, $params),
             'top_edge_nodes' => $this->topUsageDimension('edge_node_id', $whereSql, $params),
             'recent_origin_errors' => $this->recentOriginErrors($whereSql, $params),

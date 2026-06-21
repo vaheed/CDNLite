@@ -50,6 +50,7 @@ export default defineConfig({
         items: [
           { text: 'Troubleshooting', link: '/troubleshooting' },
           { text: 'Security', link: '/security' },
+          { text: 'Dashboard Reporting', link: '/dashboard-reporting' },
           { text: 'Operations Runbooks', link: '/runbooks/' },
           { text: 'Examples', link: '/examples/' },
           { text: 'Use Cases', link: '/use-cases/' },

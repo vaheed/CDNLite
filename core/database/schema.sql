@@ -324,6 +324,15 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at BIGINT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_audit_log_created
+  ON audit_log(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_domain_created
+  ON audit_log(domain_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_event_created
+  ON audit_log(event, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS admin_users (
   id TEXT PRIMARY KEY,
   username TEXT NOT NULL UNIQUE,
@@ -408,6 +417,22 @@ CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_ts
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_request_id
   ON usage_rollups(request_id)
   WHERE request_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_ts
+  ON usage_rollups(ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_edge_ts
+  ON usage_rollups(edge_node_id, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_cache_ts
+  ON usage_rollups(cache_status, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_status_ts
+  ON usage_rollups(status, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_country_ts
+  ON usage_rollups(client_country, ts DESC)
+  WHERE client_country IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS usage_ingest_keys (
   idempotency_key TEXT PRIMARY KEY,
@@ -830,6 +855,9 @@ CREATE TABLE IF NOT EXISTS cache_purge_requests (
   completed_at BIGINT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_cache_purge_requests_domain_created
+  ON cache_purge_requests(domain_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS cache_purge_versions (
   id TEXT PRIMARY KEY,
   domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
@@ -917,6 +945,8 @@ CREATE TABLE IF NOT EXISTS ssl_renewal_history (
 CREATE INDEX IF NOT EXISTS idx_ssl_certificates_renewal_due
   ON ssl_certificates(renewal_due_at)
   WHERE provider = 'acme' AND status <> 'revoked';
+CREATE INDEX IF NOT EXISTS idx_ssl_certificates_domain_not_after
+  ON ssl_certificates(domain_id, not_after);
 CREATE INDEX IF NOT EXISTS idx_ssl_renewal_history_domain
   ON ssl_renewal_history(domain_id, started_at DESC);
 
@@ -942,6 +972,9 @@ CREATE INDEX IF NOT EXISTS idx_ssl_jobs_domain_created
 CREATE INDEX IF NOT EXISTS idx_ssl_jobs_active
   ON ssl_jobs(domain_id, status)
   WHERE status IN ('queued','checking_dns','creating_order','validating_challenge','issuing','installing');
+
+CREATE INDEX IF NOT EXISTS idx_ssl_jobs_status_created
+  ON ssl_jobs(status, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS ssl_acme_accounts (
   id TEXT PRIMARY KEY,

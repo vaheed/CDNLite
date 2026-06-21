@@ -33,7 +33,7 @@ CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL datab
 - SSL settings, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
 - Edge node registration, heartbeat, config polling, metrics ingest, and security-event ingest with HMAC replay protection.
 - Successful edge-agent heartbeats mark the node healthy for the shared DNS edge pool.
-- Vue dashboard for operations, domains, edge network, analytics, snapshots, events, central job queue, audit log, and settings.
+- Vue dashboard for CDN operations reporting, domains, edge network, analytics, snapshots, events, central job queue, audit log, and settings.
 - Consistent searchable pagination for collection views and a per-domain
   Activity viewer for security events and change history.
 - Docker Compose stack plus CI smoke/e2e checks.
@@ -53,7 +53,7 @@ Full setup, environment, testing, deployment, VitePress, and GitHub Pages instru
 
 ## Usage
 
-Use the dashboard to add domains, configure DNS and origins, define traffic/security rules, request SSL certificates, inspect config snapshots, and review analytics or security events. Use `core/artisan` commands for scripted operations:
+Use the dashboard to add domains, configure DNS and origins, define traffic/security rules, request SSL certificates, inspect CDN operations reports, review analytics or security events, and audit operational changes. The reporting API is documented in [Dashboard Reporting](docs/dashboard-reporting.md). Use `core/artisan` commands for scripted operations:
 
 ```bash
 docker compose exec core php artisan cdn:domain:list

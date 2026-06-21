@@ -30,6 +30,7 @@ use App\Modules\Operations\Http\Controllers\OperationsLogController;
 use App\Modules\Operations\Services\OperationsLogService;
 use App\Modules\Recommendations\Http\Controllers\RecommendationController;
 use App\Modules\Recommendations\Services\RecommendationService;
+use App\Modules\Reports\Services\ReportService;
 use App\Modules\Settings\Http\Controllers\SettingsController;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\ApiAuth;
@@ -214,6 +215,7 @@ $overviewController = new OverviewController(new OverviewService());
 $onboardingController = new OnboardingController(new OnboardingService());
 $operationsLogController = new OperationsLogController(new OperationsLogService());
 $recommendationController = new RecommendationController(new RecommendationService());
+$reportService = new ReportService();
 
 if (truthyEnv('CDNLITE_BOOTSTRAP_EDGE_TOKEN', false)) {
     $bootstrapEdgeId = trim((string) (getenv('CDNLITE_BOOTSTRAP_EDGE_ID') ?: getenv('EDGE_ID') ?: ''));
@@ -283,6 +285,55 @@ $router->add('GET', '/api/v1/overview', static fn (): array => Response::json($o
 $router->add('GET', '/api/v1/overview/warnings', static fn (): array => Response::json($overviewController->warnings()), auth: true);
 $router->add('GET', '/api/v1/recommendations', static fn (Request $req): array => Response::json($recommendationController->index(null, $req->query)), auth: true);
 $router->add('POST', '/api/v1/recommendations/generate', static fn (): array => Response::json($recommendationController->generate()), auth: true);
+$router->add('GET', '/api/v1/reports/summary', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->summary($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/traffic', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->traffic($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/cache', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->cache($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/edge', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->edge($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/security', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->security($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/reliability', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->reliability($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
+$router->add('GET', '/api/v1/reports/operations', static function (Request $req) use ($reportService): array {
+    try {
+        return Response::json($reportService->operations($req->query));
+    } catch (\InvalidArgumentException $e) {
+        return Response::json(['error' => $e->getMessage()], $e->getMessage() === 'domain_not_found' ? 404 : 422);
+    }
+}, auth: true);
 $router->add('GET', '/api/v1/security/events', static fn (Request $req): array => Response::json($operationsLogController->securityEvents($req->query)), auth: true);
 $router->add('GET', '/api/v1/security/summary', static fn (Request $req): array => Response::json($operationsLogController->securitySummary($req->query)), auth: true);
 $router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);

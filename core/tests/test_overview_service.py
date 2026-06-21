@@ -17,5 +17,7 @@ def test_overview_warnings_include_ssl_expiry_rule():
 
 def test_dashboard_uses_two_overview_calls_without_domain_loop():
     view = (ROOT / "dash/src/views/OverviewView.vue").read_text()
-    assert "overviewApi.get()" in view and "overviewApi.warnings()" in view
-    assert "Promise.all" in view and "domainsApi" not in view
+    assert "reportsApi.summary" in view and "reportsApi.traffic" in view
+    assert "reportsApi.security" in view and "reportsApi.operations" in view
+    assert "Promise.all" in view and "overviewApi" not in view
+    assert "RecommendationsPanel" not in view
