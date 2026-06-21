@@ -316,6 +316,9 @@ record_step PASS "edge-health-reconcile" "unhealthy edge removed from shared and
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PLAIN_ID}"
 assert_http_status "$HTTP_CODE" "200" "unproxied record deletion failed"
 PLAIN_ID=""
+force_sync
+assert_http_status "$HTTP_CODE" "200" "sync after unproxied record deletion failed"
+assert_eq "$(json_get "$HTTP_BODY" '.data.ok')" "true" "unproxied record deletion sync should pass"
 customer_zone="$(zone_json "$TEST_ZONE")"
 if jq -e --arg name "direct.${TEST_ZONE}" '.rrsets[] | select(.name == $name and .type == "A")' <<<"$customer_zone" >/dev/null; then
   fail "deleted DNS record remains in PowerDNS"
