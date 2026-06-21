@@ -53,15 +53,15 @@
           <span v-if="!row.geo_enabled && !row.anycast_enabled" class="text-xs text-slate-400">Standard</span>
         </div>
       </template>
-      <template #version="{ value }"><span class="whitespace-nowrap text-xs font-medium">{{ value || 'Unknown' }}</span></template>
+      <template #version="{ value }"><span class="whitespace-nowrap text-xs text-slate-600 dark:text-slate-300">{{ value || '-' }}</span></template>
       <template #heartbeat="{ row }"><span class="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400" :title="String(row.heartbeatExact)">{{ row.heartbeat }}</span></template>
       <template #config="{ row }">
-        <div class="min-w-0">
+        <div class="min-w-0 whitespace-nowrap">
           <StatusBadge :status="configStatus(row)" :label="configStatusLabel(row)" compact />
-          <p class="mt-1 text-xs text-slate-400">
-            {{ row.applied_config_version ? `v${row.applied_config_version}` : 'none' }}
+          <span class="ml-1.5 text-xs text-slate-400">
+            {{ row.applied_config_version ? `v${row.applied_config_version}` : '-' }}
             <span v-if="row.last_config_pull_at" :title="formatDate(row.last_config_pull_at as number | null | undefined)"> · {{ timeAgo(row.last_config_pull_at as number | null | undefined) }}</span>
-          </p>
+          </span>
           <p v-if="row.config_apply_error" class="mt-1 max-w-64 truncate text-xs text-red-600 dark:text-red-300" :title="String(row.config_apply_error)">
             {{ row.config_apply_error }}
           </p>
@@ -283,9 +283,9 @@ const columns = [
   { key: 'public_ip', label: 'Public IP', class: 'min-w-40' },
   { key: 'region', label: 'Region', class: 'min-w-36' },
   { key: 'modes', label: 'Modes', sortable: false, class: 'min-w-28' },
-  { key: 'version', label: 'Version', class: 'min-w-24' },
-  { key: 'heartbeat', label: 'Heartbeat', class: 'min-w-44' },
-  { key: 'config', label: 'Config', class: 'min-w-64' },
+  { key: 'version', label: 'Version', class: 'w-20 min-w-20' },
+  { key: 'heartbeat', label: 'Heartbeat', class: 'w-24 min-w-24' },
+  { key: 'config', label: 'Config', class: 'w-40 min-w-40' },
   { key: 'health', label: 'Health', class: 'min-w-28' },
 ];
 const healthCounts = computed(() => ({
