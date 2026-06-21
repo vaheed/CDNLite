@@ -144,9 +144,16 @@ docker compose exec -T pdns-auth sh -ec \
 record_step PASS "alias-runtime-config" "PowerDNS has expand-alias=yes and a separate resolver"
 
 if ! retry 20 2 docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json 2>/tmp/dns-e2e-doctor.err; then
-  fail "PowerDNS doctor command failed stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  doctor_detail="stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  record_step FAIL "powerdns-doctor" "$doctor_detail"
+  fail "PowerDNS doctor command failed ${doctor_detail}"
 fi
-assert_eq "$(jq -r '.data.api.ok' /tmp/dns-e2e-doctor.json)" "true" "PowerDNS doctor should pass body=$(cat /tmp/dns-e2e-doctor.json)"
+doctor_api_ok="$(jq -r '.data.api.ok // false' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'false')"
+if [[ "$doctor_api_ok" != "true" ]]; then
+  doctor_detail="body=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  record_step FAIL "powerdns-doctor" "$doctor_detail"
+  fail "PowerDNS doctor should pass ${doctor_detail}"
+fi
 record_step PASS "powerdns-doctor" "Core PowerDNS doctor passed"
 
 now="$(date +%s)"
