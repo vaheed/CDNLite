@@ -42,13 +42,16 @@ class EdgeDnsService
             $this->desired('@', 'NS', $ttl, $this->records->nameservers(), 'platform_nameservers'),
         ];
         foreach ($this->renderer->edgeSelectionRrsets() as $edgeRrset) {
+            $type = (string) $edgeRrset['dns_type'];
+            $source = (string) $edgeRrset['mode'] === 'static_anycast'
+                ? 'shared_proxy_static_anycast:' . $type
+                : 'shared_proxy:' . $type;
             $rrsets[] = $this->desired(
                 $this->proxyLabel(),
                 (string) $edgeRrset['rrset_type'],
                 $ttl,
                 (array) $edgeRrset['records'],
-                ((string) $edgeRrset['mode'] === 'static_anycast' ? 'shared_proxy_static_anycast:' : 'shared_proxy:')
-                    . (string) $edgeRrset['dns_type']
+                $source
             );
         }
         $targets = Database::pdo()->query(

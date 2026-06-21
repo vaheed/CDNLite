@@ -5,9 +5,38 @@
 [![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-CDNLite is a lightweight CDN platform with a PHP control plane, PostgreSQL database, Vue admin dashboard, OpenResty/Lua edge proxy, and signed shell-based edge agent. It is useful for CDN learning, local labs, small private edge deployments, and testing CDN operations workflows.
+Self-hosted private CDN control plane for small edge networks, internal platforms,
+hosting providers, and CDN learning labs.
+
+CDNLite combines:
+
+- PHP/PostgreSQL control plane
+- Vue admin dashboard
+- OpenResty/Lua edge proxy
+- signed edge-agent config sync
+- DNS/GeoDNS publishing with PowerDNS/DNSGeo
+- cache rules, purge, WAF rules, rate limits, SSL, analytics, and audit logs
+
+It is designed for operators who want to understand, test, or run a controlled
+private CDN without depending on a public CDN vendor.
 
 ![CDNLite screenshot](docs/ScreenShot.png)
+
+
+## Best for
+
+- private/internal CDN deployments
+- hosting companies building edge services
+- CDN and DNS labs
+- OpenResty/PowerDNS-based edge experiments
+- controlled small production environments
+
+## Not yet for
+
+- large multi-tenant public CDN businesses
+- enterprise SSO/RBAC-heavy environments
+- billing-integrated commercial CDN platforms
+
 
 ## Table Of Contents
 
