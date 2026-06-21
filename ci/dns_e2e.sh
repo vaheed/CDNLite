@@ -66,7 +66,18 @@ login() {
 }
 
 force_sync() {
-  api_post "${CORE_URL}/api/v1/dns/force-sync" '{}'
+  local n queued
+  for n in $(seq 1 20); do
+    api_post "${CORE_URL}/api/v1/dns/force-sync" '{}'
+    if [[ "$HTTP_CODE" != "200" ]]; then
+      return 0
+    fi
+    queued="$(jq -r '.data.queued // false' <<<"$HTTP_BODY" 2>/dev/null || printf 'false')"
+    if [[ "$queued" != "true" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
 }
 
 purge_dns_caches() {
