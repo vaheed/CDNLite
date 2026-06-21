@@ -143,8 +143,10 @@ docker compose exec -T pdns-auth sh -ec \
    grep -Eq '^resolver=.+:5300$' /etc/powerdns/pdns.d/00-local.conf"
 record_step PASS "alias-runtime-config" "PowerDNS has expand-alias=yes and a separate resolver"
 
-docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json
-assert_eq "$(jq -r '.data.api.ok' /tmp/dns-e2e-doctor.json)" "true" "PowerDNS doctor should pass"
+if ! retry 20 2 docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json 2>/tmp/dns-e2e-doctor.err; then
+  fail "PowerDNS doctor command failed stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+fi
+assert_eq "$(jq -r '.data.api.ok' /tmp/dns-e2e-doctor.json)" "true" "PowerDNS doctor should pass body=$(cat /tmp/dns-e2e-doctor.json)"
 record_step PASS "powerdns-doctor" "Core PowerDNS doctor passed"
 
 now="$(date +%s)"
