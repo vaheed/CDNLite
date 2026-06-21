@@ -140,10 +140,11 @@ Core owns every real zone and record through the PowerDNS API.
 ## DNS Acceptance Tests
 
 `ci/dns_e2e.sh` uses the normal root Compose topology and fails unless Core
-writes the expected raw ALIAS, CNAME, DNS-only, site-target, and shared Lua
+writes the expected raw apex Lua, CNAME, DNS-only, site-target, and shared Lua
 records. It also compares `dig` answer sets for the apex, site target, and
-proxy host; verifies edge health changes only update the shared CDN record;
-checks stale deletion; and proves failed writes are visible and recoverable.
+proxy host; verifies edge health changes update the shared CDN record and
+managed apex Lua records without rewriting non-apex customer records; checks
+stale deletion; and proves failed writes are visible and recoverable.
 
 The script inspects the running authoritative configuration for
 `expand-alias=yes` and a separate resolver. Disabling either requirement fails

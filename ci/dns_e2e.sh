@@ -200,16 +200,17 @@ retry 40 1 rrset_exists "$TEST_ZONE" "$TEST_ZONE" LUA
 
 customer_zone="$(zone_json "$TEST_ZONE")"
 cdn_zone="$(zone_json "$CDN_ZONE_FQDN")"
-site_target="$(rrset_content "$cdn_zone" "site-${DOMAIN_ID}.${CDN_ZONE_FQDN}" CNAME)"
+site_host="site-${DOMAIN_ID}.${CDN_ZONE_FQDN}"
+site_cname="$(rrset_content "$cdn_zone" "$site_host" CNAME)"
 apex_lua="$(rrset_content "$customer_zone" "$TEST_ZONE" LUA)"
 assert_contains "$apex_lua" "$EDGE_EU" "apex LUA missing EU edge"
 assert_contains "$apex_lua" "$EDGE_US" "apex LUA missing US edge"
-assert_eq "$(rrset_content "$customer_zone" "www.${TEST_ZONE}" CNAME)" "$site_target" "www CNAME target mismatch"
+assert_eq "$(rrset_content "$customer_zone" "www.${TEST_ZONE}" CNAME)" "$site_host" "www CNAME target mismatch"
 assert_eq "$(rrset_content "$customer_zone" "direct.${TEST_ZONE}" A)" "192.0.2.99" "unproxied A mismatch"
 if jq -e --arg name "$TEST_ZONE" '.rrsets[] | select(.name == $name and (.type == "ALIAS" or .type == "CNAME"))' <<<"$customer_zone" >/dev/null; then
   fail "Core wrote ALIAS or CNAME at the proxied apex"
 fi
-assert_eq "$(rrset_content "$cdn_zone" "$site_target" CNAME)" "$PROXY_FQDN" "site target CNAME mismatch"
+assert_eq "$site_cname" "$PROXY_FQDN" "site target CNAME mismatch"
 lua_a="$(rrset_content "$cdn_zone" "$PROXY_FQDN" LUA)"
 assert_contains "$lua_a" "$EDGE_EU" "shared Lua record missing EU edge"
 assert_contains "$lua_a" "$EDGE_US" "shared Lua record missing US edge"
@@ -239,7 +240,7 @@ assert_eq "$(rrset_content "$customer_zone" "$TEST_ZONE" MX)" "10 mail.${TEST_ZO
 record_step PASS "apex-lua-mx-coexist" "PowerDNS apex contains both LUA and MX rrsets"
 
 apex_answers="$(answer_set "$TEST_DOMAIN")"
-site_answers="$(answer_set "${site_target%.}")"
+site_answers="$(answer_set "${site_host%.}")"
 proxy_answers="$(answer_set "${PROXY_FQDN%.}")"
 www_answers="$(answer_set "www.${TEST_DOMAIN}")"
 [[ -n "$apex_answers" ]] || fail "apex LUA returned no A answers (site='${site_answers}' proxy='${proxy_answers}' www='${www_answers}')"
@@ -277,7 +278,7 @@ assert_eq "$(jq -r '[.data[] | select(.readonly != true and .status == "active")
   "desired-active records did not reactivate after delegation restoration"
 record_step PASS "delegation-restoration" "all desired-active records republished after verification was restored"
 
-customer_before="$(jq -S '[.rrsets[] | select(.type != "SOA" and .type != "NS") | {name,type,ttl,records}]' <<<"$customer_zone")"
+customer_non_apex_before="$(jq -S --arg apex "$TEST_ZONE" '[.rrsets[] | select(.type != "SOA" and .type != "NS" and .name != $apex) | {name,type,ttl,records}]' <<<"$customer_zone")"
 db_query "UPDATE edge_nodes SET health_status='unhealthy', updated_at=$(date +%s) WHERE edge_id='dns-e2e-us';" >/dev/null
 force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after edge health transition failed"
@@ -288,9 +289,15 @@ assert_contains "$lua_after" "$EDGE_EU" "healthy edge disappeared from shared Lu
 if [[ "$lua_after" == *"$EDGE_US"* ]]; then
   fail "unhealthy edge remains in shared Lua record"
 fi
-customer_after="$(jq -S '[.rrsets[] | select(.type != "SOA" and .type != "NS") | {name,type,ttl,records}]' <<<"$(zone_json "$TEST_ZONE")")"
-assert_eq "$customer_after" "$customer_before" "edge health transition rewrote customer rrsets"
-record_step PASS "edge-health-reconcile" "unhealthy edge removed only from the shared CDN Lua record"
+customer_after_zone="$(zone_json "$TEST_ZONE")"
+apex_lua_after="$(rrset_content "$customer_after_zone" "$TEST_ZONE" LUA)"
+assert_contains "$apex_lua_after" "$EDGE_EU" "healthy edge disappeared from apex Lua record"
+if [[ "$apex_lua_after" == *"$EDGE_US"* ]]; then
+  fail "unhealthy edge remains in apex Lua record"
+fi
+customer_non_apex_after="$(jq -S --arg apex "$TEST_ZONE" '[.rrsets[] | select(.type != "SOA" and .type != "NS" and .name != $apex) | {name,type,ttl,records}]' <<<"$customer_after_zone")"
+assert_eq "$customer_non_apex_after" "$customer_non_apex_before" "edge health transition rewrote non-apex customer rrsets"
+record_step PASS "edge-health-reconcile" "unhealthy edge removed from shared and managed apex Lua records without rewriting non-apex customer rrsets"
 
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PLAIN_ID}"
 assert_http_status "$HTTP_CODE" "200" "unproxied record deletion failed"
