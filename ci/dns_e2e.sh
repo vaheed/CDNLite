@@ -47,6 +47,9 @@ finish() {
   local rc=$?
   cleanup
   if [[ $rc -ne 0 ]]; then
+    if [[ "$FAILED_STEPS" == "0" ]]; then
+      record_step FAIL "dns-e2e" "script exited with status ${rc}; see diagnostics artifacts"
+    fi
     collect_diagnostics
   fi
   write_reports
