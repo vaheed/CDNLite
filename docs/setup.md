@@ -285,6 +285,14 @@ Tests mutate only the local PostgreSQL-backed PowerDNS instance.
 Core stores every zone write attempt in `dns_sync_events` and keeps the latest
 per-zone result in `dns_sync_state`.
 
+Managed zones use platform SOA authority settings:
+`CDNLITE_DNS_PRIMARY_NS=ns1.faratar.ir.`,
+`CDNLITE_DNS_HOSTMASTER=hostmaster.faratar.ir.`,
+`CDNLITE_DNS_SOA_REFRESH=7200`, `CDNLITE_DNS_SOA_RETRY=3600`,
+`CDNLITE_DNS_SOA_EXPIRE=1209600`, `CDNLITE_DNS_SOA_MINIMUM=60`, and
+`CDNLITE_DNS_SOA_TTL=60` by default. The sync keeps exactly one apex SOA and
+uses a stored monotonic serial that changes only when zone content changes.
+
 ```bash
 docker compose exec core php artisan cdn:powerdns:doctor
 docker compose exec core php artisan cdn:powerdns:dry-run
@@ -292,8 +300,9 @@ docker compose exec core php artisan cdn:powerdns:force-sync
 curl -fsS http://localhost:8080/cdn-health
 ```
 
-`dry-run` builds the current DNS projection without writing PowerDNS.
-`force-sync` republishes customer and edge records and verifies the result.
+`doctor` reports SOA validity for each zone, `dry-run` builds the current DNS
+projection and SOA repairs without writing PowerDNS, and `force-sync`
+republishes customer and edge records, repairs SOA, and verifies the result.
 
 ## Testing
 

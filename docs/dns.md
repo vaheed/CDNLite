@@ -28,6 +28,13 @@ Use `CDNLITE_SYNC_INTERVAL_SECONDS` to set the scheduled convergence interval (d
 `30`). `php artisan cdn:powerdns:dry-run` previews desired rrsets, while
 `php artisan cdn:powerdns:force-sync` forces a full replacement pass.
 
+Every managed PowerDNS zone also gets one apex `SOA` record owned by platform
+authority settings, not by customer DNS records. Configure it with
+`CDNLITE_DNS_PRIMARY_NS`, `CDNLITE_DNS_HOSTMASTER`, `CDNLITE_DNS_SOA_REFRESH`,
+`CDNLITE_DNS_SOA_RETRY`, `CDNLITE_DNS_SOA_EXPIRE`, `CDNLITE_DNS_SOA_MINIMUM`,
+and `CDNLITE_DNS_SOA_TTL`. Core keeps a monotonic per-zone serial and only
+increments it when the managed zone content changes.
+
 The root `docker-compose.yml` starts the project DNS stack by default:
 
 - `pdns-postgres`: PostgreSQL backend dedicated to DNS data.
@@ -151,6 +158,10 @@ docker compose exec core php artisan cdn:powerdns:dry-run
 docker compose exec core php artisan cdn:powerdns:force-sync
 curl -fsS http://localhost:8080/cdn-health
 ```
+
+`doctor` reports per-zone SOA validity, including missing, duplicate, invalid
+authority, stale serial, and timing problems. `dry-run` includes the SOA repair
+rrset it would apply without writing PowerDNS.
 
 ## PostgreSQL Replication
 

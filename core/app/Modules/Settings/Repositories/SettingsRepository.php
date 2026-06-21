@@ -26,6 +26,15 @@ class SettingsRepository
             'hostnames' => ['type' => 'list', 'default' => ['ns1.local.', 'ns2.local.'], 'description' => 'Authoritative nameserver hostnames.'],
             'default_base_domain' => ['type' => 'string', 'default' => 'local.', 'description' => 'Fallback nameserver base domain.'],
         ],
+        'platform.dns_authority' => [
+            'primary_ns' => ['env' => 'CDNLITE_DNS_PRIMARY_NS', 'type' => 'string', 'default' => 'ns1.faratar.ir.', 'description' => 'Primary nameserver used in managed zone SOA records.'],
+            'hostmaster' => ['env' => 'CDNLITE_DNS_HOSTMASTER', 'type' => 'string', 'default' => 'hostmaster.faratar.ir.', 'description' => 'SOA RNAME contact for managed zones.'],
+            'soa_refresh' => ['env' => 'CDNLITE_DNS_SOA_REFRESH', 'type' => 'int', 'default' => 7200, 'description' => 'SOA refresh interval in seconds.'],
+            'soa_retry' => ['env' => 'CDNLITE_DNS_SOA_RETRY', 'type' => 'int', 'default' => 3600, 'description' => 'SOA retry interval in seconds.'],
+            'soa_expire' => ['env' => 'CDNLITE_DNS_SOA_EXPIRE', 'type' => 'int', 'default' => 1209600, 'description' => 'SOA expire interval in seconds.'],
+            'soa_minimum' => ['env' => 'CDNLITE_DNS_SOA_MINIMUM', 'type' => 'int', 'default' => 60, 'description' => 'SOA minimum TTL value.'],
+            'soa_ttl' => ['env' => 'CDNLITE_DNS_SOA_TTL', 'type' => 'int', 'default' => 60, 'description' => 'TTL for managed zone SOA rrsets.'],
+        ],
         'platform.edge_dns' => [
             'health_port' => ['env' => 'CDNLITE_EDGE_HEALTH_PORT', 'type' => 'int', 'default' => 443, 'description' => 'Shared proxy health-check port.'],
             'cdn_zone' => ['env' => 'CDNLITE_CDN_ZONE', 'type' => 'string', 'default' => 'cdn.example.net', 'description' => 'Authoritative CDN routing zone.'],

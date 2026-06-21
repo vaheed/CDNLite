@@ -259,6 +259,14 @@ CREATE INDEX IF NOT EXISTS desired_dns_rrsets_owner_generation_idx
 CREATE INDEX IF NOT EXISTS desired_dns_rrsets_zone_owner_idx
   ON desired_dns_rrsets(zone_name, owner);
 
+CREATE TABLE IF NOT EXISTS powerdns_zone_serials (
+  zone_name TEXT PRIMARY KEY,
+  serial BIGINT NOT NULL,
+  content_hash TEXT NOT NULL,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS dns_sync_state (
   zone_name TEXT PRIMARY KEY,
   desired_hash TEXT NULL,

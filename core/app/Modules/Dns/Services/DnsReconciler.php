@@ -11,7 +11,8 @@ class DnsReconciler
     public function __construct(
         private DnsDesiredStateBuilder $builder = new DnsDesiredStateBuilder(),
         private PowerDnsService $powerDns = new PowerDnsService(),
-        private DnsSyncStateService $syncState = new DnsSyncStateService()
+        private DnsSyncStateService $syncState = new DnsSyncStateService(),
+        private PowerDnsSoaService $soa = new PowerDnsSoaService()
     ) {
     }
 
@@ -63,6 +64,14 @@ class DnsReconciler
                 }
                 $patch = $force ? $rrsets : $this->changes($zone, $rrsets);
                 if ($patch === []) {
+                    $soaResult = $this->soa->repair($zone, $rrsets);
+                    if (($soaResult['ok'] ?? false) !== true) {
+                        $failures[] = $soaResult + ['zone' => $zone, 'rrset_name' => $zone, 'rrset_type' => 'SOA'];
+                        continue;
+                    }
+                    if (($soaResult['repaired'] ?? false) === true) {
+                        $changes++;
+                    }
                     $this->syncState->markConverged($zone, $rrsets, $generation);
                     continue;
                 }
@@ -79,6 +88,14 @@ class DnsReconciler
                         }
                         $changes++;
                     }
+                }
+                $soaResult = $this->soa->repair($zone, $rrsets);
+                if (($soaResult['ok'] ?? false) !== true) {
+                    $failures[] = $soaResult + ['zone' => $zone, 'rrset_name' => $zone, 'rrset_type' => 'SOA'];
+                    continue;
+                }
+                if (($soaResult['repaired'] ?? false) === true) {
+                    $changes++;
                 }
             }
             if ($failures === []) {
@@ -101,7 +118,8 @@ class DnsReconciler
     public function preview(): array
     {
         $desired = $this->builder->build();
-        return ['rrsets' => $desired, 'zones' => count($this->byZone($desired)), 'changes' => count($desired)];
+        $zones = $this->byZone($desired);
+        return ['rrsets' => $desired, 'zones' => count($zones), 'changes' => count($desired), 'soa' => $this->soa->preview($zones)];
     }
 
     private function byZone(array $desired): array

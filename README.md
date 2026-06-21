@@ -67,6 +67,11 @@ docker compose exec core php artisan cdn:powerdns:dry-run
 docker compose exec core php artisan cdn:powerdns:force-sync
 ```
 
+PowerDNS zones use platform SOA authority defaults from
+`CDNLITE_DNS_PRIMARY_NS`, `CDNLITE_DNS_HOSTMASTER`, and the
+`CDNLITE_DNS_SOA_*` timing variables. `doctor` and `dry-run` report SOA
+validity and the repair that would be applied.
+
 See the [User Guide](docs/usage/user.md), [Admin Guide](docs/usage/admin.md), and [API Reference](docs/api/api.md).
 
 ## Documentation
