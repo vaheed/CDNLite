@@ -30,5 +30,10 @@ def test_edge_network_keeps_existing_api_calls_and_export():
     assert "edgesApi.list()" in view
     assert "edgesApi.pools()" in view
     assert "edgesApi.dns()" in view
-    assert "configSnapshotsApi.list()" in view
+    assert "configSnapshotsApi.latest()" in view
+    assert "configSnapshotsApi.list()" not in view
+    assert "onMounted(load)" not in view
+    assert "useVisibilityPolling(load, pollingIntervalMs, { immediate: true })" in view
+    assert "runtimeConfig.dashboardRefreshSeconds * 1000" in view
+    assert "runtimeConfig.requestTimeoutMs + 1000" in view
     assert "<ReportExportButton" in view
