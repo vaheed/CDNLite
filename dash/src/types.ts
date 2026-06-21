@@ -9,7 +9,7 @@ export interface RuntimeHealth { ok: boolean; ready?: boolean; time?: number; se
 export type ReadinessStatus = 'ok' | 'warning' | 'error';
 export interface ReadinessCheck { key: string; status: ReadinessStatus; message: string; fix?: string; link?: string; }
 export interface ReadinessGroup { status: ReadinessStatus; checks: ReadinessCheck[]; }
-export interface ReadinessResponse { core: ReadinessGroup; edge: ReadinessGroup; checked_at: number; }
+export interface ReadinessResponse { core: ReadinessGroup; edge: ReadinessGroup; domain?: ReadinessGroup; checked_at: number; }
 
 export interface Domain {
   id: Id;

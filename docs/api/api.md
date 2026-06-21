@@ -146,7 +146,7 @@ curl -s http://localhost:8080/api/v1/readiness \
 | `GET` | `/health` | No | Core liveness. |
 | `GET` | `/cdn-health` | No | Structured Core, edge, PowerDNS API, and persisted DNS sync health. |
 | `GET` | `/ready` | No | PostgreSQL, schema, config generation, and API token readiness. |
-| `GET` | `/api/v1/readiness` | Protected | Detailed readiness model for dashboard. |
+| `GET` | `/api/v1/readiness` | Protected | Detailed dashboard readiness model. `core` covers platform infrastructure checks such as PostgreSQL, PowerDNS, and config snapshots; domain/application warnings such as unhealthy origins and expiring certificates are returned separately as domain action items. |
 
 Example:
 

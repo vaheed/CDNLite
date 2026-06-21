@@ -23,13 +23,16 @@
           <span class="sr-only">Loading readiness checks</span>
         </div>
         <div v-else-if="readiness" class="space-y-6">
-          <section v-for="groupName in groups" :key="groupName">
+          <section v-for="group in visibleGroups" :key="group.name">
             <div class="mb-3 flex items-center justify-between">
-              <h3 class="font-bold capitalize text-slate-900 dark:text-white">{{ groupName }}</h3>
-              <StatusBadge :status="readiness[groupName].status" />
+              <div>
+                <h3 class="font-bold text-slate-900 dark:text-white">{{ group.title }}</h3>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ group.description }}</p>
+              </div>
+              <StatusBadge :status="group.readiness.status" />
             </div>
             <div class="space-y-3">
-              <article v-for="check in readiness[groupName].checks" :key="check.key" class="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+              <article v-for="check in group.readiness.checks" :key="check.key" class="rounded-xl border border-slate-200 p-4 dark:border-white/10">
                 <div class="flex items-start gap-3">
                   <StatusBadge :status="check.status" />
                   <div class="min-w-0">
@@ -56,6 +59,31 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 
 const props = defineProps<{ open: boolean; readiness?: ReadinessResponse; refreshing?: boolean }>();
 defineEmits<{ close: []; refresh: [] }>();
-const groups = ['core', 'edge'] as const;
 const checkedAt = computed(() => props.readiness?.checked_at ? formatDate(props.readiness.checked_at) : 'never');
+const visibleGroups = computed(() => {
+  if (!props.readiness) return [];
+  const groups = [
+    {
+      name: 'core',
+      title: 'Core infrastructure',
+      description: 'Platform services required for the control plane.',
+      readiness: props.readiness.core,
+    },
+  ];
+  if (props.readiness.domain) {
+    groups.push({
+      name: 'domain',
+      title: 'Domain warnings',
+      description: 'Application and domain-specific action items.',
+      readiness: props.readiness.domain,
+    });
+  }
+  groups.push({
+    name: 'edge',
+    title: 'Edge',
+    description: 'Edge node availability and identity checks.',
+    readiness: props.readiness.edge,
+  });
+  return groups;
+});
 </script>

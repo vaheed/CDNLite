@@ -19,7 +19,8 @@ class ReadinessService
 
     public function check(): array
     {
-        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->snapshotCheck(), $this->certificateExpiryCheck(), $this->originHealthCheck()];
+        $coreChecks = [$this->postgresCheck(), $this->powerDnsConfigCheck(), $this->powerDnsReachabilityCheck(), $this->snapshotCheck()];
+        $domainChecks = [$this->certificateExpiryCheck(), $this->originHealthCheck()];
         $edgeChecks = [$this->heartbeatCheck(), $this->identityCheck()];
 
         $powerDns = [
@@ -30,6 +31,7 @@ class ReadinessService
         ];
         return [
             'core' => ['status' => $this->groupStatus($coreChecks), 'checks' => $coreChecks],
+            'domain' => ['status' => $this->groupStatus($domainChecks), 'checks' => $domainChecks],
             'edge' => ['status' => $this->groupStatus($edgeChecks), 'checks' => $edgeChecks],
             'powerdns' => $powerDns,
             'checked_at' => time(),
