@@ -176,6 +176,12 @@ Core settings:
 | `CDNLITE_SSL_SECRET_KEY` | Secret used for stored SSL material handling. |
 | `CDNLITE_ORIGIN_SHIELD_SECRET` | Default origin shield secret. |
 | `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
+| `CDNLITE_SECURITY_EVENT_RETENTION_DAYS` | High-volume WAF, rate-limit, bot, and Geo security-event retention for `cdn:usage:prune --all`; default `90`. |
+| `CDNLITE_DNS_EVENT_RETENTION_DAYS` | Successful DNS sync event retention for `cdn:usage:prune --all`; default `30`. Failed DNS sync events are retained for troubleshooting. |
+| `CDNLITE_SSL_JOB_RETENTION_DAYS` | Terminal SSL job retention for `cdn:usage:prune --all`; default `180`. Active jobs are never pruned. |
+| `CDNLITE_INGEST_KEY_RETENTION_DAYS` | Edge ingest idempotency-key retention for `cdn:usage:prune --all`; default `7`. |
+| `CDNLITE_RETENTION_PRUNE_ENABLED` | Enables the `retention-scheduler` service when set to `true`; default `false` for upgrade safety. |
+| `CDNLITE_RETENTION_INTERVAL_SECONDS`, `CDNLITE_RETENTION_BATCH_SIZE` | Retention scheduler interval and bounded delete batch size; defaults `86400` and `5000`. |
 | `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
 | `CDNLITE_ACME_*` | ACME directory, contact email, DNS propagation delay, optional public DNS TXT precheck, and polling for automatic apex and wildcard certificates. |
 | `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` | Age after which an in-progress SSL job can be reclaimed by the scheduler and retried. |
@@ -254,10 +260,23 @@ docker compose exec core php artisan cdn:usage:prune --dry-run
 docker compose exec core php artisan cdn:usage:prune --days=30
 ```
 
-Longer-term rollups and dashboard summaries should use aggregate views and
-exports, not indefinite raw request retention. Security-event ingest hashes
-client IPs by default; set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your
-privacy policy and retention process explicitly allow it.
+Use the wider retention pass for high-volume operational rows after reviewing
+the dry run. It prunes raw request rows, high-volume security events, successful
+DNS sync events, terminal SSL jobs, expired edge nonces, and old ingest
+idempotency keys in bounded batches:
+
+```bash
+docker compose exec core php artisan cdn:usage:prune --all --dry-run
+docker compose exec core php artisan cdn:usage:prune --all
+```
+
+The `retention-scheduler` service ships disabled by default. Set
+`CDNLITE_RETENTION_PRUNE_ENABLED=true` only after confirming the dry-run counts
+match your operational policy. Longer-term rollups and dashboard summaries
+should use aggregate views and exports, not indefinite raw request retention.
+Security-event ingest hashes client IPs by default; set
+`CDNLITE_STORE_FULL_CLIENT_IP=true` only when your privacy policy and retention
+process explicitly allow it.
 
 Dashboard variables:
 

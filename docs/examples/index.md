@@ -121,6 +121,20 @@ curl -s -X POST "$API/api/v1/usage/recalculate" \
   -d '{"bucket":"hour"}'
 ```
 
+## Retention Dry Run
+
+```bash
+docker compose exec core php artisan cdn:usage:prune --all --dry-run
+docker compose exec core php artisan cdn:usage:prune --all
+```
+
+Enable the `retention-scheduler` only after the dry-run counts match your
+policy:
+
+```bash
+CDNLITE_RETENTION_PRUNE_ENABLED=true
+```
+
 ## Verify And Activate A Lab Domain
 
 ```bash

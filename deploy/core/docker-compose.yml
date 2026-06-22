@@ -142,6 +142,31 @@ services:
     networks:
       - internal
 
+  retention-scheduler:
+    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
+      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED}
+      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS}
+      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE}
+      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS}
+      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS}
+      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS}
+      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS}
+      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
+    networks:
+      - internal
+
   dashboard:
     image: ghcr.io/${REGISTRY_OWNER}/cdnlite-dashboard:${IMAGE_TAG}
     restart: unless-stopped

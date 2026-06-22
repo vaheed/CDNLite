@@ -67,3 +67,53 @@ def test_dnsgeo_deploy_bundle_contains_supported_topology():
     assert 'PDNS_ENABLE_LUA_RECORDS: "yes"' in compose
     assert 'PDNS_EDNS_SUBNET_PROCESSING: "yes"' in compose
     assert "PDNS_API_BIND_ADDRESS=127.0.0.1" in env
+
+
+def test_production_env_examples_include_high_volume_retention_and_dns_replication_knobs():
+    env_paths = [
+        ROOT / ".env.production.example",
+        ROOT / "deploy" / "starter" / ".env.example",
+        ROOT / "deploy" / "core" / ".env.example",
+    ]
+
+    for path in env_paths:
+        env = path.read_text()
+        assert "CDNLITE_RETENTION_PRUNE_ENABLED=true" in env
+        assert "CDNLITE_RETENTION_INTERVAL_SECONDS=21600" in env
+        assert "CDNLITE_RETENTION_BATCH_SIZE=20000" in env
+        assert "CDNLITE_ANALYTICS_RETENTION_DAYS=14" in env
+        assert "CDNLITE_SECURITY_EVENT_RETENTION_DAYS=90" in env
+        assert "CDNLITE_DNS_EVENT_RETENTION_DAYS=30" in env
+        assert "CDNLITE_SSL_JOB_RETENTION_DAYS=180" in env
+        assert "CDNLITE_INGEST_KEY_RETENTION_DAYS=7" in env
+        assert "CDNLITE_SYNC_INTERVAL_SECONDS=30" in env
+        assert "CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS=300" in env
+
+    for path in (ROOT / ".env.production.example", ROOT / "deploy" / "starter" / ".env.example"):
+        env = path.read_text()
+        assert "PDNS_ALLOW_AXFR_IPS=" in env
+        assert "PDNS_ALSO_NOTIFY=" in env
+        assert "PDNS_PG_MAX_WAL_SENDERS=20" in env
+        assert "PDNS_PG_MAX_REPLICATION_SLOTS=20" in env
+        assert "PDNS_PG_WAL_KEEP_SIZE=4096MB" in env
+
+
+def test_root_env_examples_document_current_runtime_knobs():
+    for path in (ROOT / ".env.example", ROOT / ".env.dev.example", ROOT / ".env.production.example"):
+        env = path.read_text()
+        for key in (
+            "CDNLITE_ACME_DNS_VERIFY_ATTEMPTS",
+            "CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS",
+            "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS",
+            "CDNLITE_SYNC_INTERVAL_SECONDS",
+            "CDNLITE_RETENTION_PRUNE_ENABLED",
+            "CDNLITE_RETENTION_BATCH_SIZE",
+            "CDNLITE_ANALYTICS_RETENTION_DAYS",
+            "PDNS_ALLOW_AXFR_IPS",
+            "PDNS_ALSO_NOTIFY",
+            "PDNS_PG_MAX_WAL_SENDERS",
+            "PDNS_PG_MAX_REPLICATION_SLOTS",
+            "PDNS_PG_WAL_KEEP_SIZE",
+            "PDNS_PG_TLS_DAYS",
+        ):
+            assert f"{key}=" in env

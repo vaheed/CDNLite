@@ -671,6 +671,7 @@ Analytics tips:
 - Activity endpoints store edge query data only after the edge-side redaction step. Use request-id lookup to correlate the public 5xx page, Docker-visible edge logs, and dashboard Activity details without exposing raw secret query values.
 - Simple Activity is derived from the same raw request, audit, and security rows as Advanced Activity. API clients can use `friendly.category`, `friendly.intent`, and `summary.beginner.recommendations` for beginner dashboards without losing request IDs or exportable raw details.
 - Prune raw detailed request rows with `php artisan cdn:usage:prune --dry-run` followed by `php artisan cdn:usage:prune --days=30` or the value configured in `CDNLITE_ANALYTICS_RETENTION_DAYS`.
+- Review full retention counts with `php artisan cdn:usage:prune --all --dry-run` before enabling `CDNLITE_RETENTION_PRUNE_ENABLED=true`. The full pass uses bounded batches for raw requests, high-volume security events, successful DNS sync events, terminal SSL jobs, expired edge nonces, and old ingest idempotency keys.
 - Security-event ingest stores `client_ip` as a SHA-256 hash by default. Set `CDNLITE_STORE_FULL_CLIENT_IP=true` only when your deployment has an explicit policy for full IP retention.
 - `rate_limited` security-event details include `rate_limit_id`, `limit_key_type`, `threshold`, `current_count`, `window_seconds`, `action` as `decision`, and `retry_after` so Activity can explain which Smart Rate Limiting rule fired and how far over the limit the request was.
 ## Operations Logs

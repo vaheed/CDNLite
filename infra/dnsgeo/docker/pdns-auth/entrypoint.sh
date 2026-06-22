@@ -13,6 +13,8 @@ PDNS_DB_USER="${PDNS_DB_USER:-pdns}"
 PDNS_GPGSQL_EXTRA_CONNECTION_PARAMETERS="${PDNS_GPGSQL_EXTRA_CONNECTION_PARAMETERS:-sslmode=verify-ca sslrootcert=/var/lib/postgresql/tls/ca.crt}"
 PDNS_PRIMARY="${PDNS_PRIMARY:-yes}"
 PDNS_SECONDARY="${PDNS_SECONDARY:-no}"
+PDNS_ALLOW_AXFR_IPS="${PDNS_ALLOW_AXFR_IPS:-127.0.0.1,::1}"
+PDNS_ALSO_NOTIFY="${PDNS_ALSO_NOTIFY:-}"
 PDNS_WEBSERVER_PASSWORD="${PDNS_WEBSERVER_PASSWORD:-}"
 PDNS_WEBSERVER_ALLOW_FROM="${PDNS_WEBSERVER_ALLOW_FROM:-0.0.0.0/0,::/0}"
 PDNS_GEO_BOOTSTRAP_ZONE_FILE="${PDNS_GEO_BOOTSTRAP_ZONE_FILE:-/etc/powerdns/geo/lua-bootstrap.yml}"
@@ -95,6 +97,11 @@ wait_for_database_schema() {
 }
 
 render_config() {
+  local notify_config=""
+  if [ -n "$PDNS_ALSO_NOTIFY" ]; then
+    notify_config="also-notify=${PDNS_ALSO_NOTIFY}"
+  fi
+
   cat > /etc/powerdns/pdns.d/00-local.conf <<EOF_CONF
 # Rendered from environment by /usr/local/bin/pdns-entrypoint.sh
 
@@ -121,6 +128,8 @@ gpgsql-extra-connection-parameters=${PDNS_GPGSQL_EXTRA_CONNECTION_PARAMETERS}
 # Authoritative server mode
 primary=${PDNS_PRIMARY}
 secondary=${PDNS_SECONDARY}
+allow-axfr-ips=${PDNS_ALLOW_AXFR_IPS}
+${notify_config}
 expand-alias=${PDNS_EXPAND_ALIAS}
 resolver=${PDNS_RESOLVER}
 

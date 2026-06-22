@@ -63,6 +63,15 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert "'sha256:' . hash('sha256', $ip)" in collector
     assert "cdn:usage:prune" in artisan
     assert "pruneDetailedEvents($days, $dryRun)" in prune_command
+    assert "pruneOperationalRetention" in collector
+    assert "WITH doomed AS" in collector
+    assert "CDNLITE_SECURITY_EVENT_RETENTION_DAYS" in collector
+    assert "CDNLITE_RETENTION_BATCH_SIZE" in collector
+    assert "event IN ('waf_match','rate_limited','bot_match','geo_block')" in collector
+    assert "status IN ('success','verified')" in collector
+    assert "status IN ('issued','failed','cancelled')" in collector
+    assert "pruneOperationalRetention([" in prune_command
+    assert "isset($opts['all'])" in prune_command
 
 
 def test_dashboard_activity_shows_request_origin_and_router_details():
@@ -99,6 +108,7 @@ def test_dashboard_activity_shows_request_origin_and_router_details():
     assert "/api/v1/domains/{domainId}/activity/requests" in docs
     assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in docs
     assert "cdn:usage:prune --dry-run" in docs
+    assert "cdn:usage:prune --all --dry-run" in docs
     assert "CDNLITE_STORE_FULL_CLIENT_IP" in docs
     assert "/api/v1/domains/{domainId}/activity/requests:" in openapi
     assert "/api/v1/domains/{domainId}/activity:" in openapi

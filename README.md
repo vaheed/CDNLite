@@ -39,6 +39,7 @@ It is intended as a production-oriented private CDN foundation, not a promise th
 - Domain lifecycle, nameserver verification, activation, deletion, and audit history.
 - Origin management with primary and backup origins plus scheduled health checks.
 - API, CLI, dashboard workflows, central job queue, readiness checks, and operational reports.
+- Bounded retention pruning for raw activity, high-volume security events, DNS sync noise, and terminal SSL jobs, with dry-run-first production guidance.
 
 **Edge Proxy**
 

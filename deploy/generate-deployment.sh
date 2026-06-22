@@ -9,7 +9,7 @@ set -euo pipefail
 
 umask 077
 
-SCRIPT_VERSION="upstream-runtime-v19"
+SCRIPT_VERSION="upstream-runtime-v20"
 CDNLITE_REPO="${CDNLITE_REPO:-https://github.com/vaheed/CDNLite.git}"
 CDNLITE_REF_DEFAULT="${CDNLITE_REF_DEFAULT:-main}"
 REGISTRY_OWNER_DEFAULT="${REGISTRY_OWNER_DEFAULT:-vaheed}"
@@ -20,7 +20,7 @@ AUTO_DEFAULTS="${AUTO_DEFAULTS:-no}"
 FORCE="${FORCE:-no}"
 VALIDATE_COMPOSE="${VALIDATE_COMPOSE:-yes}"
 WITH_NPM_DEFAULT="${WITH_NPM_DEFAULT:-yes}"
-WITH_PDNS_SECONDARY_DEFAULT="${WITH_PDNS_SECONDARY_DEFAULT:-yes}"
+PDNS_SECONDARY_MODE_DEFAULT="${PDNS_SECONDARY_MODE_DEFAULT:-postgres}"
 # image = use upstream ghcr.io images for CDNLite app services. build = build app services from remote GitHub contexts.
 CDNLITE_COMPONENT_MODE_DEFAULT="${CDNLITE_COMPONENT_MODE_DEFAULT:-image}"
 
@@ -128,6 +128,24 @@ prompt_yes_no() {
       y|yes|true|1) printf -v "$__yn_out" '%s' "yes"; return 0 ;;
       n|no|false|0) printf -v "$__yn_out" '%s' "no"; return 0 ;;
       *) echo "Please answer yes or no." ;;
+    esac
+  done
+}
+
+prompt_choice() {
+  local __choice_out="$1" __choice_label="$2" __choice_default="$3" __choice_allowed="$4" __choice_input="" __choice_value=""
+  while true; do
+    if [ "${AUTO_DEFAULTS:-no}" = "yes" ]; then
+      __choice_value="$__choice_default"
+      printf '%s [%s]: %s\n' "$__choice_label" "$__choice_default" "$__choice_value"
+    else
+      read -r -p "$__choice_label [$__choice_default]: " __choice_input || true
+      __choice_value="$(trim_value "$__choice_input")"; __choice_value="${__choice_value:-$__choice_default}"
+    fi
+    __choice_value="${__choice_value,,}"
+    case " $__choice_allowed " in
+      *" $__choice_value "*) printf -v "$__choice_out" '%s' "$__choice_value"; return 0 ;;
+      *) echo "Choose one of: $__choice_allowed" ;;
     esac
   done
 }
@@ -309,6 +327,14 @@ CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS=900
 CDNLITE_SCHEDULER_IDLE=0
 CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS=300
 CDNLITE_SYNC_INTERVAL_SECONDS=30
+CDNLITE_RETENTION_PRUNE_ENABLED=true
+CDNLITE_RETENTION_INTERVAL_SECONDS=21600
+CDNLITE_RETENTION_BATCH_SIZE=20000
+CDNLITE_ANALYTICS_RETENTION_DAYS=14
+CDNLITE_SECURITY_EVENT_RETENTION_DAYS=90
+CDNLITE_DNS_EVENT_RETENTION_DAYS=30
+CDNLITE_SSL_JOB_RETENTION_DAYS=180
+CDNLITE_INGEST_KEY_RETENTION_DAYS=7
 CDNLITE_POWERDNS_VERIFY_AFTER_WRITE=true
 CDNLITE_POWERDNS_RETRIES=3
 CDNLITE_POWERDNS_RETRY_SLEEP_MS=500
@@ -388,13 +414,15 @@ PDNS_REPLICATION_PASSWORD=${PDNS_REPLICATION_PASSWORD}
 PDNS_API_KEY=${PDNS_API_KEY}
 PDNS_WEBSERVER_PASSWORD=${PDNS_WEBSERVER_PASSWORD}
 PDNS_WEBSERVER_ALLOW_FROM=127.0.0.1,172.31.0.0/24,${PRIMARY_PUBLIC_IP},${EDGE_PUBLIC_IP}
+PDNS_ALLOW_AXFR_IPS=127.0.0.1,::1,172.31.0.0/24,${EDGE_PUBLIC_IP}
+PDNS_ALSO_NOTIFY=${EDGE_PUBLIC_IP}:${EDGE_DNS_PORT}
 PDNS_DNS_BIND_ADDRESS=0.0.0.0
 PDNS_DNS_PORT=${DNS_PORT}
 PDNS_API_BIND_ADDRESS=127.0.0.1
 PDNS_API_PORT=${PDNS_API_PORT}
-PDNS_PG_MAX_WAL_SENDERS=10
-PDNS_PG_MAX_REPLICATION_SLOTS=10
-PDNS_PG_WAL_KEEP_SIZE=512MB
+PDNS_PG_MAX_WAL_SENDERS=20
+PDNS_PG_MAX_REPLICATION_SLOTS=20
+PDNS_PG_WAL_KEEP_SIZE=4096MB
 PDNS_PG_TLS_DAYS=3650
 PDNS_PG_TLS_SAN=DNS:pdns-postgres,IP:127.0.0.1,IP:${PRIMARY_PUBLIC_IP}
 CDNLITE_DNS_BASE_DOMAIN=${DNS_BASE_DOMAIN}
@@ -473,6 +501,7 @@ CDNLITE_MMDB_DOWNLOAD_RETRIES=5
 CDNLITE_MMDB_EXPECTED_SHA256=
 EDGE_AGENT_IDLE=0
 
+PDNS_SECONDARY_MODE=${PDNS_SECONDARY_MODE}
 WITH_PDNS_SECONDARY=${WITH_PDNS_SECONDARY}
 PDNS_PRIMARY_IP=${PRIMARY_PUBLIC_IP}
 PDNS_PRIMARY_ACCOUNT=cdnlite
@@ -623,6 +652,16 @@ services:
         condition: service_healthy
     env_file: .env
     command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
+    networks: [cdnlite-internal]
+
+  retention-scheduler:
+    <<: *cdnlite-core
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
     networks: [cdnlite-internal]
 
   dashboard:
@@ -800,6 +839,8 @@ services:
       PDNS_API_KEY: ${PDNS_API_KEY}
       PDNS_WEBSERVER_PASSWORD: ${PDNS_WEBSERVER_PASSWORD}
       PDNS_WEBSERVER_ALLOW_FROM: ${PDNS_WEBSERVER_ALLOW_FROM}
+      PDNS_ALLOW_AXFR_IPS: ${PDNS_ALLOW_AXFR_IPS}
+      PDNS_ALSO_NOTIFY: ${PDNS_ALSO_NOTIFY}
       PDNS_GEO_BOOTSTRAP_ZONE_FILE: /etc/powerdns/geo/lua-bootstrap.yml
       PDNS_GEO_MMDB_FILE: /var/lib/powerdns/mmdb/GeoLite2-City.mmdb
       PDNS_EDNS_SUBNET_PROCESSING: "yes"
@@ -873,10 +914,12 @@ services:
       retries: 60
     networks: [cdnlite-internal]
 
+EOF
+    if [ "${WITH_NPM:-yes}" = "yes" ]; then
+      cat <<'EOF'
   nginx-proxy-manager:
     image: ${NPM_IMAGE}
     restart: unless-stopped
-    profiles: ["npm"]
     environment:
       TZ: ${TZ}
       DISABLE_IPV6: ${NPM_DISABLE_IPV6}
@@ -889,6 +932,9 @@ services:
       - ./runtime/npm-letsencrypt:/etc/letsencrypt
     networks: [public, cdnlite-internal]
 
+EOF
+    fi
+    cat <<'EOF'
 networks:
   public:
     driver: bridge
@@ -990,10 +1036,12 @@ EOF
       EDGE_AGENT_IDLE: ${EDGE_AGENT_IDLE}
     networks: [edge-net]
 
+EOF
+    if [ "${WITH_PDNS_SECONDARY:-yes}" = "yes" ]; then
+      cat <<'EOF'
   pdns-replica:
     image: powerdns/pdns-auth-49
     restart: unless-stopped
-    profiles: ["pdns-secondary"]
     entrypoint: ["/etc/powerdns/entrypoint.sh"]
     ports:
       - "${PDNS_DNS_PORT}:53/udp"
@@ -1013,6 +1061,9 @@ EOF
       retries: 12
     networks: [edge-net]
 
+EOF
+    fi
+    cat <<'EOF'
 networks:
   edge-net:
     driver: bridge
@@ -1169,6 +1220,8 @@ EOF
 
 write_readmes() {
   local p="$1" e="$2"
+  local core_dir_for_edge="../$p"
+  case "$p" in /*) core_dir_for_edge="$p" ;; esac
   cat > "$p/README_RUNBOOK.md" <<EOF
 # CDNLite upstream core + DNSGeo
 
@@ -1180,11 +1233,11 @@ This folder does **not** contain a CDNLite repository clone. CDNLite app service
 
 \`\`\`bash
 ./scripts/fix-runtime-permissions.sh
-docker compose --profile npm up -d --build --wait
+docker compose up -d --build --wait
 ./scripts/validate-core.sh
 \`\`\`
 
-Omit \`--profile npm\` if you do not want Nginx Proxy Manager.
+Nginx Proxy Manager is included only when enabled during generation.
 
 ## Important URLs
 
@@ -1223,7 +1276,7 @@ This folder does **not** contain a CDNLite repository clone. Edge/agent use upst
 Register the generated edge token on the core host:
 
 \`\`\`bash
-CORE_DIR=../${PRIMARY_DIR} ./register-this-edge-on-core.sh
+CORE_DIR=${core_dir_for_edge} ./register-this-edge-on-core.sh
 \`\`\`
 
 Start edge only:
@@ -1237,7 +1290,7 @@ docker compose up -d --wait
 Start edge plus PowerDNS secondary:
 
 \`\`\`bash
-docker compose --profile pdns-secondary up -d --wait
+docker compose up -d --wait
 \`\`\`
 
 PowerDNS secondary uses the upstream \`deploy/powerdns-replica\` sqlite/autosecondary pattern and persists under \`./runtime/pdns-replica-data\`.
@@ -1329,8 +1382,19 @@ main() {
   EDGE_DNS_PORT="${EDGE_DNS_PORT:-53}"; prompt EDGE_DNS_PORT "Edge/secondary DNS host port" "$EDGE_DNS_PORT"
 
   NPM_HTTP_PORT="${NPM_HTTP_PORT:-80}"; NPM_HTTPS_PORT="${NPM_HTTPS_PORT:-443}"; NPM_ADMIN_PORT="${NPM_ADMIN_PORT:-81}"
-  prompt_yes_no WITH_NPM "Generate/start Nginx Proxy Manager profile" "$([ "$WITH_NPM_DEFAULT" = yes ] && echo y || echo n)"
-  prompt_yes_no WITH_PDNS_SECONDARY "Generate edge PowerDNS secondary profile" "$([ "$WITH_PDNS_SECONDARY_DEFAULT" = yes ] && echo y || echo n)"
+  prompt_yes_no WITH_NPM "Include Nginx Proxy Manager service" "$([ "$WITH_NPM_DEFAULT" = yes ] && echo y || echo n)"
+  echo "PowerDNS secondary mode: postgres is preferred for durable secondary DNS state; axfr is simpler and starts with only docker compose up on a separate edge host."
+  PDNS_SECONDARY_MODE="${PDNS_SECONDARY_MODE:-$PDNS_SECONDARY_MODE_DEFAULT}"
+  prompt_choice PDNS_SECONDARY_MODE "PowerDNS secondary mode: postgres, axfr, or none" "$PDNS_SECONDARY_MODE" "postgres axfr none"
+  if [ "$PDNS_SECONDARY_MODE" = "postgres" ]; then
+    warn "PostgreSQL streaming replica is preferred, but split-host bootstrap needs the primary TLS client bundle after first start. This generator will use AXFR for zero-intervention edge startup until secure TLS bundle distribution is configured."
+    WITH_PDNS_SECONDARY=yes
+    PDNS_SECONDARY_MODE=axfr
+  elif [ "$PDNS_SECONDARY_MODE" = "axfr" ]; then
+    WITH_PDNS_SECONDARY=yes
+  else
+    WITH_PDNS_SECONDARY=no
+  fi
 
   CDNLITE_DB_PASSWORD="${CDNLITE_DB_PASSWORD:-$(rand_b64 36)}"
   CDNLITE_API_TOKEN="${CDNLITE_API_TOKEN:-$(rand_b64 48)}"
@@ -1376,6 +1440,9 @@ main() {
   "$EDGE_DIR/scripts/fix-runtime-permissions.sh" >/dev/null
   validate_generated_compose "$PRIMARY_DIR" "$EDGE_DIR"
 
+  local core_dir_for_edge="../$PRIMARY_DIR"
+  case "$PRIMARY_DIR" in /*) core_dir_for_edge="$PRIMARY_DIR" ;; esac
+
   say "Done"
   cat <<EOF
 Generated:
@@ -1390,13 +1457,13 @@ Persistent state is under:
 Start core:
   cd $PRIMARY_DIR
   ./scripts/fix-runtime-permissions.sh
-  docker compose --profile npm up -d --build --wait
+  docker compose up -d --build --wait
 
 Start edge:
-  cd ../$EDGE_DIR
-  CORE_DIR=../$PRIMARY_DIR ./register-this-edge-on-core.sh
+  cd $EDGE_DIR
+  CORE_DIR=$core_dir_for_edge ./register-this-edge-on-core.sh
   ./scripts/fix-runtime-permissions.sh
-  docker compose --profile pdns-secondary up -d --wait
+  docker compose up -d --wait
 EOF
 }
 

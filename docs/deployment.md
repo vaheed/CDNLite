@@ -50,15 +50,22 @@ Set `EDGE_PUBLIC_IP` only if you want the edge agent to advertise a specific
 public address. When it is left unset, the agent keeps the public IP blank so
 manual heartbeat updates are not overwritten.
 
-Add `--with-replica` to include `deploy/powerdns-replica`. The generator refuses
-to replace an existing output directory unless `--force` is supplied. It
+When prompted for the PowerDNS secondary mode, prefer `postgres` for production
+secondary DNS because PostgreSQL streaming replication keeps the PowerDNS
+database state durable and avoids AXFR timing surprises. For a split edge host,
+the generator currently falls back to the `axfr` mode for zero-intervention
+startup because PostgreSQL streaming needs the primary TLS client bundle after
+the primary first starts. The generated AXFR secondary starts with plain
+`docker compose up -d --wait`. The generator refuses to replace an existing
+output directory unless `--force` is supplied. It
 validates each generated Compose project when Docker Compose is available; use
 `--no-compose-check` only when validation will be performed on another host.
 
-The output contains `core/`, `dnsgeo/`, `edge/`, an optional
-`powerdns-replica/`, a deployment-specific `README.md`, and a
-`register-edge.sh` helper. Generated `.env` files are mode `0600` and must not
-be committed or transferred through an insecure channel.
+The current upstream runtime generator outputs separate core and edge folders.
+The edge folder includes the PowerDNS secondary service when enabled, plus a
+deployment-specific README and registration helper. Generated `.env` files are
+mode `0600` and must not be committed or transferred through an insecure
+channel.
 
 For split hosts, deploy `deploy/dnsgeo` and allow only the Core host to reach
 its API bind address/port. In Dashboard Settings, configure the PowerDNS API

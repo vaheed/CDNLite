@@ -247,6 +247,136 @@ class CollectorService
         ];
     }
 
+    public function pruneOperationalRetention(array $options = []): array
+    {
+        $dryRun = (bool) ($options['dry_run'] ?? false);
+        $batchSize = max(100, min(50000, (int) ($options['batch_size'] ?? $this->retentionBatchSize())));
+        $usageDays = $this->retentionDays($options['usage_days'] ?? null, 'CDNLITE_ANALYTICS_RETENTION_DAYS', 30, 1, 3650);
+        $securityDays = $this->retentionDays($options['security_days'] ?? null, 'CDNLITE_SECURITY_EVENT_RETENTION_DAYS', 90, 1, 3650);
+        $dnsDays = $this->retentionDays($options['dns_days'] ?? null, 'CDNLITE_DNS_EVENT_RETENTION_DAYS', 30, 1, 3650);
+        $sslJobDays = $this->retentionDays($options['ssl_job_days'] ?? null, 'CDNLITE_SSL_JOB_RETENTION_DAYS', 180, 1, 3650);
+        $idempotencyDays = $this->retentionDays($options['idempotency_days'] ?? null, 'CDNLITE_INGEST_KEY_RETENTION_DAYS', 7, 1, 3650);
+        $now = time();
+
+        return [
+            'dry_run' => $dryRun,
+            'batch_size' => $batchSize,
+            'usage_rollups' => $this->pruneTableByCutoff(
+                'usage_rollups',
+                'ts',
+                $now - ($usageDays * 86400),
+                $usageDays,
+                $dryRun,
+                $batchSize,
+            ),
+            'security_events' => $this->pruneTableByCutoff(
+                'audit_log',
+                'created_at',
+                $now - ($securityDays * 86400),
+                $securityDays,
+                $dryRun,
+                $batchSize,
+                "event IN ('waf_match','rate_limited','bot_match','geo_block')",
+            ),
+            'dns_sync_events' => $this->pruneTableByCutoff(
+                'dns_sync_events',
+                'created_at',
+                $now - ($dnsDays * 86400),
+                $dnsDays,
+                $dryRun,
+                $batchSize,
+                "status IN ('success','verified')",
+            ),
+            'ssl_jobs' => $this->pruneTableByCutoff(
+                'ssl_jobs',
+                'created_at',
+                $now - ($sslJobDays * 86400),
+                $sslJobDays,
+                $dryRun,
+                $batchSize,
+                "status IN ('issued','failed','cancelled')",
+            ),
+            'usage_ingest_keys' => $this->pruneTableByCutoff(
+                'usage_ingest_keys',
+                'created_at',
+                $now - ($idempotencyDays * 86400),
+                $idempotencyDays,
+                $dryRun,
+                $batchSize,
+            ),
+            'edge_request_nonces' => $this->pruneTableByCutoff(
+                'edge_request_nonces',
+                'expires_at',
+                $now,
+                0,
+                $dryRun,
+                $batchSize,
+            ),
+        ];
+    }
+
+    private function pruneTableByCutoff(
+        string $table,
+        string $column,
+        int $cutoff,
+        int $retentionDays,
+        bool $dryRun,
+        int $batchSize,
+        ?string $extraWhere = null,
+    ): array {
+        $pdo = Database::pdo();
+        $where = "{$column} < :cutoff" . ($extraWhere !== null ? " AND {$extraWhere}" : '');
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE {$where}");
+        $countStmt->execute([':cutoff' => $cutoff]);
+        $matching = (int) $countStmt->fetchColumn();
+        $deleted = 0;
+
+        if (!$dryRun && $matching > 0) {
+            // Delete in bounded batches so a production prune does not hold one
+            // large table lock or generate a single oversized transaction.
+            do {
+                $deleteStmt = $pdo->prepare(
+                    "WITH doomed AS (
+                        SELECT ctid FROM {$table}
+                        WHERE {$where}
+                        ORDER BY {$column} ASC
+                        LIMIT {$batchSize}
+                    )
+                    DELETE FROM {$table}
+                    WHERE ctid IN (SELECT ctid FROM doomed)"
+                );
+                $deleteStmt->execute([':cutoff' => $cutoff]);
+                $batchDeleted = $deleteStmt->rowCount();
+                $deleted += $batchDeleted;
+            } while ($batchDeleted === $batchSize);
+        }
+
+        return [
+            'retention_days' => $retentionDays,
+            'cutoff' => $cutoff,
+            'matching' => $matching,
+            'deleted' => $deleted,
+        ];
+    }
+
+    private function retentionDays(mixed $value, string $envName, int $default, int $min, int $max): int
+    {
+        if ($value !== null && is_numeric($value)) {
+            return max($min, min($max, (int) $value));
+        }
+        $env = getenv($envName);
+        if ($env !== false && is_numeric($env)) {
+            return max($min, min($max, (int) $env));
+        }
+        return $default;
+    }
+
+    private function retentionBatchSize(): int
+    {
+        $env = getenv('CDNLITE_RETENTION_BATCH_SIZE');
+        return $env !== false && is_numeric($env) ? (int) $env : 5000;
+    }
+
     public function recentRequests(string $domainId, int $limit = 100, int $offset = 0, array $filters = []): array
     {
         $limit = max(1, min(250, $limit));

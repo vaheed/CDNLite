@@ -150,6 +150,31 @@ services:
     command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'nameserver scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:domains:verify-all || true; sleep \"$${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}\"; done"]
     restart: unless-stopped
 
+  retention-scheduler:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_DATABASE: ${DB_DATABASE:-cdnlite}
+      DB_USERNAME: ${DB_USERNAME:-cdnlite}
+      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED:-false}
+      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}
+      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE:-5000}
+      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS:-30}
+      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS:-90}
+      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS:-30}
+      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS:-180}
+      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS:-7}
+    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
+    restart: unless-stopped
+
   dns-reconciler:
     build:
       context: ./core
@@ -437,6 +462,8 @@ services:
       PDNS_API_KEY: ${PDNS_API_KEY:-cdnlite-local-powerdns-key}
       PDNS_WEBSERVER_PASSWORD: ${PDNS_WEBSERVER_PASSWORD:-cdnlite-local-web-password}
       PDNS_WEBSERVER_ALLOW_FROM: ${PDNS_WEBSERVER_ALLOW_FROM:-0.0.0.0/0}
+      PDNS_ALLOW_AXFR_IPS: ${PDNS_ALLOW_AXFR_IPS:-127.0.0.1,::1,172.30.0.0/16}
+      PDNS_ALSO_NOTIFY: ${PDNS_ALSO_NOTIFY:-}
       PDNS_GEO_BOOTSTRAP_ZONE_FILE: /etc/powerdns/geo/lua-bootstrap.yml
       PDNS_GEO_MMDB_FILE: /var/lib/powerdns/mmdb/GeoLite2-City.mmdb
       PDNS_EDNS_SUBNET_PROCESSING: "yes"

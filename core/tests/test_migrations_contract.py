@@ -64,3 +64,20 @@ def test_ci_runs_migrations_before_core_tests():
 
     assert schema_step in workflow
     assert workflow.index(schema_step) < workflow.index("pytest -q core/tests")
+
+
+def test_retention_scheduler_is_opt_in_and_uses_bounded_prune_command():
+    root_compose = (ROOT / "docker-compose.yml").read_text()
+    starter_compose = (ROOT / "deploy/starter/docker-compose.yml").read_text()
+    core_compose = (ROOT / "deploy/core/docker-compose.yml").read_text()
+    generator = (ROOT / "deploy/generate-deployment.sh").read_text()
+
+    for source in (root_compose, starter_compose, core_compose, generator):
+        assert "retention-scheduler" in source
+        assert "CDNLITE_RETENTION_PRUNE_ENABLED" in source
+        assert "cdn:usage:prune --all" in source
+        assert "CDNLITE_RETENTION_INTERVAL_SECONDS" in source
+        assert "CDNLITE_RETENTION_BATCH_SIZE" in source
+
+    assert "CDNLITE_RETENTION_PRUNE_ENABLED:-false" in root_compose
+    assert "CDNLITE_RETENTION_PRUNE_ENABLED=true" in generator
