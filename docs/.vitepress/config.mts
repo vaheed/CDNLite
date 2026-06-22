@@ -17,6 +17,7 @@ export default defineConfig({
     '.vitepress/cache/**',
     '.vitepress/dist/**',
     'ide-report.md',
+    'ROADMAP.md',
     'legacy-roadmap.md'
   ],
   head: [
