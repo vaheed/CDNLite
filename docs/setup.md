@@ -97,6 +97,12 @@ auto-migration is enabled. Durable DNS state is reconciled after mutations and b
 `dns-reconciler` service every
 `CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
 
+If an existing development volume logs a missing `powerdns_zone_serials` table
+or Activity shows request country but an unknown client IP, run
+`docker compose exec core php artisan cdn:db:migrate`. That applies the runtime
+schema reconciliation migration that restores durable PowerDNS SOA serial state
+and the Activity `client_ip` diagnostics column.
+
 The `nameserver-scheduler` runs `php artisan cdn:domains:verify-all` every
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` seconds (default `86400`). A verified
 domain activates automatically and queues managed ACME DNS-01 SSL for the apex

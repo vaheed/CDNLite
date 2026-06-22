@@ -57,8 +57,9 @@ def test_powerdns_soa_authority_settings_are_configurable():
 def test_powerdns_soa_serial_state_is_durable():
     schema = read("core/database/schema.sql")
     baseline = read("core/database/migrations/000001_baseline_schema.sql")
+    reconciliation = read("core/database/migrations/000018_reconcile_runtime_schema.sql")
 
-    for source in (schema, baseline):
+    for source in (schema, baseline, reconciliation):
         assert "CREATE TABLE IF NOT EXISTS powerdns_zone_serials" in source
         assert "zone_name TEXT PRIMARY KEY" in source
         assert "serial BIGINT NOT NULL" in source

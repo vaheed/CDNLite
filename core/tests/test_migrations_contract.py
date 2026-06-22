@@ -14,6 +14,15 @@ def test_migrations_are_the_supported_upgrade_path():
     assert (ROOT / "core/database/migrations/000008_rate_limit_header_keys.sql").is_file()
     assert (ROOT / "core/database/migrations/000011_bot_protection.sql").is_file()
     assert (ROOT / "core/database/migrations/000012_verified_bot_sources.sql").is_file()
+    assert (ROOT / "core/database/migrations/000018_reconcile_runtime_schema.sql").is_file()
+
+
+def test_runtime_schema_reconciliation_migration_restores_activity_and_dns_state():
+    migration = (ROOT / "core/database/migrations/000018_reconcile_runtime_schema.sql").read_text()
+
+    assert "CREATE TABLE IF NOT EXISTS powerdns_zone_serials" in migration
+    assert "ALTER TABLE usage_rollups ADD COLUMN IF NOT EXISTS client_ip TEXT NULL" in migration
+    assert "CREATE INDEX IF NOT EXISTS idx_usage_rollups_client_ip_ts" in migration
 
 
 def test_schema_application_is_explicit_and_serialized_at_container_start():
