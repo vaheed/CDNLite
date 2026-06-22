@@ -1,3 +1,12 @@
+---
+title: IDE Report
+description: Internal implementation report for repository maintenance; not a primary CDNLite user, admin, operator, or developer guide.
+head:
+  - - meta
+    - name: robots
+      content: noindex
+---
+
 # IDE Report
 
 Date: 2026-06-15

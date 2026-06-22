@@ -1,3 +1,8 @@
+---
+title: Operations Runbooks
+description: Practical runbooks for CDNLite operators handling domains, DNS, edge nodes, cache purges, SSL, PowerDNS, and incident response.
+---
+
 # Operations Runbooks
 
 These runbooks are practical procedures for common operator tasks. They assume the root Docker Compose stack and local defaults unless noted otherwise.

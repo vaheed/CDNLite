@@ -1,3 +1,8 @@
+---
+title: Setup
+description: Local development, Docker Compose setup, dashboard development, validation commands, and GitHub Pages documentation build instructions for CDNLite.
+---
+
 # Setup
 
 This guide covers local development, dashboard development, production-oriented Compose deployment, validation, and GitHub Pages docs rendering.

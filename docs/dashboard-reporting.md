@@ -1,3 +1,8 @@
+---
+title: Dashboard Reporting
+description: Admin reporting API and dashboard metrics for CDNLite private CDN operations, usage, DNS, edge health, SSL, cache purge, audit, and security events.
+---
+
 # Dashboard Reporting
 
 CDNLite's admin overview uses authenticated report endpoints under

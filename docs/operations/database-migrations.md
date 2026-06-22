@@ -1,3 +1,8 @@
+---
+title: Database Migrations
+description: Database migration guidance for CDNLite PostgreSQL schema changes, fresh installs, in-place upgrades, validation, and rollback planning.
+---
+
 # Database Migrations
 
 CDNLite uses ordered PostgreSQL migrations in `core/database/migrations/` for

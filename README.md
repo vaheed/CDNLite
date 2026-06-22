@@ -1,73 +1,96 @@
 # CDNLite
 
+Self-hosted private CDN control plane and edge platform for companies, hosting providers, internal infrastructure teams, and controlled production deployments.
 
 [![CI](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/ci.yml)
-[![Docker](https://img.shields.io/badge/docker-compose-blue)](docker-compose.yml)
+[![Docs](https://github.com/vaheed/CDNLite/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/vaheed/CDNLite/actions/workflows/docs.yml)
+[![Docker Compose](https://img.shields.io/badge/deploy-docker%20compose-blue)](docker-compose.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Self-hosted private CDN control plane for small edge networks, internal platforms,
-hosting providers, and CDN learning labs.
+![CDNLite dashboard showing private CDN domains, edge status, and operations views](docs/ScreenShot.png)
 
-CDNLite combines:
+**Quick links:** [Documentation](docs/index.md) · [Quickstart](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Roadmap](ROADMAP.md)
 
-- PHP/PostgreSQL control plane
-- Vue admin dashboard
-- OpenResty/Lua edge proxy
-- signed edge-agent config sync
-- DNS/GeoDNS publishing with PowerDNS/DNSGeo
-- cache rules, purge, WAF rules, rate limits, SSL, analytics, and audit logs
+Published OpenAPI YAML: https://vaheed.github.io/CDNLite/api/openapi.yaml
 
-It is designed for operators who want to understand, test, or run a controlled
-private CDN without depending on a public CDN vendor.
+CDNLite lets operators run a private CDN-style platform with a PHP control plane, PostgreSQL state, Vue dashboard, OpenResty/Lua edge proxy, PowerDNS/DNSGeo publishing, cache and security rules, SSL workflows, analytics, audit logs, and signed edge-agent sync.
 
-![CDNLite screenshot](docs/ScreenShot.png)
+It is intended as a production-oriented private CDN foundation, not a promise that every large public CDN or enterprise identity feature is already present.
 
+## Who Is CDNLite For?
 
-## Best for
+- Private companies that want their own CDN layer for internal or customer-facing applications.
+- Hosting providers exploring managed edge, DNS, WAF, and reverse proxy services.
+- DevOps and platform teams building a controlled private edge network.
+- CDN, DNS, WAF, PowerDNS, DNSGeo, and OpenResty learners.
+- Labs, demos, and controlled production experiments that need visible operations and simple defaults.
 
-- private/internal CDN deployments
-- hosting companies building edge services
-- CDN and DNS labs
-- OpenResty/PowerDNS-based edge experiments
-- controlled small production environments
+## What CDNLite Is Not
 
-## Not yet for
+- CDNLite is not a hyperscale Cloudflare, Fastly, or Akamai replacement.
+- CDNLite is not yet a full enterprise SSO, RBAC, multi-tenant isolation, or billing platform.
+- CDNLite is not a managed CDN service; you operate the core, DNS, dashboard, and edge nodes.
+- Production use requires hardening, external authentication, TLS, backups, monitoring, secret rotation, and operational review.
 
-- large multi-tenant public CDN businesses
-- enterprise SSO/RBAC-heavy environments
-- billing-integrated commercial CDN platforms
+## Feature Overview
 
+**Control Plane**
 
-## Table Of Contents
+- Domain lifecycle, nameserver verification, activation, deletion, and audit history.
+- Origin management with primary and backup origins plus scheduled health checks.
+- API, CLI, dashboard workflows, central job queue, readiness checks, and operational reports.
 
-- [Features](#features)
-- [Installation And Setup](#installation-and-setup)
-- [Usage](#usage)
-- [Documentation](#documentation)
-- [Development And Validation](#development-and-validation)
-- [Contribution Guidelines](#contribution-guidelines)
-- [Security Guidelines](#security-guidelines)
-- [License](#license)
-- [Contact And Support](#contact-and-support)
+**Edge Proxy**
 
-## Features
+- OpenResty/Lua reverse proxy runtime.
+- Signed edge agent registration, heartbeat, config polling, metrics, and security-event ingestion.
+- Per-edge tokens, HMAC signing, timestamp checks, and replay protection for edge sync.
 
-- Domain lifecycle, nameserver verification, activation, and deletion.
-- DNS records with proxy toggles, anycast, DNS-only mode, raw GeoDNS A/AAAA answers, and bundled DNSGeo/PowerDNS publishing.
-- Origin management with primary/backup origins and scheduled health checks.
+**DNS And GeoDNS**
+
+- PowerDNS-backed record publishing with DNS-only and proxied modes.
+- DNSGeo support for health-aware private edge routing.
+- Proxied apex records published as PowerDNS `ALIAS`; proxied subdomains published as stable CDN CNAMEs.
+
+**Cache And Performance**
+
 - Cache settings, cache rules, purge workflows, and cache analytics.
-- Redirects, page rules, WAF rules, rate limits, response headers, and IP access rules.
-- Security Center one-click protection profiles and generated WAF/rate-limit/cache intents with rollback history.
-- Guided onboarding wizard that recommends and applies starter protection profiles from simple site questions.
-- SSL settings, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
-- Edge node registration, heartbeat, config polling, metrics ingest, and security-event ingest with HMAC replay protection.
-- Successful edge-agent heartbeats mark the node healthy for the shared DNS edge pool.
-- Vue dashboard for CDN operations reporting, domains, edge network, analytics, snapshots, events, central job queue, audit log, and settings.
-- Consistent searchable pagination for collection views and a per-domain
-  Activity viewer for security events and change history.
-- Docker Compose stack plus CI smoke/e2e checks.
+- Page rules, redirects, response headers, and origin fallback behavior.
 
-## Installation And Setup
+**Security And WAF**
+
+- WAF rules, rate limits, IP access rules, security events, audit logs, and protection profiles.
+- Dashboard security center workflows for common starter policies.
+
+**SSL And Certificates**
+
+- ACME DNS-01 issuance and renewal scheduling.
+- Manual certificate import and SSL settings per domain.
+
+**Observability**
+
+- Health endpoints, edge heartbeats, edge metrics, security-event ingest, audit logs, dashboard reporting, and troubleshooting docs.
+
+**Operations And Deployment**
+
+- Docker Compose deployment, split deployment examples, CI smoke/e2e checks, PowerDNS diagnostics, runbooks, and stress-test tooling.
+
+## Architecture Overview
+
+```mermaid
+flowchart LR
+  Dashboard[Browser Dashboard] --> Core[Core API]
+  Core --> Postgres[(PostgreSQL)]
+  Core --> DNS[PowerDNS / DNSGeo]
+  EdgeAgent[Edge Agent] --> Core
+  EdgeProxy[Edge Proxy] --> Origins[Origin Servers]
+  EdgeProxy --> Events[Metrics / Security Events]
+  Events --> Core
+```
+
+The normal topology is the root [docker-compose.yml](docker-compose.yml). Split deployments can place the core API, dashboard, DNS services, and edge nodes on separate hosts or networks.
+
+## Quickstart
 
 ```bash
 cp .env.example .env
@@ -76,87 +99,68 @@ curl -fsS http://localhost:8080/health
 curl -fsS http://localhost:8081/health
 ```
 
-Open the dashboard at `http://localhost:8082`. Local bootstrap credentials are `admin` / `admin`.
+Open the dashboard at `http://localhost:8082`. Local bootstrap credentials are `admin` / `admin`; these are for local development only and must not be used in shared or production deployments.
 
-Full setup, environment, testing, deployment, VitePress, and GitHub Pages instructions live in [docs/setup.md](docs/setup.md).
+Next steps:
 
-## Usage
+- [CDN in a Minute](docs/cdn-in-a-minute.md)
+- [Quickstart guide](docs/quickstart.md)
+- [First configuration examples](docs/examples/index.md)
+- [Production hardening](docs/production-hardening.md)
 
-Use the dashboard to add domains, configure DNS and origins, define traffic/security rules, request SSL certificates, inspect CDN operations reports, review analytics or security events, and audit operational changes. The reporting API is documented in [Dashboard Reporting](docs/dashboard-reporting.md). Use `core/artisan` commands for scripted operations:
+## Production And Private Deployment
 
-```bash
-docker compose exec core php artisan cdn:domain:list
-docker compose exec core php artisan cdn:edge:list
-docker compose exec core php artisan cdn:readiness:check
-docker compose exec core php artisan cdn:db:status
-docker compose exec core php artisan cdn:usage:prune --dry-run
-docker compose exec core php artisan cdn:ssl:request --domain_id="$DOMAIN_ID"
-docker compose exec core php artisan cdn:powerdns:doctor
-docker compose exec core php artisan cdn:powerdns:dry-run
-docker compose exec core php artisan cdn:powerdns:force-sync
-```
+For controlled production experiments or private company deployments, review [Deployment](docs/deployment.md), [Production Hardening](docs/production-hardening.md), [Security Model](docs/security.md), and [Enterprise Readiness](docs/enterprise-readiness.md).
 
-PowerDNS zones use platform SOA authority defaults from
-`CDNLITE_DNS_PRIMARY_NS`, `CDNLITE_DNS_HOSTMASTER`, and the
-`CDNLITE_DNS_SOA_*` timing variables. `doctor` and `dry-run` report SOA
-validity and the repair that would be applied.
+Plan for:
 
-See the [User Guide](docs/usage/user.md), [Admin Guide](docs/usage/admin.md), and [API Reference](docs/api/api.md).
+- Split core, edge, and DNS topology where appropriate.
+- TLS on public and internal service boundaries.
+- Secret rotation for API tokens, edge tokens, database credentials, ACME credentials, and PowerDNS API keys.
+- Database backups and restore drills.
+- External authentication in front of the dashboard until native SSO/RBAC is implemented.
+- Network segmentation so PowerDNS, PostgreSQL, and internal APIs are not exposed unnecessarily.
 
-## Documentation
+## Security Model
 
-The documentation site is built with VitePress from `docs/`.
+CDNLite includes a practical security foundation for private edge deployments:
 
-- [Documentation Home](docs/index.md)
-- [CDN In A Minute](docs/cdn-in-a-minute.md)
-- [Setup](docs/setup.md)
-- [Production Deployment](docs/deployment.md)
-- [Split Deployment Generator](docs/deployment.md#generate-a-split-deployment)
-- [Published OpenAPI YAML](https://vaheed.github.io/CDNLite/api/openapi.yaml)
-- [OpenAPI source](docs/public/api/openapi.yaml)
-- [Architecture](docs/architecture.md)
-- [DNS Stress Testing](docs/stress-testing.md)
-- [Extensions](docs/extensions.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Security](docs/security.md)
-- [Operations Runbooks](docs/runbooks/index.md)
-- [Examples](docs/examples/index.md)
-- [Use Cases](docs/use-cases/index.md)
-- [Best Practices](docs/best-practices/index.md)
+- Edge requests to the core are HMAC signed.
+- Edge nodes use per-edge tokens.
+- Timestamp and nonce checks provide replay protection for signed edge traffic.
+- The core API uses bearer token authentication for automation.
+- Audit logs record operational changes.
+- Default credentials are local-only bootstrap values and must be replaced before shared use.
 
-## Domain Nameserver Operations
+See [SECURITY.md](SECURITY.md) for vulnerability reporting and [docs/security.md](docs/security.md) for operational hardening.
 
-Use the domain detail page or API to run an immediate delegation check without
-waiting for the scheduler:
+## Comparison
 
-```bash
-curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/verify" \
-  -H "Authorization: Bearer $TOKEN"
-```
+| Option | Best fit | Tradeoffs |
+| --- | --- | --- |
+| Nginx/OpenResty only | Single reverse proxy or custom edge scripts | Fast and flexible, but no built-in CDN control plane, dashboard, DNS publishing, audit trail, or edge sync workflow. |
+| Public CDN vendors | Global managed CDN, managed WAF, managed edge network | Mature and highly available, but less private control and vendor dependency for routing, policy, logs, and edge behavior. |
+| DIY scripts | Small one-off automation around DNS and proxy config | Simple at first, but can become hard to audit, test, roll back, or operate across multiple edges. |
+| CDNLite | Self-hosted CDN control plane for private edge networks | Gives a cohesive control plane, dashboard, PowerDNS/DNSGeo, OpenResty edge, WAF, cache rules, SSL, analytics, and signed edge sync, but still needs production hardening and lacks native enterprise SSO/RBAC/billing today. |
 
-The response includes expected, observed, matched, and missing nameservers,
-resolver errors, and `checked_at`. Admin-session tokens can force verification
-with an audit reason when an operator intentionally overrides DNS observation:
+## Maturity
 
-```bash
-curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/force-verify" \
-  -H "Authorization: Bearer $ADMIN_SESSION" \
-  -H 'Content-Type: application/json' \
-  -d '{"reason":"registrar glue verified manually"}'
-```
+CDNLite is suitable for labs, private deployments, demos, and controlled production experiments. For enterprise production, review the hardening checklist and current limitations before exposing it to critical workloads.
 
-Force verification activates the domain, invalidates the edge snapshot, triggers
-DNS reconciliation, and writes `domain.nameserver.force_verify` to audit history.
-If platform nameservers change after a domain is created, an admin-session token
-can re-seed that domain's expected nameserver rows without deleting it:
+Current known limits include native RBAC, OIDC/SAML SSO, full multi-tenant isolation, billing workflows, signed release artifacts, Kubernetes packaging, and HA control plane documentation.
 
-```bash
-curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/reseed-expected" \
-  -H "Authorization: Bearer $ADMIN_SESSION"
-```
+## Roadmap Preview
 
-The re-seed action preserves observed matches where hostnames overlap, invalidates
-edge config, reconciles DNS, and writes `domain.nameserver.reseed_expected`.
+- RBAC and scoped API keys.
+- OIDC/SAML SSO and external identity integration.
+- Stronger tenant isolation and audit export.
+- Prometheus metrics and Grafana dashboards.
+- Helm/Kubernetes deployment and Terraform examples.
+- HA control plane documentation, backup/restore automation, and edge autoscaling.
+- Policy templates for WAF, rate limits, cache rules, and private deployment presets.
+
+See [ROADMAP.md](ROADMAP.md) for the fuller roadmap.
+
 
 ## Development And Validation
 
@@ -168,7 +172,7 @@ cd dash && npm ci && npm run typecheck && npm test && npm run build
 cd docs && npm ci && npm run docs:build
 ```
 
-Smoke/e2e scripts use the root Compose stack:
+Smoke and e2e checks use the root stack:
 
 ```bash
 docker compose up -d --build --wait
@@ -177,37 +181,18 @@ docker compose up -d --build --wait
 CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 ```
 
-The DNS acceptance script uses the live bundled DNSGeo/PowerDNS stack.
-Dashboard behavior is covered by typechecking, unit tests, a production build,
-and operator-run manual QA.
+Run the destructive DNS stress test only against an explicitly disposable environment.
 
-The destructive production DNS qualification defaults to 10,000 domains with
-1,000 records each and writes reports under `ci/reports/`:
+## Contributing
 
-```bash
-./ci/stress-dns.sh
-```
+Contributions are welcome across docs, tests, OpenResty/Lua edge work, Vue dashboard UX, PHP control plane, security hardening, deployment examples, Kubernetes/Helm, Prometheus/Grafana, RBAC, and SSO.
 
-Use it only against a disposable stack.
-See [DNS Stress Testing](docs/stress-testing.md) for prerequisites, reduced and
-full commands, environment controls, pass criteria, reports, and recovery.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
-## Contribution Guidelines
+## Security Disclosure
 
-- Create focused branches such as `feature/domain-routing` or `fix/edge-heartbeat-auth`.
-- Keep code, tests, docs, examples, Compose, and CI aligned.
-- Add focused tests for behavior changes.
-- Update docs for API, CLI, config, environment, dashboard, edge, or operational behavior changes.
-- Open pull requests with a clear summary, validation commands, and screenshots for dashboard changes.
-
-## Security Guidelines
-
-Do not use local defaults in shared deployments. Set `CDNLITE_API_TOKEN`, disable bootstrap admin/edge tokens, rotate edge tokens, protect `.env`, and place core/dashboard behind TLS and production authentication. See [docs/security.md](docs/security.md).
+Please read [SECURITY.md](SECURITY.md). Do not publish exploit details, secrets, tokens, production hostnames, or private logs in public issues.
 
 ## License
 
 CDNLite is released under the [MIT License](LICENSE).
-
-## Contact And Support
-
-Use GitHub Issues for bugs and support requests. Use GitHub Discussions if enabled for design questions, deployment ideas, and community help.

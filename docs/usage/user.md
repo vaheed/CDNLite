@@ -1,3 +1,8 @@
+---
+title: User Guide
+description: Day-to-day CDNLite dashboard guide for domains, DNS, origins, cache rules, WAF rules, rate limits, SSL, analytics, and activity history.
+---
+
 # User Guide
 
 This page is for operators using the dashboard day to day.
@@ -120,7 +125,7 @@ For proxied records, the DNS table shows the exact public record CDNLite owns:
 - the private origin remains visible separately and is never presented as the public DNS answer
 - each proxied host can have multiple independent origin addresses
 - the zone banner reports pending, synced, or failed state, the last successful sync, and the last error
-# Domain History
+## Domain History
 
 The domain **Activity** tab has **Simple view** for readable protection outcomes
 and **Advanced view** for raw diagnostics. Simple view explains blocked exploit

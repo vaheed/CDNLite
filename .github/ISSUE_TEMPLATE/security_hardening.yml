@@ -1,0 +1,41 @@
+name: Security hardening
+description: Propose a non-sensitive hardening improvement.
+title: "security: "
+labels: ["security", "hardening"]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include exploit details, secrets, tokens, private hostnames, or sensitive logs. For vulnerabilities, follow SECURITY.md."
+  - type: textarea
+    id: summary
+    attributes:
+      label: Hardening summary
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Authentication
+        - Edge signing
+        - Token rotation
+        - TLS
+        - PowerDNS exposure
+        - Dashboard access
+        - WAF/rate limits
+        - Audit logs
+        - Deployment
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk reduced
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Suggested implementation

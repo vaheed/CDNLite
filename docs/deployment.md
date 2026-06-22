@@ -1,11 +1,18 @@
-# Production Deployment
+---
+title: Deployment
+description: Deploy CDNLite as a self-hosted private CDN with Docker Compose, split core/edge/DNS topologies, PowerDNS, DNSGeo, and controlled production hardening.
+---
+
+# Deployment
+
+CDNLite supports a normal root Docker Compose topology for local use and controlled deployments, plus maintained split bundles for separating the core API, dashboard, DNS services, and edge nodes.
 
 This guide describes the checked-in deployment bundles under `deploy/`. CDNLite
 uses versioned Core database migrations, but operators must still back up
 PostgreSQL and PowerDNS data before changing versions and test restores before
 relying on those backups.
 
-## Choose A Topology
+## Deployment Topologies
 
 | Bundle | Purpose |
 | --- | --- |

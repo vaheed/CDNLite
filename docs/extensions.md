@@ -1,3 +1,8 @@
+---
+title: Extensions And Integrations
+description: Runtime extensions, libraries, and integration points used by the CDNLite PHP control plane, Vue dashboard, OpenResty edge, and PowerDNS stack.
+---
+
 # Extensions And Integrations
 
 This page lists the external libraries, runtime extensions, and integrations used by CDNLite.

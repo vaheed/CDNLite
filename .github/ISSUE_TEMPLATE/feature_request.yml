@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a capability for the private CDN control plane or edge platform.
+title: "feature: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Who needs this and what workflow would it improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Primary audience
+      options:
+        - Private company
+        - Hosting provider
+        - Internal platform team
+        - CDN/DNS/WAF learner
+        - Operator
+        - Developer
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: security
+    attributes:
+      label: Security or deployment considerations

@@ -1,7 +1,16 @@
+---
+title: Legacy Roadmap Notes
+description: Legacy CDNLite roadmap notes retained for project history; use the current roadmap page for user-facing planning.
+head:
+  - - meta
+    - name: robots
+      content: noindex
+---
+
 # CDNLite Roadmap — Stable Edge Platform, Beginner-Friendly Protection, and Advanced Operations
 
 **Repository:** `vaheed/CDNLite`  
-**Recommended replacement file:** `docs/ROADMAP.md`  
+**Recommended replacement file:** `docs/roadmap.md`  
 **Generated:** 2026-06-18
 
 ---

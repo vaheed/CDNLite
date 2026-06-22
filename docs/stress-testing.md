@@ -1,3 +1,8 @@
+---
+title: DNS Stress Testing
+description: Stress test CDNLite DNS reconciliation, PowerDNS writes, shared edge records, DNSGeo behavior, and large customer-zone workloads.
+---
+
 # DNS Stress Testing
 
 `ci/stress-dns.sh` proves that edge changes update shared CDN records without

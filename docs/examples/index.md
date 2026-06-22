@@ -1,8 +1,17 @@
-# Examples
+---
+title: CDNLite Examples
+description: Copy-friendly examples for adding domains, origins, cache rules, WAF rules, rate limits, SSL, edge nodes, readiness checks, and split deployment in CDNLite.
+---
+
+# CDNLite Examples
 
 These examples are copy-friendly starting points. Replace IDs, domains, tokens, and IPs with your own values.
 
-## API Domain Workflow
+## First Domain
+
+Create a domain through the API:
+
+### API Domain Workflow
 
 ```bash
 API=http://localhost:8080
@@ -30,7 +39,7 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/origins" \
   -d '{"host":"origin.example.test","scheme":"http","port":80,"role":"origin","enabled":true}'
 ```
 
-## CLI Domain Workflow
+### CLI Domain Workflow
 
 ```bash
 docker compose exec core php artisan cdn:domain:create \
@@ -42,7 +51,7 @@ docker compose exec core php artisan cdn:domain:verify-ns --domain_id="$DOMAIN_I
 docker compose exec core php artisan cdn:domain:activate --domain_id="$DOMAIN_ID" --override=1
 ```
 
-## Cache Workflow
+## First Cache Rule
 
 ```bash
 curl -s -X PUT "$API/api/v1/domains/$DOMAIN_ID/cache/settings" \
@@ -131,7 +140,7 @@ Local lab tip: `override:true` is useful when you are testing fake domains such 
 Use this when moving a real website into CDNLite without breaking mail or verification records.
 
 ```bash
-# HTTP traffic through the CDN.
+  # HTTP traffic through the CDN.
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -142,7 +151,7 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -H "Content-Type: application/json" \
   -d '{"type":"CNAME","name":"www","content":"example.com","ttl":120,"proxied":true}'
 
-# Mail and verification stay DNS-only.
+  # Mail and verification stay DNS-only.
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/dns/records" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
@@ -259,6 +268,62 @@ curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/rate-limits" \
 
 Start with a generous threshold, then tune from security events and application logs.
 
+## Issue SSL
+
+Request an ACME DNS-01 certificate after DNS is configured:
+
+```bash
+docker compose exec core php artisan cdn:ssl:request --domain_id="$DOMAIN_ID"
+```
+
+For production, confirm DNS delegation and ACME credentials before issuing certificates.
+
+## Register An Edge Node
+
+Register or rotate an edge token, then verify the agent scripts parse cleanly:
+
+```bash
+docker compose exec core php artisan cdn:edge:register-token \
+  --edge_id=edge-local-1 \
+  --token=edge-dev-token
+
+sh -n edge/agent/register.sh
+sh -n edge/agent/heartbeat.sh
+sh -n edge/agent/pull_config.sh
+sh -n edge/agent/push_metrics.sh
+```
+
+## Run Readiness Checks
+
+```bash
+docker compose config --quiet
+docker compose exec core php artisan cdn:readiness:check
+docker compose exec core php artisan cdn:powerdns:doctor
+docker compose exec core php artisan cdn:edge:list
+```
+
+## Split Deployment
+
+Generate split deployment bundles for separate core, DNSGeo, and edge hosts:
+
+```bash
+REGISTRY_OWNER=example \
+IMAGE_TAG=sha-0123456789abcdef \
+DNS_BASE_DOMAIN=cdn.example.com \
+CORE_PUBLIC_IP=192.0.2.10 \
+DNSGEO_PUBLIC_IP=192.0.2.11 \
+EDGE_PUBLIC_IP=198.51.100.20 \
+deploy/generate-split-deployment.sh --auto --output ./generated
+```
+
+Review [Deployment](../deployment.md) and [Production Hardening](../production-hardening.md) before using split bundles outside a lab.
+
+## Next Steps
+
+- [Quickstart](../quickstart.md)
+- [Private CDN](../private-cdn.md)
+- [Security Model](../security.md)
+
 ## SSL Request Example
 
 ```bash
@@ -341,7 +406,7 @@ step.
 
 ## OpenAPI Client Generation
 
-The OpenAPI document is available at [OpenAPI YAML](../api/openapi.yaml).
+The OpenAPI document source is available at [OpenAPI YAML](../public/api/openapi.yaml).
 
 Example with `openapi-generator-cli`:
 

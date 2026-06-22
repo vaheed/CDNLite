@@ -1,3 +1,8 @@
+---
+title: Use Cases
+description: CDNLite use cases for private CDN deployments, internal platform teams, hosting providers, OpenResty labs, PowerDNS labs, and controlled edge experiments.
+---
+
 # Use Cases
 
 ## Learn CDN Internals

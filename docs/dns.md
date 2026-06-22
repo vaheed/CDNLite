@@ -1,3 +1,8 @@
+---
+title: DNSGeo And PowerDNS
+description: DNS reconciliation, PowerDNS publishing, DNSGeo routing, ALIAS/CNAME behavior, health-aware answers, and nameserver operations in CDNLite.
+---
+
 # DNSGeo and PowerDNS
 
 ## Desired-State Reconciliation

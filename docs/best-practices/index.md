@@ -1,3 +1,8 @@
+---
+title: Best Practices
+description: Best practices for running CDNLite as a self-hosted private CDN with safe configuration, DNS, edge, security, cache, and operations workflows.
+---
+
 # Best Practices
 
 ## Configuration

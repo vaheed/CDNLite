@@ -1,0 +1,34 @@
+name: Documentation
+description: Report missing, confusing, or outdated documentation.
+title: "docs: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: page
+    attributes:
+      label: Page or topic
+      description: Link the page or describe the missing topic.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is confusing, missing, duplicated, or incorrect?
+    validations:
+      required: true
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested improvement
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Reader type
+      options:
+        - New user
+        - Operator
+        - Developer
+        - Private deployment team
+        - Contributor
+        - Other

@@ -1,83 +1,78 @@
+---
+title: CDNLite Documentation
+description: Documentation for CDNLite, a self-hosted private CDN control plane with OpenResty, PowerDNS, DNSGeo, WAF rules, cache rules, SSL, analytics, and signed edge sync.
+---
+
 # CDNLite Documentation
 
-CDNLite is a compact CDN platform for learning, local experimentation, and small controlled deployments. It combines a PHP control plane, PostgreSQL state, a Vue admin dashboard, an OpenResty/Lua edge proxy, and a signed shell-based edge agent.
+CDNLite is a self-hosted private CDN control plane and edge platform for companies, hosting providers, internal infrastructure teams, labs, and controlled production deployments. It combines a PHP/PostgreSQL core, Vue dashboard, OpenResty/Lua edge proxy, signed edge agent, PowerDNS/DNSGeo, cache rules, WAF rules, rate limits, SSL workflows, analytics, and audit logs.
 
-![CDNLite dashboard screenshot](ScreenShot.png)
+![CDNLite dashboard showing private CDN operations](./ScreenShot.png)
 
-## Navigation
+## New User Path
 
-- [Setup](setup.md)
-- [CDN In A Minute](cdn-in-a-minute.md)
-- [User Guide](usage/user.md)
-- [Admin Guide](usage/admin.md)
-- [API Reference](api/api.md)
-- [OpenAPI YAML](api/openapi.yaml)
-- [Architecture](architecture.md)
-- [DNS Stress Testing](stress-testing.md)
-- [Extensions And Integrations](extensions.md)
-- [Troubleshooting](troubleshooting.md)
-- [Security](security.md)
-- [Operations Runbooks](runbooks/index.md)
-- [Examples](examples/index.md)
-- [Use Cases](use-cases/index.md)
-- [Best Practices](best-practices/index.md)
+Start here when you want to understand the product and run your first private CDN workflow.
 
-## What It Does
+- [What is CDNLite?](./what-is-cdnlite.md)
+- [CDN in a Minute](./cdn-in-a-minute.md)
+- [Quickstart](./quickstart.md)
+- [First domain, origin, cache rule, WAF rule, SSL, and edge examples](./examples/)
 
-CDNLite lets operators register domains, manage DNS records, define origins, configure cache and traffic rules, issue or import SSL certificates, publish config snapshots, and observe edge traffic. The edge proxy reads generated JSON config and handles host-based routing, caching, redirect decisions, WAF/rate-limit/IP/header rules, origin selection and health-based failover, TLS material, metrics, and security events.
+## Operator Path
 
-## Key Features
+Use these guides when you operate CDNLite in a lab, private network, or controlled production experiment.
 
-- Domain lifecycle management with nameserver verification and activation.
-- DNS records with proxy toggles, DNS-only records, anycast routing, and raw GeoDNS A/AAAA answers.
-- Multi-origin support with independent origins and scheduled health checks.
-- Cache settings, cache rules, and purge request history.
-- Redirects, page rules, WAF rules, rate limits, custom headers, and IP access rules.
-- SSL automation, ACME DNS-01 issuance, renewal scheduling, and manual certificate import.
-- Edge registration, heartbeat, config polling, usage ingest, and security-event ingest with HMAC replay protection.
-- Vue dashboard for operations, domain management, edge status, analytics, events, audit logs, settings, and optional edge developer tools.
-- Docker Compose stack with PostgreSQL, core, edge, edge agent, dashboard, origin mocks, and bundled DNSGeo/PowerDNS.
+- [Deployment](./deployment.md)
+- [Production Hardening](./production-hardening.md)
+- [DNS and Nameservers](./dns.md)
+- [SSL and ACME](./security.md#tls-and-certificate-guidance)
+- [Edge Nodes](./quickstart.md#register-an-edge-node)
+- [Backup and Restore](./production-hardening.md#backup-and-restore)
+- [Upgrade and Rollback](./production-hardening.md#upgrade-and-rollback)
+- [Troubleshooting](./troubleshooting.md)
+- [Runbooks](./runbooks/)
 
-## Repository Map
+## Developer Path
 
-| Path | Purpose |
-| --- | --- |
-| `core/` | PHP control plane, API router, CLI commands, services, database migrations, schema snapshot, and contract tests. |
-| `dash/` | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, and ECharts dashboard. |
-| `edge/openresty/` | OpenResty Nginx config and Lua runtime modules. |
-| `edge/agent/` | POSIX shell agent that signs edge calls and syncs config/metrics/events. |
-| `ci/` | Bash smoke/e2e scripts and controlled origin services. |
-| `docs/` | GitHub Pages-compatible documentation. |
+Use these pages when you are changing the control plane, dashboard, edge runtime, or API.
 
-## Fast Path
+- [Architecture](./architecture.md)
+- [API Reference](./api/api.md)
+- [OpenAPI YAML](./public/api/openapi.yaml)
+- [Local Development](./setup.md)
+- [Testing](./setup.md#validation)
+- [Extending the Edge](./extensions.md)
+- [Dashboard Development](./setup.md#dashboard)
+- [Control Plane Development](./setup.md#core-api-and-cli)
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-curl -fsS http://localhost:8080/health
-curl -fsS http://localhost:8081/health
-```
+## Enterprise And Private Deployment Path
 
-Open the dashboard at `http://localhost:8082` and sign in with the local bootstrap account from `.env.example`: `admin` / `admin`.
+These pages are written for teams evaluating CDNLite as a private CDN foundation.
+
+- [Private CDN Use Cases](./private-cdn.md)
+- [Security Model](./security.md)
+- [Deployment Topologies](./deployment.md#deployment-topologies)
+- [Network Segmentation](./production-hardening.md#network-segmentation)
+- [External Authentication](./enterprise-readiness.md#external-controls-required)
+- [Secret Rotation](./production-hardening.md#secret-rotation)
+- [Current Enterprise Limitations](./enterprise-readiness.md#not-implemented-yet)
+- [Enterprise Roadmap](./roadmap.md)
+
+## What CDNLite Includes Today
+
+- CDN control plane for domains, origins, DNS records, cache rules, purges, SSL, security rules, and operations.
+- OpenResty CDN edge proxy with signed configuration sync through the edge agent.
+- PowerDNS CDN publishing with DNSGeo support for private edge routing.
+- WAF rules, rate limits, redirects, response headers, security events, and audit logs.
+- Docker Compose deployment for the normal local topology and split deployment documentation.
 
 ## Current Limits
 
-CDNLite does not implement enterprise RBAC, billing, multi-tenant isolation, or production-grade identity federation. API bearer auth is optional unless `CDNLITE_API_TOKEN` is set; edge endpoints always require registered edge credentials and signed headers. Treat the default credentials and `edge-dev-token` as local-only secrets.
+CDNLite does not yet include native enterprise RBAC, OIDC/SAML SSO, full multi-tenant isolation, billing, signed release artifacts, Helm packaging, or HA control plane automation. Use external controls and review [Enterprise Readiness](./enterprise-readiness.md) before production use.
 
-## Recommended Reading Paths
+## Next Steps
 
-If you are new to the project, read [Setup](setup.md), then [User Guide](usage/user.md), then [Examples](examples/index.md). That path gets a local stack running before it asks you to understand every moving part.
-
-If you are integrating with the API, read [API Reference](api/api.md), download [OpenAPI YAML](api/openapi.yaml), then use the domain and DNS examples in [Examples](examples/index.md). The OpenAPI document is intentionally pragmatic: it covers the implemented route families and reusable schemas so client generators and API explorers have a stable contract to consume.
-
-If you are operating CDNLite, read [Admin Guide](usage/admin.md), [Security](security.md), [Troubleshooting](troubleshooting.md), [Operations Runbooks](runbooks/index.md), and [Best Practices](best-practices/index.md). Keep the architecture page nearby during incidents because it shows where config, metrics, and edge decisions flow.
-
-## Mental Model
-
-CDNLite has three loops:
-
-1. Operators change desired state through the dashboard, API, or CLI.
-2. Core validates and stores that state, then builds edge config snapshots.
-3. Edge agents pull config and push back heartbeats, metrics, and security decisions.
-
-When debugging, locate which loop is broken. A domain problem is often desired state. A stale edge is often config pull. Empty analytics are often metrics push or aggregation. This framing keeps investigations short and avoids random restarts.
+- Run [Quickstart](./quickstart.md).
+- Read [Private CDN](./private-cdn.md) for positioning and topologies.
+- Review [Production Hardening](./production-hardening.md) before shared deployment.
+- Check the [Roadmap](./roadmap.md) for planned enterprise features.

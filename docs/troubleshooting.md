@@ -1,3 +1,8 @@
+---
+title: Troubleshooting
+description: Troubleshoot CDNLite core health, edge health, readiness checks, PowerDNS, DNSGeo, dashboard access, SSL, cache, and operational failures.
+---
+
 # Troubleshooting
 
 ## Quick Diagnostics

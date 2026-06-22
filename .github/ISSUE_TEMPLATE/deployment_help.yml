@@ -1,0 +1,43 @@
+name: Deployment help
+description: Ask for help with Docker Compose, split deployment, DNS, edge nodes, or hardening.
+title: "deployment: "
+labels: ["deployment", "support"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Deployment goal
+      description: Describe the topology you are trying to run.
+    validations:
+      required: true
+  - type: dropdown
+    id: topology
+    attributes:
+      label: Topology
+      options:
+        - Local Docker Compose
+        - Single-host production-like
+        - Split core/edge/DNS
+        - Private network/VPN
+        - Kubernetes/Helm
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is not working?
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Commands already run
+      placeholder: |
+        docker compose config --quiet
+        curl -fsS http://localhost:8080/health
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove secrets, tokens, private hostnames, and customer data.

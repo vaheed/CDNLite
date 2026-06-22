@@ -1,3 +1,8 @@
+---
+title: Admin Guide
+description: Admin guide for CDNLite authentication, admin users, edge tokens, platform settings, DNS operations, security review, and production ownership.
+---
+
 # Admin Guide
 
 This page covers administrative workflows, roles, permissions, and operational ownership.
@@ -162,7 +167,7 @@ Edge agent -> signed /api/v1/edge/register -> Core
 Edge agent -> signed /api/v1/edge/heartbeat -> Core
 Edge agent -> signed /api/v1/edge/config -> config.json
 ```
-# Domain Activity
+## Domain Activity
 
 Every domain detail page includes an **Activity** tab with **Simple view** and
 **Advanced view**. Simple view groups raw events into readable protection

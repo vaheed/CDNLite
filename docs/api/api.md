@@ -1,3 +1,8 @@
+---
+title: API Reference
+description: CDNLite control plane API reference for domains, DNS records, origins, cache rules, WAF rules, rate limits, SSL, edge nodes, analytics, and audit logs.
+---
+
 # API Reference
 
 Base URL in local Compose: `http://localhost:8080`.

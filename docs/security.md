@@ -1,6 +1,15 @@
-# Security
+---
+title: Security Model
+description: Security model for CDNLite private CDN deployments, including edge HMAC signing, per-edge tokens, API tokens, TLS, audit logs, and production hardening.
+---
+
+# Security Model
 
 CDNLite is suitable for local learning and controlled deployments. Production use requires deliberate authentication, secret management, TLS, and network controls.
+
+## Private CDN Security Summary
+
+CDNLite uses per-edge tokens, signed edge requests, timestamp and nonce replay protection, API token authentication, audit logs, WAF rules, rate limits, and local-only defaults. Native enterprise RBAC, OIDC/SAML SSO, scoped API keys, and full tenant isolation are not implemented yet, so production deployments should add external controls.
 
 ## Authentication
 

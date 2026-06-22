@@ -1,3 +1,8 @@
+---
+title: CDN In A Minute
+description: A fast CDNLite walkthrough for starting a self-hosted private CDN with core, dashboard, PowerDNS, DNSGeo, and OpenResty edge nodes.
+---
+
 # CDN In A Minute
 
 ## Overview
