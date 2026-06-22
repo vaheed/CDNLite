@@ -109,7 +109,7 @@ class ConfigService
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
         $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'header_rules' => $headerRules, 'ip_rules' => $ipRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
 
-        $existing = $this->findActiveByHash($contentHash);
+        $existing = $this->findReusableActiveSnapshot($previousActiveVersion, $contentHash);
         if ($existing !== null) {
             if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                 $this->activateSnapshotVersion((int) $existing['version']);
@@ -341,16 +341,18 @@ class ConfigService
         return (int) $row['version'];
     }
 
-    private function findActiveByHash(string $contentHash): ?array
+    private function findReusableActiveSnapshot(?int $activeVersion, string $contentHash): ?array
     {
+        if ($activeVersion === null) {
+            return null;
+        }
         $stmt = Database::pdo()->prepare(
             'SELECT s.version, s.generated_at, s.payload_json
-             FROM config_state cs
-             JOIN config_snapshots s ON s.version = cs.active_snapshot_version
-             WHERE cs.id = 1 AND s.content_hash = :content_hash
+             FROM config_snapshots s
+             WHERE s.version = :version AND s.content_hash = :content_hash
              LIMIT 1'
         );
-        $stmt->execute([':content_hash' => $contentHash]);
+        $stmt->execute([':version' => $activeVersion, ':content_hash' => $contentHash]);
         $row = $stmt->fetch();
         if ($row === false) {
             return null;
