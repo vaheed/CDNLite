@@ -71,7 +71,6 @@ class ConfigService
                 $baseConfig['headers'][$shieldHeaderName] = $shieldSecret;
             }
 
-            $hosts[$domainHost] = $baseConfig;
             foreach ($this->proxiedRecordHosts($domainHost, $records, $configuredOrigins) as $recordHost => $recordOrigins) {
                 $recordConfig = $baseConfig;
                 if ($recordOrigins !== []) {

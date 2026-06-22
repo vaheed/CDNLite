@@ -195,6 +195,14 @@ def test_config_republish_uses_new_version_for_reactivated_old_content():
     assert "DROP CONSTRAINT IF EXISTS config_snapshots_content_hash_key" in migration
 
 
+def test_edge_config_hosts_are_published_per_proxied_record():
+    service = (REPO_ROOT / "core/app/Modules/Proxy/Services/ConfigService.php").read_text()
+
+    assert "$hosts[$domainHost] = $baseConfig" not in service
+    assert "foreach ($this->proxiedRecordHosts($domainHost, $records, $configuredOrigins) as $recordHost => $recordOrigins)" in service
+    assert "recordHost($domainHost" in service
+
+
 def test_core_agent_config_if_version_contract():
     reset_db()
 
