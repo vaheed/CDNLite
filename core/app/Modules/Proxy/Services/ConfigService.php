@@ -111,12 +111,14 @@ class ConfigService
 
         $existing = $this->findByHash($contentHash);
         if ($existing !== null) {
+            if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
+                $this->activateSnapshotVersion((int) $existing['version']);
+                return ['not_modified' => true, 'version' => (int) $existing['version']];
+            }
+
             $existing = $this->refreshSnapshotGeneratedAt($existing);
             $this->activateSnapshotVersion((int) $existing['version']);
             $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
-            if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
-                return ['not_modified' => true, 'version' => (int) $existing['version']];
-            }
 
             return [
                 'schema_version' => 1,
@@ -155,12 +157,14 @@ class ConfigService
         if (!$this->storeSnapshot($version, $contentHash, $payload)) {
             $existing = $this->findByHash($contentHash);
             if ($existing !== null) {
+                if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
+                    $this->activateSnapshotVersion((int) $existing['version']);
+                    return ['not_modified' => true, 'version' => (int) $existing['version']];
+                }
+
                 $existing = $this->refreshSnapshotGeneratedAt($existing);
                 $this->activateSnapshotVersion((int) $existing['version']);
                 $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
-                if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
-                    return ['not_modified' => true, 'version' => (int) $existing['version']];
-                }
 
                 return [
                     'schema_version' => 1,
