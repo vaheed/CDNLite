@@ -164,9 +164,9 @@ removed_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.colu
 assert_eq "$removed_origin_columns" "0" "domain origin columns should be absent"
 record_step PASS "schema-domain-origin-columns-absent" "domain origin columns are absent"
 
-record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_records' AND column_name IN ('origin_host','origin_tls_verify','origin_scheme','origin_status','geo_origins_json');")"
-assert_eq "$record_origin_columns" "5" "DNS record origin columns are incomplete"
-record_step PASS "schema-dns-record-origin-columns" "record-level origin columns are present"
+record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_records' AND column_name IN ('origin_host','origin_tls_verify','origin_scheme','origin_status','geo_origins_json','managed_by');")"
+assert_eq "$record_origin_columns" "6" "DNS record origin and ownership columns are incomplete"
+record_step PASS "schema-dns-record-origin-columns" "record-level origin and ownership columns are present"
 
 geo_route_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_record_geo_routes' AND column_name IN ('route_scope','country_code','continent_code','answer_type','answer_value','enabled');")"
 assert_eq "$geo_route_columns" "6" "raw GeoDNS route columns are incomplete"

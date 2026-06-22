@@ -32,7 +32,7 @@ class AcmeIssuerService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((string) $domain['status'] !== 'active') {
+        if ((string) $domain['status'] !== 'active' || (string) ($domain['nameserver_status'] ?? '') !== 'verified') {
             throw new \DomainException('domain_must_be_active');
         }
 
@@ -431,7 +431,7 @@ class AcmeIssuerService
     private function domain(string $domainId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            "SELECT d.id,d.domain,d.status,
+            "SELECT d.id,d.domain,d.status,d.nameserver_status,
              CASE WHEN EXISTS (SELECT 1 FROM dns_records r WHERE r.domain_id=d.id AND r.proxied=true AND r.status='active') THEN 1 ELSE 0 END AS proxy_enabled
              FROM domains d WHERE d.id=:id LIMIT 1"
         );

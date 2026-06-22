@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS dns_records (
   origin_status TEXT NOT NULL DEFAULT 'pending',
   geo_origins_json TEXT NULL,
   routing_policy TEXT NOT NULL DEFAULT 'standard',
+  managed_by TEXT NULL,
   status TEXT NOT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,
@@ -79,6 +80,10 @@ CREATE INDEX IF NOT EXISTS dns_records_active_domain_order_idx
 
 CREATE INDEX IF NOT EXISTS dns_records_domain_status_idx
   ON dns_records(domain_id, status);
+
+CREATE UNIQUE INDEX IF NOT EXISTS dns_records_ssl_bootstrap_idx
+  ON dns_records(domain_id, managed_by)
+  WHERE managed_by = 'ssl_bootstrap';
 
 CREATE TABLE IF NOT EXISTS edge_nodes (
   id TEXT PRIMARY KEY,

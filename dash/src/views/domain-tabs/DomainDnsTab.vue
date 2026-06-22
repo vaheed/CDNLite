@@ -155,6 +155,7 @@ async function edit(value: Record<string, unknown>) {
 }
 function addGeoAnswer() { geoAnswers.value.push({ route_scope: 'country', country_code: '', continent_code: '', answer_value: '' }); }
 function geoRoutePayload() {
+  if (form.proxied) return [];
   if (!form.geo_enabled) return [];
   return [
     { route_scope: 'default' as const, answer_type: form.type as 'A' | 'AAAA', answer_value: form.content.trim(), enabled: true },

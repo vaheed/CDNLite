@@ -263,7 +263,7 @@ class TrafficRulesService
         if ($domain === null) {
             throw new \OutOfBoundsException('domain_not_found');
         }
-        if ((string) $domain['status'] !== 'active') {
+        if ((string) $domain['status'] !== 'active' || (string) ($domain['nameserver_status'] ?? '') !== 'verified') {
             throw new \DomainException('domain_must_be_active');
         }
 
@@ -353,7 +353,7 @@ class TrafficRulesService
     }
     public function ensureManagedWildcardSslJob(string $domainId): ?array {
         $domain = $this->domainForSsl($domainId);
-        if ($domain === null || (string) $domain['status'] !== 'active') {
+        if ($domain === null || (string) $domain['status'] !== 'active' || (string) ($domain['nameserver_status'] ?? '') !== 'verified') {
             return null;
         }
         $hostnames = $this->defaultManagedSslHostnames((string) $domain['domain']);
@@ -449,7 +449,7 @@ class TrafficRulesService
     }
     private function domainForSsl(string $domainId): ?array {
         $s = Database::pdo()->prepare(
-            "SELECT d.id,d.domain,d.status,
+            "SELECT d.id,d.domain,d.status,d.nameserver_status,
              (SELECT COUNT(*) FROM dns_records r WHERE r.domain_id=d.id) AS dns_record_count,
              CASE WHEN EXISTS (SELECT 1 FROM dns_records r WHERE r.domain_id=d.id AND r.proxied=true AND r.status='active') THEN 1 ELSE 0 END AS proxy_enabled
              FROM domains d WHERE d.id=:id LIMIT 1"
@@ -521,6 +521,48 @@ class TrafficRulesService
             }
         }
         return false;
+    }
+    private function hasActiveApexRecord(string $domainId, string $domain): bool {
+        $stmt = Database::pdo()->prepare(
+            "SELECT 1 FROM dns_records
+             WHERE domain_id=:domain_id
+               AND status='active'
+               AND LOWER(TRIM(TRAILING '.' FROM name)) IN ('', '@', :domain)
+             LIMIT 1"
+        );
+        $stmt->execute([':domain_id' => $domainId, ':domain' => strtolower(rtrim(trim($domain), '.'))]);
+        return $stmt->fetchColumn() !== false;
+    }
+    public function createTemporarySslBootstrapApexIfNeeded(string $domainId): ?string {
+        $domain = $this->domainForSsl($domainId);
+        if ($domain === null || $this->hasActiveApexRecord($domainId, (string) $domain['domain'])) {
+            return null;
+        }
+        return $this->createTemporarySslBootstrapApex($domainId);
+    }
+    private function createTemporarySslBootstrapApex(string $domainId): string {
+        $now = time();
+        $id = Uuid::v4();
+        Database::pdo()->prepare(
+            "INSERT INTO dns_records
+             (id,domain_id,type,name,content,ttl,priority,proxied,geo_policy_id,origin_type,origin_content,public_type,public_content,origin_host,origin_tls_verify,origin_scheme,origin_status,geo_origins_json,routing_policy,managed_by,status,created_at,updated_at)
+             VALUES
+             (:id,:domain_id,'A','@','192.0.2.1',300,NULL,false,NULL,'A','192.0.2.1','A','192.0.2.1',NULL,'ignore',NULL,'dns_only',NULL,'standard','ssl_bootstrap','disabled',:created_at,:updated_at)
+             ON CONFLICT (domain_id, managed_by) WHERE managed_by = 'ssl_bootstrap'
+             DO UPDATE SET updated_at = EXCLUDED.updated_at
+             RETURNING id"
+        )->execute([':id' => $id, ':domain_id' => $domainId, ':created_at' => $now, ':updated_at' => $now]);
+        $stmt = Database::pdo()->prepare(
+            "SELECT id FROM dns_records WHERE domain_id=:domain_id AND managed_by='ssl_bootstrap' LIMIT 1"
+        );
+        $stmt->execute([':domain_id' => $domainId]);
+        return (string) ($stmt->fetchColumn() ?: $id);
+    }
+    public function deleteTemporarySslBootstrapApex(string $domainId, string $recordId): void {
+        Database::pdo()->prepare(
+            "DELETE FROM dns_records
+             WHERE domain_id=:domain_id AND id=:id AND managed_by='ssl_bootstrap' AND status='disabled'"
+        )->execute([':domain_id' => $domainId, ':id' => $recordId]);
     }
     public function getDomainCacheSettings(string $domainId): array {
         $s = Database::pdo()->prepare('SELECT * FROM domain_cache_settings WHERE domain_id=:domain_id LIMIT 1');

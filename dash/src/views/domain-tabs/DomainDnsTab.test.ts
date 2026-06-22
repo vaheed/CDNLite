@@ -63,4 +63,31 @@ describe('DomainDnsTab retry actions', () => {
 
     expect(dnsApiMock.reconcileRecord).toHaveBeenCalledWith('domain-1', 'record-1');
   });
+
+  it('saves proxied records without sending explicit GeoDNS routes', async () => {
+    dnsApiMock.list.mockResolvedValue([]);
+    dnsApiMock.create.mockResolvedValue({
+      id: 'record-2',
+      type: 'A',
+      name: '@',
+      content: 'origin.example.test',
+      proxied: true,
+      geo_routes_count: 0,
+    });
+    const view = render(DomainDnsTab, {
+      props: { domainId: 'domain-1' },
+    });
+
+    await waitFor(() => expect(view.getByRole('button', { name: /add record/i })).toBeInTheDocument());
+    await fireEvent.click(view.getByRole('button', { name: /add record/i }));
+    await fireEvent.update(view.getByLabelText(/default answer/i), 'origin.example.test');
+    await fireEvent.click(view.getByLabelText(/proxy through cdnlite/i));
+    await fireEvent.click(view.getByRole('button', { name: /save record/i }));
+
+    await waitFor(() => expect(dnsApiMock.create).toHaveBeenCalled());
+    expect(dnsApiMock.create).toHaveBeenCalledWith('domain-1', expect.objectContaining({
+      proxied: true,
+      geo_routes: [],
+    }));
+  });
 });

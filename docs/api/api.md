@@ -529,13 +529,13 @@ Cache tips:
 SSL tips:
 
 - Use the ACME staging directory until DNS-01 automation is proven.
-- When nameserver verification marks a domain active, CDNLite automatically queues a managed ACME DNS-01 certificate for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab.
+- When nameserver verification marks a domain active, CDNLite automatically queues a non-blocking managed ACME DNS-01 job for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab. During issuance or renewal, if no active apex DNS record exists, Core uses a disabled, non-proxied bootstrap apex row only long enough for the SSL flow, then removes it without publishing customer traffic.
 - When an active, verified domain receives or updates a proxied DNS record, CDNLite also ensures the default managed apex and wildcard SSL job exists.
 - The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
 - The `cdn:ssl:request` CLI follows the queued `/ssl/request` behavior and returns the scheduler job metadata.
 - Queued jobs include `scheduler_stale`, `stale_seconds`, and `scheduler_hint` when `ssl-scheduler` has not claimed them after the configured scheduler interval.
 - ACME DNS-01 TXT records are short-lived PowerDNS records, not durable dashboard DNS rows. The issuer verifies the TXT through the PowerDNS API, then asks ACME to validate. Set `CDNLITE_ACME_PUBLIC_DNS_PRECHECK=true` to require a recursive public DNS precheck before ACME validation.
-- DNS-01 issuance requires an active domain and PowerDNS challenge publishing; it does not require any customer DNS record to be proxied.
+- DNS-01 issuance requests require an active, nameserver-verified domain and PowerDNS challenge publishing; automatic initial bootstrap is queued asynchronously after verification and does not require any customer DNS record to be proxied.
 - Keep DNS-only `_acme-challenge` records available during issuance.
 - Do not enable force HTTPS until an active certificate exists for the domain.
 - Keep `CDNLITE_SSL_SECRET_KEY` stable; changing it can break stored certificate material.

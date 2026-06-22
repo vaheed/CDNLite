@@ -144,8 +144,10 @@ continent routes, then returns the default answer. Country codes are ISO
 3166-1 alpha-2 values, and continent codes are `AF`, `AN`, `AS`, `EU`, `NA`,
 `OC`, and `SA`.
 
-Proxy and raw GeoDNS are mutually exclusive. Enabling proxy removes raw GeoDNS
-routes, and attempts to save proxy plus raw GeoDNS routes are rejected with
+Proxy and raw GeoDNS routes are mutually exclusive at the record level. Enabling
+proxy removes explicit raw GeoDNS routes, but the default domain routing mode
+does not make every proxied record a GeoDNS record. Attempts to save proxy plus
+country or continent GeoDNS routes are rejected with
 `proxy_and_geodns_are_mutually_exclusive`. CNAME GeoDNS is disabled because the
 current supported raw GeoDNS publisher only emits safe A/AAAA Lua answers.
 

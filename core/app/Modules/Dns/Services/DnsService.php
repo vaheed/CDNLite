@@ -145,6 +145,7 @@ class DnsService
             'origin_scheme' => (string) ($input['origin_scheme'] ?? 'http'),
             'geo_origins' => $input['geo_origins'] ?? [],
             'routing_policy' => (string) ($input['routing_policy'] ?? 'standard'),
+            'managed_by' => $input['managed_by'] ?? null,
         ];
         $this->assertRoutingAvailable($record);
         $public = $this->customerDns->publicRecordFor($domain, $record);
@@ -171,13 +172,13 @@ class DnsService
             'INSERT INTO dns_records (
                 id, domain_id, type, name, content, ttl, priority, proxied, geo_policy_id,
                 origin_type, origin_content, public_type, public_content, origin_host, origin_tls_verify,
-                origin_scheme, origin_status, geo_origins_json, routing_policy,
+                origin_scheme, origin_status, geo_origins_json, routing_policy, managed_by,
                 status, created_at, updated_at
              )
              VALUES (
                 :id, :domain_id, :type, :name, :content, :ttl, :priority, :proxied, :geo_policy_id,
                 :origin_type, :origin_content, :public_type, :public_content, :origin_host, :origin_tls_verify,
-                :origin_scheme, :origin_status, :geo_origins_json, :routing_policy,
+                :origin_scheme, :origin_status, :geo_origins_json, :routing_policy, :managed_by,
                 :status, :created_at, :updated_at
              )'
         );
@@ -201,6 +202,7 @@ class DnsService
             ':origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
             ':geo_origins_json' => $this->encodeGeoOrigins($record['geo_origins']),
             ':routing_policy' => $record['routing_policy'],
+            ':managed_by' => $record['managed_by'],
             ':status' => 'active',
             ':created_at' => $now,
             ':updated_at' => $now,
@@ -557,6 +559,7 @@ class DnsService
         $row['origin_status'] = (string) ($row['origin_status'] ?? 'pending');
         $row['geo_origins'] = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
         $row['routing_policy'] = (string) ($row['routing_policy'] ?? 'standard');
+        $row['managed_by'] = $row['managed_by'] === null ? null : (string) $row['managed_by'];
         unset($row['geo_origins_json']);
         $row['ttl'] = (int) $row['ttl'];
         $row['priority'] = $row['priority'] === null ? null : (int) $row['priority'];

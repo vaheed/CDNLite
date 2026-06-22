@@ -140,10 +140,7 @@ class DnsController
 
         try {
             $record = $this->service->create($domainId, $input);
-            if ($geoRoutes !== null) {
-                if (!empty($record['proxied'])) {
-                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
-                }
+            if ($geoRoutes !== null && $this->hasExplicitGeoRoutes($geoRoutes)) {
                 $this->geo->replace($domainId, (string) $record['id'], $geoRoutes);
                 $record = $this->service->find($domainId, (string) $record['id']) ?? $record;
             }
@@ -275,10 +272,7 @@ class DnsController
 
         try {
             $record = $this->service->update($domainId, $recordId, $input);
-            if ($record !== null && $geoRoutes !== null) {
-                if (!empty($record['proxied'])) {
-                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
-                }
+            if ($record !== null && $geoRoutes !== null && $this->hasExplicitGeoRoutes($geoRoutes)) {
                 $this->geo->replace($domainId, $recordId, $geoRoutes);
                 $record = $this->service->find($domainId, $recordId) ?? $record;
             }
@@ -394,7 +388,7 @@ class DnsController
         }
         $routes = $input['geo_routes'];
         unset($input['geo_routes']);
-        if (($input['proxied'] ?? false) && $routes !== []) {
+        if (($input['proxied'] ?? false) && $this->hasExplicitGeoRoutes($routes)) {
             return new \RuntimeException('proxy_and_geodns_are_mutually_exclusive');
         }
         return $routes;
@@ -405,7 +399,10 @@ class DnsController
         if ($routes === null || $routes === []) {
             return null;
         }
-        if (!empty($record['proxied'])) {
+        if (!$this->hasExplicitGeoRoutes($routes)) {
+            return null;
+        }
+        if (!empty($record['proxied']) && $this->hasExplicitGeoRoutes($routes)) {
             return ['error' => 'proxy_and_geodns_are_mutually_exclusive', 'status' => 422];
         }
         $type = strtoupper((string) ($record['type'] ?? ''));
@@ -442,6 +439,25 @@ class DnsController
             }
         }
         return $hasDefault ? null : ['error' => 'geo_default_route_required', 'status' => 422];
+    }
+
+    private function hasExplicitGeoRoutes(array $routes): bool
+    {
+        foreach ($routes as $route) {
+            if (!is_array($route)) {
+                return true;
+            }
+            $scope = (string) ($route['route_scope'] ?? '');
+            $country = trim((string) ($route['country_code'] ?? ''));
+            $continent = trim((string) ($route['continent_code'] ?? ''));
+            if ($scope !== '' && $scope !== 'default') {
+                return true;
+            }
+            if ($country !== '' || $continent !== '') {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function dnsPublishFailure(string $message, int $status = 502): array

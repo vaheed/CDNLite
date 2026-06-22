@@ -431,18 +431,25 @@ assert_http_status "$HTTP_CODE" "201" "domain create failed"
 DOMAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "domain-create" "domain_id=${DOMAIN_ID} domain=${TEST_DOMAIN}"
 
+initial_ssl_jobs="$(db_query "SELECT COUNT(*) FROM ssl_jobs WHERE domain_id='${DOMAIN_ID}';")"
+assert_eq "$initial_ssl_jobs" "0" "domain create must not queue SSL before nameserver verification"
+record_step PASS "ssl-no-preverification-job" "no initial SSL job before nameserver verification"
+
 api_post "${CORE_URL}/api/v1/domains" \
   "{\"name\":\"e2e-onboarding-${RUN_KEY}\",\"domain\":\"${TEST_DOMAIN_2}\"}"
 assert_http_status "$HTTP_CODE" "201" "onboarding domain create failed"
 DOMAIN_ID_2="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "onboarding-domain-create" "domain_id=${DOMAIN_ID_2} domain=${TEST_DOMAIN_2}"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activate" '{"override":true}'
-assert_http_status "$HTTP_CODE" "200" "domain activation failed"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/nameservers/force-verify" '{"reason":"e2e controlled domain activation"}'
+assert_http_status "$HTTP_CODE" "200" "domain force verification failed"
+assert_contains "$HTTP_BODY" '"status":"verified"' "force verification should mark nameservers verified"
 now="$(date +%s)"
-db_query "UPDATE domains SET status='active', nameserver_status='verified', last_ns_check_at=$now, updated_at=$now WHERE id='${DOMAIN_ID}';" >/dev/null
-db_query "UPDATE domain_nameservers SET observed=true, last_checked_at=$now WHERE domain_id='${DOMAIN_ID}';" >/dev/null
-record_step PASS "domain-activate" "domain activated with development override"
+ssl_jobs_after_verify="$(db_query "SELECT COUNT(*) FROM ssl_jobs WHERE domain_id='${DOMAIN_ID}' AND hostnames_json::text LIKE '%${TEST_DOMAIN}%';")"
+assert_eq "$ssl_jobs_after_verify" "1" "verified activation should queue initial managed SSL"
+ssl_bootstrap_rows_after_verify="$(db_query "SELECT COUNT(*) FROM dns_records WHERE domain_id='${DOMAIN_ID}' AND managed_by='ssl_bootstrap';")"
+assert_eq "$ssl_bootstrap_rows_after_verify" "0" "SSL queueing must not leave bootstrap apex rows"
+record_step PASS "domain-activate" "domain verified and initial managed SSL job queued"
 
 db_query "INSERT INTO usage_rollups (id,ts,domain_id,edge_node_id,requests_count,bytes_in,bytes_out,status,cache_status,path,method,host) VALUES
   ('rec-login-${RUN_KEY}',${now},'${DOMAIN_ID}','${EDGE_ID}',8,800,8000,200,'MISS','/login','GET','${TEST_DOMAIN}'),
@@ -914,10 +921,15 @@ assert_http_status "$HTTP_CODE" "200" "raw GeoDNS route list failed"
 assert_contains "$HTTP_BODY" '"route_scope":"country"' "raw GeoDNS country route missing"
 assert_contains "$HTTP_BODY" '"continent_code":"EU"' "raw GeoDNS continent route missing"
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
-  '{"type":"A","name":"bad-geo","content":"203.0.113.11","ttl":300,"proxied":true,"geo_routes":[{"route_scope":"default","answer_type":"A","answer_value":"203.0.113.11","enabled":true}]}'
+  '{"type":"A","name":"proxy-default-geo","content":"origin-tls","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_routes":[{"route_scope":"default","answer_type":"A","answer_value":"203.0.113.11","enabled":true}]}'
+assert_http_status "$HTTP_CODE" "201" "proxied record with default-only GeoDNS payload should not be rejected"
+PROXY_DEFAULT_GEO_ID="$(json_get "$HTTP_BODY" '.data.id')"
+DNS_IDS+=("$PROXY_DEFAULT_GEO_ID")
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
+  '{"type":"A","name":"bad-geo","content":"origin-tls","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_routes":[{"route_scope":"default","answer_type":"A","answer_value":"203.0.113.11","enabled":true},{"route_scope":"country","country_code":"US","answer_type":"A","answer_value":"198.51.100.11","enabled":true}]}'
 assert_http_status "$HTTP_CODE" "422" "proxy plus raw GeoDNS should be rejected"
 assert_contains "$HTTP_BODY" "proxy_and_geodns_are_mutually_exclusive" "proxy plus raw GeoDNS rejection mismatch"
-record_step PASS "dns-raw-geodns" "raw GeoDNS routes stored and proxy conflict rejected"
+record_step PASS "dns-raw-geodns" "raw GeoDNS routes stored, default-only proxy payload allowed, explicit proxy conflict rejected"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"content":"1.1.1.2","ttl":120}'
 assert_http_status "$HTTP_CODE" "200" "dns update failed"
