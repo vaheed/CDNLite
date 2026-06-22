@@ -179,6 +179,8 @@ def test_smoke_and_e2e_cover_edge_config_visibility_and_publish_audit():
     assert "config.publish" in e2e
     assert "edge-config-version" in e2e
     assert "applied_config_version" in e2e
+    assert 'Cache-Control: no-cache' in e2e
+    assert 'did not become' in e2e
 
 
 def test_config_republish_uses_new_version_for_reactivated_old_content():

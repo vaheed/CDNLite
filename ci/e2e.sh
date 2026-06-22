@@ -136,7 +136,8 @@ edge_status_for_host() {
   local host="$1"
   curl -s -o /tmp/e2e-edge-status.txt -w '%{http_code}' "${EDGE_URL}/api/v1/domains" \
     -H "Host: ${host}" \
-    -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}"
+    -H "Authorization: Bearer ${ADMIN_SESSION_TOKEN}" \
+    -H "Cache-Control: no-cache"
 }
 
 assert_edge_server_hidden() {
@@ -209,12 +210,22 @@ api_post_with_powerdns_retry() {
 edge_wait_status() {
   local host="$1"
   local expected="$2"
-  retry 40 1 edge_status_is "$host" "$expected"
+  retry 40 1 edge_status_is "$host" "$expected" || {
+    local code body
+    code="$(edge_status_for_host "$host")"
+    body="$(tr '\n' ' ' </tmp/e2e-edge-status.txt | cut -c 1-300)"
+    fail "edge status for ${host} did not become ${expected} (last=${code} body='${body}')"
+  }
 }
 
 edge_wait_success_status() {
   local host="$1"
-  retry 40 1 edge_status_is_success "$host"
+  retry 40 1 edge_status_is_success "$host" || {
+    local code body
+    code="$(edge_status_for_host "$host")"
+    body="$(tr '\n' ' ' </tmp/e2e-edge-status.txt | cut -c 1-300)"
+    fail "edge status for ${host} did not become successful (last=${code} body='${body}')"
+  }
 }
 
 edge_config_has_host() {
