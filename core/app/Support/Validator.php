@@ -50,7 +50,7 @@ final class Validator
             return ['ok' => false, 'error' => 'invalid_field', 'field' => $field, 'detail' => 'must_be_non_empty', 'status' => 422];
         }
         if (filter_var($value, FILTER_VALIDATE_IP) === false
-            && !preg_match('/^(?=.{1,253}$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+\.?$/i', $value)) {
+            && !preg_match('/^(?=.{1,253}\.?$)(?!-)[a-z0-9-]+(\.[a-z0-9-]+)*\.?$/i', $value)) {
             return ['ok' => false, 'error' => 'invalid_field', 'field' => $field, 'detail' => 'must_be_valid_ip_or_hostname', 'status' => 422];
         }
         return ['ok' => true, 'value' => $value];
