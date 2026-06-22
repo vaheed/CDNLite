@@ -51,7 +51,7 @@ It is intended as a production-oriented private CDN foundation, not a promise th
 
 - PowerDNS-backed record publishing with DNS-only and proxied modes.
 - DNSGeo support for health-aware private edge routing.
-- Proxied apex records published as PowerDNS `ALIAS`; proxied subdomains published as stable CDN CNAMEs.
+- Proxied apex records publish direct edge-pool answers with PowerDNS `LUA` by default, while proxied subdomains publish stable CDN CNAMEs.
 - Initial managed SSL is queued asynchronously after nameserver verification for apex and wildcard hostnames.
 
 **Cache And Performance**

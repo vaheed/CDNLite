@@ -1,6 +1,6 @@
 ---
 title: DNSGeo And PowerDNS
-description: DNS reconciliation, PowerDNS publishing, DNSGeo routing, ALIAS/CNAME behavior, health-aware answers, and nameserver operations in CDNLite.
+description: DNS reconciliation, PowerDNS publishing, DNSGeo routing, Lua apex proxy answers, CNAME subdomain targets, health-aware answers, and nameserver operations in CDNLite.
 ---
 
 # DNSGeo and PowerDNS
@@ -61,7 +61,7 @@ The authoritative service uses `restart: unless-stopped`. The MMDB watcher
 intentionally terminates PowerDNS after an atomic database replacement so
 Docker restarts it and remaps the new file.
 
-## ALIAS Resolution
+## Resolver Support
 
 PowerDNS Authoritative is rendered with:
 
@@ -70,9 +70,9 @@ expand-alias=yes
 resolver=pdns-recursor:5300
 ```
 
-The resolver is a separate process. It forwards the configured `CDNLITE_DNS_BASE_DOMAIN` and `CDNLITE_CDN_ZONE` to `pdns-auth`; it never points recursive traffic back to the authoritative server as a general resolver.
+The resolver is a separate process. It forwards the configured `CDNLITE_DNS_BASE_DOMAIN` and `CDNLITE_CDN_ZONE` to `pdns-auth`; it never points recursive traffic back to the authoritative server as a general resolver. Proxied customer apex records do not use ALIAS; they publish direct managed apex `A`/`AAAA` answers from static anycast settings or PowerDNS `LUA` edge-pool records.
 
-DNSSEC signing is not enabled by the bundled fresh-install defaults. Operators enabling DNSSEC must validate ALIAS synthesis and parent DS publication before production rollout.
+DNSSEC signing is not enabled by the bundled fresh-install defaults. Operators enabling DNSSEC must validate Lua answers, parent DS publication, and any manually added ALIAS records before production rollout.
 
 ## Configuration
 
