@@ -489,7 +489,7 @@ ALTER TABLE config_state ADD COLUMN IF NOT EXISTS active_snapshot_version BIGINT
 
 CREATE TABLE IF NOT EXISTS config_snapshots (
   version BIGINT PRIMARY KEY,
-  content_hash TEXT NOT NULL UNIQUE,
+  content_hash TEXT NOT NULL,
   payload_json TEXT NOT NULL,
   generated_at BIGINT NOT NULL
 );

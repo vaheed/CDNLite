@@ -109,7 +109,7 @@ class ConfigService
         // `generated_at` is intentionally excluded so no-op syncs reuse version.
         $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'header_rules' => $headerRules, 'ip_rules' => $ipRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
 
-        $existing = $this->findByHash($contentHash);
+        $existing = $this->findActiveByHash($contentHash);
         if ($existing !== null) {
             if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
                 $this->activateSnapshotVersion((int) $existing['version']);
@@ -154,38 +154,7 @@ class ConfigService
             'page_rules' => $pageRules,
             'ssl_certificates' => $sslCertificates,
         ];
-        if (!$this->storeSnapshot($version, $contentHash, $payload)) {
-            $existing = $this->findByHash($contentHash);
-            if ($existing !== null) {
-                if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
-                    $this->activateSnapshotVersion((int) $existing['version']);
-                    return ['not_modified' => true, 'version' => (int) $existing['version']];
-                }
-
-                $existing = $this->refreshSnapshotGeneratedAt($existing);
-                $this->activateSnapshotVersion((int) $existing['version']);
-                $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
-
-                return [
-                    'schema_version' => 1,
-                    'version' => (int) $existing['version'],
-                    'generated_at' => (int) $existing['generated_at'],
-                    'hosts' => $hosts,
-                    'redirects' => $redirects,
-                    'rate_limits' => $rateLimits,
-                    'waf_rules' => $wafRules,
-                    'header_rules' => $headerRules,
-                    'ip_rules' => $ipRules,
-                    'cache_rules' => $cacheRules,
-                    'cache_purge_versions' => $cachePurgeVersions,
-                    'page_rules' => $pageRules,
-                    'ssl_certificates' => $sslCertificates,
-                    'reused' => true,
-                ];
-            }
-
-            throw new \RuntimeException('config_snapshot_store_failed');
-        }
+        $this->storeSnapshot($version, $contentHash, $payload);
         $this->activateSnapshotVersion($version);
         $this->auditSnapshotPublish($version, $previousActiveVersion, $version, false);
 
@@ -372,10 +341,14 @@ class ConfigService
         return (int) $row['version'];
     }
 
-    private function findByHash(string $contentHash): ?array
+    private function findActiveByHash(string $contentHash): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT version, generated_at, payload_json FROM config_snapshots WHERE content_hash = :content_hash LIMIT 1'
+            'SELECT s.version, s.generated_at, s.payload_json
+             FROM config_state cs
+             JOIN config_snapshots s ON s.version = cs.active_snapshot_version
+             WHERE cs.id = 1 AND s.content_hash = :content_hash
+             LIMIT 1'
         );
         $stmt->execute([':content_hash' => $contentHash]);
         $row = $stmt->fetch();
@@ -398,12 +371,11 @@ class ConfigService
         return $snapshot;
     }
 
-    private function storeSnapshot(int $version, string $contentHash, array $payload): bool
+    private function storeSnapshot(int $version, string $contentHash, array $payload): void
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO config_snapshots (version, content_hash, payload_json, generated_at)
              VALUES (:version, :content_hash, :payload_json, :generated_at)'
-            . ' ON CONFLICT (content_hash) DO NOTHING'
         );
         $stmt->execute([
             ':version' => $version,
@@ -411,7 +383,6 @@ class ConfigService
             ':payload_json' => json_encode($payload, JSON_UNESCAPED_SLASHES),
             ':generated_at' => (int) $payload['generated_at'],
         ]);
-        return $stmt->rowCount() === 1;
     }
 
     private function activateSnapshotVersion(int $version): void

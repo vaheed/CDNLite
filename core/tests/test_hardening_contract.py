@@ -181,6 +181,18 @@ def test_smoke_and_e2e_cover_edge_config_visibility_and_publish_audit():
     assert "applied_config_version" in e2e
 
 
+def test_config_republish_uses_new_version_for_reactivated_old_content():
+    service = (REPO_ROOT / "core/app/Modules/Proxy/Services/ConfigService.php").read_text()
+    schema = (REPO_ROOT / "core/database/schema.sql").read_text()
+    migration = (REPO_ROOT / "core/database/migrations/000020_config_snapshot_republish.sql").read_text()
+
+    assert "findActiveByHash" in service
+    assert "JOIN config_snapshots s ON s.version = cs.active_snapshot_version" in service
+    assert "ON CONFLICT (content_hash)" not in service
+    assert "content_hash TEXT NOT NULL UNIQUE" not in schema
+    assert "DROP CONSTRAINT IF EXISTS config_snapshots_content_hash_key" in migration
+
+
 def test_core_agent_config_if_version_contract():
     reset_db()
 
