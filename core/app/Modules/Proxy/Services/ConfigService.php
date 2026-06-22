@@ -385,20 +385,10 @@ class ConfigService
     private function refreshSnapshotGeneratedAt(array $snapshot): array
     {
         $generatedAt = time();
-        $payload = json_decode((string) ($snapshot['payload_json'] ?? ''), true);
-        if (is_array($payload)) {
-            $payload['generated_at'] = $generatedAt;
-            Database::pdo()->prepare(
-                'UPDATE config_snapshots SET generated_at = :generated_at, payload_json = :payload_json WHERE version = :version'
-            )->execute([
-                ':generated_at' => $generatedAt,
-                ':payload_json' => json_encode($payload, JSON_UNESCAPED_SLASHES),
-                ':version' => (int) $snapshot['version'],
-            ]);
-        } else {
-            Database::pdo()->prepare('UPDATE config_snapshots SET generated_at = :generated_at WHERE version = :version')
-                ->execute([':generated_at' => $generatedAt, ':version' => (int) $snapshot['version']]);
-        }
+        // Avoid rewriting the large snapshot JSON on no-op publishes; PostgreSQL
+        // stores that value in TOAST, so metadata-only refreshes must stay small.
+        Database::pdo()->prepare('UPDATE config_snapshots SET generated_at = :generated_at WHERE version = :version')
+            ->execute([':generated_at' => $generatedAt, ':version' => (int) $snapshot['version']]);
 
         $snapshot['generated_at'] = $generatedAt;
         return $snapshot;

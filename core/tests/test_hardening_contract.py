@@ -25,9 +25,9 @@ def run_artisan(*args: str) -> dict:
     return json.loads(proc.stdout)
 
 
-def run_php(script: str) -> dict:
+def run_php(script: str, *args: str) -> dict:
     proc = subprocess.run(
-        ["php", "-r", script],
+        ["php", "-r", script, *args],
         cwd=str(REPO_ROOT),
         capture_output=True,
         text=True,
@@ -144,6 +144,23 @@ def test_edge_sync_config_reuses_version_when_unchanged():
     assert second["generated_at"] > first["generated_at"]
     assert not_modified["version"] == first["version"]
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
+
+    row = run_php(
+        r'''
+require 'core/vendor/autoload.php';
+use App\Support\Database;
+$stmt = Database::pdo()->prepare('SELECT generated_at, payload_json FROM config_snapshots WHERE version = :version');
+$stmt->execute([':version' => (int) $argv[1]]);
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+echo json_encode([
+    'generated_at' => (int) $row['generated_at'],
+    'payload_generated_at' => (int) (json_decode($row['payload_json'], true)['generated_at'] ?? 0),
+]);
+''',
+        str(first["version"]),
+    )
+    assert row["generated_at"] == second["generated_at"]
+    assert row["payload_generated_at"] == first["generated_at"]
 
 
 def test_smoke_and_e2e_cover_edge_config_visibility_and_publish_audit():
