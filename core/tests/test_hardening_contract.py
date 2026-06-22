@@ -147,9 +147,14 @@ def test_edge_sync_config_reuses_version_when_unchanged():
 
     row = run_php(
         r'''
-require 'core/vendor/autoload.php';
-use App\Support\Database;
-$stmt = Database::pdo()->prepare('SELECT generated_at, payload_json FROM config_snapshots WHERE version = :version');
+$host = getenv('DB_HOST') ?: '127.0.0.1';
+$port = (int) (getenv('DB_PORT') ?: 5432);
+$database = getenv('DB_DATABASE') ?: 'cdnlite';
+$username = getenv('DB_USERNAME') ?: 'cdnlite';
+$password = getenv('DB_PASSWORD') ?: 'cdnlite';
+$pdo = new PDO("pgsql:host={$host};port={$port};dbname={$database}", $username, $password);
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$stmt = $pdo->prepare('SELECT generated_at, payload_json FROM config_snapshots WHERE version = :version');
 $stmt->execute([':version' => (int) $argv[1]]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 echo json_encode([
