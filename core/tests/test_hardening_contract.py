@@ -191,6 +191,7 @@ def test_config_republish_uses_new_version_for_reactivated_old_content():
     assert "findReusableActiveSnapshot($previousActiveVersion, $contentHash)" in service
     assert "WHERE s.version = :version AND s.content_hash = :content_hash" in service
     assert "ON CONFLICT (content_hash)" not in service
+    assert "active_snapshot_version = NULL" not in service
     assert "content_hash TEXT NOT NULL UNIQUE" not in schema
     assert "DROP CONSTRAINT IF EXISTS config_snapshots_content_hash_key" in migration
 

@@ -32,7 +32,6 @@ class ConfigService
     public function rebuild(?int $ifVersion = null): array
     {
         $previousActiveVersion = $this->activeSnapshotVersion();
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
             if ((string) ($domain['status'] ?? '') !== 'active'
