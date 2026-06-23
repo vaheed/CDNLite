@@ -2,7 +2,7 @@
 
 > Self-hosted private CDN control plane and edge platform  
 > Last updated: 2026-06-23  
-> Roadmap status: Proposed replacement  
+> Roadmap status: Active execution plan  
 > Canonical file: `ROADMAP.md`
 
 CDNLite is being developed as a self-hosted CDN platform for companies, hosting providers, internal infrastructure teams, private edge networks, labs, and controlled production deployments.
@@ -58,41 +58,38 @@ The first roadmap objective is therefore to remove misleading partial implementa
 
 ## 3. Roadmap principles
 
-1. **Runtime behavior is the source of truth.**  
-   A selectable action is not complete until the promised behavior happens in a running stack.
+1. **Each phase is a complete vertical delivery package.**  
+   A phase includes implementation, cleanup, documentation, roadmap progress, tests, runtime validation, stress or scale validation, recovery checks, and evidence. None of these are deferred to a later phase.
 
-2. **Complete features end to end.**  
-   Relevant work must include persistence, backend validation, API contracts, snapshot generation, edge enforcement, dashboard behavior, telemetry, tests, documentation, and operations.
+2. **Runtime behavior is the source of truth.**  
+   A dashboard control, database field, API option, or snapshot value is not complete until the running platform performs the promised behavior.
 
-3. **Reliability comes before expansion.**  
-   Unbounded analytics, expensive edge hot paths, incomplete challenges, unsafe overload handling, and cache correctness are higher priority than new packaging or integrations.
+3. **One phase must be finishable from one IDE workflow.**  
+   The repository must provide one command that builds, validates, starts a clean stack, runs all phase gates, writes evidence, and returns a nonzero exit code on failure.
 
-4. **All request paths must be bounded.**  
-   Database queries, response sizes, queues, logs, event production, retries, backfills, request bodies, cookies, tokens, and polling must have explicit limits.
+4. **Complete features end to end.**  
+   Relevant work includes persistence, backend validation, API contracts, configuration generation, edge or worker enforcement, dashboard behavior, telemetry, operations, and removal of replaced behavior.
 
-5. **Safe defaults are mandatory.**  
-   New installations should not enable unsafe, misleading, or resource-unbounded behavior.
+5. **All work and request paths are bounded.**  
+   Queries, responses, queues, logs, events, retries, backfills, request bodies, cookies, tokens, polling, exports, and generated test data have explicit limits.
 
-6. **Fail safely and preserve the last known good state.**  
-   Broken configuration, telemetry outages, control-plane outages, or external service failures must not unnecessarily break healthy cached traffic.
+6. **Safe defaults and last-known-good behavior are mandatory.**  
+   Invalid configuration, control-plane outages, telemetry failures, and dependency failures must not unnecessarily break healthy traffic.
 
-7. **Security decisions have explicit precedence.**  
-   Administrative blocks and explicit deny rules must override clearance, cache, waiting-room admission, or convenience behavior.
+7. **Security and routing decisions have explicit precedence.**  
+   Administrative deny rules and explicit security controls override clearance, cache convenience, waiting-room admission, and fallback behavior.
 
-8. **Transactional and reporting workloads must not compete without limits.**  
-   Control-plane writes, event ingestion, rollups, dashboard queries, exports, and maintenance jobs need separate budgets, pools, schemas, and operational visibility.
+8. **Transactional and reporting workloads are isolated by budget.**  
+   Control-plane writes, ingestion, jobs, rollups, dashboard queries, exports, and maintenance have separate limits, visibility, and failure behavior.
 
-9. **Stress testing validates recovery as well as peak throughput.**  
-   A stress run is incomplete until load stops, queues drain, error rates recover, data remains consistent, and smoke and end-to-end checks pass again.
+9. **Stress validation includes correctness and recovery.**  
+   Peak throughput alone is not a pass. Load must stop cleanly, queues must drain, state must converge, data must remain correct, and smoke and end-to-end tests must pass again.
 
-10. **Documentation is part of implementation.**  
-   User, operator, API, architecture, security, troubleshooting, upgrade, rollback, and runbook documentation must change in the same pull request.
+10. **Documentation and roadmap progress ship with the code.**  
+    User, operator, API, architecture, security, troubleshooting, upgrade, rollback, changelog, and roadmap updates belong in the same phase delivery.
 
-11. **Every phase produces evidence.**  
-   A phase cannot become Complete without automated test results, smoke and end-to-end evidence, and applicable performance or failure testing.
-
-12. **Roadmap progress changes with the code.**  
-    Milestones, evidence links, known limitations, and phase status must be updated in the same pull request that changes the implementation.
+11. **A phase is either fully complete or not complete.**  
+    Compilation, UI presence, schema changes, partial tests, or implementation-only merges never justify a Complete status.
 
 ---
 
@@ -100,144 +97,206 @@ The first roadmap objective is therefore to remove misleading partial implementa
 
 | Priority | Meaning |
 | --- | --- |
-| **P0** | Correctness, security, scaling, or availability work required before increasing production exposure. |
+| **P0** | Correctness, security, scalability, or availability work required before wider production exposure. |
 | **P1** | Core CDN capability and operational hardening required for dependable controlled production. |
 | **P2** | Enterprise administration, identity, isolation, resilience, and repeatability. |
 | **P3** | Deployment ecosystem, advanced CDN services, provider features, and project expansion. |
 | **P4** | Optional long-term capabilities that must not delay the private-CDN core. |
 
-A lower-priority phase may begin early only when it does not delay a P0 or P1 exit gate.
+A lower-priority phase may begin early only when it does not delay or destabilize an active P0 or P1 phase.
 
 ---
 
-## 5. Phase statuses
+## 5. Phase lifecycle
 
 Use one status for every phase:
 
-- **Proposed** — direction is documented but not yet approved.
-- **Planned** — scope, owner, and acceptance criteria are approved.
-- **In progress** — implementation has started.
-- **Validation** — implementation is finished and exit-gate validation is running.
-- **Blocked** — a documented dependency or decision prevents progress.
-- **Complete** — all required implementation, validation, documentation, and evidence gates passed.
+- **Planned** — scope, dependencies, owner, acceptance criteria, and phase test manifest are ready.
+- **In progress** — implementation and same-phase documentation are being completed.
+- **Validation** — implementation is frozen except for fixes; the full one-shot gate is running.
+- **Blocked** — a documented dependency prevents completion.
+- **Complete** — the one-shot command passed and all evidence, documentation, roadmap, rollout, and rollback gates are present.
 - **Deferred** — intentionally removed from active execution with a documented reason.
 
-Each phase must record:
+A phase must not remain partially complete. Unfinished items keep the phase In progress or Blocked.
 
-- Owner
-- Tracking issue or project
-- Pull requests
-- Last progress update
-- Completed milestones
-- Remaining milestones
-- Blockers
-- Test evidence
-- Smoke evidence
-- End-to-end evidence
-- Stress, performance, security, or failure evidence
-- Documentation links
-- Rollout notes
-- Rollback notes
-- Known limitations
+Each phase record must contain:
+
+- Owner and tracking issue.
+- Scope and explicit non-goals.
+- Dependencies and migration impact.
+- Pull requests and commit range.
+- Completed and remaining work.
+- Test, smoke, end-to-end, stress/scale, failure, and recovery evidence.
+- Documentation, changelog, and roadmap links.
+- Rollout, rollback, compatibility, and known limitations.
 
 ---
 
-## 6. Canonical roadmap and progress synchronization
+## 6. One-shot IDE execution model
 
-`ROADMAP.md` is the canonical roadmap.
+Every phase is executed as one vertical work package inside the IDE. The expected developer flow is:
 
-`docs/roadmap.md` must be generated from or synchronized with this file while preserving the VitePress front matter required by the documentation site.
+1. Lock the phase scope and dependencies.
+2. Implement every affected layer and remove replaced or misleading behavior.
+3. Update user, operator, API, architecture, security, troubleshooting, upgrade, rollback, changelog, and roadmap content.
+4. Run syntax, static, unit, integration, database, dashboard, edge, and build checks.
+5. Start the complete stack from a clean state and run health and smoke checks.
+6. Run phase-specific end-to-end workflows across all affected components.
+7. Run phase-specific stress, scale, abuse, failure-injection, and recovery scenarios.
+8. Re-run smoke and end-to-end checks after stress or failure recovery.
+9. Build documentation and verify roadmap synchronization.
+10. Generate the phase evidence report and mark the phase Complete only when the command exits successfully.
 
-Add CI validation such as:
+### 6.1 Canonical one-shot command
+
+The repository must converge on this interface:
+
+```bash
+./ci/phase.sh 01 --profile full --clean
+```
+
+The command must:
+
+- Load `ci/phases/phase-01.yml` or an equivalent phase manifest.
+- Validate the target environment and reject unsafe destructive targets.
+- Run all required implementation checks and builds.
+- Create or reset a disposable test environment when `--clean` is used.
+- Start the complete required topology and wait for health.
+- Run smoke, end-to-end, phase stress/scale, failure-injection, and recovery checks.
+- Run post-stress smoke and end-to-end checks.
+- Build documentation and check roadmap/changelog/API synchronization.
+- Write machine-readable and reviewer-friendly evidence.
+- Stop or restore test resources safely.
+- Exit nonzero if any mandatory gate, threshold, cleanup, or evidence step fails.
+
+Recommended profiles:
+
+```bash
+./ci/phase.sh 01 --profile pr
+./ci/phase.sh 01 --profile full --clean
+./ci/phase.sh 01 --profile release --clean
+```
+
+`pr` is fast but still proves the workflow. `full` is the mandatory phase-completion gate. `release` adds extended scale, soak, compatibility, and destructive tests in an explicitly disposable environment.
+
+### 6.2 Phase manifests
+
+Each phase owns a manifest such as:
 
 ```text
-ROADMAP.md
-docs/roadmap.md
-ci/check-roadmap-sync.sh
-ci/check-roadmap-evidence.sh
-ci/reports/roadmap/README.md
-ci/reports/roadmap/phase-XX.md
+ci/phases/phase-01.yml
+ci/phases/phase-02.yml
+...
+ci/phases/phase-25.yml
 ```
+
+Each phase also registers its pressure scenarios in the shared `ci/stress/scenarios.yml` coverage file so Phase 15 can run the integrated release suite without inventing tests after implementation.
+
+Each manifest records:
+
+- Phase number and owner.
+- Required services and topology.
+- Static, unit, integration, and build commands.
+- Smoke and end-to-end scenarios.
+- Stress, scale, abuse, and failure scenarios.
+- Recovery assertions.
+- Performance and resource thresholds.
+- Required documentation and roadmap files.
+- Evidence outputs.
+- Cleanup requirements.
+
+Every phase must include at least one meaningful stress or scale scenario and one recovery assertion. For a non-request-path phase, use the most relevant pressure model, such as large policy sets, many tenants, many identities, upgrade interruption, fleet size, export volume, concurrent operators, or dependency failure.
+
+### 6.3 Execution infrastructure is not a separate phase
+
+The common phase runner, manifest schema, evidence writer, safety guards, and reusable test libraries are roadmap infrastructure, not a numbered product phase. The first active implementation using this roadmap must add any missing minimum runner support inside that same phase without postponing its completion gates.
+
+### 6.4 Canonical roadmap synchronization
+
+`ROADMAP.md` is canonical. `docs/roadmap.md` must be generated from or synchronized with it while preserving documentation-site front matter.
 
 CI must fail when:
 
-- `ROADMAP.md` and `docs/roadmap.md` drift.
-- A phase is marked Complete without an evidence report.
-- A Complete phase still has an unchecked mandatory exit gate.
-- A user-visible change does not update `CHANGELOG.md`.
-- An API change does not update OpenAPI and API documentation.
-- A runtime feature is marked complete using only source-string assertions.
-- An unsupported production control remains enabled without a clear experimental label.
+- Root and documentation roadmaps drift.
+- A phase is Complete without a successful full-profile evidence report.
+- A Complete phase has an unchecked mandatory gate.
+- A user-visible change omits `CHANGELOG.md`.
+- An API change omits OpenAPI and API documentation updates.
+- Runtime behavior is claimed using only source-string assertions.
+- A phase manifest omits stress/scale or recovery coverage.
 
 ---
 
 ## 7. Definition of done for every phase
 
-A phase may be marked **Complete** only when all applicable items are complete.
+A phase may be marked **Complete** only when all applicable items below are finished in the same phase delivery.
 
 ### 7.1 Implementation
 
-- [ ] Authoritative fresh-install database schema is updated.
-- [ ] Database constraints and indexes match actual access patterns.
-- [ ] Database changes include representative query plans, growth assumptions, retention impact, and rollback strategy.
-- [ ] Transactional, ingestion, job, and reporting workloads have explicit connection and query budgets.
-- [ ] Backend services and domain logic are implemented.
-- [ ] API validation and stable error contracts are implemented.
-- [ ] OpenAPI and generated client types are synchronized.
-- [ ] Edge configuration snapshots contain validated settings.
-- [ ] Edge or agent runtime enforcement is implemented where applicable.
-- [ ] Dashboard controls and state handling are implemented.
+- [ ] The full vertical slice is implemented across every affected layer.
+- [ ] Fresh-install schema, migrations, constraints, indexes, and rollback are correct.
+- [ ] Backend logic, API validation, stable errors, and generated types are synchronized.
+- [ ] Snapshot, worker, edge, DNS, TLS, or agent enforcement is implemented where applicable.
+- [ ] Dashboard controls, loading, error, empty, stale, conflict, and recovery states are implemented.
 - [ ] Metrics, security events, audit events, and health visibility are implemented.
-- [ ] Failure, timeout, retry, cancellation, and recovery paths are implemented.
-- [ ] Unsupported, dead, duplicated, shadowed, or placeholder behavior is removed.
-- [ ] Resource and input bounds are explicit.
+- [ ] Timeout, retry, cancellation, idempotency, partial-failure, and recovery paths are implemented.
+- [ ] Inputs, outputs, queues, queries, event volume, generated data, and resource use are bounded.
+- [ ] Dead, duplicated, shadowed, placeholder, or replaced behavior is removed.
 - [ ] Safe rollout and rollback behavior exists.
 
-### 7.2 Automated tests
+### 7.2 Documentation, changelog, and roadmap
 
-- [ ] PHP syntax validation passes.
-- [ ] Backend unit and integration tests pass.
-- [ ] Database fresh-install and schema tests pass.
-- [ ] Dashboard type checking passes.
-- [ ] Dashboard component and state tests pass.
-- [ ] Dashboard production build passes.
-- [ ] Lua syntax and runtime tests pass.
-- [ ] Edge-agent shell syntax and behavior tests pass.
-- [ ] Negative, boundary, authorization, and failure-recovery tests exist.
+- [ ] User and administrator/operator guides are updated.
+- [ ] API, OpenAPI, generated client, and examples are updated.
+- [ ] Architecture, data model, security model, and threat model are updated.
+- [ ] Deployment, environment, topology, troubleshooting, and runbooks are updated.
+- [ ] Upgrade, compatibility, rollout, rollback, and known limitations are documented.
+- [ ] `CHANGELOG.md`, `ROADMAP.md`, and `docs/roadmap.md` are updated in the same pull request.
+- [ ] The phase status, progress, and evidence links are current.
+
+### 7.3 Automated tests and builds
+
+- [ ] PHP syntax, backend unit/integration, and database tests pass.
+- [ ] Fresh-install and migration tests pass.
+- [ ] Dashboard type, component, state, and production-build checks pass.
+- [ ] Lua and edge-agent syntax and runtime tests pass.
+- [ ] Negative, boundary, authorization, concurrency, and failure-recovery tests exist.
+- [ ] Documentation builds successfully.
 - [ ] Source-contract tests are not the only evidence for runtime behavior.
 
-### 7.3 Runtime validation
+### 7.4 Runtime, smoke, and end-to-end validation
 
-- [ ] Root Docker Compose configuration validates.
-- [ ] The complete root stack starts from a clean state.
-- [ ] Core, edge, dashboard, database, DNS, and required worker health checks pass.
-- [ ] `ci/smoke.sh` includes phase-specific assertions and passes.
-- [ ] `ci/e2e.sh` includes phase-specific workflow coverage and passes.
-- [ ] `ci/dns_e2e.sh` passes when DNS, TLS, routing, health, or records are affected.
-- [ ] Applicable stress, load, benchmark, restart, or failure-injection tests pass.
-- [ ] The feature stress matrix is updated for every changed runtime capability.
-- [ ] Post-stress recovery checks prove queues drain, jobs recover, data remains consistent, and smoke/e2e still pass.
-- [ ] CI uploads logs and machine-readable and human-readable evidence.
-- [ ] The release gate depends on all mandatory phase checks.
+- [ ] Docker Compose or the applicable deployment topology validates.
+- [ ] The required stack starts from a clean state.
+- [ ] All required services and workers become healthy.
+- [ ] Phase-specific smoke assertions pass.
+- [ ] Phase-specific end-to-end workflows pass across the real component chain.
+- [ ] DNS end-to-end passes when DNS, TLS, routing, health, or records are affected.
+- [ ] Config, telemetry, jobs, events, and read models converge as documented.
 
-### 7.4 Documentation and release hygiene
+### 7.5 Stress, scale, failure, and recovery
 
-- [ ] User guide is updated.
-- [ ] Administrator/operator guide is updated.
-- [ ] API and OpenAPI documentation are updated.
-- [ ] Architecture documentation is updated.
-- [ ] Security model and threat model are updated.
-- [ ] Environment variables and examples are updated.
-- [ ] Deployment and topology documentation are updated.
-- [ ] Troubleshooting and runbooks are updated.
-- [ ] Upgrade, rollout, rollback, and compatibility notes are present.
-- [ ] `CHANGELOG.md` is updated.
-- [ ] `ROADMAP.md` and `docs/roadmap.md` progress are updated.
-- [ ] Known limitations are stated honestly.
+- [ ] A phase-specific stress or scale scenario passes.
+- [ ] Applicable abuse, burst, sustained-load, concurrency, or large-dataset behavior passes.
+- [ ] Applicable dependency restart, timeout, outage, malformed-input, or partial-failure behavior passes.
+- [ ] Queues, jobs, connections, files, memory, disk, and event volume remain bounded.
+- [ ] Data correctness, isolation, security precedence, and idempotency remain valid under pressure.
+- [ ] After load stops, recovery targets are met and the platform converges.
+- [ ] Post-stress smoke and end-to-end checks pass.
+- [ ] Logs and machine-readable and Markdown evidence are uploaded.
 
-### 7.5 Standard validation commands
+### 7.6 Closure
 
-Run the applicable repository checks:
+- [ ] `./ci/phase.sh XX --profile full --clean` exits successfully.
+- [ ] The evidence report identifies commit, topology, dataset, thresholds, results, rollout, rollback, and limitations.
+- [ ] No mandatory work is deferred to a later phase.
+- [ ] The release gate depends on all mandatory checks.
+- [ ] The roadmap status is changed to Complete only in the pull request that contains the successful evidence.
+
+### 7.7 Standard repository checks
+
+The phase runner may call these directly or through repository wrappers:
 
 ```bash
 docker compose config --quiet
@@ -256,8 +315,8 @@ bash -n ci/smoke.sh
 bash -n ci/e2e.sh
 bash -n ci/dns_e2e.sh
 bash -n ci/stress-dns.sh
-# After Phase 15 introduces the common runner:
 bash -n ci/stress-platform.sh
+bash -n ci/phase.sh
 bash -n ci/powerdns_dns_checks.sh
 
 (
@@ -274,180 +333,51 @@ bash -n ci/powerdns_dns_checks.sh
   npm run docs:build
 )
 
-docker compose up -d --build --wait
-./ci/smoke.sh
-./ci/e2e.sh
-CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
-# Disposable environment only after the common stress runner exists:
-CDNLITE_ALLOW_DESTRUCTIVE_STRESS=1 ./ci/stress-platform.sh --profile release
+./ci/phase.sh XX --profile full --clean
 ```
 
-Run destructive and high-volume tests only against an explicitly disposable environment.
+Destructive and high-volume tests must run only against an explicitly disposable environment.
 
 ---
-
 
 ## 8. Roadmap overview
 
 | Phase | Priority | Status | Main result |
 | --- | --- | --- | --- |
-| 0. Governance and capability audit | P0 | Proposed | One truthful capability inventory and enforceable completion gates |
-| 1. Database architecture and real-time reporting foundation | P0 | Proposed | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
-| 2. Analytics scalability and asynchronous aggregation | P0 | Proposed | Bounded, fast, cancellable analytics APIs and dashboard views |
-| 3. Edge hot-path performance and bounded telemetry | P0 | Proposed | No repeated config parsing or synchronous per-request telemetry writes |
-| 4. Real challenge and clearance system | P0 | Proposed | Challenge actions perform a real verifiable workflow |
-| 5. Adaptive overload protection and waiting room | P0 | Proposed | Origins remain protected under attack or heavy usage |
-| 6. Cache correctness foundation | P0 | Proposed | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
-| 7. Origin routing, resilience, and shielding | P0 | Proposed | Predictable health, load balancing, failover, retries, and circuit breaking |
-| 8. Purge and invalidation platform | P1 | Proposed | Fast, safe, observable purge by URL, prefix, host, and tag |
-| 9. Edge protocol and delivery performance | P1 | Proposed | Efficient TLS, HTTP/2, optional HTTP/3, compression, and connection reuse |
-| 10. DNS and GeoDNS reliability | P1 | Proposed | Deterministic DNS publication and health-aware routing |
-| 11. TLS and certificate lifecycle | P1 | Proposed | Reliable issuance, renewal, activation, storage, and expiry visibility |
-| 12. WAF, rate limiting, API protection, and abuse defense | P1 | Proposed | Complete, testable security actions with safe precedence |
-| 13. Observability, analytics operations, and alerting | P1 | Proposed | Prometheus, dashboards, tracing identifiers, alerts, and bounded exports |
-| 14. Dashboard, API, CLI, and onboarding quality | P1 | Proposed | Fast, understandable, recoverable operator workflows |
-| 15. Full-platform stress, soak, scale, and recovery qualification | P1 | Proposed | Every major CDN capability has reproducible capacity and recovery evidence |
-| 16. Secret, token, supply-chain, and release security | P1 | Proposed | Rotatable credentials and verifiable releases |
-| 17. Backup, restore, disaster recovery, and control-plane HA | P2 | Proposed | Tested recovery and documented resilience |
-| 18. RBAC and scoped API keys | P2 | Proposed | Least-privilege administration and automation |
-| 19. OIDC, SAML, sessions, and enterprise identity | P2 | Proposed | Native external identity integration |
-| 20. Tenant isolation, quotas, and SIEM boundaries | P2 | Proposed | Explicit ownership and cross-tenant isolation |
-| 21. Policy as code and managed presets | P2 | Proposed | Repeatable, reviewable, versioned CDN policy |
-| 22. Kubernetes, Helm, Terraform, and fleet automation | P3 | Proposed | Repeatable deployment beyond Compose |
-| 23. Advanced CDN services | P3 | Proposed | Image optimization, signed delivery, prefetch, and optional edge extensions |
-| 24. Hosting-provider and commercial platform features | P4 | Proposed | Optional plans, quotas, usage export, and reseller workflows |
-| 25. Contributor and ecosystem maturity | P3 | Proposed | Clear extension paths and safe contribution workflows |
+| 1. Database architecture and real-time reporting foundation | P0 | Planned | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
+| 2. Analytics scalability and asynchronous aggregation | P0 | Planned | Bounded, fast, cancellable analytics APIs and dashboard views |
+| 3. Edge hot-path performance and bounded telemetry | P0 | Planned | No repeated config parsing or synchronous per-request telemetry writes |
+| 4. Real challenge and clearance system | P0 | Planned | Challenge actions perform a real verifiable workflow |
+| 5. Adaptive overload protection and waiting room | P0 | Planned | Origins remain protected under attack or heavy usage |
+| 6. Cache correctness foundation | P0 | Planned | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
+| 7. Origin routing, resilience, and shielding | P0 | Planned | Predictable health, load balancing, failover, retries, and circuit breaking |
+| 8. Purge and invalidation platform | P1 | Planned | Fast, safe, observable purge by URL, prefix, host, and tag |
+| 9. Edge protocol and delivery performance | P1 | Planned | Efficient TLS, HTTP/2, optional HTTP/3, compression, and connection reuse |
+| 10. DNS and GeoDNS reliability | P1 | Planned | Deterministic DNS publication and health-aware routing |
+| 11. TLS and certificate lifecycle | P1 | Planned | Reliable issuance, renewal, activation, storage, and expiry visibility |
+| 12. WAF, rate limiting, API protection, and abuse defense | P1 | Planned | Complete, testable security actions with safe precedence |
+| 13. Observability, analytics operations, and alerting | P1 | Planned | Prometheus, dashboards, tracing identifiers, alerts, and bounded exports |
+| 14. Dashboard, API, CLI, and onboarding quality | P1 | Planned | Fast, understandable, recoverable operator workflows |
+| 15. Full-platform stress, soak, scale, and recovery qualification | P1 | Planned | Integrated cross-feature release qualification and documented operating limits |
+| 16. Secret, token, supply-chain, and release security | P1 | Planned | Rotatable credentials and verifiable releases |
+| 17. Backup, restore, disaster recovery, and control-plane HA | P2 | Planned | Tested recovery and documented resilience |
+| 18. RBAC and scoped API keys | P2 | Planned | Least-privilege administration and automation |
+| 19. OIDC, SAML, sessions, and enterprise identity | P2 | Planned | Native external identity integration |
+| 20. Tenant isolation, quotas, and SIEM boundaries | P2 | Planned | Explicit ownership and cross-tenant isolation |
+| 21. Policy as code and managed presets | P2 | Planned | Repeatable, reviewable, versioned CDN policy |
+| 22. Kubernetes, Helm, Terraform, and fleet automation | P3 | Planned | Repeatable deployment beyond Compose |
+| 23. Advanced CDN services | P3 | Planned | Image optimization, signed delivery, prefetch, and optional edge extensions |
+| 24. Hosting-provider and commercial platform features | P4 | Planned | Optional plans, quotas, usage export, and reseller workflows |
+| 25. Contributor and ecosystem maturity | P3 | Planned | Clear extension paths and safe contribution workflows |
 
 ---
 
 # P0 — Finish and stabilize the CDN core
 
-## Phase 0 — Governance and capability audit
-
-### Objective
-
-Create a truthful inventory of what CDNLite configures, persists, distributes, enforces, observes, tests, and documents.
-
-### Why this phase is first
-
-Several product surfaces can expose actions before their complete runtime behavior exists. This creates operational and security risk because an operator may believe a feature is protecting or accelerating a website when it is only storing configuration or returning a generic block.
-
-### Scope
-
-Create a capability matrix with these columns:
-
-- Feature
-- Dashboard control
-- API contract
-- Persisted state
-- Configuration snapshot
-- Edge enforcement
-- Core worker enforcement
-- Metrics/events
-- Audit event
-- Unit/integration test
-- Smoke test
-- End-to-end test
-- Documentation
-- Current status
-- Owner
-- Known limitation
-
-Audit at minimum:
-
-- Domains and activation
-- Nameserver verification
-- DNS-only and proxied records
-- GeoDNS
-- Origin pools
-- Origin health
-- Origin failover
-- TLS and certificates
-- Cache settings
-- Cache rules
-- Cache keys
-- Cache bypass
-- Cache revalidation
-- Cache purge
-- Redirects
-- Response headers
-- Page rules
-- WAF matches and actions
-- Bot classification and actions
-- Rate-limit matches and actions
-- IP access rules
-- Geo restrictions
-- Challenge
-- Overload protection
-- Maintenance mode
-- Edge registration
-- Heartbeats
-- Config polling and apply
-- Config rollback
-- Metrics ingestion
-- Security-event ingestion
-- Audit logs
-- Analytics filtering
-- Analytics recalculation
-- Retention pruning
-- Recommendations and protection profiles
-- Alerts and exports
-
-For incomplete features:
-
-1. Complete the runtime path, or
-2. Disable or hide the production control, or
-3. Mark it Experimental with explicit limitations.
-
-### Deliverables
-
-- Capability matrix in repository documentation.
-- Machine-readable capability manifest where practical.
-- CI check for unsupported active controls.
-- Roadmap evidence format.
-- Roadmap sync check.
-- Updated contribution and pull-request templates.
-- Product maturity statement linked from the dashboard and documentation.
-
-### Acceptance criteria
-
-- Every user-visible feature has an owner and status.
-- No `challenge`, `throttle`, `failover`, `async`, `purge`, or `protected` label misrepresents runtime behavior.
-- Every stable feature has at least one runtime workflow test.
-- The root and docs roadmaps remain synchronized.
-- Completion evidence is required by CI.
-
-### Validation
-
-#### Tests
-
-- Capability manifest schema tests.
-- Roadmap sync and evidence-check tests.
-- Tests proving unsupported features are hidden or marked Experimental.
-
-#### Smoke
-
-- Verify the production dashboard bundle does not expose unsupported stable controls.
-- Verify the API exposes stable capability metadata.
-
-#### End to end
-
-- Configure representative cache, WAF, rate-limit, DNS, TLS, and routing actions.
-- Confirm the matrix accurately describes the resulting runtime behavior.
-
-#### Documentation
-
-- Roadmap governance.
-- Capability status guide.
-- Contribution guide.
-- Testing guide.
-- Release process.
-- Maturity and limitation statements.
-
----
-
 
 ## Phase 1 — Database architecture and real-time reporting foundation
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -1069,6 +999,8 @@ Use `EXPLAIN (ANALYZE, BUFFERS)` on representative safe test data and store sani
 
 ## Phase 2 — Analytics scalability and asynchronous aggregation
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Make global and per-domain analytics bounded, fast, cancellable, and predictable as event volume grows.
@@ -1270,6 +1202,8 @@ Targets are release gates only after the benchmark environment and dataset are c
 
 ## Phase 3 — Edge hot-path performance and bounded telemetry
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Remove repeated filesystem and parsing work from the edge request path and ensure telemetry remains bounded during normal traffic and attacks.
@@ -1441,6 +1375,8 @@ On documented reference hardware:
 ---
 
 ## Phase 4 — Real challenge and clearance system
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -1660,6 +1596,8 @@ Do not log:
 
 ## Phase 5 — Adaptive overload protection and waiting room
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Protect overloaded or attacked origins by controlling origin admission while continuing to serve safe cached traffic.
@@ -1861,6 +1799,8 @@ Add:
 
 ## Phase 6 — Cache correctness foundation
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Make cache decisions standards-aware, predictable, testable, and safe before adding more advanced performance features.
@@ -2034,6 +1974,8 @@ Debug information must be configurable and must not reveal secrets.
 
 ## Phase 7 — Origin routing, resilience, and shielding
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Make origin selection and failure behavior predictable under healthy, degraded, and failed conditions.
@@ -2190,6 +2132,8 @@ Support:
 
 ## Phase 8 — Purge and invalidation platform
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Provide fast, safe, observable, and scalable cache invalidation.
@@ -2296,6 +2240,8 @@ On the documented reference fleet:
 ---
 
 ## Phase 9 — Edge protocol and delivery performance
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -2425,6 +2371,8 @@ Later within this phase, consider:
 ---
 
 ## Phase 10 — DNS and GeoDNS reliability
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -2568,6 +2516,8 @@ Align:
 
 ## Phase 11 — TLS and certificate lifecycle
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Provide reliable and observable certificate issuance, renewal, activation, storage, and expiry handling.
@@ -2695,6 +2645,8 @@ Per domain or policy:
 ---
 
 ## Phase 12 — WAF, rate limiting, API protection, and abuse defense
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -2903,6 +2855,8 @@ Algorithms:
 
 ## Phase 13 — Observability, analytics operations, and alerting
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Provide operator-grade health, metrics, logs, events, alerts, and diagnostic correlation.
@@ -3062,6 +3016,8 @@ Publish example service indicators and objectives without claiming they are univ
 ---
 
 ## Phase 14 — Dashboard, API, CLI, and onboarding quality
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -3232,11 +3188,13 @@ Add focused diagnostics for:
 
 ## Phase 15 — Full-platform stress, soak, scale, and recovery qualification
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
-Build one reproducible stress-qualification system that tests every major CDNLite capability under realistic concurrency, sustained load, bursts, dependency failure, and recovery.
+Integrate and enforce reproducible full-platform qualification across all phase-owned stress scenarios under realistic concurrency, sustained load, bursts, dependency failure, chained failure, and recovery.
 
-The repository already has DNS stress qualification. Preserve it, document it, and make it one suite in a broader platform stress program rather than the only large-scale workload.
+Each earlier phase must already contribute stress and recovery coverage through the common phase runner. Preserve the existing DNS stress qualification and combine all phase suites into one release-scale platform program.
 
 ### Stress-testing principles
 
@@ -3396,7 +3354,7 @@ After load or failure:
 - No orphan jobs remain.
 - No unbounded temporary files remain.
 
-### Full capability stress matrix
+### Full-platform stress coverage matrix
 
 Maintain a machine-readable matrix, for example:
 
@@ -3690,7 +3648,7 @@ Assert:
 
 ### Tooling and repository structure
 
-Create a common stress framework rather than unrelated scripts.
+Use and extend the common stress framework established by the one-shot phase execution model; do not create unrelated or phase-local runners.
 
 Suggested structure:
 
@@ -3850,8 +3808,8 @@ Final targets must be tied to reference hardware. Initial gates should include:
 
 ### Deliverables
 
-- Full capability stress matrix.
-- Common stress runner.
+- Full-platform stress coverage matrix.
+- Integrated full-platform release orchestrator.
 - Reusable scenario libraries.
 - PR, nightly, release, and extreme profiles.
 - Database and telemetry dataset generators.
@@ -3867,7 +3825,7 @@ Final targets must be tied to reference hardware. Initial gates should include:
 
 ### Acceptance criteria
 
-- Every Stable major capability has a stress-matrix entry or a documented reason stress testing is not applicable.
+- Every Stable major capability has a phase-owned stress/scale entry and recovery assertion; Phase 15 verifies their integrated execution.
 - Existing DNS stress qualification remains functional and is included in the matrix.
 - Release qualification runs all P0 and P1 request-path, data, fleet, DNS, TLS, security, and recovery scenarios applicable to the release.
 - Stress runs validate correctness and post-load recovery.
@@ -3961,6 +3919,8 @@ Prove the framework fails when:
 ---
 
 ## Phase 16 — Secret, token, supply-chain, and release security
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -4098,6 +4058,8 @@ Requirements:
 
 ## Phase 17 — Backup, restore, disaster recovery, and control-plane HA
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Turn backup, restore, and resilience guidance into tested operational capabilities.
@@ -4229,6 +4191,8 @@ Define target examples for:
 
 ## Phase 18 — RBAC and scoped API keys
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Replace all-or-nothing administration with least-privilege access.
@@ -4335,6 +4299,8 @@ Provide:
 ---
 
 ## Phase 19 — OIDC, SAML, sessions, and enterprise identity
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -4446,6 +4412,8 @@ Only mark stable after maintainable interoperability testing:
 ---
 
 ## Phase 20 — Tenant isolation, quotas, and SIEM boundaries
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -4579,6 +4547,8 @@ Quota enforcement must be explicit and fail with stable errors.
 ---
 
 ## Phase 21 — Policy as code and managed presets
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -4717,6 +4687,8 @@ Every preset label must match real runtime semantics.
 
 ## Phase 22 — Kubernetes, Helm, Terraform, and fleet automation
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Provide repeatable deployment and fleet operations beyond the supported root Docker Compose topology.
@@ -4839,6 +4811,8 @@ Avoid placing production secrets directly in example state.
 
 ## Phase 23 — Advanced CDN services
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Add higher-level delivery features only after the core cache, routing, security, and operations platform is dependable.
@@ -4953,6 +4927,8 @@ Each advanced capability must:
 
 ## Phase 24 — Hosting-provider and commercial platform features
 
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
 ### Objective
 
 Optionally support hosting-provider workflows without making them a dependency of the private-CDN core.
@@ -5006,6 +4982,8 @@ Optionally support hosting-provider workflows without making them a dependency o
 ---
 
 ## Phase 25 — Contributor and ecosystem maturity
+
+> **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
 ### Objective
 
@@ -5261,7 +5239,7 @@ dashboard/API
 
 #### Stress and load
 
-Use the Phase 15 capability matrix and common runner. Validate:
+Use the common phase stress coverage matrix and runner. Validate:
 
 - Edge throughput.
 - Cache lock.
@@ -5334,6 +5312,8 @@ Every phase evidence report should contain:
 - Commit:
 - Pull requests:
 - Date:
+- Phase manifest:
+- Full command:
 - Environment:
 - Reference hardware:
 - Dataset or traffic model:
@@ -5347,13 +5327,15 @@ Every phase evidence report should contain:
 - Code removed:
 
 ## Validation
+- Full gate result:
 - Unit/integration:
 - Dashboard:
 - Smoke:
 - End to end:
 - DNS end to end:
-- Load/stress:
+- Stress/scale/abuse:
 - Failure injection:
+- Recovery and post-stress smoke/e2e:
 - Security:
 - Documentation build:
 
@@ -5384,9 +5366,9 @@ Every phase evidence report should contain:
 
 ---
 
-## 11. Progress update template
+## 11. Progress and evidence template
 
-Add this section under each active phase or maintain it in the phase evidence report.
+Keep progress in the phase evidence report and update it in the same pull request as implementation changes.
 
 ```markdown
 ### Progress
@@ -5395,116 +5377,107 @@ Add this section under each active phase or maintain it in the phase evidence re
 - Priority: P0
 - Owner: Unassigned
 - Tracking issue:
+- Phase manifest: ci/phases/phase-XX.yml
 - Pull requests:
 - Last updated: YYYY-MM-DD
 
-#### Completed
-- [ ] Milestone
+#### Scope
+- Outcome:
+- Non-goals:
+- Dependencies:
+- Migration/compatibility impact:
 
-#### Remaining
-- [ ] Milestone
+#### Implementation
+- [ ] Backend/data/API
+- [ ] Edge/worker/agent/DNS/TLS runtime
+- [ ] Dashboard/CLI
+- [ ] Telemetry/audit/health
+- [ ] Cleanup of replaced behavior
 
-#### Blockers
-- None
+#### Documentation and progress
+- [ ] User/operator
+- [ ] API/OpenAPI/examples
+- [ ] Architecture/security
+- [ ] Troubleshooting/runbooks
+- [ ] Upgrade/rollout/rollback
+- [ ] Changelog
+- [ ] ROADMAP.md and docs/roadmap.md
 
 #### Validation
-- Unit/integration:
-- Dashboard:
-- Smoke:
-- End to end:
-- DNS end to end:
-- Load/stress:
-- Failure injection:
-- Security:
-
-#### Documentation
-- User/admin:
-- API/OpenAPI:
-- Architecture/security:
-- Troubleshooting/runbooks:
-- Upgrade/rollback:
-- Changelog:
-- Root/docs roadmap sync:
+- [ ] Static/unit/integration/build
+- [ ] Clean-stack health
+- [ ] Smoke
+- [ ] End to end
+- [ ] DNS end to end, when applicable
+- [ ] Stress/scale/abuse
+- [ ] Failure injection
+- [ ] Recovery and post-stress smoke/e2e
+- [ ] Documentation build
 
 #### Evidence
-- Report:
+- Full command: ./ci/phase.sh XX --profile full --clean
+- Result:
+- Commit:
+- Environment/topology:
+- Dataset/load model:
+- Thresholds:
+- JSON report:
+- Markdown report:
 - CI run:
 - Benchmark:
+- Known limitations:
 ```
 
-Update progress:
-
-- When implementation begins.
-- When a milestone merges.
-- When scope changes.
-- When validation starts.
-- When validation discovers a blocker.
-- Before release.
-- After release.
-- When a phase is deferred.
-- When a known limitation changes.
-
-Do not mark a phase Complete based only on code review, compilation, UI presence, database fields, or source-string assertions.
+Update the report when implementation begins, scope changes, validation starts, a blocker appears, a gate passes or fails, and the phase closes. Do not mark a phase Complete based only on code review, compilation, UI presence, database fields, or source-string assertions.
 
 ---
 
 
 ## 12. Immediate execution order
 
-Execute the roadmap in this order:
+Default to one active phase at a time and finish it through the full one-shot gate before opening the next phase. Parallel work is allowed only with separate ownership, no conflicting migrations or request-path changes, and independent phase manifests.
 
-1. **Phase 0 — Governance and capability audit**
-2. **Phase 1 — Database architecture and real-time reporting**
-3. **Phase 2 — Analytics scalability**
-4. **Phase 3 — Edge hot-path performance**
-5. **Phase 4 — Real challenge**
-6. **Phase 5 — Overload protection**
-7. **Phase 6 — Cache correctness**
-8. **Phase 7 — Origin resilience**
-9. **Phase 8 — Purge and invalidation**
-10. **Phase 10 — DNS and GeoDNS reliability**
-11. **Phase 11 — TLS lifecycle**
-12. **Phase 12 — WAF, rate limits, and API protection**
-13. **Phase 9 — Protocol and delivery performance**
-14. **Phase 13 — Observability**
-15. **Phase 14 — Dashboard, API, CLI, and onboarding**
-16. **Phase 15 — Full-platform stress and recovery qualification**
-17. **Phase 16 — Secret and release security**
-18. Continue with P2 and P3 phases after P0 and P1 evidence is accepted.
+Execute in this dependency order:
 
-Parallel work is allowed when ownership is separate and dependencies are respected:
+1. **Phase 1 — Database architecture and real-time reporting foundation**
+2. **Phase 2 — Analytics scalability and asynchronous aggregation**
+3. **Phase 3 — Edge hot-path performance and bounded telemetry**
+4. **Phase 4 — Real challenge and clearance system**
+5. **Phase 5 — Adaptive overload protection and waiting room**
+6. **Phase 6 — Cache correctness foundation**
+7. **Phase 7 — Origin routing, resilience, and shielding**
+8. **Phase 8 — Purge and invalidation platform**
+9. **Phase 10 — DNS and GeoDNS reliability**
+10. **Phase 11 — TLS and certificate lifecycle**
+11. **Phase 12 — WAF, rate limiting, API protection, and abuse defense**
+12. **Phase 9 — Edge protocol and delivery performance**
+13. **Phase 13 — Observability, analytics operations, and alerting**
+14. **Phase 14 — Dashboard, API, CLI, and onboarding quality**
+15. **Phase 15 — Full-platform stress, soak, scale, and recovery qualification**
+16. **Phase 16 — Secret, token, supply-chain, and release security**
+17. Continue with P2 and P3 phases after all applicable P0 and P1 phase evidence is accepted.
 
-- Phase 1 data architecture must define the storage and workload boundaries used by Phase 2.
-- Phases 2 and 3 may run in parallel after Phase 1 interfaces and data contracts are agreed.
-- Phase 4 signing primitives should be reusable by Phase 5.
-- Phase 6 cache semantics should be stable before Phase 8 advanced purge behavior.
-- Phase 7 origin resilience should be stable before origin shielding is declared stable.
-- Phase 10 DNS reliability and Phase 11 TLS may run in parallel with coordinated ACME tests.
-- Phase 13 observability should add metrics continuously as earlier phases land.
-- Phase 15 stress scenarios must be added continuously; the complete release gate occurs after the relevant P0 and P1 features exist.
-- Enterprise identity and Kubernetes packaging must not delay P0 runtime correctness.
+Dependency rules:
+
+- Phase 1 defines the storage, workload, and data contracts used by Phase 2.
+- Phases 2 and 3 may overlap only after Phase 1 interfaces are stable and their phase manifests do not compete for the same migration surface.
+- Phase 4 signing and clearance primitives must be reusable by Phase 5.
+- Phase 6 cache semantics must be stable before Phase 8 advanced invalidation is completed.
+- Phase 7 origin behavior must be stable before shielding is declared stable.
+- Phases 10 and 11 may overlap only with coordinated DNS-01 and certificate-activation end-to-end tests.
+- Phase 13 instrumentation is added continuously by earlier phases; Phase 13 completes the integrated operations experience.
+- Every earlier phase adds its own stress scenarios. Phase 15 combines them into cross-feature, soak, failure-chain, and release-scale qualification.
+- Enterprise identity, commercial features, and deployment packaging must not delay P0 runtime correctness.
 
 ---
+
 
 ## 13. Suggested release milestones
 
 These are capability milestones, not promised dates.
 
-### Milestone A — Truthful and measurable platform
 
-Includes:
-
-- Phase 0 complete.
-- Capability matrix.
-- Roadmap evidence gates.
-- Unsupported controls hidden or marked Experimental.
-- Root/docs roadmap sync.
-
-Exit statement:
-
-> CDNLite clearly distinguishes implemented runtime capabilities from planned or experimental features.
-
-### Milestone B — Scalable data, reporting, and edge foundation
+### Milestone A — Scalable data, reporting, and edge foundation
 
 Includes:
 
@@ -5523,7 +5496,7 @@ Exit statement:
 
 > CDNLite control-plane data, reporting, ingestion, and edge request processing remain bounded under the documented reference workload.
 
-### Milestone C — Complete traffic-protection workflows
+### Milestone B — Complete traffic-protection workflows
 
 Includes:
 
@@ -5539,7 +5512,7 @@ Exit statement:
 
 > Challenge and overload controls perform their documented runtime behavior and are covered by browser, API, security, load, and recovery tests.
 
-### Milestone D — Correct private CDN delivery
+### Milestone C — Correct private CDN delivery
 
 Includes:
 
@@ -5554,7 +5527,7 @@ Exit statement:
 
 > CDNLite provides a dependable private CDN request path with tested cache, origin, and invalidation semantics.
 
-### Milestone E — Controlled production readiness
+### Milestone D — Controlled production readiness
 
 Includes:
 
@@ -5574,7 +5547,7 @@ Exit statement:
 
 > CDNLite is ready for documented controlled production use on the qualified topology, subject to the measured capacity and stated availability limits.
 
-### Milestone F — Enterprise private CDN
+### Milestone E — Enterprise private CDN
 
 Includes:
 
@@ -5590,7 +5563,7 @@ Exit statement:
 
 > CDNLite supports enterprise private-CDN administration with tested identity, isolation, recovery, and policy workflows.
 
-### Milestone G — Deployment and service ecosystem
+### Milestone F — Deployment and service ecosystem
 
 Includes:
 
@@ -5711,8 +5684,9 @@ Review this roadmap:
 A roadmap update must:
 
 - Preserve honest current status.
-- Link evidence for completed work.
+- Link successful full-profile one-shot evidence for completed work.
 - State newly discovered limitations.
 - Remove obsolete work.
 - Avoid duplicating the same milestone under multiple phases.
+- Keep each phase manifest synchronized with its scope and validation requirements.
 - Keep `ROADMAP.md`, `docs/roadmap.md`, `README.md`, enterprise-readiness documentation, and changelog claims consistent.
