@@ -37,17 +37,17 @@
       </div>
     </form>
     <EmptyState v-if="!loading && rows.length === 0" :title="`No ${title.toLowerCase()} yet`" message="Add the first rule for this domain." />
-    <DataTable v-else :title="title" :rows="rows" :columns="columns">
+    <DataTable v-else :title="title" :rows="rows" :columns="normalizedColumns">
       <template #enabled="{ row }"><button class="rounded-full focus:outline-none focus:ring-4 focus:ring-cyan-500/20" :aria-label="`${row.enabled ? 'Disable' : 'Enable'} rule`" @click="toggle(row)"><StatusBadge :status="row.enabled ? 'healthy' : 'disabled'" :label="row.enabled ? 'Enabled' : 'Disabled'" /></button></template>
       <template #action="{ value }"><StatusBadge :status="String(value) === 'allow' ? 'healthy' : String(value) === 'log' ? 'info' : 'critical'" :label="humanize(String(value))" /></template>
       <template #managed_by="{ row }">
         <div v-if="row.managed_by" class="flex flex-wrap gap-1">
-          <StatusBadge status="info" :label="`Managed by ${humanize(String(row.managed_by))}`" />
-          <StatusBadge v-if="row.user_modified" status="warning" label="Customized by user" />
+          <StatusBadge compact status="info" :label="`Managed by ${humanize(String(row.managed_by))}`" />
+          <StatusBadge v-if="row.user_modified" compact status="warning" label="Customized" />
         </div>
         <span v-else class="text-xs text-slate-400">Manual</span>
       </template>
-      <template #actions="{ row }"><div class="flex gap-2"><button class="button-secondary px-2 py-1 text-xs" @click="startEdit(row)">Edit</button><button v-if="row.managed_by && detachManaged" class="button-secondary px-2 py-1 text-xs" @click="detach(row)">Detach</button><ConfirmDangerButton class="px-2 py-1 text-xs" confirm-text="Delete this rule?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
+      <template #actions="{ row }"><div class="flex flex-nowrap justify-end gap-2"><button class="button-secondary h-8 px-2 py-1 text-xs" @click="startEdit(row)">Edit</button><button v-if="row.managed_by && detachManaged" class="button-secondary h-8 px-2 py-1 text-xs" @click="detach(row)">Detach</button><ConfirmDangerButton class="h-8 px-2 py-1 text-xs" confirm-text="Delete this rule?" @confirm="remove(row)">Delete</ConfirmDangerButton></div></template>
     </DataTable>
   </section>
 </template>
@@ -66,6 +66,12 @@ const booleanFields = computed(() => props.fields.filter((field) => field.type =
 const nonBooleanFields = computed(() => props.fields.filter((field) => field.type !== 'checkbox'));
 const helpItems = computed(() => props.helpItems ?? []);
 const singularTitle = computed(() => props.title.replace(/ Rules$/, ' rule').replace(/s$/, ''));
+const normalizedColumns = computed(() => props.columns.map((column, index) => ({
+  ...column,
+  sortable: column.key === 'actions' ? false : undefined,
+  truncate: ['name', 'pattern', 'source_path', 'target_url', 'description'].includes(column.key),
+  mobilePriority: index < 2 ? 'primary' as const : column.key === 'actions' ? 'hidden' as const : 'detail' as const,
+})));
 function humanize(value: string) { return value.replaceAll('_', ' '); }
 function reset() { props.fields.forEach((field) => { form[field.key] = field.default; }); }
 async function load() { loading.value = true; try { rows.value = await props.list() as Record<string, unknown>[]; } finally { loading.value = false; } }

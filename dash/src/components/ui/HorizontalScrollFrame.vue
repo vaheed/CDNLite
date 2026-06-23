@@ -1,49 +1,57 @@
 <template>
   <div class="relative">
     <div
+      v-if="showControls && (canScrollLeft || canScrollRight)"
+      class="flex items-center justify-end gap-2 border-b border-slate-200 bg-slate-50/50 px-3 py-2 dark:border-white/10 dark:bg-white/[0.015]"
+    >
+      <button
+        type="button"
+        class="icon-button h-8 w-8"
+        :disabled="!canScrollLeft"
+        aria-label="Scroll left"
+        @click="scrollByDirection(-1)"
+      >
+        <ChevronLeft class="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        class="icon-button h-8 w-8"
+        :disabled="!canScrollRight"
+        aria-label="Scroll right"
+        @click="scrollByDirection(1)"
+      >
+        <ChevronRight class="h-4 w-4" />
+      </button>
+    </div>
+    <div
       ref="scroller"
       class="overflow-x-auto"
       @scroll="updateState"
     >
       <slot />
     </div>
-    <button
-      v-if="canScrollLeft"
-      type="button"
-      class="absolute left-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-200"
-      aria-label="Scroll left"
-      @click="scrollByDirection(-1)"
-    >
-      <ChevronLeft class="h-4 w-4" />
-    </button>
-    <button
-      v-if="canScrollRight"
-      type="button"
-      class="absolute right-2 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm backdrop-blur transition hover:bg-white focus:outline-none focus:ring-4 focus:ring-cyan-500/20 dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-200"
-      aria-label="Scroll right"
-      @click="scrollByDirection(1)"
-    >
-      <ChevronRight class="h-4 w-4" />
-    </button>
     <div
       v-if="canScrollLeft"
-      class="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-white to-transparent dark:from-slate-950"
+      :class="showControls ? 'top-12' : 'top-0'"
+      class="pointer-events-none absolute bottom-0 left-0 w-10 bg-gradient-to-r from-white to-transparent dark:from-slate-950"
     />
     <div
       v-if="canScrollRight"
-      class="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-white to-transparent dark:from-slate-950"
+      :class="showControls ? 'top-12' : 'top-0'"
+      class="pointer-events-none absolute bottom-0 right-0 w-10 bg-gradient-to-l from-white to-transparent dark:from-slate-950"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
-const props = defineProps<{ watchKey?: unknown }>();
+const props = defineProps<{ watchKey?: unknown; controls?: boolean }>();
 const scroller = ref<HTMLElement | null>(null);
 const canScrollLeft = ref(false);
 const canScrollRight = ref(false);
+const showControls = computed(() => props.controls !== false);
 let resizeObserver: ResizeObserver | undefined;
 
 function updateState() {

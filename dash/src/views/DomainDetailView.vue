@@ -34,7 +34,7 @@
       </div>
     </header>
 
-    <HorizontalScrollFrame class="domain-tabs-frame" :watch-key="[domainId, route.params.tab]">
+    <HorizontalScrollFrame class="domain-tabs-frame" :controls="false" :watch-key="[domainId, route.params.tab]">
       <nav class="domain-tabs" aria-label="Domain management" role="tablist">
         <div v-for="group in tabGroups" :key="group.label ?? 'main'" class="domain-tab-group" role="presentation">
           <span v-if="group.label" class="domain-tab-group-label">{{ group.label }}</span>
