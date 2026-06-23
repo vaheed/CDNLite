@@ -43,7 +43,7 @@
       <template #managed_by="{ row }">
         <div v-if="row.managed_by" class="flex flex-wrap gap-1">
           <StatusBadge compact status="info" :label="`Managed by ${humanize(String(row.managed_by))}`" />
-          <StatusBadge v-if="row.user_modified" compact status="warning" label="Customized" />
+          <StatusBadge v-if="row.user_modified" compact status="warning" label="Customized by user" />
         </div>
         <span v-else class="text-xs text-slate-400">Manual</span>
       </template>
