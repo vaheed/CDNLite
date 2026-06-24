@@ -15,6 +15,7 @@ local function append_security_event(domain, rule_id, action)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
+  telemetry_queue.flush('security_events')
 end
 
 local function split_once(input, sep)

@@ -54,6 +54,7 @@ local function append_security_event(domain_id)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
+  telemetry_queue.flush('security_events')
 end
 
 local function normalize_host(host)

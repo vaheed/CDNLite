@@ -152,6 +152,18 @@ function M.flush(queue_name)
   if not dict then
     return false
   end
+  local lock_key = 'flush_lock'
+  local lock_value = tostring(ngx.worker.pid()) .. ':' .. tostring(ngx.now())
+  local locked = dict:add(lock_key, lock_value, 5)
+  if not locked then
+    return false
+  end
+
+  local function unlock()
+    if dict:get(lock_key) == lock_value then
+      dict:delete(lock_key)
+    end
+  end
 
   local lines = {}
   local head = get_counter(dict, 'head')
@@ -174,6 +186,7 @@ function M.flush(queue_name)
   end
 
   if #lines == 0 then
+    unlock()
     return true
   end
 
@@ -181,6 +194,7 @@ function M.flush(queue_name)
   if not ok then
     incr(dict, 'flush_failures', 1)
     edge_log.warn(spec.prefix .. '_flush_failed', { error = tostring(err or 'unknown') })
+    unlock()
     return false
   end
 
@@ -191,6 +205,7 @@ function M.flush(queue_name)
     incr(dict, 'bytes', -(#line + 1))
   end
   incr(dict, 'flush_successes', 1)
+  unlock()
   return true
 end
 

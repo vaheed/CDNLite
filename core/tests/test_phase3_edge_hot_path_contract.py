@@ -49,13 +49,17 @@ def test_telemetry_uses_bounded_shared_queue_instead_of_per_request_file_open():
     assert "flush_successes" in queue
     assert "flush_failures" in queue
     assert "corruptions" in queue
+    assert "flush_lock" in queue
+    assert "dict:add(lock_key" in queue
     assert "aggregate_key(row)" in queue
 
     assert "telemetry_queue.enqueue('metrics', row)" in metrics
     assert "io.open('/var/lib/cdnlite/metrics.ndjson', 'a')" not in metrics
     assert "telemetry_queue.enqueue('security_events'" in router
+    assert "telemetry_queue.flush('security_events')" in router
     assert "io.open(SECURITY_EVENT_PATH, 'a')" not in router
     assert "telemetry_queue.enqueue('security_events'" in ip_rules
+    assert "telemetry_queue.flush('security_events')" in ip_rules
     assert "io.open(SECURITY_EVENT_PATH, 'a')" not in ip_rules
 
 
