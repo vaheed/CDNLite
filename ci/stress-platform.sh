@@ -16,9 +16,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$SCENARIO" != "phase1-reporting-foundation" ]]; then
-  fail "unknown stress scenario: ${SCENARIO}"
-fi
+case "$SCENARIO" in
+  phase1-reporting-foundation|phase2-analytics-async) ;;
+  *) fail "unknown stress scenario: ${SCENARIO}" ;;
+esac
 
 REPORT_MD="${REPORT_MD:-ci/reports/stress-platform-report.md}"
 REPORT_JSON="${REPORT_JSON:-ci/reports/stress-platform-report.json}"
@@ -30,6 +31,32 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase2-analytics-async" ]]; then
+  phase2_tables="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('analytics_rollup_jobs','analytics_query_cache','usage_aggregates','reporting_rollup_watermarks');")"
+  assert_eq "$phase2_tables" "4" "Phase 2 analytics tables are incomplete"
+  record_step PASS "phase2-analytics-tables" "analytics job, cache, aggregate, and watermark tables exist"
+
+  aggregate_identity="$(db_query "SELECT COUNT(*) FROM pg_constraint c JOIN pg_class rel ON rel.oid = c.conrelid WHERE rel.relname='usage_aggregates' AND c.conname='usage_aggregates_bucket_ts_domain_id_edge_node_id_status_cache_status_key';")"
+  assert_eq "$aggregate_identity" "1" "usage_aggregates idempotent unique constraint is missing"
+  record_step PASS "phase2-aggregate-identity" "usage aggregate idempotent identity is enforced"
+
+  job_status_check="$(db_query "SELECT COUNT(*) FROM pg_constraint c JOIN pg_class rel ON rel.oid = c.conrelid WHERE rel.relname='analytics_rollup_jobs' AND pg_get_constraintdef(c.oid) LIKE '%queued%' AND pg_get_constraintdef(c.oid) LIKE '%running%' AND pg_get_constraintdef(c.oid) LIKE '%succeeded%' AND pg_get_constraintdef(c.oid) LIKE '%failed%' AND pg_get_constraintdef(c.oid) LIKE '%cancelled%';")"
+  assert_eq "$job_status_check" "1" "analytics_rollup_jobs status lifecycle constraint is missing"
+  record_step PASS "phase2-job-lifecycle" "rollup job status lifecycle is constrained"
+
+  if compose_has_service core; then
+    docker compose exec -T core php artisan cdn:usage:recalculate >/tmp/cdnlite-phase2-recalculate.json
+    assert_contains "$(cat /tmp/cdnlite-phase2-recalculate.json)" "\"accepted\":true" "recalculation should be accepted asynchronously"
+    assert_contains "$(cat /tmp/cdnlite-phase2-recalculate.json)" "\"job_id\"" "recalculation should return a job id"
+    record_step PASS "phase2-recalculate-accepted" "usage recalculation returned accepted job metadata"
+  fi
+
+  watermark_table="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='reporting_rollup_watermarks';")"
+  assert_eq "$watermark_table" "1" "reporting rollup watermarks table is missing"
+  record_step PASS "phase2-watermark-table" "rollup watermark table is available for recovery"
+  exit 0
+fi
 
 budget_count="$(db_query "SELECT COUNT(*) FROM database_workload_budgets WHERE workload IN ('control','telemetry_ingest','reporting','jobs','maintenance');")"
 assert_eq "$budget_count" "5" "Phase 1 workload budgets are incomplete"

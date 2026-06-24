@@ -28,15 +28,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$PHASE" != "01" ]]; then
-  fail "phase ${PHASE} is not registered yet"
-fi
 if [[ "$PROFILE" != "pr" && "$PROFILE" != "full" && "$PROFILE" != "release" ]]; then
   fail "profile must be pr, full, or release"
 fi
 
-MANIFEST="ci/phases/phase-${PHASE}.yml" # phase-01.yml is the first registered manifest.
+MANIFEST="ci/phases/phase-${PHASE}.yml" # phase-01.yml remains the baseline manifest registration.
 [[ -f "$MANIFEST" ]] || fail "missing phase manifest: ${MANIFEST}"
+
+case "$PHASE" in
+  01)
+    PHASE_CONTRACT="core/tests/test_phase1_reporting_foundation_contract.py"
+    PHASE_STRESS_SCENARIO="phase1-reporting-foundation"
+    ;;
+  02)
+    PHASE_CONTRACT="core/tests/test_phase2_analytics_async_contract.py"
+    PHASE_STRESS_SCENARIO="phase2-analytics-async"
+    ;;
+  *)
+    fail "phase ${PHASE} is not registered yet"
+    ;;
+esac
 
 if [[ "$PROFILE" == "full" && "$CLEAN" != "1" ]]; then
   fail "full profile requires --clean so evidence is tied to a disposable run"
@@ -65,7 +76,7 @@ trap 'write_reports' EXIT
 run_step "manifest-present" test -s "$MANIFEST"
 run_step "compose-config" docker compose config --quiet
 run_step "php-syntax" bash -c "find core -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null"
-run_step "phase-contract-tests" pytest -q core/tests/test_phase1_reporting_foundation_contract.py
+run_step "phase-contract-tests" pytest -q "$PHASE_CONTRACT"
 run_step "agent-shell-syntax" sh -n edge/agent/register.sh
 run_step "phase-runner-syntax" bash -n ci/phase.sh
 run_step "stress-platform-syntax" bash -n ci/stress-platform.sh
@@ -81,7 +92,7 @@ fi
 run_step "stack-up" docker compose up -d --build
 run_step "smoke" ./ci/smoke.sh
 run_step "e2e" ./ci/e2e.sh
-run_step "phase-stress" ./ci/stress-platform.sh --scenario phase1-reporting-foundation
+run_step "phase-stress" ./ci/stress-platform.sh --scenario "$PHASE_STRESS_SCENARIO"
 run_step "post-stress-smoke" ./ci/smoke.sh
 run_step "post-stress-e2e" ./ci/e2e.sh
 

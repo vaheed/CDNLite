@@ -1,0 +1,60 @@
+phase: "02"
+name: "Analytics scalability and asynchronous aggregation"
+owner: "CDNLite maintainers"
+status: "complete"
+topology: "root docker-compose.yml"
+profiles:
+  pr:
+    clean_required: false
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests/test_phase2_analytics_async_contract.py"
+      - "bash -n ci/phase.sh"
+      - "bash -n ci/stress-platform.sh"
+  full:
+    clean_required: true
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests"
+      - "sh -n edge/agent/register.sh"
+      - "sh -n edge/agent/heartbeat.sh"
+      - "sh -n edge/agent/pull_config.sh"
+      - "sh -n edge/agent/push_metrics.sh"
+      - "sh -n edge/agent/run.sh"
+      - "bash -n ci/agent_flow_checks.sh"
+      - "bash -n ci/smoke.sh"
+      - "bash -n ci/e2e.sh"
+      - "bash -n ci/dns_e2e.sh"
+      - "bash -n ci/stress-dns.sh"
+      - "bash -n ci/stress-platform.sh"
+      - "bash -n ci/powerdns_dns_checks.sh"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "ci/stress-platform.sh --scenario phase2-analytics-async"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "(cd docs && npm ci && npm run docs:build)"
+  release:
+    clean_required: true
+    destructive: true
+    commands:
+      - "./ci/phase.sh 02 --profile full --clean"
+      - "ci/stress-dns.sh"
+required_docs:
+  - "docs/ROADMAP.md"
+  - "docs/api/api.md"
+  - "docs/operations/database-architecture.md"
+  - "CHANGELOG.md"
+evidence:
+  json: "ci/reports/phase-02-report.json"
+  markdown: "ci/reports/phase-02-report.md"
+stress_scenarios:
+  - "phase2-analytics-async"
+recovery_assertions:
+  - "Recalculation creates a durable analytics_rollup_jobs row and exposes job status."
+  - "Worker reruns use idempotent usage_aggregates upserts instead of delete-and-rebuild."
+  - "Bounded summary metadata remains available after the pressure scenario."

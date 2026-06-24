@@ -14,3 +14,17 @@ scenarios:
       - "rerun usage rollup recalculation"
       - "verify duplicate batch count remains stable"
       - "run retention dry-run"
+  phase2-analytics-async:
+    phase: "02"
+    workload: "analytics-async-aggregation"
+    description: "Validate async analytics job storage, bounded summary metadata, idempotent aggregate identity, and worker recovery hooks."
+    stress:
+      event_batches: 3
+      rollup_jobs: 2
+      reporting_queries:
+        - "bounded usage summary"
+        - "rollup job status"
+    recovery:
+      - "rerun queued usage rollup worker"
+      - "verify aggregate unique constraint is present"
+      - "verify query cache and job tables remain bounded by schema"
