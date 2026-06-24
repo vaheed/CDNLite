@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  phase1-reporting-foundation|phase2-analytics-async) ;;
+  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path) ;;
   *) fail "unknown stress scenario: ${SCENARIO}" ;;
 esac
 
@@ -31,6 +31,21 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase3-edge-hot-path" ]]; then
+  if compose_has_service edge; then
+    ready_body="$(curl -fsS "${EDGE_URL:-http://localhost:8081}/ready")"
+    assert_contains "$ready_body" "current_config_version" "edge ready response should expose active config version"
+    assert_contains "$ready_body" "telemetry" "edge ready response should expose telemetry queue health"
+    assert_contains "$ready_body" "max_items" "telemetry health should expose bounded queue limits"
+    record_step PASS "phase3-edge-ready-telemetry" "edge ready reports config and telemetry queue bounds"
+
+    reload_body="$(docker compose exec -T edge wget -qO- http://127.0.0.1:8081/__cdnlite_reload_config)"
+    assert_contains "$reload_body" "\"ok\":true" "manual config reload should succeed"
+    record_step PASS "phase3-manual-config-reload" "manual local config reload endpoint succeeded"
+  fi
+  exit 0
+fi
 
 if [[ "$SCENARIO" == "phase2-analytics-async" ]]; then
   phase2_tables="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('analytics_rollup_jobs','analytics_query_cache','usage_aggregates','reporting_rollup_watermarks');")"

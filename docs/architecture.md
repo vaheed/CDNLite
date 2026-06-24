@@ -107,11 +107,11 @@ fields feed per-domain Activity summaries and dashboard traffic reports.
 ```text
 Client request
   -> OpenResty listens on 8081 or 8443
-  -> Lua router reads /var/lib/cdnlite/config.json
+  -> Lua router uses the worker-local validated config snapshot
   -> host/domain lookup chooses origin and rules
   -> redirects, WAF, rate limit, IP, cache, and headers are evaluated
   -> request proxies to a selected healthy origin from the origin pool
-  -> metrics/security events are appended to local queue files
+  -> metrics/security events enter bounded shared queues
   -> edge agent later pushes queues to core
 ```
 
@@ -124,8 +124,16 @@ Admin/API change
   -> Snapshot version is stored
   -> Edge agent signs GET /api/v1/edge/config
   -> Agent writes config.json atomically
-  -> OpenResty Lua modules read fresh config
+  -> OpenResty workers validate and atomically activate the fresh snapshot
 ```
+
+OpenResty keeps a parsed last-known-good snapshot per worker. Workers reload
+only when file metadata changes or a local operator calls
+`/__cdnlite_reload_config` from inside the edge container. Malformed, oversized,
+or unsupported snapshots increment reload failure counters and do not replace a
+healthy active snapshot. `/ready` exposes the active config version, checksum,
+load time, reload counters, last reload error, stale age warning, and telemetry
+queue health.
 
 ## Data Flow
 
@@ -133,8 +141,8 @@ Admin/API change
 | --- | --- | --- |
 | Domain and rule state | Dashboard, API, CLI | Core services and config snapshot builder. |
 | Config snapshot JSON | Core `ConfigService` | Edge agent and OpenResty runtime. |
-| Metrics NDJSON | OpenResty edge | Edge agent, collector API, usage aggregates. |
-| Security events NDJSON | OpenResty edge | Edge agent, collector API, dashboard. Concurrent push attempts are serialized with a queue-scoped lock. |
+| Metrics NDJSON | OpenResty bounded queue flusher | Edge agent, collector API, usage aggregates. |
+| Security events NDJSON | OpenResty bounded queue flusher | Edge agent, collector API, dashboard. Concurrent push attempts are serialized with a queue-scoped lock. |
 | Origin health | Scheduler/CLI | Readiness service and edge backup routing config. |
 | Audit records | Core services | Audit log dashboard and API. |
 

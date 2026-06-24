@@ -6,9 +6,9 @@ local origin_selector = require('origin_selector')
 local ip_rules = require('ip_rules')
 local edge_log = require('edge_log')
 local geoip = require('geoip')
+local telemetry_queue = require('telemetry_queue')
 
 local M = {}
-local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
 
 -- cjson decodes SQL NULL fields as cjson.null. Never stringify that sentinel:
 -- doing so turns it into "userdata: NULL" and can accidentally classify an
@@ -29,7 +29,7 @@ local function append_security_event(domain_id)
   if t == '' then
     return
   end
-  local line = cjson.encode({
+  telemetry_queue.enqueue('security_events', {
     ts = os.time(),
     domain_id = tostring(domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),
@@ -54,11 +54,6 @@ local function append_security_event(domain_id)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
-  if not line then return end
-  local f = io.open(SECURITY_EVENT_PATH, 'a')
-  if not f then return end
-  f:write(line .. '\n')
-  f:close()
 end
 
 local function normalize_host(host)

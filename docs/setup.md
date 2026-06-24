@@ -223,12 +223,46 @@ Edge and agent settings:
 | `METRIC_PATH` | Metrics queue file for the agent. |
 | `SECURITY_EVENT_PATH` | Security event queue file for the agent. |
 | `CDNLITE_CACHE_DEFAULT_TTL` | Default OpenResty cache TTL. |
+| `CDNLITE_EDGE_WORKER_PROCESSES`, `CDNLITE_EDGE_WORKER_CONNECTIONS` | OpenResty worker capacity. Defaults are `auto` and `4096`. |
+| `CDNLITE_EDGE_LIMITS_DICT_SIZE`, `CDNLITE_EDGE_REQUEST_CONTEXT_DICT_SIZE`, `CDNLITE_EDGE_METRIC_QUEUE_DICT_SIZE`, `CDNLITE_EDGE_SECURITY_EVENT_QUEUE_DICT_SIZE` | Shared memory budgets for rate limits, request context, metrics, and security-event queues. |
+| `CDNLITE_EDGE_CONFIG_MAX_BYTES`, `CDNLITE_EDGE_CONFIG_REFRESH_SECONDS` | Maximum accepted edge snapshot size and worker config refresh interval. |
+| `CDNLITE_EDGE_TELEMETRY_BATCH_SIZE`, `CDNLITE_EDGE_TELEMETRY_FLUSH_INTERVAL_SECONDS`, `CDNLITE_EDGE_TELEMETRY_QUEUE_MAX_ITEMS`, `CDNLITE_EDGE_TELEMETRY_QUEUE_MAX_BYTES` | Bounded edge telemetry queue and flush controls. Drops are counted and visible on `/ready`. |
+| `CDNLITE_EDGE_RESOLVER`, `CDNLITE_EDGE_CLIENT_*`, `CDNLITE_EDGE_PROXY_*` | DNS resolver, header/body buffer, request body, and upstream timeout tuning for OpenResty. |
 | `CDNLITE_EDGE_LOG_FORMAT` | Edge access log format selector; `json` is the default and writes to stdout. |
 | `CDNLITE_EDGE_LOG_LEVEL` | Edge diagnostic log level: `debug`, `info`, `warn`, or `error`; default `info`. |
 | `CDNLITE_EDGE_LOG_REQUEST_BODY` | Reserved for future strict-redaction body logging; keep `false`. |
 | `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
 | `CDNLITE_EDGE_MMDB_FILE` | GeoIP MMDB used by the edge for country WAF/origin decisions; default `/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb`. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
+
+Recommended starting values:
+
+| Variable | Development | Production starting point |
+| --- | --- | --- |
+| `CDNLITE_EDGE_WORKER_PROCESSES` | `1` | `auto` |
+| `CDNLITE_EDGE_WORKER_CONNECTIONS` | `1024` | `8192` |
+| `CDNLITE_EDGE_LIMITS_DICT_SIZE` | `10m` | `50m` |
+| `CDNLITE_EDGE_REQUEST_CONTEXT_DICT_SIZE` | `5m` | `20m` |
+| `CDNLITE_EDGE_METRIC_QUEUE_DICT_SIZE` | `5m` | `32m` |
+| `CDNLITE_EDGE_SECURITY_EVENT_QUEUE_DICT_SIZE` | `5m` | `32m` |
+| `CDNLITE_EDGE_CONFIG_MAX_BYTES` | `1048576` | `5242880` |
+| `CDNLITE_EDGE_CONFIG_REFRESH_SECONDS` | `1` | `1` |
+| `CDNLITE_EDGE_TELEMETRY_BATCH_SIZE` | `50` | `500` |
+| `CDNLITE_EDGE_TELEMETRY_FLUSH_INTERVAL_SECONDS` | `1` | `1` |
+| `CDNLITE_EDGE_TELEMETRY_QUEUE_MAX_ITEMS` | `5000` | `100000` |
+| `CDNLITE_EDGE_TELEMETRY_QUEUE_MAX_BYTES` | `524288` | `16777216` |
+| `CDNLITE_EDGE_CLIENT_HEADER_BUFFER_SIZE` | `4k` | `8k` |
+| `CDNLITE_EDGE_LARGE_CLIENT_HEADER_BUFFERS` | `4 8k` | `8 16k` |
+| `CDNLITE_EDGE_CLIENT_BODY_BUFFER_SIZE` | `64k` | `256k` |
+| `CDNLITE_EDGE_CLIENT_MAX_BODY_SIZE` | `10m` | `100m` |
+| `CDNLITE_EDGE_PROXY_CONNECT_TIMEOUT` | `3s` | `5s` |
+| `CDNLITE_EDGE_PROXY_READ_TIMEOUT` | `30s` | `60s` |
+| `CDNLITE_EDGE_PROXY_SEND_TIMEOUT` | `30s` | `60s` |
+
+The development profile keeps memory use small and deterministic for local
+tests. The production profile is a safe starting point for a single edge host;
+increase queue sizes or shared dictionaries only after `/ready` shows drops,
+corruptions, or sustained high queue depth under real traffic.
 
 The normal root Compose stack mounts the MMDB updater volume into the edge
 container read-only. Standalone edge deployments run their own
@@ -238,11 +272,14 @@ origin selection use `X-CDNLITE-Country` or `CF-IPCountry` when a trusted
 upstream sets one, otherwise the edge resolves `remote_addr` through the
 mounted MMDB.
 
-OpenResty writes edge access logs to stdout and diagnostics to stderr, so live
-operations can use:
+OpenResty writes edge access logs to stdout and diagnostics to stderr. Runtime
+metrics and security events are first stored in bounded shared-memory queues and
+then flushed in batches to the existing agent files, so collector or disk
+outages do not create unbounded memory growth. Live operations can use:
 
 ```bash
 docker compose logs -f edge
+curl -s http://localhost:8081/ready
 docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson
 ```
 

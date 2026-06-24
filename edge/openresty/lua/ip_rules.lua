@@ -1,10 +1,9 @@
 local M = {}
-local cjson = require('cjson.safe')
 local identity = require('identity')
-local SECURITY_EVENT_PATH = '/var/lib/cdnlite/security-events.ndjson'
+local telemetry_queue = require('telemetry_queue')
 
 local function append_security_event(domain, rule_id, action)
-  local line = cjson.encode({
+  telemetry_queue.enqueue('security_events', {
     ts = os.time(),
     domain_id = tostring(domain and domain.domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),
@@ -16,11 +15,6 @@ local function append_security_event(domain, rule_id, action)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
-  if not line then return end
-  local f = io.open(SECURITY_EVENT_PATH, 'a')
-  if not f then return end
-  f:write(line .. '\n')
-  f:close()
 end
 
 local function split_once(input, sep)

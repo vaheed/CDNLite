@@ -2,6 +2,7 @@ local cjson = require('cjson.safe')
 local identity = require('identity')
 local edge_log = require('edge_log')
 local geoip = require('geoip')
+local telemetry_queue = require('telemetry_queue')
 local M = {}
 
 local function cache_status()
@@ -13,12 +14,7 @@ local function cache_status()
 end
 
 local function append_metric(row)
-  local line = cjson.encode(row)
-  if not line then return end
-  local f = io.open('/var/lib/cdnlite/metrics.ndjson', 'a')
-  if not f then return end
-  f:write(line .. '\n')
-  f:close()
+  telemetry_queue.enqueue('metrics', row)
 end
 
 function M.on_header()

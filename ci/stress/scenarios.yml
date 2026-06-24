@@ -28,3 +28,18 @@ scenarios:
       - "rerun queued usage rollup worker"
       - "verify aggregate unique constraint is present"
       - "verify query cache and job tables remain bounded by schema"
+  phase3-edge-hot-path:
+    phase: "03"
+    workload: "edge-hot-path-telemetry"
+    description: "Validate worker-local config caching, bounded telemetry queues, manual reload, and ready-health visibility."
+    stress:
+      requests: 200
+      malformed_snapshot_rejected: true
+      telemetry_queue_overflow: true
+      reporting_queries:
+        - "edge ready config status"
+        - "telemetry queue status"
+    recovery:
+      - "manual local config reload succeeds"
+      - "last-known-good snapshot remains active after malformed reload"
+      - "post-stress smoke and e2e gates run after the pressure scenario"

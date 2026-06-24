@@ -1269,6 +1269,14 @@ Targets are release gates only after the benchmark environment and dataset are c
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
+**Status:** Complete  
+**Owner:** CDNLite maintainers  
+**Tracking issue:** Local roadmap Phase 3  
+**Manifest:** `ci/phases/phase-03.yml`  
+**Evidence:** `ci/reports/phase-03-report.md`, `ci/reports/phase-03-report.json`  
+**Completed work:** Worker-local last-known-good config cache with schema, size, version, checksum, load time, reload counters, stale-age visibility, and local manual reload; bounded shared-memory metrics and security-event queues with batch flushing, queue/drop/flush/corruption counters, event aggregation keys, and existing agent file compatibility; configurable worker, resolver, buffer, timeout, shared-dictionary, and telemetry limits; Phase 3 CI manifest, one-shot runner registration, stress scenario, docs, and changelog.  
+**Remaining work:** None for the accepted Phase 3 delivery. Release-profile stress remains the normal disposable-environment qualification before production claims.
+
 ### Objective
 
 Remove repeated filesystem and parsing work from the edge request path and ensure telemetry remains bounded during normal traffic and attacks.

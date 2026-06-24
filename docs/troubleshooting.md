@@ -87,9 +87,21 @@ docker compose exec edge-agent sh -c 'cat "$EDGE_SYNC_STATUS_PATH"'
 docker compose exec edge-agent sh -c 'test -f "$EDGE_CONFIG_PATH" && head -c 500 "$EDGE_CONFIG_PATH"'
 docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:readiness:check
+curl -s http://localhost:8081/ready
+docker compose exec edge wget -qO- http://127.0.0.1:8081/__cdnlite_reload_config
 ```
 
 If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. If the edge returns `no_healthy_origin`, check the enabled backend addresses, their host, port, host header, TLS/SNI, firewall, and health status.
+
+The edge keeps a worker-local last-known-good snapshot. If `/ready` reports
+`reload_failures` or `last_reload_error`, fix the snapshot on disk or force the
+agent to pull a new one, then call the local reload endpoint from inside the
+edge container. Malformed or oversized snapshots do not replace the active
+snapshot, so healthy traffic should continue while the error is visible.
+
+Telemetry queue health is also exposed on `/ready`. Rising `dropped`,
+`flush_failures`, or `corruptions` means the queue limits, agent push path, or
+mounted disk should be inspected before increasing traffic.
 
 ## Debugging API Calls
 
