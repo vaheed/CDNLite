@@ -1,11 +1,11 @@
 ---
 title: Database Architecture
-description: CDNLite database workload classes, reporting read models, telemetry ingestion diagnostics, retention, and Phase 1 database foundation.
+description: CDNLite database workload classes, reporting read models, telemetry ingestion diagnostics, async analytics aggregation, and retention.
 ---
 
 # Database Architecture
 
-CDNLite uses PostgreSQL as the authoritative data store. Phase 1 separates database work by budget before adding any separate analytics database.
+CDNLite uses PostgreSQL as the authoritative data store. Phase 1 separates database work by budget before adding any separate analytics database. Phase 2 keeps analytics in PostgreSQL and makes aggregate refresh asynchronous and idempotent.
 
 ## Workload Classes
 
@@ -37,6 +37,16 @@ Historical request data remains in `usage_rollups`, with additional BRIN timesta
 
 `reporting_rollup_watermarks` tracks per-stream, per-bucket, per-domain aggregation progress. `reporting_reconciliation_results` stores raw-vs-aggregate checks, duplicate counts, missing counts, and status.
 
+## Async Analytics Aggregation
+
+`analytics_rollup_jobs` records queued, running, succeeded, failed, and cancelled aggregate refresh work. Dashboard and API recalculation requests return `202 Accepted` with a job ID instead of blocking the HTTP request while aggregates are rebuilt.
+
+The worker path upserts into `usage_aggregates` using the unique aggregate identity `(bucket, bucket_ts, domain_id, edge_node_id, status, cache_status)`. This keeps duplicate processing from corrupting totals and removes the old delete-and-rebuild behavior.
+
+`analytics_query_cache` records normalized analytics response payloads, ETags, fresh windows, and stale windows for short-lived API result caching. Cache keys must include domain scope so future tenant boundaries cannot leak analytics across domains.
+
+Usage summary responses are bounded to the last 24 hours by default, cap returned time-series points at 500, and include freshness, watermark, partial-data, query identifier, effective range, and cache-status metadata.
+
 ## Retention And Recovery
 
 Retention remains driven through:
@@ -53,6 +63,12 @@ Run the PR-sized gate:
 
 ```bash
 ./ci/phase.sh 01 --profile pr
+```
+
+Run the Phase 2 contract gate:
+
+```bash
+pytest -q core/tests/test_phase2_analytics_async_contract.py
 ```
 
 Run the full disposable-stack gate:

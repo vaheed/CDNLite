@@ -22,6 +22,8 @@
     </div>
 
     <p v-if="errorMessage" role="alert" class="rounded-md border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-700 dark:border-red-400/30 dark:bg-red-400/10 dark:text-red-200">{{ errorMessage }}</p>
+    <p v-if="jobMessage" class="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm font-medium text-sky-800 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-200">{{ jobMessage }}</p>
+    <p v-if="summary?.freshness" class="text-sm text-slate-500">Fresh through {{ formatBucketTime(summary.freshness.latest_bucket_ts) }}. Query {{ summary.query_id }} returned {{ summary.point_count ?? points.length }} points.</p>
 
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       <div v-for="card in cards" :key="card.label" class="metric-panel">
@@ -69,6 +71,7 @@ const bucket = ref<UsageBucket>(runtimeConfig.defaultUsageBucket);
 const summary = ref<UsageSummary | null>(null);
 const cacheAnalytics = ref<CacheAnalytics | null>(null);
 const errorMessage = ref('');
+const jobMessage = ref('');
 const points = computed(() => summary.value?.points ?? []);
 const cacheSummary = computed(() => summarizeCacheAnalytics(cacheAnalytics.value));
 const requestTotal = computed(() => summary.value?.requests_count ?? summary.value?.total_requests ?? summary.value?.requests ?? 0);
@@ -128,11 +131,12 @@ async function load() {
 
 async function recalculate() {
   errorMessage.value = '';
+  jobMessage.value = '';
   try {
-    await usageApi.recalculate(selectedDomainId.value || undefined);
-    await load();
+    const job = await usageApi.recalculate(selectedDomainId.value || undefined);
+    jobMessage.value = `Recalculation queued as ${job.job_id}. Analytics stay available while aggregates refresh.`;
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Unable to recalculate analytics.';
+    errorMessage.value = error instanceof Error ? error.message : 'Unable to queue analytics recalculation.';
   }
 }
 

@@ -69,6 +69,19 @@ class CollectorController
         return $this->service->rebuildAggregates($domainId);
     }
 
+    public function rollupJob(string $jobId): array
+    {
+        $jobId = trim($jobId);
+        if ($jobId === '') {
+            return ['error' => 'job_id_must_be_non_empty_string', 'status' => 422];
+        }
+        $job = $this->service->rollupJob($jobId);
+        if ($job === null) {
+            return ['error' => 'job_not_found', 'status' => 404];
+        }
+        return ['data' => $job];
+    }
+
     public function cacheAnalytics(?string $domainId = null): array
     {
         if ($domainId !== null && trim($domainId) === '') {

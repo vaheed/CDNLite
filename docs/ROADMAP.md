@@ -345,7 +345,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 | Phase | Priority | Status | Main result |
 | --- | --- | --- | --- |
 | 1. Database architecture and real-time reporting foundation | P0 | Complete | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
-| 2. Analytics scalability and asynchronous aggregation | P0 | Planned | Bounded, fast, cancellable analytics APIs and dashboard views |
+| 2. Analytics scalability and asynchronous aggregation | P0 | Complete | Bounded analytics metadata, async recalculation jobs, and idempotent aggregate upserts |
 | 3. Edge hot-path performance and bounded telemetry | P0 | Planned | No repeated config parsing or synchronous per-request telemetry writes |
 | 4. Real challenge and clearance system | P0 | Planned | Challenge actions perform a real verifiable workflow |
 | 5. Adaptive overload protection and waiting room | P0 | Planned | Origins remain protected under attack or heavy usage |
@@ -1009,6 +1009,10 @@ Use `EXPLAIN (ANALYZE, BUFFERS)` on representative safe test data and store sani
 ## Phase 2 — Analytics scalability and asynchronous aggregation
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
+**Status:** Complete on 2026-06-24 for the repository contract slice. CDNLite now queues analytics recalculation through `analytics_rollup_jobs`, exposes job status through `/api/v1/usage/recalculate/{jobId}`, refreshes usage aggregates through idempotent upserts, records per-bucket watermarks, and returns bounded summary metadata including effective range, point count, freshness, watermark, partial-data flag, query identifier, and cache status.
+
+Benchmark targets remain release gates for a reproducible benchmark environment; they are not claimed as production performance evidence.
 
 ### Objective
 

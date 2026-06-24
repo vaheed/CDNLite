@@ -3,6 +3,7 @@
 namespace App\Modules\Collector\Services;
 
 use App\Support\Database;
+use App\Support\DatabaseWorkload;
 use App\Support\Uuid;
 
 class CollectorService
@@ -28,6 +29,8 @@ class CollectorService
         'BYPASS',
         'UNKNOWN',
     ];
+
+    private const DEFAULT_ANALYTICS_POINTS = 500;
 
     public function ingest(array $items, ?string $idempotencyKey = null): array
     {
@@ -569,6 +572,8 @@ class CollectorService
                     'records' => 0,
                 ];
             }
+            DatabaseWorkload::apply($pdo, DatabaseWorkload::REPORTING);
+            $range = $this->analyticsRange([], $bucket);
             if ($domainId !== null) {
                 $stmt = $pdo->prepare(
                     'SELECT COALESCE(SUM(requests_count),0) requests_count,
@@ -576,9 +581,9 @@ class CollectorService
                             COALESCE(SUM(bytes_out),0) bytes_out,
                             COUNT(*) records
                     FROM usage_aggregates
-                    WHERE bucket = :bucket AND domain_id = :domain_id'
+                    WHERE bucket = :bucket AND domain_id = :domain_id AND bucket_ts >= :from AND bucket_ts < :to'
                 );
-                $stmt->execute([':bucket' => $bucket, ':domain_id' => $domainId]);
+                $stmt->execute([':bucket' => $bucket, ':domain_id' => $domainId, ':from' => $range['from'], ':to' => $range['to']]);
             } else {
                 $stmt = $pdo->prepare(
                     'SELECT COALESCE(SUM(requests_count),0) requests_count,
@@ -586,9 +591,9 @@ class CollectorService
                             COALESCE(SUM(bytes_out),0) bytes_out,
                             COUNT(*) records
                     FROM usage_aggregates
-                    WHERE bucket = :bucket'
+                    WHERE bucket = :bucket AND bucket_ts >= :from AND bucket_ts < :to'
                 );
-                $stmt->execute([':bucket' => $bucket]);
+                $stmt->execute([':bucket' => $bucket, ':from' => $range['from'], ':to' => $range['to']]);
             }
             $row = (array) $stmt->fetch();
             $pointsSql = 'SELECT bucket_ts,
@@ -596,15 +601,19 @@ class CollectorService
                                  COALESCE(SUM(bytes_in),0) bytes_in,
                                  COALESCE(SUM(bytes_out),0) bytes_out
                           FROM usage_aggregates
-                          WHERE bucket = :bucket';
-            $pointParams = [':bucket' => $bucket];
+                          WHERE bucket = :bucket AND bucket_ts >= :from AND bucket_ts < :to';
+            $pointParams = [':bucket' => $bucket, ':from' => $range['from'], ':to' => $range['to']];
             if ($domainId !== null) {
                 $pointsSql .= ' AND domain_id = :domain_id';
                 $pointParams[':domain_id'] = $domainId;
             }
-            $pointsSql .= ' GROUP BY bucket_ts ORDER BY bucket_ts ASC';
+            $pointsSql .= ' GROUP BY bucket_ts ORDER BY bucket_ts ASC LIMIT :limit_points';
             $pointsStmt = $pdo->prepare($pointsSql);
-            $pointsStmt->execute($pointParams);
+            foreach ($pointParams as $key => $value) {
+                $pointsStmt->bindValue($key, $value);
+            }
+            $pointsStmt->bindValue(':limit_points', $range['limit_points'], \PDO::PARAM_INT);
+            $pointsStmt->execute();
             $points = [];
             foreach ($pointsStmt->fetchAll() as $point) {
                 $points[] = [
@@ -616,6 +625,14 @@ class CollectorService
             }
             return [
                 'bucket' => $bucket,
+                'effective_range' => ['from' => $range['from'], 'to' => $range['to'], 'timezone' => 'UTC'],
+                'point_count' => count($points),
+                'limit_points' => $range['limit_points'],
+                'freshness' => $this->analyticsFreshness($domainId, $bucket),
+                'aggregation_watermark' => $this->aggregationWatermark($domainId, $bucket),
+                'partial_data' => count($points) >= $range['limit_points'],
+                'query_id' => sha1(json_encode([$domainId, $bucket, $range])),
+                'cache_status' => 'miss',
                 'requests_count' => (int) $row['requests_count'],
                 'bytes_in' => (int) $row['bytes_in'],
                 'bytes_out' => (int) $row['bytes_out'],
@@ -654,17 +671,74 @@ class CollectorService
 
     public function rebuildAggregates(?string $domainId = null): array
     {
-        $pdo = Database::pdo();
+        $jobId = Uuid::v4();
         $now = time();
+        $stmt = Database::pdo()->prepare(
+            "INSERT INTO analytics_rollup_jobs
+             (id, domain_id, bucket, range_start, range_end, status, requested_by, progress_json, created_at, updated_at)
+             VALUES (:id, :domain_id, NULL, NULL, NULL, 'queued', 'api', '{}'::jsonb, :created_at, :updated_at)"
+        );
+        $stmt->execute([
+            ':id' => $jobId,
+            ':domain_id' => $domainId,
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]);
+        return [
+            'ok' => true,
+            'accepted' => true,
+            'status' => 202,
+            'job_id' => $jobId,
+            'domain_id' => $domainId,
+            'job_status' => 'queued',
+        ];
+    }
+
+    public function rollupJob(string $jobId): ?array
+    {
+        $stmt = Database::pdo()->prepare('SELECT * FROM analytics_rollup_jobs WHERE id = :id LIMIT 1');
+        $stmt->execute([':id' => $jobId]);
+        $row = $stmt->fetch();
+        return $row ? $this->castRollupJob((array) $row) : null;
+    }
+
+    public function runNextRollupJob(string $workerId = 'local-worker'): array
+    {
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        $stmt = $pdo->query("SELECT * FROM analytics_rollup_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED");
+        $row = $stmt->fetch();
+        if ($row === false) {
+            $pdo->commit();
+            return ['ok' => true, 'ran' => false, 'reason' => 'no_queued_jobs'];
+        }
+        $job = (array) $row;
+        $now = time();
+        $update = $pdo->prepare("UPDATE analytics_rollup_jobs SET status='running', locked_by=:worker, locked_at=:now, started_at=:now, updated_at=:now WHERE id=:id");
+        $update->execute([':worker' => $workerId, ':now' => $now, ':id' => $job['id']]);
+        $pdo->commit();
+
+        try {
+            $inserted = $this->runIncrementalAggregates($job['domain_id'] ?? null);
+            $finished = time();
+            $done = $pdo->prepare("UPDATE analytics_rollup_jobs SET status='succeeded', progress_json=CAST(:progress AS jsonb), finished_at=:now, updated_at=:now WHERE id=:id");
+            $done->execute([':progress' => json_encode(['inserted' => $inserted]), ':now' => $finished, ':id' => $job['id']]);
+            return ['ok' => true, 'ran' => true, 'job_id' => $job['id'], 'inserted' => $inserted];
+        } catch (\Throwable $e) {
+            $failed = $pdo->prepare("UPDATE analytics_rollup_jobs SET status='failed', error=:error, updated_at=:now WHERE id=:id");
+            $failed->execute([':error' => $e->getMessage(), ':now' => time(), ':id' => $job['id']]);
+            throw $e;
+        }
+    }
+
+    private function runIncrementalAggregates(?string $domainId = null): array
+    {
+        $pdo = Database::pdo();
+        DatabaseWorkload::apply($pdo, DatabaseWorkload::JOBS);
+        $now = time();
+        $inserted = [];
         $pdo->beginTransaction();
         try {
-            if ($domainId !== null) {
-                $deleteStmt = $pdo->prepare('DELETE FROM usage_aggregates WHERE domain_id = :domain_id');
-                $deleteStmt->execute([':domain_id' => $domainId]);
-            } else {
-                $pdo->exec('DELETE FROM usage_aggregates');
-            }
-
             $inserted = [];
             foreach ($this->bucketSeconds as $bucket => $seconds) {
                 $where = $domainId !== null ? 'WHERE domain_id = :domain_id_filter' : '';
@@ -697,7 +771,12 @@ class CollectorService
                            :created_at,
                            :updated_at
                     FROM source
-                    GROUP BY bucket_ts, domain_id, edge_node_id, status, cache_status",
+                    GROUP BY bucket_ts, domain_id, edge_node_id, status, cache_status
+                    ON CONFLICT (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status)
+                    DO UPDATE SET requests_count = EXCLUDED.requests_count,
+                                  bytes_in = EXCLUDED.bytes_in,
+                                  bytes_out = EXCLUDED.bytes_out,
+                                  updated_at = EXCLUDED.updated_at",
                     $seconds,
                     $seconds,
                     $where
@@ -714,18 +793,89 @@ class CollectorService
                 }
                 $stmt->execute($params);
                 $inserted[$bucket] = $stmt->rowCount();
+                $this->updateRollupWatermark($domainId, $bucket, $now);
             }
 
             $pdo->commit();
-            return [
-                'ok' => true,
-                'domain_id' => $domainId,
-                'inserted' => $inserted,
-            ];
+            return $inserted;
         } catch (\Throwable $e) {
             $pdo->rollBack();
             throw $e;
         }
+    }
+
+    private function analyticsRange(array $query, string $bucket): array
+    {
+        $budget = DatabaseWorkload::budget(DatabaseWorkload::REPORTING);
+        $now = time();
+        $to = isset($query['to']) && is_numeric($query['to']) ? (int) $query['to'] : $now;
+        $from = isset($query['from']) && is_numeric($query['from']) ? (int) $query['from'] : $to - 86400;
+        $maxRange = (int) ($budget['max_query_range_seconds'] ?? 31622400);
+        if ($from >= $to || ($to - $from) > $maxRange) {
+            $from = $to - min(86400, $maxRange);
+        }
+        $limit = isset($query['limit_points']) && is_numeric($query['limit_points']) ? (int) $query['limit_points'] : self::DEFAULT_ANALYTICS_POINTS;
+        return [
+            'from' => (int) floor($from / $this->bucketSeconds[$bucket]) * $this->bucketSeconds[$bucket],
+            'to' => $to,
+            'limit_points' => max(1, min(self::DEFAULT_ANALYTICS_POINTS, $limit)),
+        ];
+    }
+
+    private function analyticsFreshness(?string $domainId, string $bucket): array
+    {
+        $sql = 'SELECT COALESCE(MAX(bucket_ts), 0) FROM usage_aggregates WHERE bucket = :bucket';
+        $params = [':bucket' => $bucket];
+        if ($domainId !== null) {
+            $sql .= ' AND domain_id = :domain_id';
+            $params[':domain_id'] = $domainId;
+        }
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->execute($params);
+        $latest = (int) $stmt->fetchColumn();
+        return ['latest_bucket_ts' => $latest, 'lag_seconds' => $latest > 0 ? max(0, time() - $latest) : null];
+    }
+
+    private function aggregationWatermark(?string $domainId, string $bucket): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT source_watermark_ts, last_success_at, last_error
+             FROM reporting_rollup_watermarks
+             WHERE stream='usage' AND bucket=:bucket AND domain_id=:domain_id LIMIT 1"
+        );
+        $stmt->execute([':bucket' => $bucket, ':domain_id' => $domainId ?? '*']);
+        $row = $stmt->fetch();
+        return $row ? ['source_watermark_ts' => (int) $row['source_watermark_ts'], 'last_success_at' => (int) $row['last_success_at'], 'last_error' => $row['last_error']] : null;
+    }
+
+    private function updateRollupWatermark(?string $domainId, string $bucket, int $now): void
+    {
+        $stmt = Database::pdo()->prepare(
+            "INSERT INTO reporting_rollup_watermarks (stream, bucket, domain_id, source_watermark_ts, last_success_at, last_error, updated_at)
+             VALUES ('usage', :bucket, :domain_id, :watermark, :now, NULL, :now)
+             ON CONFLICT (stream, bucket, domain_id)
+             DO UPDATE SET source_watermark_ts=EXCLUDED.source_watermark_ts, last_success_at=EXCLUDED.last_success_at, last_error=NULL, updated_at=EXCLUDED.updated_at"
+        );
+        $stmt->execute([':bucket' => $bucket, ':domain_id' => $domainId ?? '*', ':watermark' => $now, ':now' => $now]);
+    }
+
+    private function castRollupJob(array $row): array
+    {
+        return [
+            'id' => (string) $row['id'],
+            'domain_id' => $row['domain_id'],
+            'bucket' => $row['bucket'],
+            'range_start' => $row['range_start'] === null ? null : (int) $row['range_start'],
+            'range_end' => $row['range_end'] === null ? null : (int) $row['range_end'],
+            'status' => (string) $row['status'],
+            'progress' => json_decode((string) ($row['progress_json'] ?? '{}'), true) ?: [],
+            'error' => $row['error'],
+            'cancel_requested' => (bool) $row['cancel_requested'],
+            'created_at' => (int) $row['created_at'],
+            'updated_at' => (int) $row['updated_at'],
+            'started_at' => $row['started_at'] === null ? null : (int) $row['started_at'],
+            'finished_at' => $row['finished_at'] === null ? null : (int) $row['finished_at'],
+        ];
     }
 
     public function cacheAnalytics(?string $domainId = null): array

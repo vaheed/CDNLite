@@ -645,7 +645,11 @@ $router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response:
 $router->add('POST', '/api/v1/collector/usage', static fn (Request $req) => Response::json($collectorController->ingest($req->body)), edgeAuth: true);
 $router->add('POST', '/api/v1/collector/security-events', static fn (Request $req) => Response::json($collectorController->ingestSecurityEvents($req->body)), edgeAuth: true);
 $router->add('GET', '/api/v1/usage/summary', static fn (Request $req) => Response::json($collectorController->summary(isset($req->query['domain_id']) ? (string) $req->query['domain_id'] : null, isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);
-$router->add('POST', '/api/v1/usage/recalculate', static fn (Request $req) => Response::json($collectorController->recalculate($req->body)), auth: true);
+$router->add('POST', '/api/v1/usage/recalculate', static function (Request $req) use ($collectorController): array {
+    $result = $collectorController->recalculate($req->body);
+    return Response::json($result, (int) ($result['status'] ?? 202));
+}, auth: true);
+$router->add('GET', '/api/v1/usage/recalculate/{jobId}', static fn (Request $req, array $p) => Response::json($collectorController->rollupJob((string) $p['jobId'])), auth: true);
 
 $matched = $router->dispatch($request);
 if ($matched === null) {

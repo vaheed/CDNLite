@@ -652,9 +652,10 @@ Settings tips:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/v1/usage/summary` | Global or domain usage summary. |
-| `POST` | `/api/v1/usage/recalculate` | Rebuild minute/hour/day aggregates. |
-| `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary. |
+| `GET` | `/api/v1/usage/summary` | Global or domain usage summary with bounded range, point-count, freshness, watermark, partial-data, query-id, and cache-status metadata when `bucket` is supplied. |
+| `POST` | `/api/v1/usage/recalculate` | Queue asynchronous minute/hour/day aggregate refresh and return `202 Accepted` with a `job_id`. |
+| `GET` | `/api/v1/usage/recalculate/{jobId}` | Read asynchronous aggregate refresh job status, progress, and failure details. |
+| `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary with the same bounded analytics metadata. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |
 | `GET` | `/api/v1/domains/{domainId}/activity` | Paginated mixed domain activity timeline with request, error, audit, and security events. Supports `limit`, `offset`, `type`, `search`, `from`, and `to`; each item includes a `friendly` label/category/intent for Simple Activity while preserving raw `details`. |
 | `GET` | `/api/v1/domains/{domainId}/activity/summary` | Activity KPIs, status breakdown, top paths, visitor countries, origins, edges, recent origin errors, and a beginner summary with grouped WAF, rate-limit, bot, origin, SSL, DNS, cache, and audit counts. |
