@@ -218,6 +218,10 @@ edge_wait_status() {
   }
 }
 
+current_config_state_version() {
+  db_query "SELECT COALESCE(active_snapshot_version, version, 0) FROM config_state WHERE id = 1;"
+}
+
 edge_wait_success_status() {
   local host="$1"
   retry 40 1 edge_status_is_success "$host" || {
@@ -416,7 +420,7 @@ agent_exec '/agent/pull_config.sh' >/dev/null
 # Report the version only after the agent has successfully applied its first snapshot.
 agent_exec '/agent/heartbeat.sh' >/dev/null
 edge_config_version="$(db_query "SELECT COALESCE(applied_config_version, 0) FROM edge_nodes WHERE edge_id='${EDGE_ID}' LIMIT 1;")"
-initial_config_snapshot_version="$(db_query "SELECT COALESCE(active_snapshot_version, 0) FROM config_state WHERE id = 1;")"
+initial_config_snapshot_version="$(current_config_state_version)"
 assert_eq "$edge_config_version" "$initial_config_snapshot_version" "edge heartbeat should persist applied config version"
 record_step PASS "edge-config-version" "edge heartbeat persisted the applied snapshot version"
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
@@ -533,7 +537,7 @@ config_snapshot_reused_json="$(docker compose exec -T core php artisan cdn:edge:
 config_snapshot_reused_version="$(jq -r '.version' <<<"$config_snapshot_reused_json")"
 config_snapshot_reused="$(jq -r '.reused // false' <<<"$config_snapshot_reused_json")"
 retry 20 1 config_publish_audit_exists
-assert_eq "$config_snapshot_after" "$(db_query "SELECT COALESCE(active_snapshot_version, 0) FROM config_state WHERE id = 1;")" "config rebuild should activate the published snapshot"
+assert_eq "$config_snapshot_after" "$(current_config_state_version)" "config rebuild should activate the published snapshot"
 assert_eq "$config_snapshot_reused_version" "$config_snapshot_after" "unchanged config rebuild should reuse the active snapshot version"
 assert_eq "$config_snapshot_reused" "true" "unchanged config rebuild should report a reused snapshot"
 record_step PASS "config-publish-audit" "config rebuild writes publish audit events and reuses unchanged snapshots"

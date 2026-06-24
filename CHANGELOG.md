@@ -8,10 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Phase 1 database architecture foundation with workload budgets, telemetry ingest batch diagnostics, reporting watermarks, reconciliation tables, current summary read model, reporting query budgets, one-shot phase runner, manifest, stress scenario, and database architecture docs.
+- Single canonical roadmap at `docs/ROADMAP.md`; removed duplicate root, lower-case, and legacy roadmap files.
 - Repository-level project presentation, contribution, security, roadmap, changelog, issue template, and pull request template documentation.
 
 ### Changed
 
+- Closed Phase 1 after PR gate, clean-stack smoke, and end-to-end validation; updated the e2e config-version check to compare against the active config-state version.
 - Documentation information architecture is being organized around new users, operators, developers, and private deployment teams.
 
 ### Security

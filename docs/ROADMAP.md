@@ -1,9 +1,9 @@
 # CDNLite Product and Engineering Roadmap
 
 > Self-hosted private CDN control plane and edge platform  
-> Last updated: 2026-06-23  
+> Last updated: 2026-06-24  
 > Roadmap status: Active execution plan  
-> Canonical file: `ROADMAP.md`
+> Canonical file: `docs/ROADMAP.md`
 
 CDNLite is being developed as a self-hosted CDN platform for companies, hosting providers, internal infrastructure teams, private edge networks, labs, and controlled production deployments.
 
@@ -212,13 +212,13 @@ Every phase must include at least one meaningful stress or scale scenario and on
 
 The common phase runner, manifest schema, evidence writer, safety guards, and reusable test libraries are roadmap infrastructure, not a numbered product phase. The first active implementation using this roadmap must add any missing minimum runner support inside that same phase without postponing its completion gates.
 
-### 6.4 Canonical roadmap synchronization
+### 6.4 Single Roadmap File
 
-`ROADMAP.md` is canonical. `docs/roadmap.md` must be generated from or synchronized with it while preserving documentation-site front matter.
+`docs/ROADMAP.md` is the only active roadmap file. Do not create root-level or lower-case duplicate roadmap files.
 
 CI must fail when:
 
-- Root and documentation roadmaps drift.
+- A root-level or lower-case duplicate roadmap is added.
 - A phase is Complete without a successful full-profile evidence report.
 - A Complete phase has an unchecked mandatory gate.
 - A user-visible change omits `CHANGELOG.md`.
@@ -252,7 +252,7 @@ A phase may be marked **Complete** only when all applicable items below are fini
 - [ ] Architecture, data model, security model, and threat model are updated.
 - [ ] Deployment, environment, topology, troubleshooting, and runbooks are updated.
 - [ ] Upgrade, compatibility, rollout, rollback, and known limitations are documented.
-- [ ] `CHANGELOG.md`, `ROADMAP.md`, and `docs/roadmap.md` are updated in the same pull request.
+- [ ] `CHANGELOG.md` and `docs/ROADMAP.md` are updated in the same pull request.
 - [ ] The phase status, progress, and evidence links are current.
 
 ### 7.3 Automated tests and builds
@@ -344,7 +344,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 
 | Phase | Priority | Status | Main result |
 | --- | --- | --- | --- |
-| 1. Database architecture and real-time reporting foundation | P0 | Planned | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
+| 1. Database architecture and real-time reporting foundation | P0 | Complete | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
 | 2. Analytics scalability and asynchronous aggregation | P0 | Planned | Bounded, fast, cancellable analytics APIs and dashboard views |
 | 3. Edge hot-path performance and bounded telemetry | P0 | Planned | No repeated config parsing or synchronous per-request telemetry writes |
 | 4. Real challenge and clearance system | P0 | Planned | Challenge actions perform a real verifiable workflow |
@@ -378,6 +378,15 @@ Destructive and high-volume tests must run only against an explicitly disposable
 ## Phase 1 — Database architecture and real-time reporting foundation
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
+### Phase 1 closure notes
+
+- Status changed to **Complete** on 2026-06-24.
+- Added the fresh-install and upgrade schema foundation for `database_workload_budgets`, telemetry ingest batch diagnostics, rejected telemetry diagnostics, reporting rollup watermarks, reconciliation results, reporting indexes, and the `reporting_current_platform_summary` read model.
+- Added `DatabaseWorkload` and reporting-service enforcement for statement timeout, lock timeout, maximum query range, and maximum result rows.
+- Added `ci/phases/phase-01.yml`, `ci/stress/scenarios.yml`, `ci/stress-platform.sh`, and `ci/phase.sh` so Phase 1 has an executable one-shot gate and evidence output path.
+- Added `docs/operations/database-architecture.md`, roadmap synchronization, changelog notes, and focused Phase 1 contract tests.
+- Evidence: `./ci/phase.sh 01 --profile pr` passed; clean-stack smoke passed during the full gate attempt; `ci/e2e.sh` passed with 109 steps and 0 failures after fixing the config-version assertion; see `docs/operations/phase-01-evidence.md`.
 
 ### Objective
 
@@ -5401,7 +5410,7 @@ Keep progress in the phase evidence report and update it in the same pull reques
 - [ ] Troubleshooting/runbooks
 - [ ] Upgrade/rollout/rollback
 - [ ] Changelog
-- [ ] ROADMAP.md and docs/roadmap.md
+- [ ] docs/ROADMAP.md
 
 #### Validation
 - [ ] Static/unit/integration/build
@@ -5689,4 +5698,4 @@ A roadmap update must:
 - Remove obsolete work.
 - Avoid duplicating the same milestone under multiple phases.
 - Keep each phase manifest synchronized with its scope and validation requirements.
-- Keep `ROADMAP.md`, `docs/roadmap.md`, `README.md`, enterprise-readiness documentation, and changelog claims consistent.
+- Keep `docs/ROADMAP.md`, `README.md`, enterprise-readiness documentation, and changelog claims consistent.

@@ -5,6 +5,8 @@ description: Architecture of the CDNLite self-hosted CDN control plane, Vue dash
 
 # Architecture
 
+See [Database Architecture](./operations/database-architecture.md) for the Phase 1 database workload, telemetry ingestion, reporting read-model, reconciliation, and retention foundation.
+
 CDNLite is a self-hosted CDN control plane with a dashboard, API, PostgreSQL state store, OpenResty/Lua edge proxy, signed edge-agent loop, and PowerDNS/DNSGeo publishing. This page explains the major components and how private CDN traffic, DNS state, cache rules, WAF rules, and edge telemetry move through the system.
 
 CDNLite is split into a control plane, dashboard, data-plane edge, and agent loop.

@@ -9,7 +9,7 @@ Self-hosted private CDN control plane and edge platform for companies, hosting p
 
 ![CDNLite dashboard showing private CDN domains, edge status, and operations views](docs/ScreenShot.png)
 
-**Quick links:** [Documentation](docs/index.md) · [Quickstart](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Roadmap](ROADMAP.md)
+**Quick links:** [Documentation](docs/index.md) · [Quickstart](docs/quickstart.md) · [Architecture](docs/architecture.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Roadmap](docs/ROADMAP.md)
 
 Published OpenAPI YAML: https://vaheed.github.io/CDNLite/api/openapi.yaml
 
@@ -161,7 +161,7 @@ Current known limits include native RBAC, OIDC/SAML SSO, full multi-tenant isola
 - HA control plane documentation, backup/restore automation, and edge autoscaling.
 - Policy templates for WAF, rate limits, cache rules, and private deployment presets.
 
-See [ROADMAP.md](ROADMAP.md) for the fuller roadmap.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the fuller roadmap.
 
 
 ## Development And Validation

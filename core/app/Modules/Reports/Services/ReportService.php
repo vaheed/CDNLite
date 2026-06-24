@@ -3,6 +3,7 @@
 namespace App\Modules\Reports\Services;
 
 use App\Support\Database;
+use App\Support\DatabaseWorkload;
 use InvalidArgumentException;
 use PDO;
 
@@ -153,13 +154,15 @@ class ReportService
 
     private function range(array $query): array
     {
+        $budget = DatabaseWorkload::budget(DatabaseWorkload::REPORTING);
         $now = time();
         $to = isset($query['to']) && $query['to'] !== '' ? $this->timestamp($query['to'], 'to') : $now;
         $from = isset($query['from']) && $query['from'] !== '' ? $this->timestamp($query['from'], 'from') : $to - 86400;
         if ($from >= $to) {
             throw new InvalidArgumentException('invalid_time_range');
         }
-        if (($to - $from) > 366 * 86400) {
+        $maxRange = (int) ($budget['max_query_range_seconds'] ?? (366 * 86400));
+        if (($to - $from) > $maxRange) {
             throw new InvalidArgumentException('time_range_too_large');
         }
         $bucket = (string) ($query['bucket'] ?? 'hour');
@@ -194,8 +197,10 @@ class ReportService
 
     private function limit(array $query): int
     {
+        $budget = DatabaseWorkload::budget(DatabaseWorkload::REPORTING);
+        $maxRows = max(1, min(1000, (int) ($budget['max_result_rows'] ?? 100)));
         $limit = isset($query['limit']) && is_numeric($query['limit']) ? (int) $query['limit'] : 10;
-        return max(1, min(100, $limit));
+        return max(1, min($maxRows, $limit));
     }
 
     private function publicRange(array $range): array
@@ -264,14 +269,18 @@ class ReportService
 
     private function rows(string $sql, array $params = []): array
     {
-        $stmt = Database::pdo()->prepare($sql);
+        $pdo = Database::pdo();
+        DatabaseWorkload::apply($pdo, DatabaseWorkload::REPORTING);
+        $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
     private function one(string $sql, array $params = []): array
     {
-        $stmt = Database::pdo()->prepare($sql);
+        $pdo = Database::pdo();
+        DatabaseWorkload::apply($pdo, DatabaseWorkload::REPORTING);
+        $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         return (array) ($stmt->fetch() ?: []);
     }

@@ -1,0 +1,61 @@
+phase: "01"
+name: "Database architecture and real-time reporting foundation"
+owner: "CDNLite maintainers"
+status: "complete"
+topology: "root docker-compose.yml"
+profiles:
+  pr:
+    clean_required: false
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests/test_phase1_reporting_foundation_contract.py"
+      - "bash -n ci/phase.sh"
+      - "bash -n ci/stress-platform.sh"
+  full:
+    clean_required: true
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests"
+      - "sh -n edge/agent/register.sh"
+      - "sh -n edge/agent/heartbeat.sh"
+      - "sh -n edge/agent/pull_config.sh"
+      - "sh -n edge/agent/push_metrics.sh"
+      - "sh -n edge/agent/run.sh"
+      - "bash -n ci/agent_flow_checks.sh"
+      - "bash -n ci/smoke.sh"
+      - "bash -n ci/e2e.sh"
+      - "bash -n ci/dns_e2e.sh"
+      - "bash -n ci/stress-dns.sh"
+      - "bash -n ci/stress-platform.sh"
+      - "bash -n ci/powerdns_dns_checks.sh"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "ci/stress-platform.sh --scenario phase1-reporting-foundation"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "(cd docs && npm ci && npm run docs:build)"
+  release:
+    clean_required: true
+    destructive: true
+    commands:
+      - "./ci/phase.sh 01 --profile full --clean"
+      - "ci/stress-dns.sh"
+required_docs:
+  - "docs/ROADMAP.md"
+  - "docs/architecture.md"
+  - "docs/operations/database-architecture.md"
+  - "docs/operations/database-migrations.md"
+  - "CHANGELOG.md"
+evidence:
+  json: "ci/reports/phase-01-report.json"
+  markdown: "ci/reports/phase-01-report.md"
+stress_scenarios:
+  - "phase1-reporting-foundation"
+recovery_assertions:
+  - "Duplicate telemetry idempotency keys do not create duplicate totals."
+  - "Rollup recalculation can be rerun without changing aggregate totals."
+  - "Post-stress smoke and e2e gates run after the pressure scenario."

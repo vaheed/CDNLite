@@ -88,3 +88,9 @@ before the failure row was recorded.
 - Re-running migrations is safe; already-applied migrations are skipped.
 - Destructive schema changes must not be added without an explicit manual flag,
   backup note, and rollback or restore instructions.
+
+## Phase 1 Reporting Foundation
+
+Migration `000021_phase1_reporting_foundation.sql` is additive. It creates workload budget metadata, telemetry batch diagnostics, rejected-event diagnostics, reporting rollup watermarks, reconciliation results, reporting indexes, and the `reporting_current_platform_summary` materialized view.
+
+Rollback is a forward-fix or restore-from-backup operation for existing installs because later reporting code may depend on these objects. Fresh installs receive the same objects from `core/database/schema.sql`.

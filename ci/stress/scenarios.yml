@@ -1,0 +1,16 @@
+scenarios:
+  phase1-reporting-foundation:
+    phase: "01"
+    workload: "database-reporting-foundation"
+    description: "Seed bounded usage data, replay duplicate ingestion, run rollups, reporting queries, retention dry-run, and recovery checks."
+    stress:
+      event_batches: 3
+      duplicate_replay: true
+      reporting_queries:
+        - "summary"
+        - "traffic"
+        - "operations"
+    recovery:
+      - "rerun usage rollup recalculation"
+      - "verify duplicate batch count remains stable"
+      - "run retention dry-run"
