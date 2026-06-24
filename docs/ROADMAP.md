@@ -372,6 +372,58 @@ Destructive and high-volume tests must run only against an explicitly disposable
 
 ---
 
+## Implemented Feature Slices
+
+The current product roadmap supersedes the earlier numbered feature plan, but
+these implemented slices remain part of the repository contract and continue to
+be covered by smoke, e2e, dashboard, API, edge, and documentation checks.
+
+### Phase 8 — Managed protection foundations
+
+Progress Notes: managed WAF and rate-limit rule ownership, intent previews,
+rollback history, conflict detection, detach-managed flows, and
+rate-limit advanced views are wired through API, dashboard, OpenAPI, smoke, and
+e2e coverage.
+
+Remaining Phase 8 work is tracked through the larger WAF, rate limiting, API
+protection, and abuse defense roadmap phase.
+
+### Phase 9 — Security Center
+
+Progress Notes: `DomainSecurityCenterTab.vue` provides the Security Center simple-mode entry point for API shield, smart rate limiting, bot shield, and emergency protection while preserving advanced inspection paths.
+
+### Phase 10 — One-Click Protection Profiles
+
+Progress Notes: one-click profiles compose protection intents, preserve profile
+ownership metadata, detect user-modified rule conflicts, support preview/apply/
+disable flows, and expose profile change history plus rollback points.
+
+### Phase 11 — Managed WAF Presets
+
+Progress Notes: generated WAF metadata includes group, severity, confidence, and
+safe-reason fields, flows to edge security events, and is documented with a
+read-only managed WAF preset catalog.
+
+### Phase 12 — Smart Rate Limiting
+
+Progress Notes: the read-only Smart Rate Limiting template catalog exposes
+impact metadata such as `would_have_matched_24h`; rate-limit events include
+enriched match, threshold, counter, window, and retry details.
+
+### Phase 15 — Performance Starter
+
+Implemented (2026-06-20): static asset cache defaults, query-string
+normalization for static assets, logged-in bypass behavior, dashboard controls,
+schema smoke coverage, and performance-starter e2e coverage are in place.
+
+### Phase 17 — Guided Onboarding Wizard
+
+Progress Notes: the Guided Onboarding Wizard persists domain onboarding answers,
+exposes onboarding APIs, provides dashboard flows, and is covered by schema,
+bundle, and guided-onboarding e2e checks.
+
+---
+
 # P0 — Finish and stabilize the CDN core
 
 

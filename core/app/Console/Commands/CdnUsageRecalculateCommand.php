@@ -15,6 +15,7 @@ class CdnUsageRecalculateCommand
         $result = $service->rebuildAggregates($domainId);
         $run = $service->runNextRollupJob('cli');
         $result['worker'] = $run;
+        $result['inserted'] = $run['inserted'] ?? [];
         $result['job'] = isset($result['job_id']) ? $service->rollupJob((string) $result['job_id']) : null;
         $result['summary'] = $service->summary($domainId);
         $result['aggregates'] = [
