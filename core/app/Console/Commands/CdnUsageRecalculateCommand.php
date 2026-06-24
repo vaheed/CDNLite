@@ -13,7 +13,9 @@ class CdnUsageRecalculateCommand
         $domainId = isset($opts['domain_id']) ? (string) $opts['domain_id'] : null;
         $service = new CollectorService();
         $result = $service->rebuildAggregates($domainId);
-        $run = $service->runNextRollupJob('cli');
+        $run = isset($result['inserted'])
+            ? ['ok' => true, 'ran' => true, 'job_id' => $result['job_id'] ?? null, 'inserted' => $result['inserted']]
+            : $service->runNextRollupJob('cli', isset($result['job_id']) ? (string) $result['job_id'] : null);
         $result['worker'] = $run;
         $result['inserted'] = $run['inserted'] ?? [];
         $result['job'] = isset($result['job_id']) ? $service->rollupJob((string) $result['job_id']) : null;

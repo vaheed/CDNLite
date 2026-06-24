@@ -684,13 +684,16 @@ class CollectorService
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
+        $run = $this->runNextRollupJob('inline', $jobId);
+
         return [
             'ok' => true,
             'accepted' => true,
             'status' => 202,
             'job_id' => $jobId,
             'domain_id' => $domainId,
-            'job_status' => 'queued',
+            'job_status' => ($run['ran'] ?? false) ? 'succeeded' : 'queued',
+            'inserted' => $run['inserted'] ?? [],
         ];
     }
 
@@ -702,11 +705,16 @@ class CollectorService
         return $row ? $this->castRollupJob((array) $row) : null;
     }
 
-    public function runNextRollupJob(string $workerId = 'local-worker'): array
+    public function runNextRollupJob(string $workerId = 'local-worker', ?string $jobId = null): array
     {
         $pdo = Database::pdo();
         $pdo->beginTransaction();
-        $stmt = $pdo->query("SELECT * FROM analytics_rollup_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED");
+        if ($jobId !== null) {
+            $stmt = $pdo->prepare("SELECT * FROM analytics_rollup_jobs WHERE id = :id AND status = 'queued' LIMIT 1 FOR UPDATE SKIP LOCKED");
+            $stmt->execute([':id' => $jobId]);
+        } else {
+            $stmt = $pdo->query("SELECT * FROM analytics_rollup_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED");
+        }
         $row = $stmt->fetch();
         if ($row === false) {
             $pdo->commit();
