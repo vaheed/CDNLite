@@ -1440,7 +1440,7 @@ done
 record_step PASS "usage-summary-endpoints" "summary endpoints healthy"
 
 api_post "${CORE_URL}/api/v1/usage/recalculate" "{\"domain_id\":\"${DOMAIN_ID}\"}"
-assert_http_status "$HTTP_CODE" "200" "usage recalculate failed"
+assert_http_status "$HTTP_CODE" "202" "usage recalculate failed"
 agg_count="$(db_query "SELECT COUNT(*) FROM usage_aggregates WHERE domain_id='${DOMAIN_ID}';")"
 if [[ "$agg_count" -lt 1 ]]; then
   fail "usage aggregates expected >0"

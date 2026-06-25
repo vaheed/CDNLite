@@ -25,6 +25,7 @@ def test_phase2_recalculate_is_async_and_worker_upserts():
     command = read("core/app/Console/Commands/CdnUsageRecalculateCommand.php")
     assert "accepted' => true" in service
     assert "'status' => 202" in service
+    assert 'assert_http_status "$HTTP_CODE" "202" "usage recalculate failed"' in read("ci/e2e.sh")
     assert "ON CONFLICT (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status)" in service
     assert "DELETE FROM usage_aggregates" not in service
     assert "runNextRollupJob" in command
