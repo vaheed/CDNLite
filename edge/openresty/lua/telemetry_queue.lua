@@ -61,7 +61,7 @@ local function get_counter(dict, key)
 end
 
 local function incr(dict, key, value)
-  dict:incr(key, value or 1, 0)
+  return dict:incr(key, value or 1, 0)
 end
 
 local function output_path(spec)

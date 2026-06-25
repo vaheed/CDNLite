@@ -45,6 +45,7 @@ def test_telemetry_uses_bounded_shared_queue_instead_of_per_request_file_open():
     assert "function M.enqueue(queue_name, row)" in queue
     assert "function M.flush(queue_name)" in queue
     assert "function M.status()" in queue
+    assert "return dict:incr(key, value or 1, 0)" in queue
     assert "queue_limit()" in queue
     assert "byte_limit()" in queue
     assert "flush_successes" in queue

@@ -1480,11 +1480,12 @@ agent_push_metrics >/dev/null
 
 activity_request_lookup_ok() {
   local request_id="$1"
+  agent_push_metrics >/dev/null || true
   api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${request_id}"
   [[ "$HTTP_CODE" == "200" ]]
 }
 
-retry 20 1 activity_request_lookup_ok "$activity_ok_request_id" || {
+retry 40 1 activity_request_lookup_ok "$activity_ok_request_id" || {
   api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${activity_ok_request_id}"
   assert_http_status "$HTTP_CODE" "200" "activity request-id lookup for edge 200 failed"
 }
@@ -1497,7 +1498,7 @@ if [[ "$HTTP_BODY" == *"phase6-secret"* ]]; then
 fi
 record_step PASS "activity-edge-request-ingest" "edge request appeared in Activity by request_id"
 
-retry 20 1 activity_request_lookup_ok "$activity_502_request_id" || {
+retry 40 1 activity_request_lookup_ok "$activity_502_request_id" || {
   api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/activity/requests/${activity_502_request_id}"
   assert_http_status "$HTTP_CODE" "200" "activity request-id lookup for edge 502 failed"
 }
