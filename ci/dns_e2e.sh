@@ -306,7 +306,14 @@ assert_eq "$(jq -r '[.data[] | select(.readonly != true and .status == "active")
 record_step PASS "delegation-restoration" "all desired-active records republished after verification was restored"
 
 customer_non_apex_before="$(jq -S --arg apex "$TEST_ZONE" '[.rrsets[] | select(.type != "SOA" and .type != "NS" and .name != $apex) | {name,type,ttl,records}]' <<<"$customer_zone")"
-db_query "UPDATE edge_nodes SET health_status='unhealthy', updated_at=$(date +%s) WHERE edge_id='dns-e2e-us';" >/dev/null
+now="$(date +%s)"
+db_query "
+UPDATE edge_nodes
+SET last_heartbeat=$now, last_heartbeat_at=$now, health_status='healthy', updated_at=$now
+WHERE edge_id='dns-e2e-eu';
+UPDATE edge_nodes
+SET last_heartbeat=$now, last_heartbeat_at=$now, health_status='unhealthy', updated_at=$now
+WHERE edge_id='dns-e2e-us';" >/dev/null
 force_sync
 assert_http_status "$HTTP_CODE" "200" "sync after edge health transition failed"
 purge_dns_caches
