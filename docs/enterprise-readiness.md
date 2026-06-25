@@ -82,4 +82,4 @@ Planned and desired work includes RBAC, OIDC/SAML, scoped API keys, tenant isola
 - [Production Hardening](./production-hardening.md)
 - [Security Model](./security.md)
 - [Deployment](./deployment.md)
-- [Roadmap](./ROADMAP.md)
+- [Roadmap](./roadmap.md)

@@ -78,7 +78,7 @@ DNSSEC signing is not enabled by the bundled fresh-install defaults. Operators e
 
 The bundled service is provisioned with:
 
-```env
+```txt
 PDNS_API_KEY=change-me
 CDNLITE_DNS_BASE_DOMAIN=example.net
 CDNLITE_CDN_ZONE=cdn.example.net
