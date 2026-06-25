@@ -42,8 +42,22 @@ def test_e2e_security_ingest_refreshes_edge_config_after_dns_mutations():
     assert "cdn:edge:sync-config" in section
     assert "agent_exec '/agent/pull_config.sh' >/dev/null" in section
     assert 'edge_wait_config_host "${TEST_DOMAIN}"' in section
+    assert "agent_exec '/agent/push_security_events.sh' >/dev/null || true" in section
+    assert "edge-ready-security-events.json" in section
+    assert "security-events-db-before-fail.json" in section
     assert "active_mtime == mtime" not in loader
     assert "now - active_loaded_at < refresh_interval()" in loader
+
+
+def test_e2e_collects_failure_diagnostics_before_cleanup():
+    repo_root = Path(__file__).resolve().parents[2]
+    e2e = (repo_root / "ci" / "e2e.sh").read_text()
+
+    on_exit_start = e2e.index("on_exit()")
+    on_exit_end = e2e.index("\n}\ntrap on_exit EXIT", on_exit_start)
+    on_exit = e2e[on_exit_start:on_exit_end]
+
+    assert on_exit.index("collect_diagnostics") < on_exit.index("cleanup")
 
 
 def test_e2e_challenge_event_retry_pushes_before_polling_api():
