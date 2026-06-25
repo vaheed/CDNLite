@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 const base = process.env.VITEPRESS_BASE ?? '/CDNLite/';
+const roadmapUrl = 'https://github.com/vaheed/CDNLite/blob/main/docs/ROADMAP.md';
 
 export default defineConfig({
   title: 'CDNLite',
@@ -18,6 +19,7 @@ export default defineConfig({
     '.vitepress/dist/**',
     'ide-report.md',
     'ROADMAP.md',
+    'roadmap.md',
     'legacy-roadmap.md'
   ],
   head: [
@@ -43,7 +45,7 @@ export default defineConfig({
       { text: 'API', link: '/api/api' },
       { text: 'Examples', link: '/examples/' },
       { text: 'Security', link: '/security' },
-      { text: 'Roadmap', link: '/roadmap' }
+      { text: 'Roadmap', link: roadmapUrl }
     ],
     sidebar: [
       {
@@ -87,7 +89,7 @@ export default defineConfig({
           { text: 'Security Model', link: '/security' },
           { text: 'Use Cases', link: '/use-cases/' },
           { text: 'Best Practices', link: '/best-practices/' },
-          { text: 'Roadmap', link: '/roadmap' }
+          { text: 'Roadmap', link: roadmapUrl }
         ]
       }
     ],

@@ -56,7 +56,7 @@ These pages are written for teams evaluating CDNLite as a private CDN foundation
 - [External Authentication](./enterprise-readiness.md#external-controls-required)
 - [Secret Rotation](./production-hardening.md#secret-rotation)
 - [Current Enterprise Limitations](./enterprise-readiness.md#not-implemented-yet)
-- [Enterprise Roadmap](./roadmap.md)
+- [Enterprise Roadmap](https://github.com/vaheed/CDNLite/blob/main/docs/ROADMAP.md)
 
 ## What CDNLite Includes Today
 
@@ -75,4 +75,4 @@ CDNLite does not yet include native enterprise RBAC, OIDC/SAML SSO, full multi-t
 - Run [Quickstart](./quickstart.md).
 - Read [Private CDN](./private-cdn.md) for positioning and topologies.
 - Review [Production Hardening](./production-hardening.md) before shared deployment.
-- Check the [Roadmap](./roadmap.md) for planned enterprise features.
+- Check the [Roadmap](https://github.com/vaheed/CDNLite/blob/main/docs/ROADMAP.md) for planned enterprise features.
