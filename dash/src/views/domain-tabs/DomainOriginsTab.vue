@@ -1,7 +1,7 @@
 <template>
   <section class="space-y-5">
     <div class="section-heading mb-0">
-      <div><h2>Origins</h2><p>Monitor DNS-linked and manually added origin health for this domain.</p></div>
+      <div><h2>Origins</h2><p>Manage DNS-linked and manually added origin routes for this domain.</p></div>
       <button class="button-primary" @click="startCreate"><Plus class="h-4 w-4" /> Add origin</button>
     </div>
 
@@ -9,13 +9,13 @@
 
     <form v-if="editing" class="panel-section" @submit.prevent="save">
       <div class="section-heading">
-        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge chooses from enabled origins and avoids unhealthy ones.</p></div>
+        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge chooses from enabled origins and only avoids unhealthy origins when monitoring is enabled.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
       <div class="help-panel">
         <div class="help-item"><b>Host examples</b><span>Use origin.example.com or 192.0.2.10. Do not include http://, https://, or a path.</span></div>
         <div class="help-item"><b>Independent origins</b><span>Add as many backend addresses as you need for the same site. The edge balances between healthy ones automatically.</span></div>
-        <div class="help-item"><b>Health checks</b><span>Use a lightweight path such as /health that returns 200 without expensive work.</span></div>
+        <div class="help-item"><b>Health checks</b><span>Off by default so edge traffic can pass even when the core cannot test the origin.</span></div>
       </div>
       <div class="grid gap-4 md:grid-cols-3">
         <label><span class="field-label">Protocol</span><select v-model="originProtocol" class="input"><option value="http">HTTP :80</option><option value="https">HTTPS :443</option></select><span class="field-description">Choose how the edge connects to this origin.</span></label>
@@ -34,6 +34,10 @@
         <label class="setting-row">
           <span><b>Preserve CDN host</b><small>Send the visitor Host header instead of the origin host header.</small></span>
           <input v-model="form.preserve_host" class="toggle" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span><b>Enable health check for this origin</b><small>When off, CDNLite will still proxy traffic even if the core cannot test this origin. Enable this only when you want CDNLite to actively monitor and avoid unhealthy origins.</small></span>
+          <input v-model="form.health_check_enabled" class="toggle" type="checkbox" />
         </label>
       </div>
       <p v-if="error" class="state-error mt-4">{{ error }}</p>
@@ -90,7 +94,7 @@
             <dl class="grid grid-cols-2 gap-3 rounded-lg bg-slate-50 p-3 text-sm dark:bg-white/[0.035] sm:grid-cols-3 xl:grid-cols-1">
               <div>
                 <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Health</dt>
-                <dd class="mt-1"><StatusBadge :status="healthSeverity(String(row.health_status))" :label="healthLabel(row.health_status)" /></dd>
+                <dd class="mt-1"><StatusBadge :status="healthSeverity(row)" :label="healthLabel(row)" /></dd>
               </div>
               <div>
                 <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Last checked</dt>
@@ -141,7 +145,8 @@ const form = reactive({
   host_header: '',
   sni: '',
   tls_verify: 'ignore' as 'verify' | 'ignore',
-  preserve_host: false,
+  preserve_host: true,
+  health_check_enabled: false,
   health_check_path: '/',
   health_check_interval_seconds: 30,
   health_check_timeout_seconds: 5,
@@ -160,26 +165,26 @@ const originProtocol = computed<'http' | 'https'>({
   },
 });
 
-function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'ignore', preserve_host: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
-function healthSeverity(status: string): Severity { if (status === 'healthy') return 'healthy'; if (status === 'unhealthy') return 'critical'; return 'unknown'; }
-function healthLabel(status: unknown) { const value = String(status ?? 'unknown'); return value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' '); }
+function reset() { Object.assign(form, { scheme: 'http', host: '', port: 80, host_header: '', sni: '', tls_verify: 'ignore', preserve_host: true, health_check_enabled: false, health_check_path: '/', health_check_interval_seconds: 30, health_check_timeout_seconds: 5, enabled: true }); error.value = ''; }
+function healthSeverity(row: DomainOrigin): Severity { if (!row.health_check_enabled) return 'unknown'; if (row.health_status === 'healthy') return 'healthy'; if (row.health_status === 'unhealthy') return 'critical'; return 'unknown'; }
+function healthLabel(row: DomainOrigin) { if (!row.health_check_enabled) return 'Pass-through'; const value = String(row.health_status ?? 'unknown'); return value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' '); }
 function originUrl(row: DomainOrigin) { return `${row.scheme}://${row.host}:${row.port}`; }
 function sourceLabel(row: DomainOrigin) { if (row.source === 'dns_record') return 'DNS record'; if (row.source === 'manual') return 'Manual'; return String(row.source ?? 'Manual'); }
 function tlsLabel(row: DomainOrigin) { return row.scheme === 'https' ? `HTTPS, ${row.tls_verify === 'ignore' ? 'not verified' : 'verified'}` : 'HTTP'; }
 function originAccentClass(row: DomainOrigin) {
   if (!row.enabled) return 'bg-slate-300 dark:bg-slate-600';
-  if (row.health_status === 'healthy') return 'bg-emerald-500';
-  if (row.health_status === 'unhealthy') return 'bg-red-500';
+  if (row.health_check_enabled && row.health_status === 'healthy') return 'bg-emerald-500';
+  if (row.health_check_enabled && row.health_status === 'unhealthy') return 'bg-red-500';
   return 'bg-amber-400';
 }
 function originDotClass(row: DomainOrigin) {
   if (!row.enabled) return 'bg-slate-400';
-  if (row.health_status === 'healthy') return 'bg-emerald-500';
-  if (row.health_status === 'unhealthy') return 'bg-red-500';
+  if (row.health_check_enabled && row.health_status === 'healthy') return 'bg-emerald-500';
+  if (row.health_check_enabled && row.health_status === 'unhealthy') return 'bg-red-500';
   return 'bg-amber-400';
 }
 function originDetails(row: DomainOrigin) {
-  const details = [`Health ${row.health_check_path || '/'}`];
+  const details = [row.health_check_enabled ? `Health ${row.health_check_path || '/'}` : 'Health pass-through'];
   if (row.host_header) details.push(`Host ${row.host_header}`);
   if (row.sni) details.push(`SNI ${row.sni}`);
   if (row.preserve_host) details.push('Preserves CDN host');
@@ -188,7 +193,7 @@ function originDetails(row: DomainOrigin) {
 function formatTime(value: number) { return new Date(value * 1000).toLocaleString(); }
 async function load() { loading.value = true; try { rows.value = await originsApi.list(props.domainId); } finally { loading.value = false; } }
 function startCreate() { editingId.value = ''; reset(); editing.value = true; }
-function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'ignore'), preserve_host: Boolean(row.preserve_host), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
+function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'ignore'), preserve_host: row.preserve_host !== false, health_check_enabled: Boolean(row.health_check_enabled), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
 async function save() {
   error.value = '';
   const host = form.host.trim();

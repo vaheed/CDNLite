@@ -242,6 +242,20 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+edge_config_origin_json() {
+  local host="$1"
+  docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$host\" <<'PY'
+import json
+import sys
+
+path, host = sys.argv[1], sys.argv[2]
+with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+    cfg = json.load(fh)
+origin = (((cfg.get('hosts') or {}).get(host) or {}).get('origins') or [{}])[0]
+print(json.dumps(origin, sort_keys=True))
+PY"
+}
+
 edge_config_origin_restored() {
   local domain="$1"
   docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$domain\" <<'PY'
@@ -841,6 +855,65 @@ if [[ -z "$PRIMARY_ORIGIN_ID" || "$PRIMARY_ORIGIN_ID" == "null" ]]; then
   fail "DNS-linked origin not found for ${PRIMARY_DNS_ID}"
 fi
 record_step PASS "origin-linked-row" "origin_id=${PRIMARY_ORIGIN_ID}"
+
+origin_default_preserve="$(jq -r --arg id "$PRIMARY_ORIGIN_ID" '.data[] | select(.id == $id) | .preserve_host' <<<"$HTTP_BODY")"
+origin_default_health_check="$(jq -r --arg id "$PRIMARY_ORIGIN_ID" '.data[] | select(.id == $id) | .health_check_enabled' <<<"$HTTP_BODY")"
+origin_default_host_header="$(jq -r --arg id "$PRIMARY_ORIGIN_ID" '.data[] | select(.id == $id) | .host_header' <<<"$HTTP_BODY")"
+origin_default_sni="$(jq -r --arg id "$PRIMARY_ORIGIN_ID" '.data[] | select(.id == $id) | .sni' <<<"$HTTP_BODY")"
+assert_eq "$origin_default_preserve" "true" "DNS-linked origin should preserve requested host by default"
+assert_eq "$origin_default_health_check" "false" "DNS-linked origin health check should default off"
+assert_eq "$origin_default_host_header" "${TEST_DOMAIN}" "DNS-linked origin host_header should default to requested hostname"
+assert_eq "$origin_default_sni" "${TEST_DOMAIN}" "DNS-linked origin SNI should default to requested hostname"
+record_step PASS "origin-dns-linked-shared-hosting-defaults" "host_header=${origin_default_host_header} sni=${origin_default_sni} health_check_enabled=${origin_default_health_check}"
+
+ORIGIN_HTTP_IP="$(docker compose exec -T edge sh -lc "getent hosts origin-http | awk '{print \$1; exit}'" | tr -d '\r')"
+if [[ -z "$ORIGIN_HTTP_IP" ]]; then
+  fail "unable to resolve origin-http container IP from edge"
+fi
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
+  "{\"origin_host\":\"${ORIGIN_HTTP_IP}\",\"origin_scheme\":\"http\",\"origin_tls_verify\":\"ignore\"}"
+assert_http_status "$HTTP_CODE" "200" "origin IP DNS-linked update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+edge_wait_config_host "${TEST_DOMAIN}"
+origin_ip_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
+assert_contains "$origin_ip_config" "\"host\": \"${ORIGIN_HTTP_IP}\"" "edge config should keep origin IP as upstream host"
+assert_contains "$origin_ip_config" "\"host_header\": \"${TEST_DOMAIN}\"" "edge config should use requested host header for origin IP"
+assert_contains "$origin_ip_config" "\"sni\": \"${TEST_DOMAIN}\"" "edge config should use requested hostname SNI for origin IP"
+assert_contains "$origin_ip_config" '"preserve_host": true' "edge config should preserve requested host for origin IP"
+assert_contains "$origin_ip_config" '"health_check_enabled": false' "edge config should leave origin health checks disabled by default"
+origin_ip_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=origin-ip-shared-hosting")"
+assert_contains "$origin_ip_body" '"origin_scheme":"http"' "origin IP default should route over HTTP/80"
+assert_contains "$origin_ip_body" "\"origin_host\":\"${TEST_DOMAIN}\"" "origin IP should receive requested Host header for shared hosting"
+record_step PASS "origin-ip-shared-hosting-default" "upstream=${ORIGIN_HTTP_IP}:80 host=${TEST_DOMAIN}"
+
+db_query "UPDATE domain_origins SET health_check_enabled=false, health_status='unhealthy', last_error='core_unreachable_for_e2e' WHERE id='${PRIMARY_ORIGIN_ID}';" >/dev/null
+docker compose exec -T core php artisan cdn:edge:sync-config >/dev/null
+agent_exec '/agent/pull_config.sh' >/dev/null
+edge_wait_config_host "${TEST_DOMAIN}"
+origin_unchecked_unhealthy_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
+assert_contains "$origin_unchecked_unhealthy_config" "\"host\": \"${ORIGIN_HTTP_IP}\"" "unchecked unhealthy origin should remain in edge config"
+assert_contains "$origin_unchecked_unhealthy_config" '"health_check_enabled": false' "unchecked unhealthy origin should keep health checks disabled in config"
+origin_unchecked_unhealthy_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=origin-unchecked-unhealthy")"
+assert_contains "$origin_unchecked_unhealthy_body" '"origin_scheme":"http"' "unchecked unhealthy origin should still route traffic"
+assert_contains "$origin_unchecked_unhealthy_body" "\"origin_host\":\"${TEST_DOMAIN}\"" "unchecked unhealthy origin should still preserve requested Host"
+record_step PASS "origin-health-disabled-still-routes" "core health_status=unhealthy did not block edge traffic when health_check_enabled=false"
+
+ORIGIN_TLS_IP="$(docker compose exec -T edge sh -lc "getent hosts origin-tls | awk '{print \$1; exit}'" | tr -d '\r')"
+if [[ -z "$ORIGIN_TLS_IP" ]]; then
+  fail "unable to resolve origin-tls container IP from edge"
+fi
+api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
+  "{\"scheme\":\"https\",\"host\":\"${ORIGIN_TLS_IP}\",\"port\":443,\"host_header\":\"\",\"sni\":\"\",\"tls_verify\":\"ignore\",\"preserve_host\":true,\"health_check_enabled\":false,\"enabled\":true}"
+assert_http_status "$HTTP_CODE" "200" "HTTPS origin IP preserve-host update failed"
+agent_exec '/agent/pull_config.sh' >/dev/null
+origin_ip_sni_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
+assert_contains "$origin_ip_sni_config" "\"host\": \"${ORIGIN_TLS_IP}\"" "edge config should keep HTTPS origin IP as upstream host"
+assert_contains "$origin_ip_sni_config" '"sni": ""' "blank SNI should not be stored as the origin IP"
+origin_ip_sni_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=origin-ip-sni")"
+assert_contains "$origin_ip_sni_body" '"origin_scheme":"https"' "HTTPS origin IP should route through edge"
+assert_contains "$origin_ip_sni_body" "\"origin_host\":\"${TEST_DOMAIN}\"" "HTTPS origin IP should receive requested Host header"
+assert_contains "$origin_ip_sni_body" "\"origin_sni\":\"${TEST_DOMAIN}\"" "HTTPS origin IP should use requested host as SNI"
+record_step PASS "origin-ip-sni-preserve-host" "upstream=${ORIGIN_TLS_IP}:443 sni=${TEST_DOMAIN}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
   '{"scheme":"https","host":"origin-tls","port":443,"host_header":"origin-tls","sni":"phase3-sni.local","tls_verify":"ignore","preserve_host":false,"enabled":true}'

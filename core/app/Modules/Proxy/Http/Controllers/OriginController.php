@@ -101,7 +101,7 @@ class OriginController
                 return $weight;
             }
         }
-        foreach (['is_primary', 'enabled', 'preserve_host'] as $field) {
+        foreach (['is_primary', 'enabled', 'preserve_host', 'health_check_enabled'] as $field) {
             if (array_key_exists($field, $body)) {
                 $bool = Validator::bool($body, $field);
                 if (($bool['ok'] ?? false) !== true) {

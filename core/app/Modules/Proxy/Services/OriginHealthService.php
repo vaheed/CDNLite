@@ -37,15 +37,16 @@ class OriginHealthService
                 'scheme' => (string) ($input['scheme'] ?? 'http'),
                 'host' => strtolower(trim((string) ($input['host'] ?? ''))),
                 'port' => (int) ($input['port'] ?? ((string) ($input['scheme'] ?? 'http') === 'https' ? 443 : 80)),
-                'host_header' => trim((string) ($input['host_header'] ?? $input['host'] ?? '')),
-                'sni' => trim((string) ($input['sni'] ?? $input['host'] ?? '')),
+                'host_header' => trim((string) ($input['host_header'] ?? '')),
+                'sni' => trim((string) ($input['sni'] ?? '')),
                 'tls_verify' => (string) ($input['tls_verify'] ?? 'ignore'),
-                'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : false,
+                'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : true,
                 'dns_record_id' => $input['dns_record_id'] ?? null,
                 'source' => (string) ($input['source'] ?? 'manual'),
                 'role' => (string) ($input['role'] ?? 'origin'),
                 'weight' => (int) ($input['weight'] ?? 1),
                 'is_primary' => false,
+                'health_check_enabled' => array_key_exists('health_check_enabled', $input) ? !empty($input['health_check_enabled']) : false,
                 'health_check_path' => (string) ($input['health_check_path'] ?? '/'),
                 'health_check_interval_seconds' => (int) ($input['health_check_interval_seconds'] ?? 30),
                 'health_check_timeout_seconds' => (int) ($input['health_check_timeout_seconds'] ?? 5),
@@ -57,14 +58,11 @@ class OriginHealthService
             if ($row['host_header'] === '') {
                 $row['host_header'] = $row['host'];
             }
-            if ($row['sni'] === '') {
-                $row['sni'] = $row['host'];
-            }
             $pdo->prepare(
                 'INSERT INTO domain_origins
-                 (id,domain_id,dns_record_id,source,role,weight,scheme,host,port,host_header,sni,tls_verify,preserve_host,is_primary,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,health_status,last_check_at,last_error,enabled,created_at,updated_at)
+                 (id,domain_id,dns_record_id,source,role,weight,scheme,host,port,host_header,sni,tls_verify,preserve_host,is_primary,health_check_enabled,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,health_status,last_check_at,last_error,enabled,created_at,updated_at)
                  VALUES
-                 (:id,:domain_id,:dns_record_id,:source,:role,:weight,:scheme,:host,:port,:host_header,:sni,:tls_verify,:preserve_host,:is_primary,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
+                 (:id,:domain_id,:dns_record_id,:source,:role,:weight,:scheme,:host,:port,:host_header,:sni,:tls_verify,:preserve_host,:is_primary,:health_check_enabled,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
             )->execute([
                 ':id' => $row['id'],
                 ':domain_id' => $row['domain_id'],
@@ -80,6 +78,7 @@ class OriginHealthService
                 ':tls_verify' => $row['tls_verify'],
                 ':preserve_host' => (int) $row['preserve_host'],
                 ':is_primary' => (int) $row['is_primary'],
+                ':health_check_enabled' => (int) $row['health_check_enabled'],
                 ':health_check_path' => $row['health_check_path'],
                 ':health_check_interval_seconds' => $row['health_check_interval_seconds'],
                 ':health_check_timeout_seconds' => $row['health_check_timeout_seconds'],
@@ -117,10 +116,11 @@ class OriginHealthService
             'host_header' => array_key_exists('host_header', $input) ? trim((string) $input['host_header']) : (string) ($existing['host_header'] ?? ''),
             'sni' => array_key_exists('sni', $input) ? trim((string) $input['sni']) : (string) ($existing['sni'] ?? ''),
             'tls_verify' => (string) ($input['tls_verify'] ?? $existing['tls_verify'] ?? 'ignore'),
-            'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : (bool) ($existing['preserve_host'] ?? false),
+            'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : (bool) ($existing['preserve_host'] ?? true),
             'role' => array_key_exists('role', $input) ? (string) $input['role'] : (string) ($existing['role'] ?? 'origin'),
             'weight' => (int) ($input['weight'] ?? $existing['weight'] ?? 1),
             'enabled' => array_key_exists('enabled', $input) ? !empty($input['enabled']) : (bool) $existing['enabled'],
+            'health_check_enabled' => array_key_exists('health_check_enabled', $input) ? !empty($input['health_check_enabled']) : (bool) ($existing['health_check_enabled'] ?? false),
             // DNS-linked origin edits should recover fast after a transient
             // outage. Reset health so the edge can route to the repaired origin
             // immediately instead of waiting for the next health probe.
@@ -131,16 +131,13 @@ class OriginHealthService
         if ($patch['host_header'] === '') {
             $patch['host_header'] = $patch['host'];
         }
-        if ($patch['sni'] === '') {
-            $patch['sni'] = $patch['host'];
-        }
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
             $pdo->prepare(
                 'UPDATE domain_origins SET scheme=:scheme,host=:host,port=:port,host_header=:host_header,sni=:sni,
                  tls_verify=:tls_verify,preserve_host=:preserve_host,role=:role,weight=:weight,is_primary=:is_primary,
-                 health_check_path=:health_check_path,health_check_interval_seconds=:health_check_interval_seconds,
+                 health_check_enabled=:health_check_enabled,health_check_path=:health_check_path,health_check_interval_seconds=:health_check_interval_seconds,
                  health_check_timeout_seconds=:health_check_timeout_seconds,health_status=:health_status,
                  last_check_at=:last_check_at,last_error=:last_error,enabled=:enabled,updated_at=:updated_at
                  WHERE domain_id=:domain_id AND id=:id'
@@ -157,6 +154,7 @@ class OriginHealthService
                 ':role' => $patch['role'],
                 ':weight' => $patch['weight'],
                 ':is_primary' => 0,
+                ':health_check_enabled' => (int) $patch['health_check_enabled'],
                 ':health_check_path' => $patch['health_check_path'],
                 ':health_check_interval_seconds' => $patch['health_check_interval_seconds'],
                 ':health_check_timeout_seconds' => $patch['health_check_timeout_seconds'],
@@ -230,7 +228,8 @@ class OriginHealthService
         $cutoff = time();
         $stmt = Database::pdo()->prepare(
             'SELECT * FROM domain_origins
-             WHERE enabled=true AND (last_check_at IS NULL OR last_check_at + health_check_interval_seconds <= :now)
+             WHERE enabled=true AND health_check_enabled=true
+               AND (last_check_at IS NULL OR last_check_at + health_check_interval_seconds <= :now)
              ORDER BY COALESCE(last_check_at, 0) ASC'
         );
         $stmt->execute([':now' => $cutoff]);
@@ -258,13 +257,16 @@ class OriginHealthService
 
         $existing = $this->findForDnsRecord($domainId, (string) $record['id']);
         $scheme = $this->schemeForDnsRecord($record);
+        $requestedHost = $this->requestedHostForDnsRecord($domainId, $record);
         $payload = [
             'scheme' => $scheme,
             'host' => $host,
             'port' => $scheme === 'https' ? 443 : 80,
-            'host_header' => $host,
-            'sni' => $host,
+            'host_header' => $requestedHost,
+            'sni' => $requestedHost,
             'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
+            'preserve_host' => true,
+            'health_check_enabled' => false,
             'source' => 'dns_record',
             'role' => 'origin',
             'is_primary' => false,
@@ -276,9 +278,10 @@ class OriginHealthService
             // DNS reconciliation owns the backend address/protocol, but origin
             // routing knobs can be edited in the Origins tab and must survive
             // the list-time sync that keeps DNS-linked rows visible.
-            $payload['host_header'] = (string) ($existing['host_header'] ?? $host);
-            $payload['sni'] = (string) ($existing['sni'] ?? $host);
-            $payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? false);
+            $payload['host_header'] = (string) ($existing['host_header'] ?? $requestedHost);
+            $payload['sni'] = (string) ($existing['sni'] ?? $requestedHost);
+            $payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? true);
+            $payload['health_check_enabled'] = (bool) ($existing['health_check_enabled'] ?? false);
             $payload['_skip_dns_record_sync'] = true;
             return $this->update($domainId, (string) $existing['id'], $payload);
         }
@@ -323,6 +326,22 @@ class OriginHealthService
         $stmt->execute([':domain_id' => $domainId, ':dns_record_id' => $dnsRecordId]);
         $row = $stmt->fetch();
         return $row ? $this->cast($row) : null;
+    }
+
+    private function requestedHostForDnsRecord(string $domainId, array $record): string
+    {
+        $domain = Database::pdo()->prepare('SELECT domain FROM domains WHERE id=:id LIMIT 1');
+        $domain->execute([':id' => $domainId]);
+        $domainRow = $domain->fetch();
+        $domainHost = strtolower(rtrim((string) (is_array($domainRow) ? ($domainRow['domain'] ?? '') : ''), '.'));
+        $name = strtolower(rtrim(trim((string) ($record['name'] ?? '@')), '.'));
+        if ($domainHost === '' || $name === '' || $name === '@') {
+            return $domainHost !== '' ? $domainHost : strtolower(trim((string) ($record['origin_host'] ?? $record['content'] ?? '')));
+        }
+        if ($name === $domainHost || str_ends_with($name, '.' . $domainHost)) {
+            return $name;
+        }
+        return $name . '.' . $domainHost;
     }
 
     private function isDnsLinkedOrigin(array $origin): bool
@@ -405,15 +424,20 @@ class OriginHealthService
         $now = time();
         $path = '/' . ltrim((string) ($origin['health_check_path'] ?? '/'), '/');
         $url = sprintf('%s://%s:%d%s', $origin['scheme'], $origin['host'], (int) $origin['port'], $path);
+        $hostHeader = (string) ($origin['host_header'] ?: $origin['host']);
+        $sni = (string) ($origin['sni'] ?: $hostHeader);
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
                 'timeout' => max(1, (int) ($origin['health_check_timeout_seconds'] ?? 5)),
                 'ignore_errors' => true,
+                'header' => 'Host: ' . $hostHeader . "\r\n",
             ],
             'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
+                'SNI_enabled' => $sni !== '',
+                'peer_name' => $sni !== '' ? $sni : (string) $origin['host'],
+                'verify_peer' => (string) ($origin['tls_verify'] ?? 'ignore') === 'verify',
+                'verify_peer_name' => (string) ($origin['tls_verify'] ?? 'ignore') === 'verify',
             ],
         ]);
         $body = @file_get_contents($url, false, $context);
@@ -440,9 +464,7 @@ class OriginHealthService
         $scheme = (string) $origin['scheme'];
         $path = '/' . ltrim((string) ($origin['health_check_path'] ?? '/'), '/');
         $timeout = max(1, (int) ($origin['health_check_timeout_seconds'] ?? 5));
-        $hostHeader = !empty($origin['preserve_host'])
-            ? $host
-            : (string) ($origin['host_header'] ?: $host);
+        $hostHeader = (string) ($origin['host_header'] ?: $host);
         $sni = (string) ($origin['sni'] ?: $hostHeader);
 
         $result = [
@@ -601,12 +623,13 @@ class OriginHealthService
         $row['source'] = (string) ($row['source'] ?? 'manual');
         $row['role'] = (string) ($row['role'] ?? 'origin');
         $row['host_header'] = (string) ($row['host_header'] ?: $row['host']);
-        $row['sni'] = (string) ($row['sni'] ?: $row['host']);
+        $row['sni'] = (string) ($row['sni'] ?? '');
         $row['tls_verify'] = (string) ($row['tls_verify'] ?? 'ignore');
         $row['last_check_at'] = $row['last_check_at'] === null ? null : (int) $row['last_check_at'];
         $row['is_primary'] = in_array($row['is_primary'], [true, 1, '1', 't', 'true'], true);
         $row['enabled'] = in_array($row['enabled'], [true, 1, '1', 't', 'true'], true);
         $row['preserve_host'] = in_array($row['preserve_host'], [true, 1, '1', 't', 'true'], true);
+        $row['health_check_enabled'] = in_array($row['health_check_enabled'] ?? false, [true, 1, '1', 't', 'true'], true);
         return $row;
     }
 

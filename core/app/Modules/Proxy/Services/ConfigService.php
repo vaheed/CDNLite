@@ -43,14 +43,14 @@ class ConfigService
                 continue;
             }
             $configuredOrigins = $this->origins->list((string) $domain['id']);
+            $domainHost = strtolower((string) $domain['domain']);
             $origins = $this->originsForSnapshot($configuredOrigins);
             if ($origins === []) {
-                $origins = $this->originsFromDnsRecords($records);
+                $origins = $this->originsFromDnsRecords($records, $domainHost);
             }
             if ($origins === []) {
                 continue;
             }
-            $domainHost = strtolower((string) $domain['domain']);
             $baseConfig = [
                 'domain_id' => (string) $domain['id'],
                 'origin' => $origins[0],
@@ -422,9 +422,10 @@ class ConfigService
             'scheme' => (string) $origin['scheme'],
             'port' => (int) $origin['port'],
             'host_header' => (string) ($origin['host_header'] ?? $origin['host']),
-            'sni' => (string) ($origin['sni'] ?? $origin['host']),
+            'sni' => (string) ($origin['sni'] ?? ''),
             'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
-            'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
+            'preserve_host' => (bool) ($origin['preserve_host'] ?? true),
+            'health_check_enabled' => (bool) ($origin['health_check_enabled'] ?? false),
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
@@ -437,6 +438,9 @@ class ConfigService
             if (empty($origin['enabled'])) {
                 continue;
             }
+            if (!empty($origin['health_check_enabled']) && (string) ($origin['health_status'] ?? 'unknown') === 'unhealthy') {
+                continue;
+            }
             $out[] = $this->originForSnapshot($origin);
         }
         usort($out, static function (array $a, array $b): int {
@@ -447,7 +451,7 @@ class ConfigService
         return $out;
     }
 
-    private function originsFromDnsRecords(array $records): array
+    private function originsFromDnsRecords(array $records, string $domainHost): array
     {
         $origins = [];
         foreach ($records as $record) {
@@ -459,6 +463,7 @@ class ConfigService
                 continue;
             }
             $scheme = $this->schemeForDnsRecord($record);
+            $requestedHost = $this->recordHost($domainHost, (string) ($record['name'] ?? '')) ?? $host;
             $origins[] = [
                 'id' => (string) ($record['id'] ?? ''),
                 'dns_record_id' => (string) ($record['id'] ?? ''),
@@ -469,9 +474,11 @@ class ConfigService
                 'scheme' => $scheme,
                 'host' => $host,
                 'port' => $scheme === 'https' ? 443 : 80,
-                'host_header' => $host,
-                'sni' => $host,
+                'host_header' => $requestedHost,
+                'sni' => $requestedHost,
                 'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
+                'preserve_host' => true,
+                'health_check_enabled' => false,
                 'health_status' => (string) ($record['origin_status'] ?? 'pending'),
                 'status' => (string) ($record['origin_status'] ?? 'pending'),
             ];
@@ -497,7 +504,7 @@ class ConfigService
             }
             $recordOrigins = $this->originsForDnsRecord((string) ($record['id'] ?? ''), $configuredOrigins);
             if ($recordOrigins === []) {
-                $origin = $this->originFromDnsRecord($record);
+                $origin = $this->originFromDnsRecord($record, $domainHost);
                 if ($origin === null) {
                     continue;
                 }
@@ -527,6 +534,9 @@ class ConfigService
             if ((string) ($origin['dns_record_id'] ?? '') !== $recordId || empty($origin['enabled'])) {
                 continue;
             }
+            if (!empty($origin['health_check_enabled']) && (string) ($origin['health_status'] ?? 'unknown') === 'unhealthy') {
+                continue;
+            }
             $origins[] = $this->originForSnapshot($origin);
         }
         return $origins;
@@ -534,6 +544,10 @@ class ConfigService
 
     private function recordHost(string $domainHost, string $name): ?string
     {
+        $domainHost = strtolower(rtrim(trim($domainHost), '.'));
+        if ($domainHost === '') {
+            return null;
+        }
         $name = strtolower(rtrim(trim($name), '.'));
         if ($name === '' || $name === '@') {
             return $domainHost;
@@ -544,13 +558,14 @@ class ConfigService
         return $name . '.' . $domainHost;
     }
 
-    private function originFromDnsRecord(array $record): ?array
+    private function originFromDnsRecord(array $record, string $domainHost = ''): ?array
     {
         $host = trim((string) ($record['origin_host'] ?? $record['origin_content'] ?? $record['content'] ?? ''));
         if ($host === '') {
             return null;
         }
         $scheme = $this->schemeForDnsRecord($record);
+        $requestedHost = $this->recordHost($domainHost, (string) ($record['name'] ?? '')) ?? $host;
         return [
             'id' => (string) ($record['id'] ?? ''),
             'dns_record_id' => (string) ($record['id'] ?? ''),
@@ -561,9 +576,11 @@ class ConfigService
             'scheme' => $scheme,
             'host' => $host,
             'port' => $scheme === 'https' ? 443 : 80,
-            'host_header' => $host,
-            'sni' => $host,
+            'host_header' => $requestedHost,
+            'sni' => $requestedHost,
             'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
+            'preserve_host' => true,
+            'health_check_enabled' => false,
             'health_status' => (string) ($record['origin_status'] ?? 'pending'),
             'status' => (string) ($record['origin_status'] ?? 'pending'),
         ];
@@ -628,9 +645,10 @@ class ConfigService
                 'scheme' => (string) ($origin['scheme'] ?? 'http'),
                 'port' => (int) ($origin['port'] ?? (((string) ($origin['scheme'] ?? 'http') === 'https') ? 443 : 80)),
                 'host_header' => (string) ($origin['host_header'] ?? $host),
-                'sni' => (string) ($origin['sni'] ?? $host),
+                'sni' => (string) ($origin['sni'] ?? ''),
                 'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
-                'preserve_host' => (bool) ($origin['preserve_host'] ?? false),
+                'preserve_host' => (bool) ($origin['preserve_host'] ?? true),
+                'health_check_enabled' => (bool) ($origin['health_check_enabled'] ?? false),
             ];
         }
         ksort($out);
@@ -646,13 +664,17 @@ class ConfigService
         $unknown = [];
         foreach ($origins as $origin) {
             $status = (string) ($origin['health_status'] ?? 'unknown');
+            $checked = !empty($origin['health_check_enabled']);
             if ($status === 'healthy') {
                 $healthy[] = $origin;
-            } elseif ($status !== 'unhealthy') {
+            } elseif (!$checked || $status !== 'unhealthy') {
                 $unknown[] = $origin;
             }
         }
-        $pool = $healthy !== [] ? $healthy : ($unknown !== [] ? $unknown : $origins);
+        $pool = $healthy !== [] ? $healthy : $unknown;
+        if ($pool === []) {
+            return null;
+        }
         if (count($pool) === 1) {
             return $pool[0];
         }

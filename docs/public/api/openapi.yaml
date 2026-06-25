@@ -2206,7 +2206,20 @@ components:
           type: integer
         role:
           type: string
-          enum: [primary, backup]
+          enum: [origin]
+        host_header:
+          type: string
+          nullable: true
+        sni:
+          type: string
+          nullable: true
+        tls_verify:
+          type: string
+          enum: [verify, ignore]
+        preserve_host:
+          type: boolean
+        health_check_enabled:
+          type: boolean
         enabled:
           type: boolean
         health_status:
@@ -2227,7 +2240,22 @@ components:
           maximum: 65535
         role:
           type: string
-          enum: [primary, backup]
+          enum: [origin]
+        host_header:
+          type: string
+          nullable: true
+        sni:
+          type: string
+          nullable: true
+        tls_verify:
+          type: string
+          enum: [verify, ignore]
+        preserve_host:
+          type: boolean
+          default: true
+        health_check_enabled:
+          type: boolean
+          default: false
         enabled:
           type: boolean
       additionalProperties: true

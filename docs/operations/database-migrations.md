@@ -94,3 +94,30 @@ before the failure row was recorded.
 Migration `000021_phase1_reporting_foundation.sql` is additive. It creates workload budget metadata, telemetry batch diagnostics, rejected-event diagnostics, reporting rollup watermarks, reconciliation results, reporting indexes, and the `reporting_current_platform_summary` materialized view.
 
 Rollback is a forward-fix or restore-from-backup operation for existing installs because later reporting code may depend on these objects. Fresh installs receive the same objects from `core/database/schema.sql`.
+
+## Shared-Hosting Origin Defaults
+
+Migration `000023_origin_shared_hosting_defaults.sql` is additive and intended
+for in-place upgrades from 1.6.0-era deployments. It adds
+`domain_origins.health_check_enabled` with default `false`, changes new origin
+defaults to `preserve_host=true` and `tls_verify='ignore'`, and upgrades old
+DNS-linked origin rows only when their host-header/SNI fields still match the
+old generated defaults.
+
+The migration does not rewrite explicit custom origin settings. DNS-linked rows
+that still have `host_header` or `sni` equal to the backend IP/host are moved to
+the requested DNS hostname so cPanel/shared-hosting origins receive the real site
+name in Host and SNI while the edge still connects to the configured origin IP.
+
+For low-risk upgrades under load:
+
+```bash
+docker compose exec core php artisan cdn:db:migrate --dry-run
+docker compose exec core php artisan cdn:db:migrate
+docker compose exec core php artisan cdn:edge:sync-config
+docker compose exec edge-agent /agent/pull_config.sh
+```
+
+After the rollout, verify a proxied domain whose origin is an IP returns the
+site correctly and that the origin row shows `health_check_enabled=false` unless
+you intentionally enabled active monitoring.

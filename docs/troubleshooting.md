@@ -91,7 +91,7 @@ curl -s http://localhost:8081/ready
 docker compose exec edge wget -qO- http://127.0.0.1:8081/__cdnlite_reload_config
 ```
 
-If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. If the edge returns `no_healthy_origin`, check the enabled backend addresses, their host, port, host header, TLS/SNI, firewall, and health status.
+If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. For shared hosting or cPanel, keep `preserve_host` on so the origin receives the requested site hostname in Host and SNI even when the backend address is an IP. If the edge returns `no_healthy_origin`, check that at least one enabled origin is not a health-checked unhealthy origin.
 
 The edge keeps a worker-local last-known-good snapshot. If `/ready` reports
 `reload_failures` or `last_reload_error`, fix the snapshot on disk or force the

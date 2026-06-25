@@ -17,16 +17,22 @@ def test_domain_schema_keeps_record_level_origin_fields():
     assert "host_header TEXT NULL" in schema
     assert "sni TEXT NULL" in schema
     assert "tls_verify TEXT NOT NULL DEFAULT 'ignore'" in schema
-    assert "preserve_host BOOLEAN NOT NULL DEFAULT false" in schema
+    assert "preserve_host BOOLEAN NOT NULL DEFAULT true" in schema
+    assert "health_check_enabled BOOLEAN NOT NULL DEFAULT false" in schema
     assert "domain_origins_dns_record_idx" in schema
 
 
 def test_dns_origin_link_migration_is_additive():
     migration = read("core/database/migrations/000002_link_dns_records_to_origins.sql")
+    shared_hosting_migration = read("core/database/migrations/000023_origin_shared_hosting_defaults.sql")
 
     assert "ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS dns_record_id" in migration
     assert "FOREIGN KEY (dns_record_id) REFERENCES dns_records(id) ON DELETE CASCADE" in migration
     assert "CREATE INDEX IF NOT EXISTS domain_origins_dns_record_idx" in migration
+    assert "ALTER TABLE domain_origins ADD COLUMN IF NOT EXISTS health_check_enabled" in shared_hosting_migration
+    assert "ALTER TABLE domain_origins ALTER COLUMN preserve_host SET DEFAULT true" in shared_hosting_migration
+    assert "domain_origins.source = 'dns_record'" in shared_hosting_migration
+    assert "domain_origins.host_header = domain_origins.host" in shared_hosting_migration
     assert "DROP TABLE" not in migration
     assert "TRUNCATE" not in migration
 
@@ -73,9 +79,12 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "dns_record_id" in origins
     assert "syncDnsRecordFromLinkedOrigin" in origins
     assert "$payload['_skip_dns_record_sync'] = true" in origins
-    assert "$payload['host_header'] = (string) ($existing['host_header'] ?? $host)" in origins
-    assert "$payload['sni'] = (string) ($existing['sni'] ?? $host)" in origins
-    assert "$payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? false)" in origins
+    assert "$requestedHost = $this->requestedHostForDnsRecord($domainId, $record)" in origins
+    assert "'host_header' => $requestedHost" in origins
+    assert "'sni' => $requestedHost" in origins
+    assert "'preserve_host' => true" in origins
+    assert "'health_check_enabled' => false" in origins
+    assert "$payload['preserve_host'] = (bool) ($existing['preserve_host'] ?? true)" in origins
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins
@@ -94,11 +103,12 @@ def test_edge_origin_selection_uses_explicit_scheme_except_auto():
     assert "scheme ~= 'auto'" in selector
     assert "invalid_origin_scheme" in selector
     assert "sock:connect(origin.host, 443)" in selector
-    assert "sock:sslhandshake(nil, origin.host, verify)" in selector
+    assert "sock:sslhandshake(nil, sni, verify)" in selector
     assert "origin.tls_verify or 'ignore'" in selector
     assert "~= 'ignore'" in selector
     assert "host_header = origin.host" in selector
     assert "origin.preserve_host == true" in selector
+    assert "not is_ip_address(host)" in selector
 
 
 def test_fresh_install_does_not_include_origin_upgrade_sql():
@@ -120,6 +130,7 @@ def test_snapshot_contains_origins_array_for_all_proxied_records():
     assert "'host_header'" in config
     assert "'sni'" in config
     assert "'preserve_host'" in config
+    assert "'health_check_enabled'" in config
     assert "'source' => 'geo_origin'" in config
     assert "'scheme' => (string) ($origin['scheme']" in config
     assert "Geo origins should not silently assume TLS" in config

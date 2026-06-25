@@ -67,6 +67,7 @@ assert_contains "$dashboard_asset" "/onboarding/answers" "dashboard bundle shoul
 assert_contains "$dashboard_asset" "Simple view" "dashboard bundle should include beginner Activity toggle"
 assert_contains "$dashboard_asset" "Beginner Activity summary" "dashboard bundle should include beginner Activity summary"
 assert_contains "$dashboard_asset" "Advanced view" "dashboard bundle should preserve advanced Activity view"
+assert_contains "$dashboard_asset" "Enable health check for this origin" "dashboard bundle should include optional origin health-check toggle"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 record_step PASS "dashboard-recommendations-bundle" "Recommendation panel and APIs are present in the dashboard bundle"
 record_step PASS "dashboard-onboarding-bundle" "Guided onboarding wizard and APIs are present in the dashboard bundle"
@@ -167,6 +168,10 @@ record_step PASS "schema-domain-origin-columns-absent" "domain origin columns ar
 record_origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_records' AND column_name IN ('origin_host','origin_tls_verify','origin_scheme','origin_status','geo_origins_json','managed_by');")"
 assert_eq "$record_origin_columns" "6" "DNS record origin and ownership columns are incomplete"
 record_step PASS "schema-dns-record-origin-columns" "record-level origin and ownership columns are present"
+
+domain_origin_defaults="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_origins' AND ((column_name='preserve_host' AND column_default='true') OR (column_name='health_check_enabled' AND column_default='false') OR (column_name='tls_verify' AND column_default='''ignore''::text'));")"
+assert_eq "$domain_origin_defaults" "3" "shared-hosting origin defaults are incomplete"
+record_step PASS "schema-origin-shared-hosting-defaults" "preserve_host default on, health checks default off, TLS verify defaults ignore"
 
 geo_route_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='dns_record_geo_routes' AND column_name IN ('route_scope','country_code','continent_code','answer_type','answer_value','enabled');")"
 assert_eq "$geo_route_columns" "6" "raw GeoDNS route columns are incomplete"

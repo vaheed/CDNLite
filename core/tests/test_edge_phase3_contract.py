@@ -108,6 +108,8 @@ def test_origin_selector_returns_routing_metadata_without_silent_guessing():
     assert "host_header = origin.host" in selector
     assert "origin.preserve_host == true" in selector
     assert "sni = origin_sni(origin, host_header)" in selector
+    assert "not is_ip_address(host)" in selector
+    assert "health_check_enabled(origin)" in selector
     assert "tls_verify = tostring(origin.tls_verify or 'ignore')" in selector
 
 
@@ -124,6 +126,10 @@ def test_phase3_e2e_covers_https_sni_and_preserve_host_runtime_cases():
     assert '"origin_host":"origin-http"' in e2e
     assert "origin-host-header-cdn" in e2e
     assert '\\"preserve_host\\":true' in e2e
+    assert "origin-ip-shared-hosting-default" in e2e
+    assert "origin-ip-sni-preserve-host" in e2e
+    assert "origin-health-disabled-still-routes" in e2e
+    assert '"health_check_enabled": false' in e2e
     assert '\\"origin_host\\":\\"${TEST_DOMAIN}\\"' in e2e
     assert "verify mode should reject the self-signed certificate" in e2e
     assert 'assert_eq "$origin_verify_status" "502"' in e2e

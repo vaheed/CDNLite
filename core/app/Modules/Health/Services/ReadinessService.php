@@ -144,7 +144,7 @@ class ReadinessService
     {
         $stmt = Database::pdo()->query(
             "SELECT COUNT(*) FROM domain_origins
-             WHERE enabled=true AND health_status='unhealthy'"
+             WHERE enabled=true AND health_check_enabled=true AND health_status='unhealthy'"
         );
         $unhealthy = (int) $stmt->fetchColumn();
         if ($unhealthy === 0) {

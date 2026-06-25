@@ -10,6 +10,18 @@ local function healthy_rank(status)
   return 2
 end
 
+local function health_check_enabled(origin)
+  return origin.health_check_enabled == true
+end
+
+local function is_ip_address(host)
+  host = tostring(host or '')
+  if host:match('^%d+%.%d+%.%d+%.%d+$') then
+    return true
+  end
+  return host:find(':', 1, true) ~= nil
+end
+
 local function sort_origins(origins)
   table.sort(origins, function(a, b)
     local rank_a = healthy_rank(a.health_status)
@@ -32,7 +44,9 @@ local function eligible_origins(domain)
   local origins = {}
   for _, origin in ipairs(domain.origins or {}) do
     if origin and origin.enabled ~= false and type(origin.host) == 'string' and origin.host ~= '' then
-      table.insert(origins, origin)
+      if not (health_check_enabled(origin) and tostring(origin.health_status or 'unknown') == 'unhealthy') then
+        table.insert(origins, origin)
+      end
     end
   end
   sort_origins(origins)
@@ -42,7 +56,7 @@ end
 local function candidate_origins(domain, country)
   local geo = domain.geo_origins or {}
   local geo_origin = geo[country] or geo.DEFAULT
-  if type(geo_origin) == 'table' and geo_origin.enabled ~= false and type(geo_origin.host) == 'string' and geo_origin.host ~= '' and tostring(geo_origin.health_status or 'unknown') ~= 'unhealthy' then
+  if type(geo_origin) == 'table' and geo_origin.enabled ~= false and type(geo_origin.host) == 'string' and geo_origin.host ~= '' and not (health_check_enabled(geo_origin) and tostring(geo_origin.health_status or 'unknown') == 'unhealthy') then
     return { geo_origin }, 'geo_origins.' .. tostring(country or 'DEFAULT')
   end
   return eligible_origins(domain), 'origins'
@@ -59,7 +73,7 @@ local function choose_origin(origins, seed)
     local status = tostring(origin.health_status or '')
     if status == 'healthy' then
       table.insert(healthy, origin)
-    elseif status ~= 'unhealthy' then
+    elseif not health_check_enabled(origin) or status ~= 'unhealthy' then
       table.insert(unknown, origin)
     end
   end
@@ -69,10 +83,7 @@ local function choose_origin(origins, seed)
     pool = unknown
   end
   if #pool == 0 then
-    -- If every origin is marked unhealthy, keep one last-resort target so the
-    -- cache layer can still attempt a fetch and fall back to stale content.
-    -- Healthy and unknown origins always win first.
-    pool = origins
+    return nil
   end
   if #pool == 1 then
     return pool[1]
@@ -96,10 +107,14 @@ local function origin_sni(origin, host_header)
   if sni ~= '' then
     return sni
   end
-  if host_header and host_header ~= '' then
+  if origin.preserve_host == true and host_header and host_header ~= '' then
     return host_header
   end
-  return tostring(origin.host or '')
+  local host = tostring(origin.host or '')
+  if host ~= '' and not is_ip_address(host) then
+    return host
+  end
+  return ''
 end
 
 local function build_metadata(origin, role)
@@ -121,6 +136,7 @@ local function build_metadata(origin, role)
     sni = origin_sni(origin, host_header),
     tls_verify = tostring(origin.tls_verify or 'ignore'),
     preserve_host = origin.preserve_host == true,
+    health_check_enabled = origin.health_check_enabled == true,
     health_status = tostring(origin.health_status or 'unknown'),
     weight = tonumber(origin.weight or 1) or 1,
   }
@@ -143,22 +159,24 @@ function M.select(domain, country, seed)
     return nil, 'invalid_origin_scheme'
   end
 
+  local meta = build_metadata(origin, origin_source)
   local sock = ngx.socket.tcp()
   sock:settimeouts(1000, 1500, 1500)
   local ok = sock:connect(origin.host, 443)
   if ok then
     local verify = tostring(origin.tls_verify or 'ignore') ~= 'ignore'
-    local session, err = sock:sslhandshake(nil, origin.host, verify)
+    local sni = meta.sni ~= '' and meta.sni or nil
+    local session, err = sock:sslhandshake(nil, sni, verify)
     sock:close()
     if session then
-      return 'https://' .. origin.host .. ':443', build_metadata(origin, origin_source)
+      return 'https://' .. origin.host .. ':443', meta
     end
     ngx.log(ngx.WARN, 'origin_https_handshake_failed host=', origin.host, ' verify=', tostring(verify), ' error=', tostring(err))
   else
     sock:close()
   end
 
-  return 'http://' .. origin.host .. ':80', build_metadata(origin, origin_source)
+  return 'http://' .. origin.host .. ':80', meta
 end
 
 return M

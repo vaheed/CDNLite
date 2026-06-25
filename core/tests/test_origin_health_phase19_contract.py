@@ -13,6 +13,7 @@ def test_origin_schema_contract():
 
     assert "CREATE TABLE IF NOT EXISTS domain_origins" in schema
     assert "health_check_interval_seconds INTEGER NOT NULL DEFAULT 30" in schema
+    assert "health_check_enabled BOOLEAN NOT NULL DEFAULT false" in schema
     assert "health_status TEXT NOT NULL DEFAULT 'unknown'" in schema
     assert "role TEXT NOT NULL DEFAULT 'origin'" in schema
 
@@ -36,8 +37,10 @@ def test_origin_health_service_and_readiness_contract():
 
     assert "function checkDue" in service
     assert "file_get_contents($url" in service
+    assert "enabled=true AND health_check_enabled=true" in service
     assert "health_status" in service
     assert "origin_health" in readiness
+    assert "health_check_enabled=true AND health_status='unhealthy'" in readiness
     assert "Check the origin or review the origin pool" in readiness
     assert "origin-health-scheduler" in compose
     assert "cdn:origins:health-check" in compose
@@ -56,6 +59,9 @@ def test_config_snapshot_and_edge_failover_contract():
     assert "'origin' => $origins[0]" in config or "'origin' => $origin" in config
     assert "selectOriginFromPool" in config
     assert "'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore')" in config
+    assert "health_check_enabled' => (bool) ($origin['health_check_enabled'] ?? false)" in config
+    assert "empty($origin['health_check_enabled'])" in config
+    assert "$pool = $healthy !== [] ? $healthy : $unknown" in config
     assert "INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING" in config
     assert "candidate_origins" in selector
     assert "choose_origin" in selector
@@ -73,7 +79,11 @@ def test_dashboard_and_docs_expose_origins():
 
     assert "DomainOriginsTab" in detail
     assert "label: 'Origins'" in detail
-    assert "Origin health" in tab
+    assert "Enable health check for this origin" in tab
+    assert "Health pass-through" in tab
+    assert "schema-origin-shared-hosting-defaults" in read("ci/smoke.sh")
+    assert "origin-ip-shared-hosting-default" in read("ci/e2e.sh")
+    assert "origin-health-disabled-still-routes" in read("ci/e2e.sh")
     assert "Add origin" in tab
     assert '<span class="field-label">Protocol</span>' in tab
     assert '<span class="field-label">Port</span>' not in tab

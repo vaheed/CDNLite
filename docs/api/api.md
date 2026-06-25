@@ -397,7 +397,8 @@ Example:
   "host_header": "origin.example.com",
   "sni": "origin.example.com",
   "tls_verify": "ignore",
-  "preserve_host": false,
+  "preserve_host": true,
+  "health_check_enabled": false,
   "role": "origin",
   "enabled": true
 }
@@ -412,11 +413,19 @@ Origin tips:
   identity is the origin id, not only host and scheme.
 - When the scheme is omitted for a DNS-linked origin, CDNLite keeps the
   backend on plain HTTP/80 unless you explicitly set `scheme: "https"`.
-- Edge routing uses the explicit `scheme`, `host`, and `port`. It sends
-  `host_header` to the origin by default, uses `sni` for upstream TLS, and only
-  preserves the CDN hostname when `preserve_host` is true.
+- For shared hosting or cPanel origins, point the origin `host` at the server
+  IP, keep `preserve_host: true`, and let `host_header` and `sni` default to
+  the requested site hostname. TLS verification defaults to `ignore` until you
+  deliberately enable strict verification.
+- Edge routing uses the explicit `scheme`, `host`, and `port`. It sends the
+  original requested Host when `preserve_host` is true, still forwards
+  `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`, and
+  `X-CDNLITE-Client-IP`, and never falls back to an origin IP for SNI.
 - Add another enabled origin before aggressive cache or WAF changes, so the edge has more than one healthy option.
-- Use the manual health-check route after every origin update.
+- Health checks are off by default. With `health_check_enabled: false`,
+  `unknown` health does not block config snapshots or edge traffic. When
+  enabled, checked unhealthy origins are avoided and surfaced as warnings.
+- Use the manual health-check route when you intentionally monitor an origin.
 - Use the non-mutating origin diagnostic route when debugging 502s. It reports
   DNS resolution, TCP connect, TLS handshake, HTTP status, timing, configured
   host header, and SNI without changing the stored origin health state.

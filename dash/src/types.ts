@@ -139,7 +139,7 @@ export interface DomainOrigin {
   id: Id; domain_id: Id; scheme: 'http' | 'https'; host: string; port: 80 | 443 | number;
   dns_record_id?: Id | null; source?: 'manual' | 'dns_record' | 'imported' | string; role?: 'primary' | 'backup' | string;
   weight?: number; host_header?: string | null; sni?: string | null; tls_verify?: 'verify' | 'ignore';
-  preserve_host?: boolean;
+  preserve_host?: boolean; health_check_enabled?: boolean;
   is_primary: boolean; health_check_path: string; health_check_interval_seconds: number;
   health_check_timeout_seconds: number; health_status: 'healthy' | 'unhealthy' | 'unknown' | string;
   last_check_at?: number | null; last_error?: string | null; enabled: boolean;

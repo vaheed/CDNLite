@@ -142,9 +142,17 @@ docker compose logs -f edge
 docker compose exec edge tail -f /var/lib/cdnlite/metrics.ndjson
 ```
 
-For host-header or TLS/SNI origin issues, verify the origin's `host_header`,
-`sni`, `scheme`, `port`, and `preserve_host` settings. If you do not set a
-scheme explicitly, the origin stays on HTTP/80 by default.
+For shared-hosting or cPanel origins, you can use the hosting server IP as the
+origin host while preserving the site hostname. DNS-linked origins default to
+`preserve_host=true`, `host_header` and `sni` set to the requested hostname, and
+`tls_verify=ignore`, so the origin receives `Host: example.com` instead of the
+IP. If you switch the origin to HTTPS, keep SNI as the site hostname unless your
+host explicitly requires something else.
+
+Health checks are off by default. CDNLite will still generate edge config and
+proxy traffic when the core cannot reach an origin; enable per-origin health
+checks only when you want the core to actively monitor and avoid unhealthy
+origins.
 
 ## Next Steps
 
