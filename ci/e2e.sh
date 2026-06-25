@@ -1002,7 +1002,7 @@ if [[ "$found_security_event" -ne 1 ]]; then
   docker compose exec -T edge wget -qO- http://127.0.0.1:8081/ready >"${REPORT_DIR}/edge-ready-security-events.json" 2>/dev/null || true
   docker compose exec -T edge sh -lc 'wc -l /var/lib/cdnlite/security-events.ndjson; tail -n 20 /var/lib/cdnlite/security-events.ndjson' >"${REPORT_DIR}/security-events.edge.before-fail.txt" 2>/dev/null || true
   docker compose exec -T edge-agent sh -lc 'wc -l "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"; tail -n 20 "${SECURITY_EVENT_PATH:-/var/lib/cdnlite/security-events.ndjson}"' >"${REPORT_DIR}/security-events.agent.before-fail.txt" 2>/dev/null || true
-  docker compose exec -T core php -r 'require "/app/app/Support/Autoload.php"; App\Support\Database::initFromEnv(); $q=App\Support\Database::pdo()->prepare("SELECT event, details_json, created_at FROM audit_log WHERE domain_id=:d AND event IN ('\''waf_match'\'','\''rate_limited'\'','\''bot_match'\'') ORDER BY created_at DESC LIMIT 20"); $q->execute([":d"=>"'${DOMAIN_ID}'"]); echo json_encode($q->fetchAll(PDO::FETCH_ASSOC), JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES), PHP_EOL;' >"${REPORT_DIR}/security-events-db-before-fail.json" 2>/dev/null || true
+  db_query "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT event, details_json, created_at FROM audit_log WHERE domain_id='${DOMAIN_ID}' AND event IN ('waf_match','rate_limited','bot_match') ORDER BY created_at DESC LIMIT 20) t;" >"${REPORT_DIR}/security-events-db-before-fail.json" 2>/dev/null || true
   fail "security events from edge ingestion did not appear in time"
 fi
 api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/security/events?type=waf_match&limit=1"

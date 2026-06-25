@@ -19,7 +19,7 @@ def test_security_events_ingest_route_contract():
     assert 'mkdir "$lock_dir"' in agent_push
     assert "trap 'rmdir" in agent_push
     assert "' 0 HUP INT TERM" in agent_push
-    assert "telemetry_queue.enqueue_and_flush('security_events'" in router
+    assert "telemetry_queue.write_now('security_events'" in router
     assert "security-events.ndjson" in telemetry_queue
 
 

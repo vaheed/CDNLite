@@ -50,6 +50,7 @@ def test_telemetry_uses_bounded_shared_queue_instead_of_per_request_file_open():
     assert "flush_successes" in queue
     assert "flush_failures" in queue
     assert "fallback_writes" in queue
+    assert "direct_writes" in queue
     assert "corruptions" in queue
     assert "flush_lock" in queue
     assert "dict:add(lock_key" in queue
@@ -57,13 +58,14 @@ def test_telemetry_uses_bounded_shared_queue_instead_of_per_request_file_open():
     assert "dict:set('tail', head)" in queue
     assert "aggregate_key(row)" in queue
     assert "function M.enqueue_and_flush(queue_name, row)" in queue
+    assert "function M.write_now(queue_name, row)" in queue
     assert "write_lines_bounded(spec, { encoded })" in queue
 
     assert "telemetry_queue.enqueue('metrics', row)" in metrics
     assert "io.open('/var/lib/cdnlite/metrics.ndjson', 'a')" not in metrics
-    assert "telemetry_queue.enqueue_and_flush('security_events'" in router
+    assert "telemetry_queue.write_now('security_events'" in router
     assert "io.open(SECURITY_EVENT_PATH, 'a')" not in router
-    assert "telemetry_queue.enqueue_and_flush('security_events'" in ip_rules
+    assert "telemetry_queue.write_now('security_events'" in ip_rules
     assert "io.open(SECURITY_EVENT_PATH, 'a')" not in ip_rules
 
 

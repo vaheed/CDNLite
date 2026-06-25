@@ -3,7 +3,7 @@ local identity = require('identity')
 local telemetry_queue = require('telemetry_queue')
 
 local function append_security_event(domain, rule_id, action)
-  telemetry_queue.enqueue_and_flush('security_events', {
+  telemetry_queue.write_now('security_events', {
     ts = os.time(),
     domain_id = tostring(domain and domain.domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),

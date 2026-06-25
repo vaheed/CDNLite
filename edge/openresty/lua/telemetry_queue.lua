@@ -217,6 +217,41 @@ function M.enqueue_and_flush(queue_name, row)
   return false
 end
 
+function M.write_now(queue_name, row)
+  local spec = queues[queue_name]
+  if not spec then
+    return false
+  end
+  if type(row) ~= 'table' then
+    return false
+  end
+
+  if spec.aggregate then
+    row.event_count = tonumber(row.event_count or 1) or 1
+    row.aggregate_key = aggregate_key(row)
+  end
+
+  local encoded = cjson.encode(row)
+  local dict = dict_for(spec)
+  if not encoded then
+    if dict then incr(dict, 'dropped', 1) end
+    return false
+  end
+
+  local ok, err = write_lines_bounded(spec, { encoded })
+  if ok then
+    if dict then incr(dict, 'direct_writes', 1) end
+    return true
+  end
+
+  if dict then
+    incr(dict, 'dropped', 1)
+    incr(dict, 'flush_failures', 1)
+  end
+  edge_log.warn(spec.prefix .. '_direct_write_failed', { error = tostring(err or 'unknown') })
+  return false
+end
+
 function M.flush(queue_name)
   local spec = queues[queue_name]
   if not spec then
@@ -319,6 +354,7 @@ function M.status()
       flush_successes = dict and get_counter(dict, 'flush_successes') or 0,
       flush_failures = dict and get_counter(dict, 'flush_failures') or 0,
       fallback_writes = dict and get_counter(dict, 'fallback_writes') or 0,
+      direct_writes = dict and get_counter(dict, 'direct_writes') or 0,
       corruptions = dict and get_counter(dict, 'corruptions') or 0,
       max_items = queue_limit(),
       max_bytes = byte_limit(),

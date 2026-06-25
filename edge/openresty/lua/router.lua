@@ -29,7 +29,7 @@ local function append_security_event(domain_id)
   if t == '' then
     return
   end
-  telemetry_queue.enqueue_and_flush('security_events', {
+  telemetry_queue.write_now('security_events', {
     ts = os.time(),
     domain_id = tostring(domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),
