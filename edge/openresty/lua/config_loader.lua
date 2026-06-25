@@ -129,14 +129,11 @@ end
 
 function M.load()
   local now = ngx.now()
-  local mtime, size = file_stat(CONFIG_FILE)
   if active_config and active_loaded_at and now - active_loaded_at < refresh_interval() then
     return active_config
   end
-  if active_config and (mtime ~= nil or size ~= nil) and active_mtime == mtime and active_size == size then
-    active_loaded_at = now
-    return active_config
-  end
+  -- Some bind-mounted filesystems expose coarse mtimes. Re-parse only after the
+  -- worker-local refresh window so quick same-size config rewrites are noticed.
   return M.reload()
 end
 

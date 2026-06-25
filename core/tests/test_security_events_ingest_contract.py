@@ -33,6 +33,7 @@ def test_e2e_global_waf_assertion_filters_newer_rate_limit_events():
 def test_e2e_security_ingest_refreshes_edge_config_after_dns_mutations():
     repo_root = Path(__file__).resolve().parents[2]
     e2e = (repo_root / "ci" / "e2e.sh").read_text()
+    loader = (repo_root / "edge" / "openresty" / "lua" / "config_loader.lua").read_text()
 
     section_start = e2e.index("# Security events should be ingested from edge runtime decisions via agent push.")
     section_end = e2e.index('record_step PASS "security-events"', section_start)
@@ -41,6 +42,8 @@ def test_e2e_security_ingest_refreshes_edge_config_after_dns_mutations():
     assert "cdn:edge:sync-config" in section
     assert "agent_exec '/agent/pull_config.sh' >/dev/null" in section
     assert 'edge_wait_config_host "${TEST_DOMAIN}"' in section
+    assert "active_mtime == mtime" not in loader
+    assert "now - active_loaded_at < refresh_interval()" in loader
 
 
 def test_e2e_challenge_event_retry_pushes_before_polling_api():

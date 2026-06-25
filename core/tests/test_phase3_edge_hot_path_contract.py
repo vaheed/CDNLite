@@ -15,7 +15,8 @@ def test_worker_config_cache_replaces_per_request_config_parse():
     assert "local active_config = nil" in loader
     assert "function M.reload()" in loader
     assert "function M.load()" in loader
-    assert "active_mtime == mtime" in loader
+    assert "now - active_loaded_at < refresh_interval()" in loader
+    assert "return M.reload()" in loader
     assert "config_too_large" in loader
     assert "reload_successes" in loader
     assert "reload_failures" in loader
