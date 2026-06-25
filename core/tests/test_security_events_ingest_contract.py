@@ -9,6 +9,7 @@ def test_security_events_ingest_route_contract():
     agent_run = (repo_root / "edge" / "agent" / "run.sh").read_text()
     agent_push = (repo_root / "edge" / "agent" / "push_security_events.sh").read_text()
     router = (repo_root / "edge" / "openresty" / "lua" / "router.lua").read_text()
+    telemetry_queue = (repo_root / "edge" / "openresty" / "lua" / "telemetry_queue.lua").read_text()
 
     assert "/api/v1/collector/security-events" in public_index
     assert "ingestSecurityEvents" in collector_controller
@@ -18,7 +19,8 @@ def test_security_events_ingest_route_contract():
     assert 'mkdir "$lock_dir"' in agent_push
     assert "trap 'rmdir" in agent_push
     assert "' 0 HUP INT TERM" in agent_push
-    assert "security-events.ndjson" in router
+    assert "telemetry_queue.enqueue('security_events'" in router
+    assert "security-events.ndjson" in telemetry_queue
 
 
 def test_e2e_global_waf_assertion_filters_newer_rate_limit_events():
@@ -26,6 +28,19 @@ def test_e2e_global_waf_assertion_filters_newer_rate_limit_events():
     e2e = (repo_root / "ci" / "e2e.sh").read_text()
 
     assert "/api/v1/security/events?domain_id=${DOMAIN_ID}&type=waf_match&limit=10" in e2e
+
+
+def test_e2e_security_ingest_refreshes_edge_config_after_dns_mutations():
+    repo_root = Path(__file__).resolve().parents[2]
+    e2e = (repo_root / "ci" / "e2e.sh").read_text()
+
+    section_start = e2e.index("# Security events should be ingested from edge runtime decisions via agent push.")
+    section_end = e2e.index('record_step PASS "security-events"', section_start)
+    section = e2e[section_start:section_end]
+
+    assert "cdn:edge:sync-config" in section
+    assert "agent_exec '/agent/pull_config.sh' >/dev/null" in section
+    assert 'edge_wait_config_host "${TEST_DOMAIN}"' in section
 
 
 def test_e2e_challenge_event_retry_pushes_before_polling_api():

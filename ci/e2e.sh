@@ -966,6 +966,9 @@ done
 record_step PASS "dns-list" "all record types listed"
 
 # Security events should be ingested from edge runtime decisions via agent push.
+docker compose exec -T core php artisan cdn:edge:sync-config >/tmp/e2e-security-config-sync.json
+agent_exec '/agent/pull_config.sh' >/dev/null
+edge_wait_config_host "${TEST_DOMAIN}"
 edge_wait_success_status "${TEST_DOMAIN}"
 waf_ingest_code="$(curl -sS -o /tmp/e2e-edge-waf-ingest-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/admin?via=edge-waf-ingest")"
 assert_eq "$waf_ingest_code" "403" "waf ingest trigger should return 403"
