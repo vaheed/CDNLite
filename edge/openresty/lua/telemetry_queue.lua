@@ -101,6 +101,17 @@ local function enqueue_encoded(spec, encoded)
 
   local count = get_counter(dict, 'count')
   local bytes = get_counter(dict, 'bytes')
+  local head = get_counter(dict, 'head')
+  local tail = get_counter(dict, 'tail')
+  if count <= 0 and head > tail then
+    -- A previous worker crash or older racy flusher can leave the read cursor
+    -- ahead of the writer. Heal the empty queue before accepting new items.
+    dict:set('head', tail)
+    dict:set('count', 0)
+    dict:set('bytes', 0)
+    count = 0
+    bytes = 0
+  end
   local encoded_bytes = #encoded + 1
   if count >= queue_limit() or bytes + encoded_bytes > byte_limit() then
     incr(dict, 'dropped', 1)
@@ -179,6 +190,11 @@ function M.flush(queue_name)
       head = next_head
       dict:set('head', head)
       incr(dict, 'count', -1)
+      if get_counter(dict, 'count') <= 0 then
+        dict:set('count', 0)
+        dict:set('bytes', 0)
+        dict:set('tail', head)
+      end
     else
       lines[#lines + 1] = line
       head = next_head

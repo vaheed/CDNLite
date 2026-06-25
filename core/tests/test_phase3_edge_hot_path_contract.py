@@ -51,6 +51,8 @@ def test_telemetry_uses_bounded_shared_queue_instead_of_per_request_file_open():
     assert "corruptions" in queue
     assert "flush_lock" in queue
     assert "dict:add(lock_key" in queue
+    assert "head > tail" in queue
+    assert "dict:set('tail', head)" in queue
     assert "aggregate_key(row)" in queue
 
     assert "telemetry_queue.enqueue('metrics', row)" in metrics
