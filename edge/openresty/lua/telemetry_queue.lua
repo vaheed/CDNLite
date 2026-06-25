@@ -68,6 +68,16 @@ local function output_path(spec)
   return tostring(os.getenv(spec.path_env) or spec.default_path)
 end
 
+local function file_size(path)
+  local f = io.open(path, 'r')
+  if not f then
+    return 0
+  end
+  local size = f:seek('end') or 0
+  f:close()
+  return size
+end
+
 local function write_lines(path, lines)
   local f = io.open(path, 'a')
   if not f then
@@ -79,6 +89,18 @@ local function write_lines(path, lines)
   end
   f:close()
   return true, nil
+end
+
+local function write_lines_bounded(spec, lines)
+  local bytes = 0
+  for _, line in ipairs(lines) do
+    bytes = bytes + #line + 1
+  end
+  local path = output_path(spec)
+  if file_size(path) + bytes > byte_limit() then
+    return false, 'file_limit'
+  end
+  return write_lines(path, lines)
 end
 
 local function aggregate_key(row)
@@ -154,6 +176,47 @@ function M.enqueue(queue_name, row)
   return enqueue_encoded(spec, encoded)
 end
 
+function M.enqueue_and_flush(queue_name, row)
+  local spec = queues[queue_name]
+  if not spec then
+    return false
+  end
+  if type(row) ~= 'table' then
+    return false
+  end
+
+  if spec.aggregate then
+    row.event_count = tonumber(row.event_count or 1) or 1
+    row.aggregate_key = aggregate_key(row)
+  end
+
+  local encoded = cjson.encode(row)
+  local dict = dict_for(spec)
+  if not encoded then
+    if dict then incr(dict, 'dropped', 1) end
+    return false
+  end
+
+  if enqueue_encoded(spec, encoded) and M.flush(queue_name) then
+    return true
+  end
+
+  -- Security decisions are low-volume but operationally important. If the
+  -- shared-dict queue cannot accept or drain the row, persist one bounded line
+  -- directly so the agent can still ingest the event and /ready exposes it.
+  local ok, err = write_lines_bounded(spec, { encoded })
+  if ok then
+    if dict then incr(dict, 'fallback_writes', 1) end
+    return true
+  end
+  if dict then
+    incr(dict, 'dropped', 1)
+    incr(dict, 'flush_failures', 1)
+  end
+  edge_log.warn(spec.prefix .. '_fallback_write_failed', { error = tostring(err or 'unknown') })
+  return false
+end
+
 function M.flush(queue_name)
   local spec = queues[queue_name]
   if not spec then
@@ -206,7 +269,7 @@ function M.flush(queue_name)
     return true
   end
 
-  local ok, err = write_lines(output_path(spec), lines)
+  local ok, err = write_lines_bounded(spec, lines)
   if not ok then
     incr(dict, 'flush_failures', 1)
     edge_log.warn(spec.prefix .. '_flush_failed', { error = tostring(err or 'unknown') })
@@ -255,6 +318,7 @@ function M.status()
       dropped = dict and get_counter(dict, 'dropped') or 0,
       flush_successes = dict and get_counter(dict, 'flush_successes') or 0,
       flush_failures = dict and get_counter(dict, 'flush_failures') or 0,
+      fallback_writes = dict and get_counter(dict, 'fallback_writes') or 0,
       corruptions = dict and get_counter(dict, 'corruptions') or 0,
       max_items = queue_limit(),
       max_bytes = byte_limit(),

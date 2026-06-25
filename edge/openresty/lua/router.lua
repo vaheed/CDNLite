@@ -29,7 +29,7 @@ local function append_security_event(domain_id)
   if t == '' then
     return
   end
-  telemetry_queue.enqueue('security_events', {
+  telemetry_queue.enqueue_and_flush('security_events', {
     ts = os.time(),
     domain_id = tostring(domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),
@@ -54,7 +54,6 @@ local function append_security_event(domain_id)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
-  telemetry_queue.flush('security_events')
 end
 
 local function normalize_host(host)

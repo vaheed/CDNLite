@@ -3,7 +3,7 @@ local identity = require('identity')
 local telemetry_queue = require('telemetry_queue')
 
 local function append_security_event(domain, rule_id, action)
-  telemetry_queue.enqueue('security_events', {
+  telemetry_queue.enqueue_and_flush('security_events', {
     ts = os.time(),
     domain_id = tostring(domain and domain.domain_id or ngx.ctx.domain_id or ''),
     edge_node_id = identity.get(),
@@ -15,7 +15,6 @@ local function append_security_event(domain, rule_id, action)
     method = tostring(ngx.req.get_method() or ''),
     client_ip = tostring(ngx.var.remote_addr or ''),
   })
-  telemetry_queue.flush('security_events')
 end
 
 local function split_once(input, sep)
