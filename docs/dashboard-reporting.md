@@ -32,7 +32,7 @@ All report endpoints accept:
 | Edge health and traffic | Partial: `/api/v1/edge/nodes` | Added `/api/v1/reports/edge` over `edge_nodes`, config snapshots, and usage | Overview edge health panel | `core/tests/test_reports_contract.py` |
 | Security events | Partial: `/api/v1/security/events`, `/api/v1/security/summary` | Added `/api/v1/reports/security` over security audit events | Overview security chart | `core/tests/test_reports_contract.py` |
 | Reliability | Partial: DNS, SSL, jobs, origins APIs | Added `/api/v1/reports/reliability` over DNS sync, SSL, jobs, and origins | Overview reliability panel | `core/tests/test_reports_contract.py` |
-| Operations | Partial: `/api/v1/events`, `/api/v1/audit`, `/api/v1/jobs` | Added `/api/v1/reports/operations` over audit, DNS events, SSL jobs, snapshots | Overview jobs table and failed-job chart | `core/tests/test_reports_contract.py` |
+| Operations | Partial: `/api/v1/events`, `/api/v1/audit`, `/api/v1/jobs` | Added `/api/v1/reports/operations` over audit, DNS events, SSL jobs, snapshots. Actor and resource rankings use a bounded recent audit sample so high-volume production audit logs cannot exceed the reporting statement timeout. If an operations subsection still times out, the endpoint returns the remaining data with an `unavailable` map and logs `operations_report_section_timeout` with the section name. | Overview jobs table and failed-job chart | `core/tests/test_reports_contract.py` |
 
 ## Unavailable Fields
 

@@ -298,7 +298,7 @@ export interface ReportReliability {
 export interface ReportOperations {
   time_range: ReportTimeRange; job_queue_status_counts: ReportDistributionRow[]; failed_jobs_over_time: ReportPoint[];
   recent_jobs: SystemJob[]; event_timeline: unknown[]; recent_audit_entries: AuditEntry[]; most_active_actors: ReportDistributionRow[];
-  most_changed_resources: ReportDistributionRow[]; recent_config_snapshots: ConfigSnapshotSummary[]; generated_at: number;
+  most_changed_resources: ReportDistributionRow[]; recent_config_snapshots: ConfigSnapshotSummary[]; unavailable?: Record<string, string>; generated_at: number;
 }
 export interface Recommendation {
   id: Id; domain_id: Id; domain_name?: string; type: string; title: string; message: string; why: string;

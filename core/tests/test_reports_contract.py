@@ -32,6 +32,12 @@ def test_report_service_uses_real_tables_and_validates_query_shape():
     assert "pg_column_size(s) AS size" in service
     assert "content_hash,size FROM config_snapshots" not in service
     assert "$limit = min($limit, 5);" in service
+    assert "recentAuditGroup($range, 'actor_id', $limit)" in service
+    assert "LIMIT :sample_limit" in service
+    assert "invalid_audit_dimension" in service
+    assert "operationSection('most_active_actors'" in service
+    assert "operations_report_section_timeout" in service
+    assert "'unavailable' => $unavailable" in service
 
 
 def test_reporting_indexes_are_in_schema_and_migration():
@@ -69,6 +75,7 @@ def test_dashboard_reports_client_and_overview_use_real_report_endpoints():
         assert f"/api/v1/reports/{report}" in api
         assert f"reportsApi.{report}" in overview
     assert "ReportSummary" in types and "ReportTraffic" in types and "ReportOperations" in types
+    assert "unavailable?: Record<string, string>" in types
     assert "Top Visitor Countries" in overview
     assert "request.client_ip" in overview
     assert "request.client_country" in overview

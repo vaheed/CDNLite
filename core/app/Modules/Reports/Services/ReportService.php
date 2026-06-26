@@ -4,8 +4,10 @@ namespace App\Modules\Reports\Services;
 
 use App\Support\Database;
 use App\Support\DatabaseWorkload;
+use App\Support\Logger;
 use InvalidArgumentException;
 use PDO;
+use PDOException;
 
 class ReportService
 {
@@ -138,19 +140,21 @@ class ReportService
     {
         $range = $this->range($query);
         $limit = $this->limit($query);
-        $recentJobs = $this->recentJobs($range, $limit);
-        $recentAuditEntries = $this->recentAuditEntries($range, $limit);
-        $recentDnsErrors = $this->recentDnsErrors($range, $limit);
+        $unavailable = [];
+        $recentJobs = $this->operationSection('recent_jobs', fn (): array => $this->recentJobs($range, $limit), [], $unavailable);
+        $recentAuditEntries = $this->operationSection('recent_audit_entries', fn (): array => $this->recentAuditEntries($range, $limit), [], $unavailable);
+        $recentDnsErrors = $this->operationSection('recent_dns_errors', fn (): array => $this->recentDnsErrors($range, $limit), [], $unavailable);
         return [
             'time_range' => $this->publicRange($range),
-            'job_queue_status_counts' => $this->jobsByStatus($range),
-            'failed_jobs_over_time' => $this->jobSeries($range, ['failed', 'cancelled']),
+            'job_queue_status_counts' => $this->operationSection('job_queue_status_counts', fn (): array => $this->jobsByStatus($range), [], $unavailable),
+            'failed_jobs_over_time' => $this->operationSection('failed_jobs_over_time', fn (): array => $this->jobSeries($range, ['failed', 'cancelled']), [], $unavailable),
             'recent_jobs' => $recentJobs,
             'event_timeline' => $this->operationsTimeline($recentAuditEntries, $recentJobs, $recentDnsErrors, $limit),
             'recent_audit_entries' => $recentAuditEntries,
-            'most_active_actors' => $this->auditGroup($range, 'actor_id', $limit),
-            'most_changed_resources' => $this->auditGroup($range, 'resource_type', $limit),
-            'recent_config_snapshots' => $this->recentConfigSnapshots($limit),
+            'most_active_actors' => $this->operationSection('most_active_actors', fn (): array => $this->recentAuditGroup($range, 'actor_id', $limit), [], $unavailable),
+            'most_changed_resources' => $this->operationSection('most_changed_resources', fn (): array => $this->recentAuditGroup($range, 'resource_type', $limit), [], $unavailable),
+            'recent_config_snapshots' => $this->operationSection('recent_config_snapshots', fn (): array => $this->recentConfigSnapshots($limit), [], $unavailable),
+            'unavailable' => $unavailable,
             'generated_at' => time(),
         ];
     }
@@ -286,6 +290,26 @@ class ReportService
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         return (array) ($stmt->fetch() ?: []);
+    }
+
+    private function operationSection(string $section, callable $callback, array $fallback, array &$unavailable): array
+    {
+        try {
+            return $callback();
+        } catch (PDOException $error) {
+            if (!$this->isStatementTimeout($error)) {
+                throw $error;
+            }
+            $unavailable[$section] = 'The query exceeded the reporting statement timeout.';
+            Logger::warn('operations_report_section_timeout', ['section' => $section, 'error' => $error->getMessage()]);
+            return $fallback;
+        }
+    }
+
+    private function isStatementTimeout(PDOException $error): bool
+    {
+        $info = $error->errorInfo;
+        return ($info[0] ?? null) === '57014' || str_contains($error->getMessage(), 'statement timeout');
     }
 
     private function usageRollupClientIpColumnAvailable(): bool
@@ -710,6 +734,31 @@ class ReportService
         [$where, $params] = $this->auditWhere($range);
         $params[':limit'] = $limit;
         return array_map(static fn (array $row): array => ['value' => (string) $row['value'], 'count' => (int) $row['count']], $this->rows("SELECT COALESCE(NULLIF({$column},''),'unknown') value, COUNT(*) count FROM audit_log a {$where} GROUP BY 1 ORDER BY count DESC LIMIT :limit", $params));
+    }
+
+    private function recentAuditGroup(array $range, string $column, int $limit): array
+    {
+        if (!in_array($column, ['actor_id', 'resource_type'], true)) {
+            throw new InvalidArgumentException('invalid_audit_dimension');
+        }
+        [$where, $params] = $this->auditWhere($range);
+        $params[':limit'] = $limit;
+        $params[':sample_limit'] = $this->operationsAuditSampleLimit($limit);
+        // Operations rankings are dashboard diagnostics, so keep them bounded by
+        // the most recent audit rows instead of grouping an entire busy audit log.
+        return array_map(static fn (array $row): array => ['value' => (string) $row['value'], 'count' => (int) $row['count']], $this->rows("WITH recent AS (
+                    SELECT {$column} value FROM audit_log a {$where}
+                    ORDER BY a.created_at DESC, a.id DESC LIMIT :sample_limit
+                )
+                SELECT COALESCE(NULLIF(value,''),'unknown') value, COUNT(*) count
+                FROM recent GROUP BY 1 ORDER BY count DESC LIMIT :limit", $params));
+    }
+
+    private function operationsAuditSampleLimit(int $limit): int
+    {
+        $budget = DatabaseWorkload::budget(DatabaseWorkload::REPORTING);
+        $maxRows = max(1, min(50000, (int) ($budget['max_result_rows'] ?? 500) * 100));
+        return max(1000, min($maxRows, $limit * 250));
     }
 
     private function recentConfigSnapshots(int $limit): array
