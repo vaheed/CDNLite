@@ -15,7 +15,7 @@ def test_proxied_dns_empty_geo_routes_do_not_create_post_write_error():
     assert "if (!empty($record['proxied'])) {\n                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive'" not in controller
 
 
-def test_initial_managed_ssl_bootstrap_contract():
+def test_initial_managed_ssl_uses_ephemeral_powerdns_challenges_without_bootstrap_rows():
     domains = read("core/app/Modules/Domains/Services/DomainService.php")
     verification = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
     traffic = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
@@ -29,14 +29,13 @@ def test_initial_managed_ssl_bootstrap_contract():
     assert "nameserver_status" in traffic
     assert "(string) ($domain['nameserver_status'] ?? '') !== 'verified'" in traffic
     assert "(string) ($domain['nameserver_status'] ?? '') !== 'verified'" in issuer
-    assert "createTemporarySslBootstrapApexIfNeeded" in renewal
-    assert "finally" in renewal
-    assert "deleteTemporarySslBootstrapApex" in renewal
-    assert "hasActiveApexRecord" in traffic
-    assert "managed_by='ssl_bootstrap'" in traffic
-    assert "'ssl_bootstrap','disabled'" in traffic
+    assert "createTemporarySslBootstrapApexIfNeeded" not in renewal
+    assert "deleteTemporarySslBootstrapApex" not in renewal
+    assert "hasActiveApexRecord" not in traffic
+    assert "managed_by='ssl_bootstrap'" not in traffic
+    assert "'ssl_bootstrap','disabled'" not in traffic
     assert "managed_by TEXT NULL" in schema
-    assert "WHERE managed_by = 'ssl_bootstrap'" in schema
+    assert "WHERE managed_by = 'ssl_bootstrap'" not in schema
     assert "WHERE r.status = 'active'" in desired
 
 

@@ -183,7 +183,6 @@ class CertRenewalService
             'message' => 'ACME DNS validation is in progress.',
         ]);
 
-        $bootstrapRecordId = $this->certificates->createTemporarySslBootstrapApexIfNeeded($domainId);
         try {
             $rows = $this->issuer->issue($domainId, $targets);
             $this->setProgress($domainId, $targets, 'issued', null);
@@ -209,10 +208,6 @@ class CertRenewalService
                 'error_detail' => $e->getMessage(),
             ]);
             return ['status' => 'error', 'error' => $e->getMessage(), 'history_ids' => $historyIds];
-        } finally {
-            if ($bootstrapRecordId !== null) {
-                $this->certificates->deleteTemporarySslBootstrapApex($domainId, $bootstrapRecordId);
-            }
         }
     }
 

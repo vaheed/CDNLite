@@ -538,7 +538,7 @@ Cache tips:
 SSL tips:
 
 - Use the ACME staging directory until DNS-01 automation is proven.
-- When nameserver verification marks a domain active, CDNLite automatically queues a non-blocking managed ACME DNS-01 job for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab. During issuance or renewal, if no active apex DNS record exists, Core uses a disabled, non-proxied bootstrap apex row only long enough for the SSL flow, then removes it without publishing customer traffic.
+- When nameserver verification marks a domain active, CDNLite automatically queues a non-blocking managed ACME DNS-01 job for `domain.com` and `*.domain.com`, enables auto-renew, and exposes progress through the SSL status endpoints and dashboard tab. ACME DNS-01 challenge records are written directly through PowerDNS as ephemeral TXT records, so SSL queueing does not create customer traffic records.
 - When an active, verified domain receives or updates a proxied DNS record, CDNLite also ensures the default managed apex and wildcard SSL job exists.
 - The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
 - The `cdn:ssl:request` CLI follows the queued `/ssl/request` behavior and returns the scheduler job metadata.

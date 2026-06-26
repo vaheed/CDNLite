@@ -81,10 +81,6 @@ CREATE INDEX IF NOT EXISTS dns_records_active_domain_order_idx
 CREATE INDEX IF NOT EXISTS dns_records_domain_status_idx
   ON dns_records(domain_id, status);
 
-CREATE UNIQUE INDEX IF NOT EXISTS dns_records_ssl_bootstrap_idx
-  ON dns_records(domain_id, managed_by)
-  WHERE managed_by = 'ssl_bootstrap';
-
 CREATE TABLE IF NOT EXISTS edge_nodes (
   id TEXT PRIMARY KEY,
   edge_id TEXT NOT NULL UNIQUE,
