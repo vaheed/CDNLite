@@ -256,6 +256,25 @@ print(json.dumps(origin, sort_keys=True))
 PY"
 }
 
+edge_config_origin_has_sni() {
+  local host="$1"
+  local expected_sni="$2"
+  docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$host\" \"$expected_sni\" <<'PY'
+import json
+import sys
+
+path, host, expected_sni = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+    cfg = json.load(fh)
+host_cfg = (cfg.get('hosts') or {}).get(host) or {}
+origins = host_cfg.get('origins') or []
+geo_default = (host_cfg.get('geo_origins') or {}).get('DEFAULT') or {}
+if any((origin or {}).get('sni') == expected_sni for origin in origins) or geo_default.get('sni') == expected_sni:
+    sys.exit(0)
+sys.exit(1)
+PY"
+}
+
 edge_config_origin_restored() {
   local domain="$1"
   docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$domain\" <<'PY'
@@ -919,6 +938,7 @@ api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}"
   '{"scheme":"https","host":"origin-tls","port":443,"host_header":"origin-tls","sni":"phase3-sni.local","tls_verify":"ignore","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "HTTPS/SNI origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
+retry 20 1 edge_config_origin_has_sni "${TEST_DOMAIN}" "phase3-sni.local"
 origin_sni_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=sni")"
 assert_contains "$origin_sni_body" '"origin_scheme":"https"' "HTTPS/SNI origin should return 200 through edge"
 assert_contains "$origin_sni_body" '"origin_sni":"phase3-sni.local"' "edge should pass configured SNI to HTTPS origin"
