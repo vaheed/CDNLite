@@ -88,6 +88,8 @@ def test_origin_service_keeps_dns_linked_and_duplicate_manual_origins_visible():
     assert "origin_scheme=:origin_scheme" in origins
     assert "$geoOrigins['DEFAULT']['host'] = $host" in origins
     assert "$geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80" in origins
+    assert "if ($patch['host_header'] === '' && !$patch['preserve_host'])" in origins
+    assert "$requestedHost = $this->requestedHostForDnsRecord($domainId, $row)" in origins
     assert "'health_status' => array_key_exists('health_status', $input)" in origins
     assert "return 'http';" in origins
     assert "public function create" in origins

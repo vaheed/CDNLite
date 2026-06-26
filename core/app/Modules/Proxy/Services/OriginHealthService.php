@@ -128,7 +128,7 @@ class OriginHealthService
             'last_check_at' => array_key_exists('last_check_at', $input) ? ($input['last_check_at'] === null ? null : (int) $input['last_check_at']) : ($existing['last_check_at'] === null ? null : (int) $existing['last_check_at']),
             'last_error' => array_key_exists('last_error', $input) ? ($input['last_error'] === null ? null : (string) $input['last_error']) : ($existing['last_error'] === null ? null : (string) $existing['last_error']),
         ];
-        if ($patch['host_header'] === '') {
+        if ($patch['host_header'] === '' && !$patch['preserve_host']) {
             $patch['host_header'] = $patch['host'];
         }
         $pdo = Database::pdo();
@@ -374,11 +374,14 @@ class OriginHealthService
         $scheme = (string) $origin['scheme'] === 'https' ? 'https' : 'http';
         $geoOrigins = $this->decodeGeoOrigins($row['geo_origins_json'] ?? null);
         if (isset($geoOrigins['DEFAULT']) && is_array($geoOrigins['DEFAULT'])) {
+            $requestedHost = $this->requestedHostForDnsRecord($domainId, $row);
             $geoOrigins['DEFAULT']['host'] = $host;
             $geoOrigins['DEFAULT']['scheme'] = $scheme;
             $geoOrigins['DEFAULT']['port'] = $scheme === 'https' ? 443 : 80;
             $geoOrigins['DEFAULT']['tls_verify'] = (string) ($origin['tls_verify'] ?? 'ignore');
-            $geoOrigins['DEFAULT']['host_header'] = (string) ($origin['host_header'] ?? $host);
+            $geoOrigins['DEFAULT']['host_header'] = !empty($origin['preserve_host']) && trim((string) ($origin['host_header'] ?? '')) === ''
+                ? $requestedHost
+                : (string) ($origin['host_header'] ?? $host);
             $geoOrigins['DEFAULT']['sni'] = (string) ($origin['sni'] ?? $host);
             $geoOrigins['DEFAULT']['preserve_host'] = !empty($origin['preserve_host']);
         }
