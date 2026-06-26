@@ -242,6 +242,15 @@ edge_wait_config_host() {
   retry 40 1 edge_config_has_host "$host"
 }
 
+edge_reload_config() {
+  docker compose exec -T edge sh -lc 'wget -qO- http://127.0.0.1:8081/__cdnlite_reload_config >/dev/null'
+}
+
+edge_pull_config() {
+  agent_exec '/agent/pull_config.sh' >/dev/null
+  retry 20 1 edge_reload_config
+}
+
 edge_config_origin_json() {
   local host="$1"
   docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$host\" <<'PY'
@@ -475,7 +484,7 @@ docker compose exec -T core php artisan cdn:edge:register-token --edge_id="$EDGE
 agent_exec '/agent/register.sh' >/dev/null
 agent_exec '/agent/heartbeat.sh' >/dev/null
 retry 20 1 edge_is_healthy
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 # Report the version only after the agent has successfully applied its first snapshot.
 agent_exec '/agent/heartbeat.sh' >/dev/null
 edge_config_version="$(db_query "SELECT COALESCE(applied_config_version, 0) FROM edge_nodes WHERE edge_id='${EDGE_ID}' LIMIT 1;")"
@@ -880,7 +889,7 @@ assert_contains "$HTTP_BODY" '"action":"block"' "waf v2 action missing"
 record_step PASS "waf-v2-list" "waf v2 fields visible"
 
 # Force and verify config propagation to edge before route assertions.
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 edge_wait_config_host "${TEST_DOMAIN}"
 if [[ -n "${CDNLITE_ORIGIN_SHIELD_SECRET:-}" ]]; then
   retry 30 1 docker compose exec -T edge-agent sh -lc "grep -Fq 'X-CDNLITE-Origin-Secret' \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\""
@@ -918,7 +927,7 @@ fi
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
   "{\"origin_host\":\"${ORIGIN_HTTP_IP}\",\"origin_scheme\":\"http\",\"origin_tls_verify\":\"ignore\"}"
 assert_http_status "$HTTP_CODE" "200" "origin IP DNS-linked update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 edge_wait_config_host "${TEST_DOMAIN}"
 origin_ip_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
 assert_contains "$origin_ip_config" "\"host\": \"${ORIGIN_HTTP_IP}\"" "edge config should keep origin IP as upstream host"
@@ -933,7 +942,7 @@ record_step PASS "origin-ip-shared-hosting-default" "upstream=${ORIGIN_HTTP_IP}:
 
 db_query "UPDATE domain_origins SET health_check_enabled=false, health_status='unhealthy', last_error='core_unreachable_for_e2e' WHERE id='${PRIMARY_ORIGIN_ID}';" >/dev/null
 docker compose exec -T core php artisan cdn:edge:sync-config >/dev/null
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 edge_wait_config_host "${TEST_DOMAIN}"
 origin_unchecked_unhealthy_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
 assert_contains "$origin_unchecked_unhealthy_config" "\"host\": \"${ORIGIN_HTTP_IP}\"" "unchecked unhealthy origin should remain in edge config"
@@ -950,7 +959,7 @@ fi
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
   "{\"scheme\":\"https\",\"host\":\"${ORIGIN_TLS_IP}\",\"port\":443,\"host_header\":\"\",\"sni\":\"\",\"tls_verify\":\"ignore\",\"preserve_host\":true,\"health_check_enabled\":false,\"enabled\":true}"
 assert_http_status "$HTTP_CODE" "200" "HTTPS origin IP preserve-host update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 origin_ip_sni_config="$(edge_config_origin_json "${TEST_DOMAIN}")"
 assert_contains "$origin_ip_sni_config" "\"host\": \"${ORIGIN_TLS_IP}\"" "edge config should keep HTTPS origin IP as upstream host"
 assert_contains "$origin_ip_sni_config" '"sni": ""' "blank SNI should not be stored as the origin IP"
@@ -963,7 +972,7 @@ record_step PASS "origin-ip-sni-preserve-host" "upstream=${ORIGIN_TLS_IP}:443 sn
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
   '{"scheme":"https","host":"origin-tls","port":443,"host_header":"origin-tls","sni":"phase3-sni.local","tls_verify":"ignore","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "HTTPS/SNI origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 retry 20 1 edge_config_origin_has_sni "${TEST_DOMAIN}" "phase3-sni.local"
 origin_sni_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=sni")"
 assert_contains "$origin_sni_body" '"origin_scheme":"https"' "HTTPS/SNI origin should return 200 through edge"
@@ -973,7 +982,7 @@ record_step PASS "origin-https-sni" "HTTPS origin returned 200 with configured S
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
   '{"scheme":"http","host":"origin-http","port":80,"host_header":"origin-http","sni":"origin-http","tls_verify":"verify","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "own-host-header origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 retry 20 1 edge_config_origin_has_fields "${TEST_DOMAIN}" "origin-http" "http" "origin-http"
 origin_own_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=own-host")"
 assert_contains "$origin_own_host_body" '"origin_scheme":"http"' "own-host origin should return 200 through edge"
@@ -983,7 +992,7 @@ record_step PASS "origin-host-header-own" "origin received its own Host header w
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}" \
   "{\"scheme\":\"http\",\"host\":\"origin-http\",\"port\":80,\"host_header\":\"origin-http\",\"sni\":\"origin-http\",\"tls_verify\":\"verify\",\"preserve_host\":true,\"enabled\":true}"
 assert_http_status "$HTTP_CODE" "200" "preserve CDN host origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 retry 20 1 edge_config_origin_has_fields "${TEST_DOMAIN}" "origin-http" "http" "origin-http"
 origin_cdn_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=cdn-host")"
 assert_contains "$origin_cdn_host_body" '"origin_scheme":"http"' "preserve-host origin should return 200 through edge"
@@ -993,7 +1002,7 @@ record_step PASS "origin-host-header-cdn" "origin received CDN Host header with 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
   '{"origin_host":"origin-http","origin_tls_verify":"verify","geo_origins":{}}'
 assert_http_status "$HTTP_CODE" "200" "HTTP fallback origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 origin_http_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=http-fallback")"
 assert_contains "$origin_http_body" '"origin_scheme":"http"' "closed 443 should fall back to HTTP/80"
 record_step PASS "origin-http-80-fallback" "closed HTTPS port fell back to HTTP/80"
@@ -1001,7 +1010,7 @@ record_step PASS "origin-http-80-fallback" "closed HTTPS port fell back to HTTP/
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
   '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"verify"}'
 assert_http_status "$HTTP_CODE" "200" "verified TLS origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 origin_verify_headers="$(mktemp)"
 origin_verify_status="$(curl -sS -o /tmp/e2e-origin-verify.txt -D "$origin_verify_headers" -w '%{http_code}' \
   -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=verify")"
@@ -1016,7 +1025,7 @@ record_step PASS "origin-tls-verify" "self-signed certificate rejected with 502 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" \
   '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","scheme":"https","tls_verify":"ignore"},"IR":{"host":"origin-http","scheme":"http","tls_verify":"verify"}}}'
 assert_http_status "$HTTP_CODE" "200" "geo origin update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 geo_origin_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" -H "X-CDNLITE-Country: IR" "${EDGE_URL}/origin-probe?mode=geo")"
 assert_contains "$geo_origin_body" '"origin_scheme":"http"' "IR geo origin should use the per-record HTTP origin"
 geo_json="$(db_query "SELECT geo_origins_json FROM dns_records WHERE id='${PRIMARY_DNS_ID}';")"
@@ -1088,7 +1097,7 @@ record_step PASS "dns-list" "all record types listed"
 
 # Security events should be ingested from edge runtime decisions via agent push.
 docker compose exec -T core php artisan cdn:edge:sync-config >/tmp/e2e-security-config-sync.json
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 edge_wait_config_host "${TEST_DOMAIN}"
 edge_wait_success_status "${TEST_DOMAIN}"
 waf_ingest_code="$(curl -sS -o /tmp/e2e-edge-waf-ingest-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/admin?via=edge-waf-ingest")"
@@ -1234,7 +1243,7 @@ verified_bot_source_id="verified-bot-${RUN_KEY}"
 now="$(date +%s)"
 db_query "INSERT INTO verified_bot_sources (id,domain_id,bot_class,provider,user_agent_pattern,cidr,enabled,created_at,updated_at) VALUES ('${verified_bot_source_id}','${DOMAIN_ID}','verified_search_bot','Google','Googlebot','0.0.0.0/0',true,${now},${now});" >/dev/null
 db_query "UPDATE config_state SET active_snapshot_version=NULL WHERE id=1;" >/dev/null
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 verified_bot_status="$(curl -sS -o /tmp/e2e-verified-bot-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -A 'Googlebot' "${EDGE_URL}/bot-check?via=edge-verified-bot")"
 assert_eq "$verified_bot_status" "200" "verified search-bot source should allow matching crawler traffic"
 assert_contains "$(cat /tmp/e2e-verified-bot-body.txt)" '"origin_scheme":"https"' "verified bot should continue to origin"
@@ -1257,7 +1266,7 @@ api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,
 assert_http_status "$HTTP_CODE" "201" "challenge rate-limit create failed"
 CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
 # The edge serves its local snapshot, so publish and apply this new rule before exercising it.
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 challenge_codes=()
 challenge_response_verified=0
 for i in $(seq 1 8); do
@@ -1303,7 +1312,7 @@ assert_contains "$HTTP_BODY" "\"hostname\":\"${TEST_DOMAIN}\"" "ssl certificate 
 if [[ "$HTTP_BODY" == *"private_key_pem"* ]]; then
   fail "ssl certificate list should not expose private key"
 fi
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 snapshot_ssl_host="$(docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"${TEST_DOMAIN}\" <<'PY'
 import json, sys
 path, host = sys.argv[1], sys.argv[2]
@@ -1327,7 +1336,7 @@ assert_http_status "$HTTP_CODE" "201" "redirect rule create failed"
 redirect_id="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "redirect-rule-create" "redirect_id=${redirect_id}"
 
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 snapshot_redirect_target="$(docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"${TEST_DOMAIN}\" <<'PY'
 import json
 import sys
@@ -1374,13 +1383,13 @@ record_step PASS "edge-redirect-no-origin" "redirect handled at edge without ori
 cache_path="/cdn-health?via=edge-cache-${RUN_KEY}"
 api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/cache-rules" "{\"enabled\":true,\"path_prefix\":\"/cdn-health\",\"ttl_seconds\":1}"
 assert_http_status "$HTTP_CODE" "201" "cache rule create failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 record_step PASS "cache-rule-create" "domain cache rule created"
 
 api_put "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/cache/settings" '{"enabled":true,"default_edge_ttl_seconds":60,"cache_query_string_mode":"include_all","respect_origin_cache_control":true,"cache_authorized_requests":false,"stale_if_error_seconds":86400,"static_asset_cache_enabled":true,"ignore_query_strings_for_static":true,"bypass_logged_in_users":true}'
 assert_http_status "$HTTP_CODE" "200" "performance starter cache settings update failed"
 assert_contains "$HTTP_BODY" '"static_asset_cache_enabled":true' "performance starter should enable static asset caching"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 record_step PASS "performance-starter-settings" "safe static cache controls saved and published to edge"
 
 static_first="$(edge_cache_header_for_host "${TEST_DOMAIN}" "/cdn-health.css?build=${RUN_KEY}-one")"
@@ -1409,7 +1418,7 @@ sleep 2
 broken_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_tls_verify":"verify","geo_origins":{}}')"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$broken_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "DNS record origin failure update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 stale_status="$(edge_cache_header_for_host "${TEST_DOMAIN}" "$stale_path")"
 case "$stale_status" in
   STALE|HIT) ;;
@@ -1421,7 +1430,7 @@ esac
 restored_origin_payload="$(jq -nc '{"origin_host":"origin-tls","origin_scheme":"https","origin_tls_verify":"ignore","geo_origins":{}}')"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "DNS record origin restore failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 retry 40 1 edge_config_origin_restored "${TEST_DOMAIN}"
 record_step PASS "edge-cache-basic" "MISS/HIT/BYPASS(no-cache,auth)/STALE verified"
 
@@ -1445,7 +1454,7 @@ record_step PASS "edge-proxy-delete" "DELETE forwarded to configured origin"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":false}'
 assert_http_status "$HTTP_CODE" "200" "record proxy disable failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 proxy_db="$(db_query "SELECT proxied::int FROM dns_records WHERE id='${PRIMARY_DNS_ID}';")"
 assert_eq "$proxy_db" "0" "DNS record proxied should be false"
 record_step PASS "proxy-disable" "proxy disabled on DNS record"
@@ -1461,7 +1470,7 @@ record_step PASS "edge-proxy-disabled-route" "status=${disabled_code}"
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" '{"proxied":true}'
 assert_http_status "$HTTP_CODE" "200" "record proxy enable failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 edge_wait_success_status "${TEST_DOMAIN}"
 enabled_code="$(edge_status_for_host "${TEST_DOMAIN}")"
 record_step PASS "proxy-reenable" "status=${enabled_code}"
@@ -1582,7 +1591,7 @@ fi
 broken_activity_origin_payload="$(jq -nc '{"origin_host":"127.0.0.1","origin_tls_verify":"verify","geo_origins":{}}')"
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$broken_activity_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "activity 502 origin failure update failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 activity_502_headers="$(mktemp)"
 activity_502_path="/phase6-activity-502-${RUN_KEY}?password=phase6-secret"
 activity_502_status="$(curl -sS -o /tmp/e2e-activity-502.txt -D "$activity_502_headers" -w '%{http_code}' \
@@ -1596,7 +1605,7 @@ fi
 
 api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${PRIMARY_DNS_ID}" "$restored_origin_payload"
 assert_http_status "$HTTP_CODE" "200" "activity origin restore failed"
-agent_exec '/agent/pull_config.sh' >/dev/null
+edge_pull_config
 agent_push_metrics >/dev/null
 
 activity_request_lookup_ok() {
@@ -1655,7 +1664,7 @@ done
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}"
 assert_http_status "$HTTP_CODE" "200" "domain delete failed"
 record_step PASS "domain-delete" "domain removed"
-agent_exec '/agent/pull_config.sh' >/dev/null || true
+edge_pull_config || true
 
 remaining_domain="$(db_query "SELECT COUNT(*) FROM domains WHERE id='${DOMAIN_ID}';")"
 assert_eq "$remaining_domain" "0" "domain row should be removed"
