@@ -38,9 +38,14 @@ def test_e2e_security_ingest_refreshes_edge_config_after_dns_mutations():
     section_start = e2e.index("# Security events should be ingested from edge runtime decisions via agent push.")
     section_end = e2e.index('record_step PASS "security-events"', section_start)
     section = e2e[section_start:section_end]
+    helper_start = e2e.index("edge_pull_config()")
+    helper_end = e2e.index("\n}\n\nedge_config_origin_json", helper_start)
+    helper = e2e[helper_start:helper_end]
 
     assert "cdn:edge:sync-config" in section
-    assert "agent_exec '/agent/pull_config.sh' >/dev/null" in section
+    assert "edge_pull_config" in section
+    assert "agent_exec '/agent/pull_config.sh' >/dev/null" in helper
+    assert "edge_reload_config" in helper
     assert 'edge_wait_config_host "${TEST_DOMAIN}"' in section
     assert "agent_exec '/agent/push_security_events.sh' >/dev/null || true" in section
     assert "edge-ready-security-events.json" in section
