@@ -138,13 +138,16 @@ class ReportService
     {
         $range = $this->range($query);
         $limit = $this->limit($query);
+        $recentJobs = $this->recentJobs($range, $limit);
+        $recentAuditEntries = $this->recentAuditEntries($range, $limit);
+        $recentDnsErrors = $this->recentDnsErrors($range, $limit);
         return [
             'time_range' => $this->publicRange($range),
             'job_queue_status_counts' => $this->jobsByStatus($range),
             'failed_jobs_over_time' => $this->jobSeries($range, ['failed', 'cancelled']),
-            'recent_jobs' => $this->recentJobs($range, $limit),
-            'event_timeline' => $this->operationsTimeline($range, $limit),
-            'recent_audit_entries' => $this->recentAuditEntries($range, $limit),
+            'recent_jobs' => $recentJobs,
+            'event_timeline' => $this->operationsTimeline($recentAuditEntries, $recentJobs, $recentDnsErrors, $limit),
+            'recent_audit_entries' => $recentAuditEntries,
             'most_active_actors' => $this->auditGroup($range, 'actor_id', $limit),
             'most_changed_resources' => $this->auditGroup($range, 'resource_type', $limit),
             'recent_config_snapshots' => $this->recentConfigSnapshots($limit),
@@ -688,9 +691,9 @@ class ReportService
         return array_map(static fn (array $row): array => ['id' => (string) $row['id'], 'domain_id' => (string) $row['domain_id'], 'domain_name' => $row['domain_name'], 'status' => (string) $row['status'], 'progress_percent' => (int) $row['progress_percent'], 'message' => (string) $row['message'], 'created_at' => (int) $row['created_at'], 'updated_at' => (int) $row['updated_at']], $this->rows("SELECT j.*,d.name domain_name FROM ssl_jobs j LEFT JOIN domains d ON d.id=j.domain_id {$where} ORDER BY j.created_at DESC LIMIT :limit", $params));
     }
 
-    private function operationsTimeline(array $range, int $limit): array
+    private function operationsTimeline(array $auditEntries, array $jobs, array $dnsErrors, int $limit): array
     {
-        $events = array_merge($this->recentAuditEntries($range, $limit), $this->recentJobs($range, $limit), $this->recentDnsErrors($range, $limit));
+        $events = array_merge($auditEntries, $jobs, $dnsErrors);
         usort($events, static fn (array $a, array $b): int => ((int) ($b['created_at'] ?? 0)) <=> ((int) ($a['created_at'] ?? 0)));
         return array_slice($events, 0, $limit);
     }
