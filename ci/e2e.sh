@@ -275,6 +275,32 @@ sys.exit(1)
 PY"
 }
 
+edge_config_origin_has_fields() {
+  local host="$1"
+  local expected_host="$2"
+  local expected_scheme="$3"
+  local expected_host_header="$4"
+  docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$host\" \"$expected_host\" \"$expected_scheme\" \"$expected_host_header\" <<'PY'
+import json
+import sys
+
+path, host, expected_host, expected_scheme, expected_host_header = sys.argv[1:6]
+with open(path, 'r', encoding='utf-8', errors='replace') as fh:
+    cfg = json.load(fh)
+host_cfg = (cfg.get('hosts') or {}).get(host) or {}
+candidates = list(host_cfg.get('origins') or [])
+geo_default = (host_cfg.get('geo_origins') or {}).get('DEFAULT') or {}
+if geo_default:
+    candidates.append(geo_default)
+for origin in candidates:
+    if not isinstance(origin, dict):
+        continue
+    if origin.get('host') == expected_host and origin.get('scheme') == expected_scheme and origin.get('host_header') == expected_host_header:
+        sys.exit(0)
+sys.exit(1)
+PY"
+}
+
 edge_config_origin_restored() {
   local domain="$1"
   docker compose exec -T edge-agent sh -lc "python3 - \"\${EDGE_CONFIG_PATH:-/var/lib/cdnlite/config.json}\" \"$domain\" <<'PY'
@@ -948,6 +974,7 @@ api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}"
   '{"scheme":"http","host":"origin-http","port":80,"host_header":"origin-http","sni":"origin-http","tls_verify":"verify","preserve_host":false,"enabled":true}'
 assert_http_status "$HTTP_CODE" "200" "own-host-header origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
+retry 20 1 edge_config_origin_has_fields "${TEST_DOMAIN}" "origin-http" "http" "origin-http"
 origin_own_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=own-host")"
 assert_contains "$origin_own_host_body" '"origin_scheme":"http"' "own-host origin should return 200 through edge"
 assert_contains "$origin_own_host_body" '"origin_host":"origin-http"' "preserve_host=false should send configured origin host header"
@@ -957,6 +984,7 @@ api_patch "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/${PRIMARY_ORIGIN_ID}"
   "{\"scheme\":\"http\",\"host\":\"origin-http\",\"port\":80,\"host_header\":\"origin-http\",\"sni\":\"origin-http\",\"tls_verify\":\"verify\",\"preserve_host\":true,\"enabled\":true}"
 assert_http_status "$HTTP_CODE" "200" "preserve CDN host origin update failed"
 agent_exec '/agent/pull_config.sh' >/dev/null
+retry 20 1 edge_config_origin_has_fields "${TEST_DOMAIN}" "origin-http" "http" "origin-http"
 origin_cdn_host_body="$(curl -sS -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/origin-probe?mode=cdn-host")"
 assert_contains "$origin_cdn_host_body" '"origin_scheme":"http"' "preserve-host origin should return 200 through edge"
 assert_contains "$origin_cdn_host_body" "\"origin_host\":\"${TEST_DOMAIN}\"" "preserve_host=true should send CDN request host header"
