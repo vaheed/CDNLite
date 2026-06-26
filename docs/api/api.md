@@ -662,7 +662,7 @@ Settings tips:
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/v1/usage/summary` | Global or domain usage summary with bounded range, point-count, freshness, watermark, partial-data, query-id, and cache-status metadata when `bucket` is supplied. |
-| `POST` | `/api/v1/usage/recalculate` | Queue asynchronous minute/hour/day aggregate refresh and return `202 Accepted` with a `job_id`. |
+| `POST` | `/api/v1/usage/recalculate` | Queue an asynchronous aggregate refresh and return `202 Accepted` with a `job_id`. Accepts optional `domain_id` and `bucket`; bucket-scoped requests refresh the bounded range used by the dashboard chart. |
 | `GET` | `/api/v1/usage/recalculate/{jobId}` | Read asynchronous aggregate refresh job status, progress, and failure details. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/summary` | Domain usage summary with the same bounded analytics metadata. |
 | `GET` | `/api/v1/domains/{domainId}/analytics/cache` | Domain cache analytics. |

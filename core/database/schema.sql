@@ -546,6 +546,12 @@ CREATE TABLE IF NOT EXISTS usage_aggregates (
   FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_bucket_ts
+  ON usage_aggregates(bucket, bucket_ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_aggregates_domain_bucket_ts
+  ON usage_aggregates(domain_id, bucket, bucket_ts DESC);
+
 CREATE TABLE IF NOT EXISTS telemetry_ingest_batches (
   batch_id TEXT PRIMARY KEY,
   source_edge_id TEXT NOT NULL,

@@ -8,6 +8,6 @@ export const usageApi = {
   activityTimeline: (domainId: string, query?: { from?: number; to?: number; type?: string; search?: string; cursor?: string; limit?: number; offset?: number }) => api.get<ActivityTimeline>(`/api/v1/domains/${domainId}/activity`, { query }),
   findRequest: (domainId: string, requestId: string) => api.get<RequestActivity>(`/api/v1/domains/${domainId}/activity/requests/${encodeURIComponent(requestId)}`),
   exportActivity: (domainId: string, query?: { from?: number; to?: number; type?: string; search?: string; limit?: number }) => api.get<ActivityExport>(`/api/v1/domains/${domainId}/activity/export`, { query }),
-  recalculate: (domainId?: string) => api.post<UsageRecalculateAccepted>('/api/v1/usage/recalculate', domainId ? { domain_id: domainId } : {}),
+  recalculate: (domainId?: string, bucket?: UsageBucket) => api.post<UsageRecalculateAccepted>('/api/v1/usage/recalculate', { ...(domainId ? { domain_id: domainId } : {}), ...(bucket ? { bucket } : {}) }),
   recalculateJob: (jobId: string) => api.get<UsageRecalculateJob>(`/api/v1/usage/recalculate/${encodeURIComponent(jobId)}`),
 };

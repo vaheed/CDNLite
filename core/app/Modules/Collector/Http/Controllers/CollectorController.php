@@ -59,14 +59,21 @@ class CollectorController
     public function recalculate(array $input): array
     {
         $domainId = null;
+        $bucket = null;
         if (isset($input['domain_id'])) {
             if (!is_string($input['domain_id']) || trim($input['domain_id']) === '') {
                 return ['error' => 'domain_id_must_be_non_empty_string', 'status' => 422];
             }
             $domainId = trim($input['domain_id']);
         }
+        if (isset($input['bucket'])) {
+            if (!is_string($input['bucket']) || !isset($this->allowedBuckets[$input['bucket']])) {
+                return ['error' => 'bucket_must_be_one_of_minute_hour_day', 'status' => 422];
+            }
+            $bucket = $input['bucket'];
+        }
 
-        return $this->service->rebuildAggregates($domainId);
+        return $this->service->rebuildAggregates($domainId, $bucket);
     }
 
     public function rollupJob(string $jobId): array

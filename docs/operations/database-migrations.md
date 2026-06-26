@@ -108,6 +108,10 @@ Migration `000026_config_snapshot_report_index.sql` is additive. It adds an
 ordering index for recent configuration snapshot summaries so reports can fetch
 the newest snapshot metadata before touching large snapshot payloads.
 
+Migration `000027_usage_aggregate_range_indexes.sql` is additive. It adds
+range indexes for bucketed analytics reads over `usage_aggregates`, both global
+and domain-scoped.
+
 ## Shared-Hosting Origin Defaults
 
 Migration `000023_origin_shared_hosting_defaults.sql` is additive and intended

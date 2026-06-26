@@ -50,6 +50,8 @@ def test_phase2_summary_contract_is_bounded_and_metadata_rich():
     ):
         assert token in service
     assert "Recalculation queued as" in dashboard
+    assert "pollRecalculation" in dashboard
+    assert "usageApi.recalculate(selectedDomainId.value || undefined, bucket.value)" in dashboard
     assert "UsageRecalculateAccepted" in types
 
 

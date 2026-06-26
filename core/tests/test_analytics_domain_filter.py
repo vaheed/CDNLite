@@ -15,7 +15,7 @@ def test_domain_analytics_routes_and_dashboard_filter_contract():
     assert "All domains" in analytics
     assert "usageApi.domainSummary(domainId" in analytics
     assert "cacheApi.analytics(domainId || undefined)" in analytics
-    assert "usageApi.recalculate(selectedDomainId.value || undefined)" in analytics
+    assert "usageApi.recalculate(selectedDomainId.value || undefined, bucket.value)" in analytics
     assert "'top_countries'" in (REPO_ROOT / "core" / "app" / "Modules" / "Collector" / "Services" / "CollectorService.php").read_text()
     assert "Top visitor countries" in (REPO_ROOT / "dash" / "src" / "views" / "domain-tabs" / "DomainActivityTab.vue").read_text()
     assert "top_countries" in (REPO_ROOT / "dash" / "src" / "types.ts").read_text()

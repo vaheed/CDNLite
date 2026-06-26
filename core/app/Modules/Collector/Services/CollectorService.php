@@ -698,18 +698,25 @@ class CollectorService
         ];
     }
 
-    public function rebuildAggregates(?string $domainId = null): array
+    public function rebuildAggregates(?string $domainId = null, ?string $bucket = null): array
     {
+        if ($bucket !== null && !isset($this->bucketSeconds[$bucket])) {
+            throw new \InvalidArgumentException('invalid_bucket');
+        }
         $jobId = Uuid::v4();
         $now = time();
+        $range = $bucket === null ? ['from' => null, 'to' => null] : $this->analyticsRange([], $bucket);
         $stmt = Database::pdo()->prepare(
             "INSERT INTO analytics_rollup_jobs
              (id, domain_id, bucket, range_start, range_end, status, requested_by, progress_json, created_at, updated_at)
-             VALUES (:id, :domain_id, NULL, NULL, NULL, 'queued', 'api', '{}'::jsonb, :created_at, :updated_at)"
+             VALUES (:id, :domain_id, :bucket, :range_start, :range_end, 'queued', 'api', '{}'::jsonb, :created_at, :updated_at)"
         );
         $stmt->execute([
             ':id' => $jobId,
             ':domain_id' => $domainId,
+            ':bucket' => $bucket,
+            ':range_start' => $range['from'],
+            ':range_end' => $range['to'],
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
@@ -721,6 +728,8 @@ class CollectorService
             'status' => 202,
             'job_id' => $jobId,
             'domain_id' => $domainId,
+            'bucket' => $bucket,
+            'range' => ['from' => $range['from'], 'to' => $range['to']],
             'job_status' => ($run['ran'] ?? false) ? 'succeeded' : 'queued',
             'inserted' => $run['inserted'] ?? [],
         ];
@@ -756,7 +765,7 @@ class CollectorService
         $pdo->commit();
 
         try {
-            $inserted = $this->runIncrementalAggregates($job['domain_id'] ?? null);
+            $inserted = $this->runIncrementalAggregates($job['domain_id'] ?? null, $job['bucket'] ?? null, isset($job['range_start']) ? (int) $job['range_start'] : null, isset($job['range_end']) ? (int) $job['range_end'] : null);
             $finished = time();
             $done = $pdo->prepare("UPDATE analytics_rollup_jobs SET status='succeeded', progress_json=CAST(:progress AS jsonb), finished_at=:now, updated_at=:now WHERE id=:id");
             $done->execute([':progress' => json_encode(['inserted' => $inserted]), ':now' => $finished, ':id' => $job['id']]);
@@ -768,7 +777,7 @@ class CollectorService
         }
     }
 
-    private function runIncrementalAggregates(?string $domainId = null): array
+    private function runIncrementalAggregates(?string $domainId = null, ?string $onlyBucket = null, ?int $rangeStart = null, ?int $rangeEnd = null): array
     {
         $pdo = Database::pdo();
         DatabaseWorkload::apply($pdo, DatabaseWorkload::JOBS);
@@ -778,7 +787,20 @@ class CollectorService
         try {
             $inserted = [];
             foreach ($this->bucketSeconds as $bucket => $seconds) {
-                $where = $domainId !== null ? 'WHERE domain_id = :domain_id_filter' : '';
+                if ($onlyBucket !== null && $bucket !== $onlyBucket) {
+                    continue;
+                }
+                $whereParts = [];
+                if ($domainId !== null) {
+                    $whereParts[] = 'domain_id = :domain_id_filter';
+                }
+                if ($rangeStart !== null) {
+                    $whereParts[] = 'ts >= :range_start';
+                }
+                if ($rangeEnd !== null) {
+                    $whereParts[] = 'ts < :range_end';
+                }
+                $where = $whereParts === [] ? '' : 'WHERE ' . implode(' AND ', $whereParts);
                 $sql = sprintf(
                     "WITH source AS (
                         SELECT
@@ -827,6 +849,12 @@ class CollectorService
                 ];
                 if ($domainId !== null) {
                     $params[':domain_id_filter'] = $domainId;
+                }
+                if ($rangeStart !== null) {
+                    $params[':range_start'] = $rangeStart;
+                }
+                if ($rangeEnd !== null) {
+                    $params[':range_end'] = $rangeEnd;
                 }
                 $stmt->execute($params);
                 $inserted[$bucket] = $stmt->rowCount();

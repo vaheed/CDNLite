@@ -72,6 +72,7 @@ const summary = ref<UsageSummary | null>(null);
 const cacheAnalytics = ref<CacheAnalytics | null>(null);
 const errorMessage = ref('');
 const jobMessage = ref('');
+const activeJobId = ref('');
 const points = computed(() => summary.value?.points ?? []);
 const cacheSummary = computed(() => summarizeCacheAnalytics(cacheAnalytics.value));
 const requestTotal = computed(() => summary.value?.requests_count ?? summary.value?.total_requests ?? summary.value?.requests ?? 0);
@@ -132,12 +133,45 @@ async function load() {
 async function recalculate() {
   errorMessage.value = '';
   jobMessage.value = '';
+  activeJobId.value = '';
   try {
-    const job = await usageApi.recalculate(selectedDomainId.value || undefined);
-    jobMessage.value = `Recalculation queued as ${job.job_id}. Analytics stay available while aggregates refresh.`;
+    const job = await usageApi.recalculate(selectedDomainId.value || undefined, bucket.value);
+    activeJobId.value = job.job_id;
+    jobMessage.value = job.job_status === 'succeeded'
+      ? `Recalculation ${job.job_id} completed. Refreshing analytics.`
+      : `Recalculation queued as ${job.job_id}. Analytics stay available while aggregates refresh.`;
+    if (job.job_status === 'succeeded') {
+      await load();
+      return;
+    }
+    await pollRecalculation(job.job_id);
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Unable to queue analytics recalculation.';
   }
+}
+
+async function pollRecalculation(jobId: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await wait(1500);
+    if (activeJobId.value !== jobId) return;
+    const job = await usageApi.recalculateJob(jobId);
+    if (job.status === 'succeeded') {
+      jobMessage.value = `Recalculation ${jobId} completed. Analytics refreshed.`;
+      await load();
+      return;
+    }
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      errorMessage.value = job.error || `Recalculation ${job.status}.`;
+      jobMessage.value = '';
+      return;
+    }
+    jobMessage.value = `Recalculation ${jobId} is ${job.status}. Analytics stay available while aggregates refresh.`;
+  }
+  jobMessage.value = `Recalculation ${jobId} is still running. Use Refresh in a moment to reload analytics.`;
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function formatBucketTime(timestamp: number) {

@@ -49,6 +49,7 @@ def test_reporting_indexes_are_in_schema_and_migration():
             (ROOT / "core/database/migrations/000024_operations_report_audit_indexes.sql").read_text(),
             (ROOT / "core/database/migrations/000025_operations_report_range_indexes.sql").read_text(),
             (ROOT / "core/database/migrations/000026_config_snapshot_report_index.sql").read_text(),
+            (ROOT / "core/database/migrations/000027_usage_aggregate_range_indexes.sql").read_text(),
         ]
     )
     for index in (
@@ -65,6 +66,8 @@ def test_reporting_indexes_are_in_schema_and_migration():
         "idx_ssl_jobs_created_status",
         "idx_dns_sync_events_created_status",
         "idx_config_snapshots_generated_version",
+        "idx_usage_aggregates_bucket_ts",
+        "idx_usage_aggregates_domain_bucket_ts",
     ):
         assert index in schema
         assert index in migrations

@@ -173,7 +173,7 @@ export interface DnsOperations {
 export interface UsagePoint { bucket_ts: number; requests_count: number; bytes_in: number; bytes_out: number; }
 export interface UsageSummary { domain_id?: Id; bucket?: UsageBucket; effective_range?: { from: number; to: number; timezone: string }; point_count?: number; limit_points?: number; freshness?: { latest_bucket_ts: number; lag_seconds: number | null }; aggregation_watermark?: { source_watermark_ts: number; last_success_at: number; last_error?: string | null } | null; partial_data?: boolean; query_id?: string; cache_status?: string; requests_count?: number; total_requests?: number; requests?: number; bytes_in?: number; bytes_out?: number; records?: number; cache_hit_ratio?: number; points?: UsagePoint[]; }
 export interface UsageRecalculateJob { id: string; status: string; domain_id?: Id | null; progress?: Record<string, unknown>; error?: string | null; created_at: number; updated_at: number; started_at?: number | null; finished_at?: number | null; }
-export interface UsageRecalculateAccepted { ok: boolean; accepted: boolean; status: number; job_id: string; domain_id?: Id | null; job_status: string; }
+export interface UsageRecalculateAccepted { ok: boolean; accepted: boolean; status: number; job_id: string; domain_id?: Id | null; bucket?: UsageBucket | null; range?: { from: number | null; to: number | null }; job_status: string; }
 export interface RequestActivity {
   id: Id; ts: number; request_id?: string | null; domain_id: Id; edge_node_id: string;
   host?: string | null; method?: string | null; path?: string | null; query_redacted?: Record<string, unknown>;
