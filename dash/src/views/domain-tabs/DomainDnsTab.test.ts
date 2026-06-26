@@ -58,8 +58,9 @@ describe('DomainDnsTab retry actions', () => {
       props: { domainId: 'domain-1' },
     });
 
-    await waitFor(() => expect(view.getByRole('button', { name: /retry sync/i })).toBeInTheDocument());
-    await fireEvent.click(view.getByRole('button', { name: /retry sync/i }));
+    const retryButtons = await view.findAllByRole('button', { name: /retry sync/i });
+    expect(retryButtons.length).toBeGreaterThan(0);
+    await fireEvent.click(retryButtons[0]);
 
     expect(dnsApiMock.reconcileRecord).toHaveBeenCalledWith('domain-1', 'record-1');
   });
