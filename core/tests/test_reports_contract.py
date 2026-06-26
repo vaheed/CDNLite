@@ -40,6 +40,7 @@ def test_reporting_indexes_are_in_schema_and_migration():
         [
             (ROOT / "core/database/migrations/000016_reporting_indexes.sql").read_text(),
             (ROOT / "core/database/migrations/000024_operations_report_audit_indexes.sql").read_text(),
+            (ROOT / "core/database/migrations/000025_operations_report_range_indexes.sql").read_text(),
         ]
     )
     for index in (
@@ -51,6 +52,10 @@ def test_reporting_indexes_are_in_schema_and_migration():
         "idx_audit_log_resource_created",
         "idx_ssl_jobs_status_created",
         "idx_cache_purge_requests_domain_created",
+        "idx_audit_log_created_actor",
+        "idx_audit_log_created_resource",
+        "idx_ssl_jobs_created_status",
+        "idx_dns_sync_events_created_status",
     ):
         assert index in schema
         assert index in migrations

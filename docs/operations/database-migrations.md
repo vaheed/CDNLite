@@ -95,6 +95,15 @@ Migration `000021_phase1_reporting_foundation.sql` is additive. It creates workl
 
 Rollback is a forward-fix or restore-from-backup operation for existing installs because later reporting code may depend on these objects. Fresh installs receive the same objects from `core/database/schema.sql`.
 
+## Operations Report Range Indexes
+
+Migration `000025_operations_report_range_indexes.sql` is additive. It adds
+range-first indexes for the operations dashboard report over `audit_log`,
+`ssl_jobs`, and `dns_sync_events` so upgraded production databases with larger
+history can satisfy the default 24-hour operations view inside the reporting
+statement timeout. Fresh installs receive the same indexes from
+`core/database/schema.sql`.
+
 ## Shared-Hosting Origin Defaults
 
 Migration `000023_origin_shared_hosting_defaults.sql` is additive and intended

@@ -317,6 +317,9 @@ CREATE TABLE IF NOT EXISTS dns_sync_events (
 CREATE INDEX IF NOT EXISTS idx_dns_sync_events_zone_created
   ON dns_sync_events(zone_name, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_dns_sync_events_created_status
+  ON dns_sync_events(created_at DESC, status);
+
 CREATE TABLE IF NOT EXISTS edge_tokens (
   edge_id TEXT PRIMARY KEY,
   token_hash TEXT NOT NULL,
@@ -363,6 +366,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_actor_created
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_resource_created
   ON audit_log(resource_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_actor
+  ON audit_log(created_at DESC, actor_id);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_resource
+  ON audit_log(created_at DESC, resource_type);
 
 CREATE TABLE IF NOT EXISTS admin_users (
   id TEXT PRIMARY KEY,
@@ -1184,6 +1193,9 @@ CREATE INDEX IF NOT EXISTS idx_ssl_jobs_active
 
 CREATE INDEX IF NOT EXISTS idx_ssl_jobs_status_created
   ON ssl_jobs(status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ssl_jobs_created_status
+  ON ssl_jobs(created_at DESC, status);
 
 CREATE TABLE IF NOT EXISTS ssl_acme_accounts (
   id TEXT PRIMARY KEY,
