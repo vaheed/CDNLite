@@ -29,7 +29,8 @@ def test_report_service_uses_real_tables_and_validates_query_shape():
         assert token in service
     assert "cache_rule_match_counts' => null" in service
     assert "does not currently include" in service
-    assert "pg_column_size(s) AS size" in service
+    assert "pg_column_size(payload_json) AS size" in service
+    assert "WITH recent AS (" in service
     assert "content_hash,size FROM config_snapshots" not in service
     assert "$limit = min($limit, 5);" in service
     assert "recentAuditGroup($range, 'actor_id', $limit)" in service
@@ -47,6 +48,7 @@ def test_reporting_indexes_are_in_schema_and_migration():
             (ROOT / "core/database/migrations/000016_reporting_indexes.sql").read_text(),
             (ROOT / "core/database/migrations/000024_operations_report_audit_indexes.sql").read_text(),
             (ROOT / "core/database/migrations/000025_operations_report_range_indexes.sql").read_text(),
+            (ROOT / "core/database/migrations/000026_config_snapshot_report_index.sql").read_text(),
         ]
     )
     for index in (
@@ -62,6 +64,7 @@ def test_reporting_indexes_are_in_schema_and_migration():
         "idx_audit_log_created_resource",
         "idx_ssl_jobs_created_status",
         "idx_dns_sync_events_created_status",
+        "idx_config_snapshots_generated_version",
     ):
         assert index in schema
         assert index in migrations

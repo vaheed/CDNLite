@@ -104,6 +104,10 @@ history can satisfy the default 24-hour operations view inside the reporting
 statement timeout. Fresh installs receive the same indexes from
 `core/database/schema.sql`.
 
+Migration `000026_config_snapshot_report_index.sql` is additive. It adds an
+ordering index for recent configuration snapshot summaries so reports can fetch
+the newest snapshot metadata before touching large snapshot payloads.
+
 ## Shared-Hosting Origin Defaults
 
 Migration `000023_origin_shared_hosting_defaults.sql` is additive and intended

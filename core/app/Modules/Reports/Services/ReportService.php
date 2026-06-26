@@ -771,10 +771,15 @@ class ReportService
             'size' => (int) $row['size'],
             'active' => in_array($row['active'], [true, 1, '1', 't', 'true'], true),
         ], $this->rows(
-            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s) AS size,
-                    (s.version=cs.active_snapshot_version) AS active
-             FROM config_snapshots s CROSS JOIN config_state cs
-             WHERE cs.id=1 ORDER BY s.generated_at DESC,s.version DESC LIMIT :limit',
+            'WITH recent AS (
+                SELECT version, generated_at, content_hash, pg_column_size(payload_json) AS size
+                FROM config_snapshots
+                ORDER BY generated_at DESC, version DESC LIMIT :limit
+             )
+             SELECT r.version,r.generated_at,r.content_hash,r.size,
+                    (r.version=cs.active_snapshot_version) AS active
+             FROM recent r CROSS JOIN config_state cs
+             WHERE cs.id=1 ORDER BY r.generated_at DESC,r.version DESC',
             [':limit' => $limit]
         ));
     }

@@ -779,6 +779,9 @@ CREATE TABLE IF NOT EXISTS config_snapshots (
   generated_at BIGINT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_config_snapshots_generated_version
+  ON config_snapshots(generated_at DESC, version DESC);
+
 CREATE TABLE IF NOT EXISTS redirect_rules (
   id TEXT PRIMARY KEY,
   domain_id TEXT NOT NULL,

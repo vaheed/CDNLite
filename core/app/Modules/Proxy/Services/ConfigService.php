@@ -166,7 +166,7 @@ class ConfigService
     public function snapshots(): array
     {
         $rows = Database::pdo()->query(
-            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s) AS size,
+            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s.payload_json) AS size,
                     (s.version=cs.active_snapshot_version) AS active
              FROM config_snapshots s CROSS JOIN config_state cs
              WHERE cs.id=1 ORDER BY s.version DESC'
@@ -177,7 +177,7 @@ class ConfigService
     public function latestSnapshotSummary(): ?array
     {
         $row = Database::pdo()->query(
-            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s) AS size,
+            'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s.payload_json) AS size,
                     (s.version=cs.active_snapshot_version) AS active
              FROM config_snapshots s CROSS JOIN config_state cs
              WHERE cs.id=1 ORDER BY s.version DESC LIMIT 1'
