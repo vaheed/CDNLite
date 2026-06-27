@@ -1,7 +1,7 @@
 phase: "04"
 name: "Real challenge and clearance system"
 owner: "CDNLite maintainers"
-status: "in progress"
+status: "complete"
 topology: "root docker-compose.yml"
 profiles:
   pr:
@@ -56,6 +56,6 @@ evidence:
 stress_scenarios:
   - "phase4-challenge-clearance"
 recovery_assertions:
-  - "Challenge responses return signed clearance metadata instead of only denying the request."
-  - "Verified challenge tokens set HttpOnly scoped clearance cookies."
+  - "Challenge responses return a self-hosted browser proof-of-work page instead of only denying the request."
+  - "Verified challenge proofs set HttpOnly scoped clearance cookies."
   - "Block rules keep precedence over clearance cookies."

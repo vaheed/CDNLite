@@ -1224,7 +1224,7 @@ record_step PASS "edge-waf-block-runtime" "403 and edge header observed for /adm
 bot_challenge_body="$(mktemp)"
 bot_challenge_status="$(curl -sS -o "$bot_challenge_body" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -A 'Googlebot' "${EDGE_URL}/bot-check?via=edge-bot-challenge")"
 assert_eq "$bot_challenge_status" "403" "unverified search-bot claim should be challenged"
-assert_contains "$(cat "$bot_challenge_body")" '"error":"bot_challenge_required"' "bot challenge response should be explicit"
+assert_contains "$(cat "$bot_challenge_body")" "Security check" "bot challenge should return the browser verification page"
 rm -f "$bot_challenge_body"
 retry 10 1 agent_exec '/agent/push_security_events.sh'
 bot_event_visible=0
@@ -1269,23 +1269,42 @@ CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
 edge_pull_config
 challenge_codes=()
 challenge_response_verified=0
+challenge_body="/tmp/e2e-rate-limit-challenge-body.txt"
 for i in $(seq 1 8); do
-  code="$(curl -sS -o /tmp/e2e-rate-limit-challenge-${i}.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-challenge")"
+  code="$(curl -sS -o "$challenge_body" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-challenge")"
   challenge_codes+=("$code")
-  if [[ "$code" == "429" ]] && grep -Fq '"error":"challenge_required"' "/tmp/e2e-rate-limit-challenge-${i}.txt"; then
+  if [[ "$code" == "429" ]] && grep -Fq "Security check" "$challenge_body" && grep -Fq "__cdnlite_challenge_verify" "$challenge_body"; then
     challenge_response_verified=1
+    break
   fi
 done
 if [[ " ${challenge_codes[*]} " != *" 429 "* ]]; then
   fail "challenge rate limit expected 429 challenge responses"
 fi
-assert_eq "$challenge_response_verified" "1" "challenge rate-limit response should identify the required challenge"
+assert_eq "$challenge_response_verified" "1" "challenge rate-limit response should return browser verification page"
+challenge_token="$(php -r '$body=file_get_contents($argv[1]); if(preg_match("/const token = \"([^\"]+)\";/", $body, $m)){ echo $m[1]; }' "$challenge_body")"
+[[ -n "$challenge_token" ]] || fail "challenge page did not include a signed token"
+challenge_difficulty="$(php -r '$body=file_get_contents($argv[1]); if(preg_match("/const difficulty = ([0-9]+);/", $body, $m)){ echo $m[1]; }' "$challenge_body")"
+challenge_difficulty="${challenge_difficulty:-3}"
+if [[ "$challenge_difficulty" -le 1 ]]; then
+  challenge_pow="browser-check"
+else
+  challenge_pow="$(php -r '$t=$argv[1]; $d=(int)$argv[2]; $prefix=str_repeat("0",$d); for($i=0;$i<5000000;$i++){ if(substr(hash("sha256",$t.":".$i),0,$d)===$prefix){ echo $i; exit(0);} } exit(1);' "$challenge_token" "$challenge_difficulty")"
+fi
+[[ -n "$challenge_pow" ]] || fail "could not solve local challenge proof"
+cookie_jar="/tmp/e2e-cdnlite-clearance-cookie.txt"
+verify_code="$(curl -sS -o /tmp/e2e-challenge-verify.txt -c "$cookie_jar" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -X POST "${EDGE_URL}/__cdnlite_challenge_verify" --data-urlencode "token=${challenge_token}" --data-urlencode "pow=${challenge_pow}")"
+assert_eq "$verify_code" "303" "valid challenge proof should set clearance and redirect"
+assert_contains "$(cat "$cookie_jar")" "__cdnlite_clearance" "challenge verification should set clearance cookie"
+cleared_code="$(curl -sS -b "$cookie_jar" -o /tmp/e2e-rate-limit-cleared.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/challenge?via=edge-rate-limit-cleared")"
+assert_eq "$cleared_code" "200" "valid clearance should allow matching challenge traffic to origin"
+assert_contains "$(cat /tmp/e2e-rate-limit-cleared.txt)" '"origin_scheme":"https"' "cleared challenge traffic should reach origin"
 # Security events are delivered asynchronously by the edge agent. The event records
 # the configured decision (`challenge`), while the HTTP response says `challenge_required`.
 retry 20 1 challenge_security_event_visible
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${CHALLENGE_RATE_LIMIT_RULE_ID}"
 assert_http_status "$HTTP_CODE" "200" "challenge rate-limit cleanup failed"
-record_step PASS "edge-rate-limit-challenge" "challenge action returns 429 and is visible in security events"
+record_step PASS "edge-rate-limit-challenge" "challenge page, proof verification, clearance cookie, origin routing, and events verified"
 
 if docker compose exec -T edge-agent sh -lc "grep -q 'rate_limited' \"\${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}\"" \
   || docker compose exec -T edge sh -lc "grep -q 'rate_limited' /var/lib/cdnlite/metrics.ndjson"; then

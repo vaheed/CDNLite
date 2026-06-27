@@ -347,7 +347,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 | 1. Database architecture and real-time reporting foundation | P0 | Complete | Fast operational reads, scalable event ingestion, bounded reporting, and durable rollups |
 | 2. Analytics scalability and asynchronous aggregation | P0 | Complete | Bounded analytics metadata, async recalculation jobs, and idempotent aggregate upserts |
 | 3. Edge hot-path performance and bounded telemetry | P0 | Complete | No repeated config parsing or synchronous per-request telemetry writes |
-| 4. Real challenge and clearance system | P0 | In progress | Challenge actions perform a signed clearance workflow instead of a renamed block |
+| 4. Real challenge and clearance system | P0 | Complete | Challenge actions serve configurable self-hosted browser verification before origin routing |
 | 5. Adaptive overload protection and waiting room | P0 | Planned | Origins remain protected under attack or heavy usage |
 | 6. Cache correctness foundation | P0 | Planned | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
 | 7. Origin routing, resilience, and shielding | P0 | Planned | Predictable health, load balancing, failover, retries, and circuit breaking |
@@ -1451,13 +1451,13 @@ On documented reference hardware:
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
 
-**Status:** In progress  
+**Status:** Complete  
 **Owner:** CDNLite maintainers  
 **Tracking issue:** Local roadmap Phase 4  
 **Manifest:** `ci/phases/phase-04.yml`  
 **Evidence:** `ci/reports/phase-04-report.md`, `ci/reports/phase-04-report.json`  
-**Completed work:** Added signed edge clearance tokens for WAF and rate-limit challenge actions, scoped HttpOnly clearance cookies, challenge metadata responses, invalid-token diagnostics in security events, block-before-challenge precedence, `CDNLITE_EDGE_CLEARANCE_SECRET`, Phase 4 runner registration, and stress scenario registration.  
-**Remaining work:** Run full clean-stack evidence before marking Complete. The current challenge is a signed clearance workflow, not a proof-of-work or CAPTCHA provider.
+**Completed work:** Added configurable self-hosted browser verification pages for WAF and rate-limit challenge actions, the edge-only `/__cdnlite_challenge_verify` endpoint, signed scoped challenge and clearance tokens, level-1 lightweight browser verification, level-2-through-6 proof-of-work, HttpOnly clearance cookies, same-host redirect recovery, block-before-challenge precedence, Emergency Protection site-wide challenge mode, `CDNLITE_EDGE_CLEARANCE_SECRET`, `CDNLITE_EDGE_CHALLENGE_DIFFICULTY`, Phase 4 runner registration, e2e coverage, and stress scenario registration.  
+**Remaining work:** None for the accepted Phase 4 delivery. Third-party CAPTCHA providers remain a later optional extension, not a Phase 4 requirement.
 
 ### Objective
 

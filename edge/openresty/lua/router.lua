@@ -245,14 +245,6 @@ local function apply_waf(cfg, host)
         if clearance.has_clearance(domain.domain_id, 'waf', rule.id, client_ip) then
           return true
         end
-        local verified, verify_err = clearance.consume_challenge(domain.domain_id, 'waf', rule.id, client_ip)
-        if verified then
-          ngx.header['Location'] = tostring(ngx.var.uri or '/')
-          identity.apply()
-          return ngx.exit(303)
-        elseif verify_err then
-          ngx.ctx.security_safe_reason = 'clearance_' .. tostring(verify_err)
-        end
         append_security_event(nil)
         identity.apply()
         return clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required')
@@ -349,14 +341,6 @@ local function apply_rate_limit(cfg, host, domain_id)
   elseif ngx.ctx.security_action == 'challenge' then
     if clearance.has_clearance(domain_id, 'rate_limit', rule.id, client_ip) then
       return true
-    end
-    local verified, verify_err = clearance.consume_challenge(domain_id, 'rate_limit', rule.id, client_ip)
-    if verified then
-      ngx.header['Location'] = tostring(ngx.var.uri or '/')
-      identity.apply()
-      return ngx.exit(303)
-    elseif verify_err then
-      ngx.ctx.security_safe_reason = 'clearance_' .. tostring(verify_err)
     end
     append_security_event(domain_id)
     edge_log.warn('rate_limit_challenge', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })

@@ -60,16 +60,28 @@ listeners or error handlers.
 
 ## Challenge Clearance
 
-WAF and rate-limit rules with the `challenge` action issue a short-lived signed
-clearance challenge instead of behaving as a renamed block. The token is scoped
-to the domain, action family, rule ID, client IP, and expiry. Successful
-verification sets the `__cdnlite_clearance` HttpOnly cookie with `SameSite=Lax`.
-Explicit block rules and administrative denies still take precedence over any
-clearance cookie.
+WAF and rate-limit rules with the `challenge` action serve a self-hosted browser
+proof-of-work page instead of behaving as a renamed block. The challenge token
+is scoped to the domain, action family, rule ID, client IP, return path, and
+expiry. The browser computes a bounded SHA-256 proof and submits it to the
+edge-only `/__cdnlite_challenge_verify` endpoint. Successful verification sets
+the `__cdnlite_clearance` HttpOnly cookie with `SameSite=Lax` and redirects the
+visitor back to the original same-host relative URL. Explicit block rules and
+administrative denies still take precedence over any clearance cookie.
 
 Set `CDNLITE_EDGE_CLEARANCE_SECRET` to a strong shared secret on every edge in a
 fleet. Rotating it invalidates existing clearance cookies, which is safe but can
 temporarily make visitors solve a challenge again.
+
+Set `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` between `1` and `6` to tune challenge
+cost. This is a provider-independent abuse-friction mechanism; it is not a
+guarantee that a visitor is human.
+
+| Difficulty | Behavior | Use case |
+| --- | --- | --- |
+| `1` | Lightweight browser verification. The page verifies JavaScript, same-origin fetch, cookies, and redirect handling without proof-of-work. | Low-friction checks for normal sites or mild bot noise. |
+| `2`-`4` | Browser verification plus increasing SHA-256 proof-of-work before clearance. | Suspicious automation, login abuse, or short attack windows. |
+| `5`-`6` | High-friction proof-of-work. | Temporary emergency use during active attacks where user delay is acceptable. |
 
 ## Authorization Limits
 

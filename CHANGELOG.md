@@ -11,7 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Phase 1 database architecture foundation with workload budgets, telemetry ingest batch diagnostics, reporting watermarks, reconciliation tables, current summary read model, reporting query budgets, one-shot phase runner, manifest, stress scenario, and database architecture docs.
 - Phase 2 analytics scalability with asynchronous recalculation jobs, job status API, idempotent aggregate upserts, bounded summary metadata, analytics cache schema, dashboard queued-job feedback, and contract documentation.
 - Phase 3 edge hot-path performance with worker-local config caching, last-known-good reload behavior, bounded shared-memory telemetry queues, queue health visibility, configurable edge capacity defaults, one-shot phase manifest, and stress scenario registration.
-- Phase 4 signed challenge clearance foundation for WAF and rate-limit challenge actions, including scoped HttpOnly cookies, challenge metadata responses, block-rule precedence, edge secret configuration, one-shot phase manifest, and stress scenario registration.
+- Phase 4 real challenge and clearance system for WAF, rate-limit, and Emergency Protection flows, including a self-hosted browser proof-of-work page, edge-only verification endpoint, scoped HttpOnly clearance cookies, block-rule precedence, edge secret and difficulty configuration, one-shot phase manifest, e2e coverage, and stress scenario registration.
 - Single canonical roadmap at `docs/ROADMAP.md`; removed duplicate root, lower-case, and legacy roadmap files.
 - Repository-level project presentation, contribution, security, roadmap, changelog, issue template, and pull request template documentation.
 
