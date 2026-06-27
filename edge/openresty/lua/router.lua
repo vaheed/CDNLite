@@ -247,7 +247,7 @@ local function apply_waf(cfg, host)
         end
         append_security_event(nil)
         identity.apply()
-        return clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required')
+        return clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required', rule.challenge_difficulty)
       end
       return true
     end
@@ -346,7 +346,7 @@ local function apply_rate_limit(cfg, host, domain_id)
     edge_log.warn('rate_limit_challenge', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })
     identity.apply()
     ngx.header['Retry-After'] = '60'
-    return clearance.challenge_response(domain_id, 'rate_limit', rule.id, client_ip, 429, 'challenge_required')
+    return clearance.challenge_response(domain_id, 'rate_limit', rule.id, client_ip, 429, 'challenge_required', rule.challenge_difficulty)
   end
   return true
 end

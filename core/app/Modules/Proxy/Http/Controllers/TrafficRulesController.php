@@ -227,6 +227,10 @@ class TrafficRulesController
             $action = Validator::enum($body, 'action', ['block', 'challenge']);
             if (($action['ok'] ?? false) !== true) { return $action; }
         }
+        if (array_key_exists('challenge_difficulty', $body) && $body['challenge_difficulty'] !== null && $body['challenge_difficulty'] !== '') {
+            $difficulty = Validator::intRange($body, 'challenge_difficulty', 1, 6);
+            if (($difficulty['ok'] ?? false) !== true) { return $difficulty; }
+        }
         return null;
     }
     public function createWaf(string $domainId, array $body): array {
@@ -244,6 +248,10 @@ class TrafficRulesController
         if (array_key_exists('action', $body)) {
             $action = Validator::enum($body, 'action', ['block', 'log', 'allow', 'challenge']);
             if (($action['ok'] ?? false) !== true) { return $action; }
+        }
+        if (array_key_exists('challenge_difficulty', $body) && $body['challenge_difficulty'] !== null && $body['challenge_difficulty'] !== '') {
+            $difficulty = Validator::intRange($body, 'challenge_difficulty', 1, 6);
+            if (($difficulty['ok'] ?? false) !== true) { return $difficulty; }
         }
         if (array_key_exists('name', $body)) {
             $name = Validator::optionalString($body, 'name', 255);
@@ -374,6 +382,10 @@ class TrafficRulesController
         }
         if (array_key_exists('action', $body) && !in_array((string) $body['action'], ['block', 'log', 'allow', 'challenge'], true)) {
             return ['error' => 'invalid_field', 'field' => 'action', 'detail' => 'must_be_one_of_block_log_allow_challenge', 'status' => 422];
+        }
+        if (array_key_exists('challenge_difficulty', $body) && $body['challenge_difficulty'] !== null && $body['challenge_difficulty'] !== '') {
+            $difficulty = Validator::intRange($body, 'challenge_difficulty', 1, 6);
+            if (($difficulty['ok'] ?? false) !== true) { return $difficulty; }
         }
         if (array_key_exists('priority', $body)) {
             $priority = Validator::intRange($body, 'priority', 1, 100000);

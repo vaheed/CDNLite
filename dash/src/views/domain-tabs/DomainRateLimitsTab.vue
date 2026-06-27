@@ -46,6 +46,7 @@ const helpItems = [
   { title: 'Path examples', body: 'Use / for site-wide limits, /login for authentication, or /api/ for API traffic.' },
   { title: 'Thresholds', body: 'Start higher than normal traffic, review analytics, then tighten for sensitive endpoints.' },
   { title: 'Key type', body: 'IP groups all requests from one visitor. Header keys can limit API tokens or Authorization headers.' },
+  { title: 'Challenge difficulty', body: 'Set difficulty on each challenge rule. Level 1 is lightweight browser verification; levels 2-6 add increasing proof-of-work. Leave blank to use the edge default.' },
 ];
 const fields = [
   { key: 'enabled', label: 'Enabled', type: 'checkbox' as const, default: true, help: 'Disable instead of deleting when testing traffic impact.' },
@@ -55,6 +56,7 @@ const fields = [
   { key: 'key_header_name', label: 'Header key', default: '', placeholder: 'Authorization', help: 'Required for header-based keys. Missing headers fall back to IP at the edge.' },
   { key: 'priority', label: 'Priority', type: 'number' as const, default: 100, placeholder: '100', help: 'Lower priority values are evaluated first.' },
   { key: 'action', label: 'Action', options: ['block', 'challenge'], default: 'block', help: 'Challenge adds friction before the limit turns into a hard block.' },
+  { key: 'challenge_difficulty', label: 'Challenge difficulty', type: 'number' as const, default: '', placeholder: '1-6', help: 'Optional for challenge action. 1 is lightweight browser verification; 2-6 add increasing proof-of-work. Blank uses the edge default.' },
 ];
 const columns = [
   { key: 'enabled', label: 'Enabled' },
@@ -62,6 +64,7 @@ const columns = [
   { key: 'requests_per_minute', label: 'Requests/min' },
   { key: 'key_type', label: 'Key' },
   { key: 'key_header_name', label: 'Header' },
+  { key: 'challenge_difficulty', label: 'Difficulty' },
   { key: 'managed_by', label: 'Managed' },
   { key: 'actions', label: 'Actions' },
 ];

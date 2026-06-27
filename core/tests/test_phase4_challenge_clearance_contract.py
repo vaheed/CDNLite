@@ -13,6 +13,8 @@ def test_edge_challenge_issues_signed_scoped_clearance_cookie():
     router = read("edge/openresty/lua/router.lua")
     nginx = read("edge/openresty/nginx.conf")
     compose = read("docker-compose.yml")
+    schema = read("core/database/schema.sql")
+    migration = read("core/database/migrations/000028_challenge_difficulty.sql")
 
     assert "ngx.hmac_sha1" in clearance
     assert "resty.sha256" in clearance
@@ -22,7 +24,7 @@ def test_edge_challenge_issues_signed_scoped_clearance_cookie():
     assert "CDNLITE_EDGE_CLEARANCE_SECRET" in clearance
     assert "CDNLITE_EDGE_CHALLENGE_DIFFICULTY" in clearance
     assert "function M.issue(domain_id, action, rule_id, client_ip, ttl)" in clearance
-    assert "function M.issue_challenge(domain_id, action, rule_id, client_ip, return_path)" in clearance
+    assert "function M.issue_challenge(domain_id, action, rule_id, client_ip, return_path, difficulty_override)" in clearance
     assert "function M.verify_challenge()" in clearance
     assert "function M.consume_challenge(domain_id, action, rule_id, client_ip)" in clearance
     assert "function M.has_clearance(domain_id, action, rule_id, client_ip)" in clearance
@@ -43,15 +45,22 @@ def test_edge_challenge_issues_signed_scoped_clearance_cookie():
     assert "CDNLITE_EDGE_CLEARANCE_SECRET" in compose
     assert "CDNLITE_EDGE_CHALLENGE_DIFFICULTY" in compose
     assert "local clearance = require('clearance')" in router
+    assert "challenge_difficulty INTEGER NULL CHECK" in schema
+    assert "ADD COLUMN IF NOT EXISTS challenge_difficulty" in migration
 
 
 def test_waf_and_rate_limit_challenges_are_verifiable_not_static_denies():
     router = read("edge/openresty/lua/router.lua")
+    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
 
     assert "clearance.has_clearance(domain.domain_id, 'waf', rule.id, client_ip)" in router
-    assert "clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required')" in router
+    assert "clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required', rule.challenge_difficulty)" in router
     assert "clearance.has_clearance(domain_id, 'rate_limit', rule.id, client_ip)" in router
-    assert "clearance.challenge_response(domain_id, 'rate_limit', rule.id, client_ip, 429, 'challenge_required')" in router
+    assert "clearance.challenge_response(domain_id, 'rate_limit', rule.id, client_ip, 429, 'challenge_required', rule.challenge_difficulty)" in router
+    assert "Validator::intRange($body, 'challenge_difficulty', 1, 6)" in controller
+    assert "'challenge_difficulty' => $this->challengeDifficultyValue($in)" in service
+    assert "private function challengeDifficultyValue" in service
 
     block_index = router.index("if ngx.ctx.security_action == 'block' then")
     challenge_index = router.index("if ngx.ctx.security_action == 'challenge' then")
@@ -77,6 +86,8 @@ def test_emergency_profile_challenges_all_visitors_before_origin():
     assert "challenge" in waf_tab
     assert "Level 1 performs a lightweight browser check" in waf_tab
     assert "levels 2-6 require increasing proof-of-work" in waf_tab
+    assert "Challenge difficulty" in waf_tab
+    assert "Challenge difficulty" in rate_tab
     assert "Challenge" in rate_tab and "hard block" in rate_tab
 
 

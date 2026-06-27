@@ -101,10 +101,16 @@ class TrafficRulesService
             'type' => $type,
             'pattern' => (string)($in['pattern'] ?? ''),
             'action' => $action,
+            'challenge_difficulty' => $this->challengeDifficultyValue($in),
             'description' => isset($in['description']) ? (string) $in['description'] : null,
         ] + $this->wafMetadataPayload($in) + $this->managedRulePayload($in));
     }
-    public function updateWaf(string $domainId, string $id, array $in): ?array { return $this->update('waf_rules', $domainId, $id, $in); }
+    public function updateWaf(string $domainId, string $id, array $in): ?array {
+        if (array_key_exists('challenge_difficulty', $in)) {
+            $in['challenge_difficulty'] = $this->challengeDifficultyValue($in);
+        }
+        return $this->update('waf_rules', $domainId, $id, $in);
+    }
     public function deleteWaf(string $domainId, string $id): bool { return $this->delete('waf_rules', $domainId, $id); }
 
     public function listHeaderRules(string $domainId): array { return $this->listRows('domain_header_rules', $domainId, 'priority ASC, created_at ASC'); }
@@ -735,6 +741,7 @@ class TrafficRulesService
                 'key_header_name' => $payload['key_header_name'] ?? null,
                 'requests_per_minute' => (int) ($payload['requests_per_minute'] ?? 60),
                 'action' => (string) ($payload['action'] ?? 'block'),
+                'challenge_difficulty' => $payload['challenge_difficulty'] ?? null,
             ],
             'preview_impact' => [
                 'lookback_seconds' => 86400,
@@ -1686,6 +1693,7 @@ class TrafficRulesService
             'key_header_name' => null,
             'requests_per_minute' => 60,
             'action' => 'block',
+            'challenge_difficulty' => null,
         ];
         $payload = [];
         foreach ($defaults as $key => $default) {
@@ -1693,6 +1701,8 @@ class TrafficRulesService
                 $value = $in[$key] ?? $default;
                 if ($key === 'key_header_name' && ($value === null || trim((string) $value) === '')) {
                     $payload[$key] = null;
+                } elseif ($key === 'challenge_difficulty') {
+                    $payload[$key] = $this->challengeDifficultyValue([$key => $value]);
                 } else {
                     $payload[$key] = $key === 'enabled' ? !empty($value) : ($key === 'priority' || $key === 'requests_per_minute' ? (int) $value : (string) $value);
                 }
@@ -1700,7 +1710,17 @@ class TrafficRulesService
         }
         return $payload + $this->managedRulePayload($in);
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function challengeDifficultyValue(array $in): ?int {
+        if (!array_key_exists('challenge_difficulty', $in) || $in['challenge_difficulty'] === null || $in['challenge_difficulty'] === '') {
+            return null;
+        }
+        $difficulty = (int) $in['challenge_difficulty'];
+        if ($difficulty < 1 || $difficulty > 6) {
+            throw new \InvalidArgumentException('invalid_challenge_difficulty');
+        }
+        return $difficulty;
+    }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at','challenge_difficulty'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
     private function castSslJob(array $r): array {
         foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
             if (isset($r[$i]) && $r[$i] !== null) {

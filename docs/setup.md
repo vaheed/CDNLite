@@ -234,7 +234,7 @@ Edge and agent settings:
 | `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
 | `CDNLITE_EDGE_MMDB_FILE` | GeoIP MMDB used by the edge for country WAF/origin decisions; default `/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb`. |
 | `CDNLITE_EDGE_CLEARANCE_SECRET` | Shared edge secret for signed challenge and clearance cookies. Set the same strong value on every edge; rotation invalidates existing clearances. |
-| `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` | Self-hosted edge challenge difficulty, from `1` to `6`; default `3`. Level `1` performs a lightweight browser check without proof-of-work. Levels `2` through `6` require increasing SHA-256 proof-of-work before origin routing. |
+| `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` | Default self-hosted edge challenge difficulty, from `1` to `6`; default `3`. WAF and rate-limit challenge rules can override this per path or pattern with `challenge_difficulty`. Level `1` performs a lightweight browser check without proof-of-work. Levels `2` through `6` require increasing SHA-256 proof-of-work before origin routing. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
 
 Recommended starting values:

@@ -73,9 +73,11 @@ Set `CDNLITE_EDGE_CLEARANCE_SECRET` to a strong shared secret on every edge in a
 fleet. Rotating it invalidates existing clearance cookies, which is safe but can
 temporarily make visitors solve a challenge again.
 
-Set `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` between `1` and `6` to tune challenge
-cost. This is a provider-independent abuse-friction mechanism; it is not a
-guarantee that a visitor is human.
+Set `challenge_difficulty` on individual WAF or rate-limit challenge rules to
+tune challenge cost per domain path or pattern. If a rule omits
+`challenge_difficulty`, the edge falls back to `CDNLITE_EDGE_CHALLENGE_DIFFICULTY`.
+This is a provider-independent abuse-friction mechanism; it is not a guarantee
+that a visitor is human.
 
 | Difficulty | Behavior | Use case |
 | --- | --- | --- |

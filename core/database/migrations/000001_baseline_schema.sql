@@ -520,6 +520,7 @@ CREATE TABLE IF NOT EXISTS rate_limit_rules (
   key_type TEXT NOT NULL DEFAULT 'ip',
   requests_per_minute INTEGER NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
+  challenge_difficulty INTEGER NULL CHECK (challenge_difficulty IS NULL OR (challenge_difficulty BETWEEN 1 AND 6)),
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
@@ -533,6 +534,7 @@ CREATE TABLE IF NOT EXISTS waf_rules (
   type TEXT NOT NULL,
   pattern TEXT NOT NULL,
   action TEXT NOT NULL DEFAULT 'block',
+  challenge_difficulty INTEGER NULL CHECK (challenge_difficulty IS NULL OR (challenge_difficulty BETWEEN 1 AND 6)),
   description TEXT NULL,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL,

@@ -1456,8 +1456,8 @@ On documented reference hardware:
 **Tracking issue:** Local roadmap Phase 4  
 **Manifest:** `ci/phases/phase-04.yml`  
 **Evidence:** `ci/reports/phase-04-report.md`, `ci/reports/phase-04-report.json`  
-**Completed work:** Added configurable self-hosted browser verification pages for WAF and rate-limit challenge actions, the edge-only `/__cdnlite_challenge_verify` endpoint, signed scoped challenge and clearance tokens, level-1 lightweight browser verification, level-2-through-6 proof-of-work, HttpOnly clearance cookies, same-host redirect recovery, block-before-challenge precedence, Emergency Protection site-wide challenge mode, `CDNLITE_EDGE_CLEARANCE_SECRET`, `CDNLITE_EDGE_CHALLENGE_DIFFICULTY`, Phase 4 runner registration, e2e coverage, and stress scenario registration.  
-**Remaining work:** None for the accepted Phase 4 delivery. Third-party CAPTCHA providers remain a later optional extension, not a Phase 4 requirement.
+**Completed work:** Added configurable self-hosted browser verification pages for WAF and rate-limit challenge actions, per-rule `challenge_difficulty` for domain paths and WAF patterns, the edge-only `/__cdnlite_challenge_verify` endpoint, signed scoped challenge and clearance tokens, level-1 lightweight browser verification, level-2-through-6 proof-of-work, HttpOnly clearance cookies, same-host redirect recovery, block-before-challenge precedence, Emergency Protection site-wide challenge mode, `CDNLITE_EDGE_CLEARANCE_SECRET`, `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` fallback, Phase 4 runner registration, e2e coverage, and stress scenario registration.  
+**Closure:** Phase 4 has no remaining mandatory work. The completed challenge engine is self-hosted and provider-independent; third-party CAPTCHA providers may be added later as optional integrations without reopening Phase 4.
 
 ### Objective
 

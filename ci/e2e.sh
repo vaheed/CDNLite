@@ -1262,9 +1262,10 @@ edge_id_header_rl="$(edge_header_for_host "${TEST_DOMAIN}" "/login?via=edge-rate
 assert_eq "$edge_id_header_rl" "$EDGE_ID" "rate-limit response should expose edge id header"
 record_step PASS "edge-rate-limit-runtime" "429 observed for /login after burst"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":5,"path_prefix":"/challenge","key_type":"ip_path","priority":21,"action":"challenge"}'
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits" '{"enabled":true,"requests_per_minute":5,"path_prefix":"/challenge","key_type":"ip_path","priority":21,"action":"challenge","challenge_difficulty":3}'
 assert_http_status "$HTTP_CODE" "201" "challenge rate-limit create failed"
 CHALLENGE_RATE_LIMIT_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+assert_contains "$HTTP_BODY" '"challenge_difficulty":3' "challenge rate-limit response should include per-rule difficulty"
 # The edge serves its local snapshot, so publish and apply this new rule before exercising it.
 edge_pull_config
 challenge_codes=()
@@ -1305,6 +1306,30 @@ retry 20 1 challenge_security_event_visible
 api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/rate-limits/${CHALLENGE_RATE_LIMIT_RULE_ID}"
 assert_http_status "$HTTP_CODE" "200" "challenge rate-limit cleanup failed"
 record_step PASS "edge-rate-limit-challenge" "challenge page, proof verification, clearance cookie, origin routing, and events verified"
+
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules" '{"enabled":true,"name":"browser-check-only","priority":22,"type":"path_prefix","pattern":"/browser-check","action":"challenge","challenge_difficulty":1,"description":"verify lightweight challenge difficulty"}'
+assert_http_status "$HTTP_CODE" "201" "difficulty-1 waf challenge create failed"
+DIFFICULTY_ONE_WAF_RULE_ID="$(json_get "$HTTP_BODY" '.data.id')"
+assert_contains "$HTTP_BODY" '"challenge_difficulty":1' "difficulty-1 waf response should include challenge_difficulty"
+edge_pull_config
+difficulty_one_body="/tmp/e2e-waf-difficulty-one.txt"
+difficulty_one_code="$(curl -sS -o "$difficulty_one_body" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/browser-check?via=edge-waf-difficulty-one")"
+assert_eq "$difficulty_one_code" "403" "difficulty-1 waf rule should serve challenge page"
+assert_contains "$(cat "$difficulty_one_body")" "Security check" "difficulty-1 waf should return challenge page"
+difficulty_one_value="$(php -r '$body=file_get_contents($argv[1]); if(preg_match("/const difficulty = ([0-9]+);/", $body, $m)){ echo $m[1]; }' "$difficulty_one_body")"
+assert_eq "$difficulty_one_value" "1" "difficulty-1 waf challenge page should render difficulty 1"
+difficulty_one_token="$(php -r '$body=file_get_contents($argv[1]); if(preg_match("/const token = \"([^\"]+)\";/", $body, $m)){ echo $m[1]; }' "$difficulty_one_body")"
+[[ -n "$difficulty_one_token" ]] || fail "difficulty-1 challenge page did not include token"
+difficulty_one_cookie="/tmp/e2e-difficulty-one-cookie.txt"
+difficulty_one_verify="$(curl -sS -o /tmp/e2e-difficulty-one-verify.txt -c "$difficulty_one_cookie" -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -X POST "${EDGE_URL}/__cdnlite_challenge_verify" --data-urlencode "token=${difficulty_one_token}" --data-urlencode "pow=browser-check")"
+assert_eq "$difficulty_one_verify" "303" "difficulty-1 browser check should set clearance"
+assert_contains "$(cat "$difficulty_one_cookie")" "__cdnlite_clearance" "difficulty-1 browser check should set clearance cookie"
+difficulty_one_cleared="$(curl -sS -b "$difficulty_one_cookie" -o /tmp/e2e-difficulty-one-cleared.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" "${EDGE_URL}/browser-check?via=edge-waf-difficulty-one-cleared")"
+assert_eq "$difficulty_one_cleared" "200" "difficulty-1 clearance should allow origin routing"
+assert_contains "$(cat /tmp/e2e-difficulty-one-cleared.txt)" '"origin_scheme":"https"' "difficulty-1 cleared traffic should reach origin"
+api_delete "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/waf-rules/${DIFFICULTY_ONE_WAF_RULE_ID}"
+assert_http_status "$HTTP_CODE" "200" "difficulty-1 waf cleanup failed"
+record_step PASS "edge-waf-challenge-difficulty" "path-level WAF challenge difficulty 1 used browser check and reached origin after clearance"
 
 if docker compose exec -T edge-agent sh -lc "grep -q 'rate_limited' \"\${METRIC_PATH:-/var/lib/cdnlite/metrics.ndjson}\"" \
   || docker compose exec -T edge sh -lc "grep -q 'rate_limited' /var/lib/cdnlite/metrics.ndjson"; then

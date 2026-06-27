@@ -148,10 +148,10 @@ function M.issue(domain_id, action, rule_id, client_ip, ttl)
   }), expires_at
 end
 
-function M.issue_challenge(domain_id, action, rule_id, client_ip, return_path)
+function M.issue_challenge(domain_id, action, rule_id, client_ip, return_path, difficulty_override)
   local expires_at = ngx.time() + challenge_ttl
   local nonce = b64(tostring(ngx.now()) .. ':' .. tostring(math.random()) .. ':' .. tostring(ngx.worker.pid()))
-  local difficulty = tonumber(os.getenv('CDNLITE_EDGE_CHALLENGE_DIFFICULTY') or '') or default_difficulty
+  local difficulty = tonumber(difficulty_override or '') or tonumber(os.getenv('CDNLITE_EDGE_CHALLENGE_DIFFICULTY') or '') or default_difficulty
   if difficulty < 1 then difficulty = 1 end
   if difficulty > 6 then difficulty = 6 end
   return encode_token({
@@ -264,9 +264,9 @@ function M.verify_challenge()
   return ngx.exit(303)
 end
 
-function M.challenge_response(domain_id, action, rule_id, client_ip, status_code, error_code)
+function M.challenge_response(domain_id, action, rule_id, client_ip, status_code, error_code, difficulty_override)
   local return_path = same_host_path(ngx.var.request_uri or ngx.var.uri or '/')
-  local token, expires_at, difficulty = M.issue_challenge(domain_id, action, rule_id, client_ip, return_path)
+  local token, expires_at, difficulty = M.issue_challenge(domain_id, action, rule_id, client_ip, return_path, difficulty_override)
   local verify_path = '/__cdnlite_challenge_verify'
   ngx.status = status_code
   ngx.header.content_type = 'text/html; charset=utf-8'
