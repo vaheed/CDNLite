@@ -102,6 +102,7 @@ class ConfigService
             foreach ($this->rules->listCachePurgeVersionsForConfig($domainId, $host) as $row) { $cachePurgeVersions[] = $row; }
             foreach ($this->rules->listPageRules($domainId) as $row) { if (!empty($row['enabled'])) { $row['host'] = $host; $pageRules[] = $row; } }
             foreach ($this->rules->listSslCertificatesForConfig($domainId, $host) as $row) { $sslCertificates[] = $row; }
+            foreach ($this->rules->listWaitingRoomPoliciesForConfig($domainId) as $row) { $hosts[$host]['waiting_room'] = $row; }
         }
         // Keep hash deterministic for unchanged config content.
         // `generated_at` is intentionally excluded so no-op syncs reuse version.

@@ -843,6 +843,45 @@ paths:
           $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/rate-limits/{ruleId}:
     $ref: "#/components/pathItems/RuleMember"
+  /api/v1/domains/{domainId}/waiting-room:
+    get:
+      tags: [Traffic Rules]
+      summary: Show the domain waiting-room policy
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+    patch:
+      tags: [Traffic Rules]
+      summary: Update the domain waiting-room policy
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/waiting-room/emergency/activate:
+    post:
+      tags: [Traffic Rules]
+      summary: Activate manual emergency waiting-room admission
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      requestBody:
+        $ref: "#/components/requestBodies/GenericObject"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/waiting-room/emergency/deactivate:
+    post:
+      tags: [Traffic Rules]
+      summary: Deactivate manual emergency waiting-room admission
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/protection/profiles:
     get:
       tags: [Traffic Rules]

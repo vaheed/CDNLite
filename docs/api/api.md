@@ -443,6 +443,7 @@ Origin tips:
 | --- | --- |
 | Redirects | `/api/v1/domains/{domainId}/redirects`, import/export/test variants. |
 | Rate-limit rules | CRUD `/api/v1/domains/{domainId}/rate-limits`, dry-run `POST /api/v1/domains/{domainId}/rate-limits/dry-run`, plus `POST /api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed`. |
+| Waiting room | `GET`/`PATCH /api/v1/domains/{domainId}/waiting-room`, plus emergency activate/deactivate endpoints for audited manual origin admission control. |
 | WAF rules | CRUD `/api/v1/domains/{domainId}/waf-rules`, plus `POST /api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed`. |
 | Header rules | CRUD `/api/v1/domains/{domainId}/headers`. |
 | IP rules | CRUD `/api/v1/domains/{domainId}/ip-rules`. |

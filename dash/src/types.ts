@@ -133,6 +133,17 @@ export interface CacheRule extends ManagedRuleMetadata { id: Id; enabled: boolea
 export interface PurgeRequest { id: Id; domain_id?: Id; type: 'url' | 'prefix' | 'domain' | 'everything' | string; value?: string; status?: string; created_at?: number | string; updated_at?: number | string; }
 export interface WafRule extends ManagedRuleMetadata { id: Id; type: string; pattern: string; action: 'block' | 'log' | 'allow' | string; priority: number; challenge_difficulty?: number | null; enabled?: boolean; status?: string; }
 export interface RateLimitRule extends ManagedRuleMetadata { id: Id; enabled: boolean; requests_per_minute: number; priority: number; path_prefix: string; key_type: 'ip' | 'ip_path' | 'header' | 'header_path' | string; key_header_name?: string | null; action: string; challenge_difficulty?: number | null; }
+export interface WaitingRoomPolicy {
+  id: Id; domain_id: Id; enabled: boolean; mode: 'monitoring' | 'automatic' | 'manual' | string;
+  state: 'disabled' | 'monitoring' | 'healthy' | 'entering_overload' | 'overloaded' | 'recovering' | 'manual_emergency' | string;
+  reason?: string | null; rps_threshold: number; active_origin_threshold: number;
+  origin_latency_ms_threshold: number; origin_error_rate_threshold: number; admission_rate_per_minute: number;
+  queue_limit: number; per_client_ticket_limit: number; ticket_ttl_seconds: number; admission_ttl_seconds: number;
+  status_poll_seconds: number; jitter_seconds: number; unhealthy_windows: number; healthy_windows: number;
+  minimum_state_seconds: number; recovery_ramp_percent: number; manual_override_until?: number | null;
+  trusted_cidrs: string[]; waiting_room_title: string; waiting_room_message: string;
+  counters?: Record<string, number>; created_at?: number; updated_at?: number;
+}
 export interface HeaderRule extends ManagedRuleMetadata { id: Id; enabled: boolean; priority: number; operation: 'set' | 'remove' | 'append' | string; header_name: string; header_value?: string | null; path_pattern: string; }
 export interface IpRule extends ManagedRuleMetadata { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
 export interface DomainOrigin {

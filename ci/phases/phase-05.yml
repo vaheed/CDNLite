@@ -1,0 +1,57 @@
+phase: "05"
+name: "Adaptive overload protection and waiting room"
+owner: "CDNLite maintainers"
+status: "in_progress"
+topology: "root docker-compose.yml"
+profiles:
+  pr:
+    clean_required: false
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "luac -p edge/openresty/lua/waiting_room.lua edge/openresty/lua/router.lua"
+      - "bash -n ci/smoke.sh"
+      - "(cd dash && npm run typecheck)"
+  full:
+    clean_required: true
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests"
+      - "sh -n edge/agent/register.sh"
+      - "sh -n edge/agent/heartbeat.sh"
+      - "sh -n edge/agent/pull_config.sh"
+      - "sh -n edge/agent/push_metrics.sh"
+      - "sh -n edge/agent/run.sh"
+      - "bash -n ci/smoke.sh"
+      - "bash -n ci/e2e.sh"
+      - "bash -n ci/stress-platform.sh"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "ci/stress-platform.sh --scenario phase5-waiting-room"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "(cd dash && npm run typecheck && npm test && npm run build)"
+      - "(cd docs && npm run docs:build)"
+  release:
+    clean_required: true
+    destructive: true
+    commands:
+      - "./ci/phase.sh 05 --profile full --clean"
+required_docs:
+  - "docs/ROADMAP.md"
+  - "docs/api/api.md"
+  - "docs/security.md"
+  - "docs/setup.md"
+  - "CHANGELOG.md"
+evidence:
+  json: "ci/reports/phase-05-report.json"
+  markdown: "ci/reports/phase-05-report.md"
+stress_scenarios:
+  - "phase5-waiting-room"
+recovery_assertions:
+  - "Queue endpoints respond locally and never proxy to origins."
+  - "Origin-bound requests stay within the configured admission budget during overload."
+  - "Invalid or expired queue tickets and admission cookies fail closed."

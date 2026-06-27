@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Phase 2 analytics scalability with asynchronous recalculation jobs, job status API, idempotent aggregate upserts, bounded summary metadata, analytics cache schema, dashboard queued-job feedback, and contract documentation.
 - Phase 3 edge hot-path performance with worker-local config caching, last-known-good reload behavior, bounded shared-memory telemetry queues, queue health visibility, configurable edge capacity defaults, one-shot phase manifest, and stress scenario registration.
 - Phase 4 real challenge and clearance system for WAF, rate-limit, and Emergency Protection flows, including a self-hosted browser verification page, per-rule challenge difficulty, edge-only verification endpoint, scoped HttpOnly clearance cookies, block-rule precedence, edge secret and difficulty fallback configuration, one-shot phase manifest, e2e coverage, and stress scenario registration.
+- Phase 5 waiting room with persisted per-domain policy, API and dashboard controls, signed edge queue tickets, signed admission cookies, local queue/status endpoints, bounded edge queue state, and operator documentation.
 - Single canonical roadmap at `docs/ROADMAP.md`; removed duplicate root, lower-case, and legacy roadmap files.
 - Repository-level project presentation, contribution, security, roadmap, changelog, issue template, and pull request template documentation.
 

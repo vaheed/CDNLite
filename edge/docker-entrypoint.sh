@@ -82,7 +82,8 @@ limits_dict="${CDNLITE_EDGE_LIMITS_DICT_SIZE:-20m}"
 request_context_dict="${CDNLITE_EDGE_REQUEST_CONTEXT_DICT_SIZE:-10m}"
 metric_queue_dict="${CDNLITE_EDGE_METRIC_QUEUE_DICT_SIZE:-10m}"
 security_event_queue_dict="${CDNLITE_EDGE_SECURITY_EVENT_QUEUE_DICT_SIZE:-10m}"
-for item in "$limits_dict" "$request_context_dict" "$metric_queue_dict" "$security_event_queue_dict"; do
+waiting_room_dict="${CDNLITE_EDGE_WAITING_ROOM_DICT_SIZE:-20m}"
+for item in "$limits_dict" "$request_context_dict" "$metric_queue_dict" "$security_event_queue_dict" "$waiting_room_dict"; do
   size_value CDNLITE_EDGE_SHARED_DICT_SIZE "$item"
 done
 
@@ -116,6 +117,7 @@ sed \
   -e "s/__CDNLITE_EDGE_REQUEST_CONTEXT_DICT_SIZE__/$request_context_dict/g" \
   -e "s/__CDNLITE_EDGE_METRIC_QUEUE_DICT_SIZE__/$metric_queue_dict/g" \
   -e "s/__CDNLITE_EDGE_SECURITY_EVENT_QUEUE_DICT_SIZE__/$security_event_queue_dict/g" \
+  -e "s/__CDNLITE_EDGE_WAITING_ROOM_DICT_SIZE__/$waiting_room_dict/g" \
   -e "s#__CDNLITE_EDGE_RESOLVER__#$resolver#g" \
   -e "s/__CDNLITE_EDGE_CLIENT_HEADER_BUFFER_SIZE__/$client_header_buffer_size/g" \
   -e "s/__CDNLITE_EDGE_LARGE_CLIENT_HEADER_BUFFERS__/$large_client_header_buffers/g" \

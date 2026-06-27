@@ -146,6 +146,13 @@ rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limit
 assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"
 record_step PASS "schema-rate-limit-dry-run-route" "rate-limit dry-run route is registered"
 
+waiting_room_route_count="$(grep -c '/api/v1/domains/{domainId}/waiting-room' core/public_index.php)"
+if [[ "$waiting_room_route_count" -lt "4" ]]; then
+  fail "waiting-room API routes are incomplete"
+fi
+grep -Fq "cdnlite_waiting_room" edge/openresty/nginx.conf || fail "waiting-room shared dictionary missing"
+record_step PASS "schema-waiting-room" "waiting-room API routes and edge state are registered"
+
 api_protection_route_count="$(grep -c '/api/v1/domains/{domainId}/protection/api-paths' core/public_index.php)"
 assert_eq "$api_protection_route_count" "1" "API Protection path discovery route missing"
 grep -Fq "path_method_not_allowed" edge/openresty/lua/router.lua || fail "API method restriction WAF matcher missing"

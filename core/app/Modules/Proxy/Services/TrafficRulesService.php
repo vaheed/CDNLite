@@ -717,6 +717,48 @@ class TrafficRulesService
     public function deleteRateLimit(string $domainId, string $id): bool {
         return $this->delete('rate_limit_rules', $domainId, $id);
     }
+    public function getWaitingRoomPolicy(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM waiting_room_policies WHERE domain_id=:domain_id LIMIT 1');
+        $s->execute([':domain_id' => $domainId]);
+        $row = $s->fetch();
+        if ($row) {
+            return $this->cast((array) $row);
+        }
+        return $this->createWaitingRoomPolicy($domainId, []);
+    }
+    public function updateWaitingRoomPolicy(string $domainId, array $in): array {
+        $current = $this->getWaitingRoomPolicy($domainId);
+        $payload = $this->waitingRoomPayload($in, true);
+        if ($payload === []) {
+            return $current;
+        }
+        $updated = $this->update('waiting_room_policies', $domainId, (string) $current['id'], $payload);
+        return $updated ?? $this->getWaitingRoomPolicy($domainId);
+    }
+    public function activateWaitingRoomEmergency(string $domainId, int $ttlSeconds, string $reason = 'manual_emergency'): array {
+        $until = time() + max(60, min(86400, $ttlSeconds));
+        return $this->updateWaitingRoomPolicy($domainId, [
+            'enabled' => true,
+            'mode' => 'manual',
+            'state' => 'manual_emergency',
+            'reason' => $reason,
+            'manual_override_until' => $until,
+        ]);
+    }
+    public function deactivateWaitingRoomEmergency(string $domainId): array {
+        return $this->updateWaitingRoomPolicy($domainId, [
+            'mode' => 'monitoring',
+            'state' => 'healthy',
+            'reason' => 'manual_deactivation',
+            'manual_override_until' => null,
+        ]);
+    }
+    public function listWaitingRoomPoliciesForConfig(string $domainId): array {
+        $s = Database::pdo()->prepare('SELECT * FROM waiting_room_policies WHERE domain_id=:domain_id AND enabled=true LIMIT 1');
+        $s->execute([':domain_id' => $domainId]);
+        $row = $s->fetch();
+        return $row ? [$this->cast((array) $row)] : [];
+    }
     public function dryRunRateLimit(string $domainId, array $in): array {
         $payload = $this->rateLimitPayload($in);
         $pathPrefix = (string) ($payload['path_prefix'] ?? '/');
@@ -1107,6 +1149,9 @@ class TrafficRulesService
     }
 
     private function listRows(string $table, string $domainId, string $orderBy = 'created_at ASC'): array { $s=Database::pdo()->prepare("SELECT * FROM {$table} WHERE domain_id=:domain_id ORDER BY {$orderBy}"); $s->execute([':domain_id'=>$domainId]); return array_map([$this,'cast'], $s->fetchAll()); }
+    private function createWaitingRoomPolicy(string $domainId, array $in): array {
+        return $this->insert('waiting_room_policies', $domainId, $this->waitingRoomPayload($in));
+    }
     private function insert(string $table, string $domainId, array $in): array {
         $id=Uuid::v4(); $now=time(); $cols=array_keys($in); $names=implode(',', $cols); $bind=':'.implode(',:', $cols);
         $sql="INSERT INTO {$table} (id,domain_id,{$names},created_at,updated_at) VALUES (:id,:domain_id,{$bind},:created_at,:updated_at)";
@@ -1720,7 +1765,38 @@ class TrafficRulesService
         }
         return $difficulty;
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=((int)$r[$b])===1;}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at','challenge_difficulty'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } unset($r['private_key_pem']); return $r; }
+    private function waitingRoomPayload(array $in, bool $partial = false): array {
+        $defaults = [
+            'enabled' => false, 'mode' => 'monitoring', 'state' => 'disabled', 'reason' => null,
+            'rps_threshold' => 100, 'active_origin_threshold' => 20, 'origin_latency_ms_threshold' => 3000,
+            'origin_error_rate_threshold' => 50, 'admission_rate_per_minute' => 60, 'queue_limit' => 1000,
+            'per_client_ticket_limit' => 3, 'ticket_ttl_seconds' => 300, 'admission_ttl_seconds' => 900,
+            'status_poll_seconds' => 5, 'jitter_seconds' => 4, 'unhealthy_windows' => 3, 'healthy_windows' => 3,
+            'minimum_state_seconds' => 60, 'recovery_ramp_percent' => 25, 'manual_override_until' => null,
+            'trusted_cidrs_json' => '[]', 'waiting_room_title' => 'Traffic is high',
+            'waiting_room_message' => 'You are in a short waiting room while this site protects its origin.',
+            'counters_json' => '{}',
+        ];
+        $payload = $partial ? [] : $defaults;
+        foreach ($defaults as $key => $default) {
+            if (!array_key_exists($key, $in)) {
+                continue;
+            }
+            $value = $in[$key];
+            if ($key === 'trusted_cidrs_json' && is_array($value)) {
+                $value = json_encode(array_values(array_slice($value, 0, 100)), JSON_UNESCAPED_SLASHES);
+            }
+            if ($key === 'counters_json' && is_array($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_SLASHES);
+            }
+            $payload[$key] = $value;
+        }
+        if (array_key_exists('trusted_cidrs', $in)) {
+            $payload['trusted_cidrs_json'] = json_encode(array_values(array_slice((array) $in['trusted_cidrs'], 0, 100)), JSON_UNESCAPED_SLASHES);
+        }
+        return $payload;
+    }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=in_array($r[$b], [true, 1, '1', 't', 'true'], true);}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at','challenge_difficulty','rps_threshold','active_origin_threshold','origin_latency_ms_threshold','origin_error_rate_threshold','admission_rate_per_minute','queue_limit','per_client_ticket_limit','ticket_ttl_seconds','admission_ttl_seconds','status_poll_seconds','jitter_seconds','unhealthy_windows','healthy_windows','minimum_state_seconds','recovery_ramp_percent','manual_override_until'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } if (array_key_exists('trusted_cidrs_json', $r)) { $r['trusted_cidrs'] = json_decode((string) $r['trusted_cidrs_json'], true) ?: []; unset($r['trusted_cidrs_json']); } if (array_key_exists('counters_json', $r)) { $r['counters'] = json_decode((string) $r['counters_json'], true) ?: []; unset($r['counters_json']); } unset($r['private_key_pem']); return $r; }
     private function castSslJob(array $r): array {
         foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
             if (isset($r[$i]) && $r[$i] !== null) {

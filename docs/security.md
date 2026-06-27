@@ -79,6 +79,15 @@ tune challenge cost per domain path or pattern. If a rule omits
 This is a provider-independent abuse-friction mechanism; it is not a guarantee
 that a visitor is human.
 
+## Waiting Room Admission
+
+Waiting-room admission uses signed, short-lived queue tickets and admission
+cookies. Explicit IP access rules, WAF blocks/challenges, and rate limits run
+before waiting-room admission, so a queued or admitted browser session does not
+bypass administrative security policy. Set `CDNLITE_EDGE_WAITING_ROOM_SECRET` to
+a strong value on every edge. Rotating it invalidates existing queue tickets and
+admission cookies, which is safe during incident response.
+
 | Difficulty | Behavior | Use case |
 | --- | --- | --- |
 | `1` | Lightweight browser verification. The page verifies JavaScript, same-origin fetch, cookies, and redirect handling without proof-of-work. | Low-friction checks for normal sites or mild bot noise. |

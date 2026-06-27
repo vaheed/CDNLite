@@ -99,7 +99,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import {
   Activity, BarChart3, Database, FileClock, Gauge, Globe2, LockKeyhole,
-  ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, ShieldHalf, SlidersHorizontal,
+  ListFilter, Network, RefreshCw, Route, ServerCog, ShieldCheck, ShieldHalf, SlidersHorizontal, TimerReset,
 } from 'lucide-vue-next';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import HorizontalScrollFrame from '@/components/ui/HorizontalScrollFrame.vue';
@@ -125,6 +125,7 @@ import DomainIpRulesTab from './domain-tabs/DomainIpRulesTab.vue';
 import DomainOriginsTab from './domain-tabs/DomainOriginsTab.vue';
 import DomainActivityTab from './domain-tabs/DomainActivityTab.vue';
 import DomainSecurityCenterTab from './domain-tabs/DomainSecurityCenterTab.vue';
+import DomainWaitingRoomTab from './domain-tabs/DomainWaitingRoomTab.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -153,6 +154,7 @@ const wafTabs = [
   { key: 'ip-access', label: 'IP Access', icon: ListFilter, component: DomainIpRulesTab },
   { key: 'headers', label: 'Headers', icon: SlidersHorizontal, component: DomainHeadersTab },
   { key: 'rate-limits', label: 'Rate Limits', icon: Gauge, component: DomainRateLimitsTab },
+  { key: 'waiting-room', label: 'Waiting Room', icon: TimerReset, component: DomainWaitingRoomTab },
 ];
 const secondaryTabs = [
   { key: 'analytics', label: 'Analytics', icon: BarChart3, component: DomainAnalyticsTab },

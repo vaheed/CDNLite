@@ -96,6 +96,22 @@ class TrafficRulesController
         if ($error !== null) { return $error; }
         return ['data' => $this->service->dryRunRateLimit($domainId, $body)];
     }
+    public function getWaitingRoom(string $domainId): array {
+        return ['data' => $this->service->getWaitingRoomPolicy($domainId)];
+    }
+    public function updateWaitingRoom(string $domainId, array $body): array {
+        $error = $this->validateWaitingRoom($body);
+        if ($error !== null) { return $error; }
+        return ['data' => $this->service->updateWaitingRoomPolicy($domainId, $body)];
+    }
+    public function activateWaitingRoomEmergency(string $domainId, array $body): array {
+        $ttl = Validator::intRange($body, 'ttl_seconds', 60, 86400, 3600);
+        if (($ttl['ok'] ?? false) !== true) { return $ttl; }
+        return ['data' => $this->service->activateWaitingRoomEmergency($domainId, (int) $ttl['value'], (string) ($body['reason'] ?? 'manual_emergency'))];
+    }
+    public function deactivateWaitingRoomEmergency(string $domainId): array {
+        return ['data' => $this->service->deactivateWaitingRoomEmergency($domainId)];
+    }
     public function detachManagedRule(string $domainId, string $ruleType, string $id): array {
         try {
             $rule = $this->service->detachManagedRule($domainId, $ruleType, $id);
@@ -230,6 +246,46 @@ class TrafficRulesController
         if (array_key_exists('challenge_difficulty', $body) && $body['challenge_difficulty'] !== null && $body['challenge_difficulty'] !== '') {
             $difficulty = Validator::intRange($body, 'challenge_difficulty', 1, 6);
             if (($difficulty['ok'] ?? false) !== true) { return $difficulty; }
+        }
+        return null;
+    }
+    private function validateWaitingRoom(array $body): ?array {
+        foreach (['enabled'] as $field) {
+            if (array_key_exists($field, $body)) {
+                $v = Validator::bool($body, $field);
+                if (($v['ok'] ?? false) !== true) { return $v; }
+            }
+        }
+        foreach (['mode' => ['monitoring','automatic','manual'], 'state' => ['disabled','monitoring','healthy','entering_overload','overloaded','recovering','manual_emergency']] as $field => $values) {
+            if (array_key_exists($field, $body)) {
+                $v = Validator::enum($body, $field, $values);
+                if (($v['ok'] ?? false) !== true) { return $v; }
+            }
+        }
+        $ranges = [
+            'rps_threshold' => [1, 1000000], 'active_origin_threshold' => [1, 1000000],
+            'origin_latency_ms_threshold' => [1, 600000], 'origin_error_rate_threshold' => [1, 100],
+            'admission_rate_per_minute' => [1, 1000000], 'queue_limit' => [1, 1000000],
+            'per_client_ticket_limit' => [1, 1000], 'ticket_ttl_seconds' => [30, 3600],
+            'admission_ttl_seconds' => [60, 86400], 'status_poll_seconds' => [2, 300],
+            'jitter_seconds' => [0, 300], 'unhealthy_windows' => [1, 100],
+            'healthy_windows' => [1, 100], 'minimum_state_seconds' => [1, 86400],
+            'recovery_ramp_percent' => [1, 100], 'manual_override_until' => [0, 4102444800],
+        ];
+        foreach ($ranges as $field => [$min, $max]) {
+            if (array_key_exists($field, $body) && $body[$field] !== null) {
+                $v = Validator::intRange($body, $field, $min, $max);
+                if (($v['ok'] ?? false) !== true) { return $v; }
+            }
+        }
+        foreach (['waiting_room_title' => 120, 'waiting_room_message' => 500, 'reason' => 160] as $field => $max) {
+            if (array_key_exists($field, $body) && $body[$field] !== null) {
+                $v = Validator::optionalString($body, $field, $max);
+                if (($v['ok'] ?? false) !== true) { return $v; }
+            }
+        }
+        if (array_key_exists('trusted_cidrs', $body) && !is_array($body['trusted_cidrs'])) {
+            return ['error' => 'invalid_field', 'field' => 'trusted_cidrs', 'detail' => 'must_be_array', 'status' => 422];
         }
         return null;
     }

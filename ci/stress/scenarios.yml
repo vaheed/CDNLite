@@ -55,3 +55,16 @@ scenarios:
       - "invalid or expired challenge tokens keep requiring a challenge"
       - "valid clearance redirects once and then allows matching challenge rules"
       - "block rules remain terminal even when a clearance cookie exists"
+  phase5-waiting-room:
+    phase: "05"
+    workload: "edge-waiting-room-admission"
+    description: "Validate overload admission, bounded local queue state, edge-only queue endpoints, and manual emergency recovery."
+    stress:
+      burst_requests: 300
+      invalid_tickets: true
+      manual_emergency: true
+      queue_overflow: true
+    recovery:
+      - "manual emergency mode can be deactivated without flapping"
+      - "queue and admission counters stay bounded"
+      - "post-stress smoke and e2e gates run after overload pressure"

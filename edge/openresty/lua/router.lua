@@ -8,6 +8,7 @@ local edge_log = require('edge_log')
 local geoip = require('geoip')
 local telemetry_queue = require('telemetry_queue')
 local clearance = require('clearance')
+local waiting_room = require('waiting_room')
 
 local M = {}
 
@@ -399,6 +400,10 @@ function M.handle()
   if not rate_limit_ok then
     return false, 'rate_limited'
   end
+  local waiting_ok = waiting_room.apply(domain.waiting_room, domain)
+  if not waiting_ok then
+    return false, 'waiting_room'
+  end
   local country = request_country()
   local upstream, origin_meta = origin_selector.select(domain, country, tostring(ngx.ctx.request_id or ngx.var.request_id or ngx.var.uri or ''))
   if not upstream then
@@ -420,6 +425,7 @@ function M.handle()
     origin_port = tostring(ngx.ctx.origin.port or ''),
     origin_pool_size = tostring(ngx.ctx.origin_pool_size or ''),
   })
+  waiting_room.mark_origin(domain)
   return proxy.forward(domain)
 end
 

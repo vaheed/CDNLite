@@ -348,7 +348,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 | 2. Analytics scalability and asynchronous aggregation | P0 | Complete | Bounded analytics metadata, async recalculation jobs, and idempotent aggregate upserts |
 | 3. Edge hot-path performance and bounded telemetry | P0 | Complete | No repeated config parsing or synchronous per-request telemetry writes |
 | 4. Real challenge and clearance system | P0 | Complete | Challenge actions serve configurable self-hosted browser verification before origin routing |
-| 5. Adaptive overload protection and waiting room | P0 | Planned | Origins remain protected under attack or heavy usage |
+| 5. Adaptive overload protection and waiting room | P0 | In progress | Origins remain protected under attack or heavy usage |
 | 6. Cache correctness foundation | P0 | Planned | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
 | 7. Origin routing, resilience, and shielding | P0 | Planned | Predictable health, load balancing, failover, retries, and circuit breaking |
 | 8. Purge and invalidation platform | P1 | Planned | Fast, safe, observable purge by URL, prefix, host, and tag |
@@ -1678,6 +1678,8 @@ Do not log:
 ## Phase 5 — Adaptive overload protection and waiting room
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
+**Status:** In progress. The repository now has waiting-room persistence, API controls, dashboard policy controls, config snapshot delivery, signed edge queue tickets, signed admission cookies, bounded local edge queue state, edge-only queue/status endpoints, automatic RPS-triggered local overload admission, manual emergency mode, operator documentation, OpenAPI entries, smoke assertions, and a Phase 5 one-shot manifest. Full completion still requires a clean-stack full gate with PostgreSQL, Node 20+, smoke/e2e, and overload stress evidence before this phase can be marked Complete.
 
 ### Objective
 
