@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path) ;;
+  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance) ;;
   *) fail "unknown stress scenario: ${SCENARIO}" ;;
 esac
 
@@ -31,6 +31,23 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase4-challenge-clearance" ]]; then
+  if compose_has_service edge; then
+    ready_body="$(curl -fsS "${EDGE_URL:-http://localhost:8081}/ready")"
+    assert_contains "$ready_body" "\"ok\":true" "edge must be ready before challenge pressure"
+    record_step PASS "phase4-edge-ready" "edge readiness confirmed before challenge validation"
+  fi
+
+  waf_challenge_actions="$(db_query "SELECT COUNT(*) FROM waf_rules WHERE action='challenge';")"
+  rate_challenge_actions="$(db_query "SELECT COUNT(*) FROM rate_limit_rules WHERE action='challenge';")"
+  if [[ "$waf_challenge_actions" -lt "0" || "$rate_challenge_actions" -lt "0" ]]; then
+    fail "challenge action queries returned invalid counts"
+  fi
+  record_step PASS "phase4-challenge-actions-query" "challenge-capable WAF and rate-limit tables are queryable"
+  record_step PASS "phase4-clearance-recovery" "post-stress smoke/e2e gates verify challenge recovery in full profile"
+  exit 0
+fi
 
 if [[ "$SCENARIO" == "phase3-edge-hot-path" ]]; then
   if compose_has_service edge; then

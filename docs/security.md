@@ -58,6 +58,19 @@ header. HTTP, HTTPS, proxied, and generated error responses must not disclose
 OpenResty or Nginx product versions. Preserve these directives when adding edge
 listeners or error handlers.
 
+## Challenge Clearance
+
+WAF and rate-limit rules with the `challenge` action issue a short-lived signed
+clearance challenge instead of behaving as a renamed block. The token is scoped
+to the domain, action family, rule ID, client IP, and expiry. Successful
+verification sets the `__cdnlite_clearance` HttpOnly cookie with `SameSite=Lax`.
+Explicit block rules and administrative denies still take precedence over any
+clearance cookie.
+
+Set `CDNLITE_EDGE_CLEARANCE_SECRET` to a strong shared secret on every edge in a
+fleet. Rotating it invalidates existing clearance cookies, which is safe but can
+temporarily make visitors solve a challenge again.
+
 ## Authorization Limits
 
 The dashboard admin model is simple. It does not implement fine-grained RBAC, per-domain tenancy, SSO, or role-scoped permissions. Use external controls for production segmentation.

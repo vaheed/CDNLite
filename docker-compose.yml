@@ -259,6 +259,7 @@ services:
       CDNLITE_EDGE_LOG_REQUEST_BODY: ${CDNLITE_EDGE_LOG_REQUEST_BODY:-false}
       CDNLITE_EDGE_DEBUG_HEADERS: ${CDNLITE_EDGE_DEBUG_HEADERS:-false}
       CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE:-/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb}
+      CDNLITE_EDGE_CLEARANCE_SECRET: ${CDNLITE_EDGE_CLEARANCE_SECRET:-cdnlite-local-clearance-secret}
 
   edge-agent:
     build:
@@ -338,6 +339,7 @@ services:
       CDNLITE_EDGE_LOG_REQUEST_BODY: ${CDNLITE_EDGE_LOG_REQUEST_BODY:-false}
       CDNLITE_EDGE_DEBUG_HEADERS: ${CDNLITE_EDGE_DEBUG_HEADERS:-false}
       CDNLITE_EDGE_MMDB_FILE: ${CDNLITE_EDGE_MMDB_FILE:-/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb}
+      CDNLITE_EDGE_CLEARANCE_SECRET: ${CDNLITE_EDGE_CLEARANCE_SECRET:-cdnlite-local-clearance-secret}
 
   edge-agent-2:
     build:

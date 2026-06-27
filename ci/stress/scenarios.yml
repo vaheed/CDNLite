@@ -43,3 +43,15 @@ scenarios:
       - "manual local config reload succeeds"
       - "last-known-good snapshot remains active after malformed reload"
       - "post-stress smoke and e2e gates run after the pressure scenario"
+  phase4-challenge-clearance:
+    phase: "04"
+    workload: "edge-challenge-clearance"
+    description: "Validate signed challenge token issuance, scoped clearance cookies, security-event visibility, and block-rule precedence."
+    stress:
+      challenge_requests: 200
+      invalid_tokens: true
+      clearance_reuse: true
+    recovery:
+      - "invalid or expired challenge tokens keep requiring a challenge"
+      - "valid clearance redirects once and then allows matching challenge rules"
+      - "block rules remain terminal even when a clearance cookie exists"

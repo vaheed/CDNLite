@@ -7,6 +7,7 @@ local ip_rules = require('ip_rules')
 local edge_log = require('edge_log')
 local geoip = require('geoip')
 local telemetry_queue = require('telemetry_queue')
+local clearance = require('clearance')
 
 local M = {}
 
@@ -241,12 +242,20 @@ local function apply_waf(cfg, host)
         return ngx.exit(403)
       end
       if ngx.ctx.security_action == 'challenge' then
+        if clearance.has_clearance(domain.domain_id, 'waf', rule.id, client_ip) then
+          return true
+        end
+        local verified, verify_err = clearance.consume_challenge(domain.domain_id, 'waf', rule.id, client_ip)
+        if verified then
+          ngx.header['Location'] = tostring(ngx.var.uri or '/')
+          identity.apply()
+          return ngx.exit(303)
+        elseif verify_err then
+          ngx.ctx.security_safe_reason = 'clearance_' .. tostring(verify_err)
+        end
         append_security_event(nil)
-        ngx.status = 403
-        ngx.header.content_type = 'application/json'
         identity.apply()
-        ngx.say('{"error":"bot_challenge_required","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
-        return ngx.exit(403)
+        return clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required')
       end
       return true
     end
@@ -338,14 +347,22 @@ local function apply_rate_limit(cfg, host, domain_id)
     ngx.say('{"error":"rate_limited","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
     return ngx.exit(429)
   elseif ngx.ctx.security_action == 'challenge' then
+    if clearance.has_clearance(domain_id, 'rate_limit', rule.id, client_ip) then
+      return true
+    end
+    local verified, verify_err = clearance.consume_challenge(domain_id, 'rate_limit', rule.id, client_ip)
+    if verified then
+      ngx.header['Location'] = tostring(ngx.var.uri or '/')
+      identity.apply()
+      return ngx.exit(303)
+    elseif verify_err then
+      ngx.ctx.security_safe_reason = 'clearance_' .. tostring(verify_err)
+    end
     append_security_event(domain_id)
     edge_log.warn('rate_limit_challenge', { domain_id = tostring(domain_id or ''), rule_id = tostring(rule.id or '') })
-    ngx.status = 429
-    ngx.header.content_type = 'application/json'
     identity.apply()
     ngx.header['Retry-After'] = '60'
-    ngx.say('{"error":"challenge_required","request_id":"' .. tostring(ngx.ctx.request_id or '') .. '"}')
-    return ngx.exit(429)
+    return clearance.challenge_response(domain_id, 'rate_limit', rule.id, client_ip, 429, 'challenge_required')
   end
   return true
 end

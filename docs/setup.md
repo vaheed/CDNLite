@@ -233,6 +233,7 @@ Edge and agent settings:
 | `CDNLITE_EDGE_LOG_REQUEST_BODY` | Reserved for future strict-redaction body logging; keep `false`. |
 | `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
 | `CDNLITE_EDGE_MMDB_FILE` | GeoIP MMDB used by the edge for country WAF/origin decisions; default `/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb`. |
+| `CDNLITE_EDGE_CLEARANCE_SECRET` | Shared edge secret for signed challenge clearance cookies. Set the same strong value on every edge; rotation invalidates existing clearances. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
 
 Recommended starting values:
