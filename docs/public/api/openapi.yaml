@@ -140,7 +140,7 @@ paths:
   /api/v1/reports/summary:
     get:
       tags: [Reports]
-      summary: CDN operations KPIs, compare deltas, and ranked warnings
+      summary: CDN operations KPIs, compare deltas, and ranked warnings with stable drilldown fields
       parameters:
         - $ref: "#/components/parameters/DomainIdQuery"
         - $ref: "#/components/parameters/ReportFrom"

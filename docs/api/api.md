@@ -187,7 +187,7 @@ Useful admin login response fields:
 | --- | --- | --- |
 | `GET` | `/api/v1/overview` | Aggregate operations summary. |
 | `GET` | `/api/v1/overview/warnings` | Readiness and risk warnings. |
-| `GET` | `/api/v1/reports/summary` | CDN operations KPIs, compare-mode deltas, and ranked warnings. Accepts `domain_id`, `from`, `to`, `bucket`, `compare`, and `limit`. |
+| `GET` | `/api/v1/reports/summary` | CDN operations KPIs, compare-mode deltas, and ranked warnings with stable `key`, `link`, `section`, and `count` fields. Accepts `domain_id`, `from`, `to`, `bucket`, `compare`, and `limit`. |
 | `GET` | `/api/v1/reports/traffic` | Request, bandwidth, cache-ratio, status, top domain/path/visitor-country/edge, and problem-request reports. |
 | `GET` | `/api/v1/reports/cache` | Cache status distribution, hit-ratio trend, cache/origin bytes, uncached paths, and purge timeline. Unsupported ingest fields are returned as `null` with an `unavailable` note. |
 | `GET` | `/api/v1/reports/edge` | Edge online/offline counts, geography, heartbeat age, config drift, config errors, traffic, error rates, and node table. |

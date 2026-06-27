@@ -32,12 +32,22 @@
         <h2 class="font-semibold text-slate-950 dark:text-white">Needs Attention</h2>
         <p v-if="!summary?.warnings.length" class="mt-3 text-sm text-emerald-700 dark:text-emerald-300">No active report warnings for this range.</p>
         <ul v-else class="mt-3 space-y-3">
-          <li v-for="warning in summary.warnings" :key="warning.message" class="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-3 dark:border-white/10">
-            <div>
-              <StatusBadge :status="warning.severity" />
-              <span class="ml-2 text-sm text-slate-700 dark:text-slate-200">{{ warning.message }}</span>
+          <li v-for="warning in summary.warnings" :key="warning.key || warning.message" class="rounded-md border border-slate-200 p-3 dark:border-white/10">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <StatusBadge :status="warning.severity" />
+                <span class="ml-2 text-sm font-medium text-slate-700 dark:text-slate-200">{{ warning.message }}</span>
+                <p v-if="warningDetail(warning)" class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ warningDetail(warning) }}</p>
+              </div>
+              <RouterLink :to="warning.link" class="shrink-0 text-sm font-bold text-cyan-700 dark:text-cyan-300">{{ warningAction(warning) }}</RouterLink>
             </div>
-            <RouterLink :to="warning.link" class="text-sm font-bold text-cyan-700 dark:text-cyan-300">Open</RouterLink>
+            <ul v-if="warning.key === 'origin_errors' && traffic?.recent_problem_requests.length" class="mt-3 divide-y divide-slate-200 rounded-md bg-slate-50 px-3 text-xs dark:divide-white/10 dark:bg-white/5">
+              <li v-for="request in traffic.recent_problem_requests.slice(0, 3)" :key="request.id" class="grid grid-cols-[auto_1fr_auto] gap-2 py-2">
+                <span class="font-semibold text-red-600 dark:text-red-300">{{ request.status || 'error' }}</span>
+                <span class="truncate text-slate-600 dark:text-slate-300">{{ request.path || request.host || 'unknown path' }}</span>
+                <span class="text-slate-500">{{ formatTime(request.ts) }}</span>
+              </li>
+            </ul>
           </li>
         </ul>
       </div>
@@ -90,7 +100,7 @@
     </div>
 
     <div class="grid gap-4 xl:grid-cols-2">
-      <section class="card overflow-hidden p-4">
+      <section id="recent-problem-requests" class="card scroll-mt-24 overflow-hidden p-4">
         <h2 class="font-semibold text-slate-950 dark:text-white">Recent Problem Requests</h2>
         <div class="mt-3 overflow-x-auto">
           <table class="min-w-full text-left text-sm">
@@ -244,6 +254,18 @@ function deltaText(key: string) {
   if (!delta || delta.percent === null) return '';
   const sign = delta.absolute > 0 ? '+' : '';
   return `${sign}${delta.percent}% vs previous range`;
+}
+
+function warningDetail(warning: ReportSummary['warnings'][number]) {
+  if (warning.key === 'origin_errors') return 'See the sampled failing requests below with status, path, edge, visitor, and country.';
+  if (warning.key === 'pending_dns_changes') return 'Open DNS Operations to inspect pending sync state and PowerDNS visibility.';
+  if (warning.key === 'failed_jobs') return 'Open Jobs to inspect failed or cancelled SSL workflow entries.';
+  return '';
+}
+
+function warningAction(warning: ReportSummary['warnings'][number]) {
+  if (warning.key === 'origin_errors') return 'Show details';
+  return 'Open';
 }
 
 onMounted(load);

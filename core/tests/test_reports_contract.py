@@ -85,4 +85,8 @@ def test_dashboard_reports_client_and_overview_use_real_report_endpoints():
     assert "Top Visitor Countries" in overview
     assert "request.client_ip" in overview
     assert "request.client_country" in overview
+    assert "'link' => '/#recent-problem-requests'" in (ROOT / "core/app/Modules/Reports/Services/ReportService.php").read_text()
+    assert "Show details" in overview
+    assert "warning.key === 'origin_errors'" in overview
+    assert "recent_problem_requests.slice(0, 3)" in overview
     assert "mock" not in overview.lower()

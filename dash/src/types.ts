@@ -259,7 +259,7 @@ export interface ReportKpis {
   active_domains: number; online_edges: number; offline_edges: number; security_events: number; waf_blocks: number;
   rate_limited_requests: number; origin_errors: number; ssl_expiring_count: number; pending_dns_changes: number; failed_jobs: number;
 }
-export interface ReportWarning { severity: 'warning' | 'critical' | 'info'; message: string; link: string; count?: number; }
+export interface ReportWarning { key?: string; severity: 'warning' | 'critical' | 'info'; message: string; link: string; section?: string | null; count?: number; }
 export interface ReportSummary { time_range: ReportTimeRange; previous_time_range?: ReportTimeRange | null; kpis: ReportKpis; deltas?: Record<string, { absolute: number; percent: number | null }> | null; warnings: ReportWarning[]; generated_at: number; }
 export interface ReportDistributionRow { value?: string; status?: string; status_class?: string; severity?: string; action?: string; count: number; requests?: number; bytes_out?: number; }
 export interface ReportTraffic {

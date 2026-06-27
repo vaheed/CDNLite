@@ -399,11 +399,18 @@ class ReportService
             ['key' => 'failed_jobs', 'severity' => 'critical', 'message' => 'failed jobs in range', 'link' => '/jobs'],
             ['key' => 'pending_dns_changes', 'severity' => 'warning', 'message' => 'pending DNS changes', 'link' => '/dns-operations'],
             ['key' => 'ssl_expiring_count', 'severity' => 'warning', 'message' => 'certificates expiring within 30 days', 'link' => '/domains'],
-            ['key' => 'origin_errors', 'severity' => 'warning', 'message' => 'origin or edge errors in range', 'link' => '/usage'],
+            ['key' => 'origin_errors', 'severity' => 'warning', 'message' => 'origin or edge errors in range', 'link' => '/#recent-problem-requests', 'section' => 'recent_problem_requests'],
         ] as $rule) {
             $count = (int) ($kpis[$rule['key']] ?? 0);
             if ($count > 0) {
-                $warnings[] = ['severity' => $rule['severity'], 'message' => $count . ' ' . $rule['message'], 'link' => $rule['link'], 'count' => $count];
+                $warnings[] = [
+                    'key' => $rule['key'],
+                    'severity' => $rule['severity'],
+                    'message' => $count . ' ' . $rule['message'],
+                    'link' => $rule['link'],
+                    'section' => $rule['section'] ?? null,
+                    'count' => $count,
+                ];
             }
         }
         usort($warnings, static fn (array $a, array $b): int => ['critical' => 0, 'warning' => 1, 'info' => 2][$a['severity']] <=> ['critical' => 0, 'warning' => 1, 'info' => 2][$b['severity']]);
