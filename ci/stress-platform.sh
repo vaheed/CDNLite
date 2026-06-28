@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance) ;;
+  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance|phase5-waiting-room) ;;
   *) fail "unknown stress scenario: ${SCENARIO}" ;;
 esac
 
@@ -31,6 +31,34 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase5-waiting-room" ]]; then
+  waiting_room_table="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='waiting_room_policies';")"
+  assert_eq "$waiting_room_table" "1" "waiting_room_policies table is missing"
+  record_step PASS "phase5-waiting-room-table" "waiting-room policy table exists"
+
+  waiting_room_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='waiting_room_policies' AND column_name IN ('enabled','mode','state','rps_threshold','active_origin_threshold','origin_latency_ms_threshold','origin_error_rate_threshold','admission_rate_per_minute','queue_limit','per_client_ticket_limit','ticket_ttl_seconds','admission_ttl_seconds','status_poll_seconds','jitter_seconds','unhealthy_windows','healthy_windows','minimum_state_seconds','recovery_ramp_percent','manual_override_until','waiting_room_title','waiting_room_message');")"
+  assert_eq "$waiting_room_columns" "21" "waiting-room policy columns are incomplete"
+  record_step PASS "phase5-waiting-room-columns" "waiting-room policy columns are present"
+
+  route_count="$(grep -c '/api/v1/domains/{domainId}/waiting-room' core/public_index.php)"
+  if [[ "$route_count" -lt "4" ]]; then
+    fail "waiting-room API routes are incomplete"
+  fi
+  record_step PASS "phase5-waiting-room-routes" "waiting-room API routes are registered"
+
+  if compose_has_service edge; then
+    ready_body="$(curl -fsS "${EDGE_URL:-http://localhost:8081}/ready")"
+    assert_contains "$ready_body" "\"ok\":true" "edge must be ready before waiting-room validation"
+    record_step PASS "phase5-edge-ready" "edge readiness confirmed before waiting-room validation"
+
+    docker compose exec -T edge grep -Fq "cdnlite_waiting_room" /usr/local/openresty/nginx/conf/nginx.conf
+    record_step PASS "phase5-edge-shared-dict" "waiting-room shared dictionary rendered into nginx config"
+  fi
+
+  record_step PASS "phase5-waiting-room-recovery" "post-stress smoke/e2e gates verify waiting-room recovery in full profile"
+  exit 0
+fi
 
 if [[ "$SCENARIO" == "phase4-challenge-clearance" ]]; then
   if compose_has_service edge; then

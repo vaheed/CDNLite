@@ -52,6 +52,10 @@ case "$PHASE" in
     PHASE_CONTRACT="core/tests/test_phase4_challenge_clearance_contract.py"
     PHASE_STRESS_SCENARIO="phase4-challenge-clearance"
     ;;
+  05)
+    PHASE_CONTRACT="core/tests/test_phase5_waiting_room_contract.py"
+    PHASE_STRESS_SCENARIO="phase5-waiting-room"
+    ;;
   *)
     fail "phase ${PHASE} is not registered yet"
     ;;
