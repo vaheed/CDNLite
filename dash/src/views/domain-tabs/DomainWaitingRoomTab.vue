@@ -88,10 +88,12 @@
                 <option value="recovering">Recovering</option>
                 <option value="manual_emergency">Manual emergency</option>
               </select>
+              <span class="field-description">Controls the current admission posture. Overloaded and manual emergency queue non-cacheable browser traffic; healthy and monitoring allow normal origin routing.</span>
             </label>
             <label>
               <span class="field-label">Reason</span>
               <input v-model="draft.reason" class="input" maxlength="160" placeholder="automatic_rps_threshold" />
+              <span class="field-description">Short operator or automatic reason shown in API responses and audit context, such as slow_origin or flash_sale.</span>
             </label>
           </div>
         </div>
@@ -141,10 +143,12 @@
               <label>
                 <span class="field-label">Title</span>
                 <input v-model="draft.waiting_room_title" class="input" maxlength="120" />
+                <span class="field-description">Headline visitors see on the edge-generated waiting page.</span>
               </label>
               <label>
                 <span class="field-label">Message</span>
                 <textarea v-model="draft.waiting_room_message" class="input min-h-28 py-3" maxlength="500" />
+                <span class="field-description">Plain-language explanation for queued visitors. Keep it short; the page refreshes itself with jitter.</span>
               </label>
             </div>
             <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/[0.03]">
@@ -192,6 +196,7 @@
           <label>
             <span class="field-label text-amber-900 dark:text-amber-100">Emergency reason</span>
             <input v-model="emergencyReason" class="input" maxlength="160" />
+            <span class="field-description text-amber-800 dark:text-amber-100/80">Saved with the manual emergency activation so later audit review explains why traffic was queued.</span>
           </label>
           <div class="grid gap-2">
             <button class="button-danger justify-center border-amber-300 bg-white text-amber-800 hover:border-red-300 hover:text-red-700 dark:border-amber-300/20 dark:bg-slate-950/40 dark:text-amber-100" :disabled="saving" @click="activateEmergency">
@@ -209,6 +214,7 @@
             <div class="flex items-start gap-2"><CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>Safe cache hits continue during overload.</span></div>
             <div class="flex items-start gap-2"><CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>Unsafe methods receive bounded JSON errors.</span></div>
             <div class="flex items-start gap-2"><CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>Queue endpoints are served locally at the edge.</span></div>
+            <div class="flex items-start gap-2"><CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" /><span>All proxied hosts for this domain share the same local-edge budget.</span></div>
           </div>
         </div>
       </aside>
@@ -239,7 +245,7 @@ type NumericKey = keyof Pick<WaitingRoomPolicy,
   'admission_ttl_seconds' | 'status_poll_seconds' | 'jitter_seconds' | 'unhealthy_windows' |
   'healthy_windows' | 'minimum_state_seconds' | 'recovery_ramp_percent'
 >;
-type NumericField = { key: NumericKey; label: string; suffix?: string; min: number; max: number };
+type NumericField = { key: NumericKey; label: string; suffix?: string; min: number; max: number; description: string };
 
 const props = defineProps<{ domainId: string }>();
 const policy = ref<WaitingRoomPolicy | null>(null);
@@ -272,35 +278,36 @@ const NumberField = defineComponent({
           ? h('span', { class: 'pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400' }, componentProps.field.suffix)
           : null,
       ]),
+      h('span', { class: 'field-description' }, componentProps.field.description),
     ]);
   },
 });
 
 const modeOptions = [
-  { value: 'monitoring', label: 'Monitoring', icon: MonitorDot, description: 'Collect signals without queueing visitors.' },
-  { value: 'automatic', label: 'Automatic', icon: Settings2, description: 'Enter overload from edge thresholds.' },
-  { value: 'manual', label: 'Manual', icon: SlidersHorizontal, description: 'Queue only from explicit operator state.' },
+  { value: 'monitoring', label: 'Monitoring', icon: MonitorDot, description: 'Keep the policy visible and collect state without queueing visitors. Use before enabling protection.' },
+  { value: 'automatic', label: 'Automatic', icon: Settings2, description: 'Let edge thresholds move the site into overload and recovery states. Best for normal production protection.' },
+  { value: 'manual', label: 'Manual', icon: SlidersHorizontal, description: 'Only queue when an operator sets overloaded or activates emergency mode. Useful during planned launches.' },
 ];
 
 const admissionFields: NumericField[] = [
-  { key: 'admission_rate_per_minute', label: 'Admission rate', suffix: '/min', min: 1, max: 1000000 },
-  { key: 'queue_limit', label: 'Queue population', min: 1, max: 1000000 },
-  { key: 'per_client_ticket_limit', label: 'Tickets per client', min: 1, max: 1000 },
-  { key: 'ticket_ttl_seconds', label: 'Ticket TTL', suffix: 'sec', min: 30, max: 3600 },
-  { key: 'admission_ttl_seconds', label: 'Admission TTL', suffix: 'sec', min: 60, max: 86400 },
-  { key: 'status_poll_seconds', label: 'Status polling', suffix: 'sec', min: 2, max: 300 },
-  { key: 'jitter_seconds', label: 'Polling jitter', suffix: 'sec', min: 0, max: 300 },
+  { key: 'admission_rate_per_minute', label: 'Admission rate', suffix: '/min', min: 1, max: 1000000, description: 'Maximum non-cacheable browser sessions admitted to origin per edge node each minute while overloaded.' },
+  { key: 'queue_limit', label: 'Queue population', min: 1, max: 1000000, description: 'Maximum waiting tickets kept in local edge memory. When full, new visitors receive a bounded 503 response.' },
+  { key: 'per_client_ticket_limit', label: 'Tickets per client', min: 1, max: 1000, description: 'Maximum outstanding queue tickets allowed for one client identity. Keeps one visitor from filling the queue.' },
+  { key: 'ticket_ttl_seconds', label: 'Ticket TTL', suffix: 'sec', min: 30, max: 3600, description: 'How long a waiting ticket can poll before it expires and must be reissued.' },
+  { key: 'admission_ttl_seconds', label: 'Admission TTL', suffix: 'sec', min: 60, max: 86400, description: 'How long an admitted browser keeps its admission cookie before it can be queued again.' },
+  { key: 'status_poll_seconds', label: 'Status polling', suffix: 'sec', min: 2, max: 300, description: 'Base interval used by waiting pages and Retry-After responses before checking admission again.' },
+  { key: 'jitter_seconds', label: 'Polling jitter', suffix: 'sec', min: 0, max: 300, description: 'Random extra delay added to polling so queued browsers do not all retry at the same moment.' },
 ];
 
 const detectionFields: NumericField[] = [
-  { key: 'rps_threshold', label: 'Incoming RPS', min: 1, max: 1000000 },
-  { key: 'active_origin_threshold', label: 'Active origin requests', min: 1, max: 1000000 },
-  { key: 'origin_latency_ms_threshold', label: 'Origin latency', suffix: 'ms', min: 1, max: 600000 },
-  { key: 'origin_error_rate_threshold', label: 'Origin error ratio', suffix: '%', min: 1, max: 100 },
-  { key: 'unhealthy_windows', label: 'Unhealthy windows', min: 1, max: 100 },
-  { key: 'healthy_windows', label: 'Healthy windows', min: 1, max: 100 },
-  { key: 'minimum_state_seconds', label: 'Minimum state age', suffix: 'sec', min: 1, max: 86400 },
-  { key: 'recovery_ramp_percent', label: 'Recovery ramp', suffix: '%', min: 1, max: 100 },
+  { key: 'rps_threshold', label: 'Incoming RPS', min: 1, max: 1000000, description: 'Automatic mode enters overload when per-edge incoming request rate rises above this value.' },
+  { key: 'active_origin_threshold', label: 'Active origin requests', min: 1, max: 1000000, description: 'Target ceiling for simultaneous origin-bound requests. Lower values protect smaller origins sooner.' },
+  { key: 'origin_latency_ms_threshold', label: 'Origin latency', suffix: 'ms', min: 1, max: 600000, description: 'Latency level considered unhealthy for automatic overload decisions and future origin health signals.' },
+  { key: 'origin_error_rate_threshold', label: 'Origin error ratio', suffix: '%', min: 1, max: 100, description: 'Origin 5xx/timeout ratio considered unhealthy. Higher values wait longer before queueing.' },
+  { key: 'unhealthy_windows', label: 'Unhealthy windows', min: 1, max: 100, description: 'Consecutive unhealthy windows required before automatic mode enters overload. Higher values reduce false positives.' },
+  { key: 'healthy_windows', label: 'Healthy windows', min: 1, max: 100, description: 'Consecutive healthy windows required before recovery. Higher values prevent flapping.' },
+  { key: 'minimum_state_seconds', label: 'Minimum state age', suffix: 'sec', min: 1, max: 86400, description: 'Minimum time to remain in a state before changing again. Keeps overload and recovery stable.' },
+  { key: 'recovery_ramp_percent', label: 'Recovery ramp', suffix: '%', min: 1, max: 100, description: 'Percentage of the normal admission budget used during recovery. Lower values reopen origin traffic more gently.' },
 ];
 
 const stateLabel = computed(() => humanize(String(draft.value.state || 'disabled')));

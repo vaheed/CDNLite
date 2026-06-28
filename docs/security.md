@@ -88,6 +88,20 @@ bypass administrative security policy. Set `CDNLITE_EDGE_WAITING_ROOM_SECRET` to
 a strong value on every edge. Rotating it invalidates existing queue tickets and
 admission cookies, which is safe during incident response.
 
+Waiting-room tickets are scoped to the domain and client IP and expire according
+to `ticket_ttl_seconds`. Admission cookies are also scoped and expire according
+to `admission_ttl_seconds`. Queue state is bounded by `queue_limit` and
+`per_client_ticket_limit`; overflow fails closed with a bounded response instead
+of growing memory without limit. Safe cacheable `GET` and `HEAD` requests may
+continue through the cache path during overload, but non-cacheable requests,
+unsafe methods, and API-style clients remain gated.
+
+Use conservative emergency settings. A low `admission_rate_per_minute` protects
+the origin but makes visitors wait longer. A high value shortens the queue but
+can re-overload the origin. During recovery, `healthy_windows`,
+`minimum_state_seconds`, and `recovery_ramp_percent` should be tuned to avoid
+rapid state flapping.
+
 | Difficulty | Behavior | Use case |
 | --- | --- | --- |
 | `1` | Lightweight browser verification. The page verifies JavaScript, same-origin fetch, cookies, and redirect handling without proof-of-work. | Low-friction checks for normal sites or mild bot noise. |

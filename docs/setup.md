@@ -234,6 +234,14 @@ Edge and agent settings:
 | `CDNLITE_EDGE_LOG_REQUEST_BODY` | Reserved for future strict-redaction body logging; keep `false`. |
 | `CDNLITE_EDGE_DEBUG_HEADERS` | Reserved for future debug header logging; keep `false` unless a runbook explicitly enables it. |
 | `CDNLITE_EDGE_MMDB_FILE` | GeoIP MMDB used by the edge for country WAF/origin decisions; default `/var/lib/cdnlite/mmdb/GeoLite2-City.mmdb`. |
+
+Waiting-room shared memory stores rolling counters, queue population, active
+origin counts, and short-lived ticket/admission state. Increase
+`CDNLITE_EDGE_WAITING_ROOM_DICT_SIZE` only when `/ready`, edge logs, or queue
+status indicate sustained local state pressure. Use the dashboard policy fields
+to tune traffic behavior first: lower `admission_rate_per_minute` protects
+origins more, lower `queue_limit` bounds memory more tightly, and higher polling
+jitter spreads queue status checks.
 | `CDNLITE_EDGE_CLEARANCE_SECRET` | Shared edge secret for signed challenge and clearance cookies. Set the same strong value on every edge; rotation invalidates existing clearances. |
 | `CDNLITE_EDGE_CHALLENGE_DIFFICULTY` | Default self-hosted edge challenge difficulty, from `1` to `6`; default `3`. WAF and rate-limit challenge rules can override this per path or pattern with `challenge_difficulty`. Level `1` performs a lightweight browser check without proof-of-work. Levels `2` through `6` require increasing SHA-256 proof-of-work before origin routing. |
 | `EDGE_AGENT_IDLE` | CI flag to keep agent idle while scripts drive flow manually. |
