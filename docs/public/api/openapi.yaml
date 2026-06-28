@@ -1400,7 +1400,19 @@ paths:
   /api/v1/config/snapshots:
     get:
       tags: [Config]
-      summary: List config snapshots
+      summary: List config snapshots, paginated and bounded
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
       responses:
         "200":
           $ref: "#/components/responses/GenericArray"
@@ -1414,7 +1426,8 @@ paths:
   /api/v1/config/snapshots/{version}:
     get:
       tags: [Config]
-      summary: Get config snapshot
+      summary: Get config snapshot when history is enabled
+      description: Disabled by default unless CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=true.
       parameters:
         - name: version
           in: path
@@ -1427,7 +1440,8 @@ paths:
   /api/v1/config/snapshots/diff:
     post:
       tags: [Config]
-      summary: Diff two config snapshots
+      summary: Diff two config snapshots when history is enabled
+      description: Disabled by default unless CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=true.
       requestBody:
         required: true
         content:
@@ -1446,7 +1460,8 @@ paths:
   /api/v1/config/snapshots/{version}/rollback:
     post:
       tags: [Config]
-      summary: Roll back active config snapshot
+      summary: Development-only config snapshot rollback
+      description: Disabled by default because snapshot rollback does not roll back database source-of-truth tables.
       parameters:
         - name: version
           in: path
@@ -1459,7 +1474,7 @@ paths:
   /api/v1/config/snapshots/rebuild:
     post:
       tags: [Config]
-      summary: Rebuild config snapshot from database state
+      summary: Force-publish materialized edge config from database state
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"

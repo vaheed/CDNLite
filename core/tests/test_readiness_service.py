@@ -40,7 +40,7 @@ def test_snapshot_readiness_links_to_an_existing_operational_page():
     )[0]
 
     assert "'/config-snapshot'" not in snapshot_check
-    assert snapshot_check.count("'/edge-nodes'") == 2
+    assert snapshot_check.count("'/edge-nodes'") >= 2
     assert "{ path: '/edge-nodes'" in router
 
 

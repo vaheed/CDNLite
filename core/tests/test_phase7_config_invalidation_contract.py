@@ -12,7 +12,7 @@ def test_domain_mutations_invalidate_config_before_reconcile():
     service = read("core/app/Modules/Domains/Services/DomainService.php")
 
     assert "private function invalidateConfigSnapshot" in service
-    assert "UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1" in service
+    assert "ConfigService::markDirty('domain.changed')" in service
     assert "AuditLog::write('domain.create'" in service
     assert "AuditLog::write('domain.update'" in service
     assert "AuditLog::write('domain.delete'" in service
@@ -30,6 +30,7 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     openapi = read("docs/public/api/openapi.yaml")
 
     assert "private function invalidateConfigSnapshot" in dns_service
+    assert "ConfigService::markDirty('dns.changed')" in dns_service
     assert "DnsReconciler" in dns_service
     assert "for ($attempt = 1; $attempt <= 3; $attempt++)" in dns_service
     assert "dns_reconciler_busy" in dns_service
@@ -37,6 +38,7 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     assert "AuditLog::write('dns.reconcile.failed'" in dns_service
     assert "'local_state_saved' => true" in dns_service
     assert "private function invalidateConfigSnapshot" in geo_service
+    assert "ConfigService::markDirty('dns.geo_routes.changed')" in geo_service
     assert "AuditLog::write('dns.geo_routes.update'" in geo_service
     assert "$this->invalidateConfigSnapshot();\n        (new DnsReconciler())->reconcile();" in geo_service
     assert "private function dnsPublishFailure" in dns_controller

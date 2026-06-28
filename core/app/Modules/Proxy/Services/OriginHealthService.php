@@ -686,6 +686,6 @@ class OriginHealthService
 
     private function invalidateConfig(): void
     {
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+        ConfigService::markDirty('origins.changed');
     }
 }

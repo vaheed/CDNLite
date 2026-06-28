@@ -40,9 +40,10 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     assert "public function diff" in service
     assert "public function rollback" in service
     assert "public function rebuild" in service
-    assert "private function activeSnapshot" in service
+    assert "public function activeSnapshot" in service
     assert "private function activateSnapshotVersion" in service
     assert "private function activeSnapshotVersion" in service
+    assert "config_snapshot_history_disabled" in routes
     assert "config.publish" in service
     assert "config.rollback" in service
     assert "$this->activateSnapshotVersion($version)" in service

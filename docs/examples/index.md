@@ -383,7 +383,7 @@ curl -s "$API$PATH_ONLY" \
 
 The edge agent scripts already do this; the example is for developers writing custom edge tooling.
 
-## Config Snapshot Rollback
+## Config Snapshot Publish And Prune
 
 ```bash
 curl -s "$API/api/v1/config/snapshots" \
@@ -392,16 +392,15 @@ curl -s "$API/api/v1/config/snapshots" \
 curl -s "$API/api/v1/config/snapshots/latest" \
   -H "Authorization: Bearer $TOKEN"
 
-curl -s -X POST "$API/api/v1/config/snapshots/diff" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"from_version":12,"to_version":13}'
-
-curl -s -X POST "$API/api/v1/config/snapshots/12/rollback" \
+curl -s -X POST "$API/api/v1/config/snapshots/rebuild" \
   -H "Authorization: Bearer $TOKEN"
+
+docker compose exec core php artisan cdn:config-snapshots:prune --keep=2 --batch=5000 --dry-run
 ```
 
-Rollback is a control-plane action. Edge nodes still need to pull the active snapshot.
+Snapshot payload history, diff, and rollback endpoints are disabled unless
+`CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=true`; snapshots are a generated edge
+cache, while database tables remain the source of truth.
 
 ## Recommendations
 

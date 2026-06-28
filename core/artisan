@@ -73,6 +73,7 @@ use App\Console\Commands\CdnPowerDnsDoctorCommand;
 use App\Console\Commands\CdnPowerDnsDryRunCommand;
 use App\Console\Commands\CdnPowerDnsForceSyncCommand;
 use App\Console\Commands\CdnRecommendationsGenerateCommand;
+use App\Console\Commands\CdnConfigSnapshotsPruneCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:admin:create', new CdnAdminCreateCommand());
@@ -101,6 +102,7 @@ $runner->register('cdn:edge:disable', new CdnEdgeDisableCommand());
 $runner->register('cdn:edge:register-token', new CdnEdgeRegisterTokenCommand());
 $runner->register('cdn:edge:rotate-token', new CdnEdgeRotateTokenCommand());
 $runner->register('cdn:edge:sync-config', new CdnEdgeSyncConfigCommand());
+$runner->register('cdn:config-snapshots:prune', new CdnConfigSnapshotsPruneCommand());
 $runner->register('cdn:usage:summary', new CdnUsageSummaryCommand());
 $runner->register('cdn:usage:recalculate', new CdnUsageRecalculateCommand());
 $runner->register('cdn:usage:ingest', new CdnUsageIngestCommand());

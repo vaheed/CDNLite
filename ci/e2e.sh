@@ -601,14 +601,14 @@ record_step PASS "guided-onboarding-flow" "recommendation logic, preview, skip/r
 
 config_snapshot_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
 config_snapshot_after="$(jq -r '.version' <<<"$config_snapshot_json")"
-config_snapshot_reused_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
-config_snapshot_reused_version="$(jq -r '.version' <<<"$config_snapshot_reused_json")"
-config_snapshot_reused="$(jq -r '.reused // false' <<<"$config_snapshot_reused_json")"
+config_snapshot_cached_json="$(docker compose exec -T core php artisan cdn:edge:sync-config)"
+config_snapshot_cached_version="$(jq -r '.version' <<<"$config_snapshot_cached_json")"
+config_snapshot_cached_reused="$(jq -r '.reused // false' <<<"$config_snapshot_cached_json")"
 retry 20 1 config_publish_audit_exists
 assert_eq "$config_snapshot_after" "$(current_config_state_version)" "config rebuild should activate the published snapshot"
-assert_eq "$config_snapshot_reused_version" "$config_snapshot_after" "unchanged config rebuild should reuse the active snapshot version"
-assert_eq "$config_snapshot_reused" "true" "unchanged config rebuild should report a reused snapshot"
-record_step PASS "config-publish-audit" "config rebuild writes publish audit events and reuses unchanged snapshots"
+assert_eq "$config_snapshot_cached_version" "$config_snapshot_after" "unchanged config fetch should serve the active snapshot version"
+assert_eq "$config_snapshot_cached_reused" "false" "unchanged edge config fetch should not rebuild just to report reused"
+record_step PASS "config-publish-audit" "config publish writes audit events and unchanged fetches use the active snapshot"
 
 api_post_with_powerdns_retry "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records" \
   '{"type":"A","name":"@","content":"1.1.1.1","ttl":300,"proxied":true,"origin_host":"origin-tls","origin_tls_verify":"ignore","geo_origins":{"DEFAULT":{"host":"origin-tls","tls_verify":"ignore"},"IR":{"host":"origin-http","tls_verify":"verify"}}}'
@@ -1252,7 +1252,7 @@ record_step PASS "edge-bot-protection-runtime" "unverified crawler challenge and
 verified_bot_source_id="verified-bot-${RUN_KEY}"
 now="$(date +%s)"
 db_query "INSERT INTO verified_bot_sources (id,domain_id,bot_class,provider,user_agent_pattern,cidr,enabled,created_at,updated_at) VALUES ('${verified_bot_source_id}','${DOMAIN_ID}','verified_search_bot','Google','Googlebot','0.0.0.0/0',true,${now},${now});" >/dev/null
-db_query "UPDATE config_state SET active_snapshot_version=NULL WHERE id=1;" >/dev/null
+db_query "UPDATE config_state SET dirty=true, dirty_at=${now} WHERE id=1;" >/dev/null
 edge_pull_config
 verified_bot_status="$(curl -sS -o /tmp/e2e-verified-bot-body.txt -w '%{http_code}' -H "Host: ${TEST_DOMAIN}" -A 'Googlebot' "${EDGE_URL}/bot-check?via=edge-verified-bot")"
 assert_eq "$verified_bot_status" "200" "verified search-bot source should allow matching crawler traffic"
@@ -1562,7 +1562,8 @@ record_step PASS "edge-config-fetch" "version=${cfg_version}"
 
 edge_api GET "/api/v1/edge/config?if_version=${cfg_version}" ""
 assert_http_status "$HTTP_CODE" "200" "edge config if_version failed"
-record_step PASS "edge-config-if-version" "if_version request ok"
+assert_contains "$HTTP_BODY" '"not_modified":true' "edge config if_version should return not_modified"
+record_step PASS "edge-config-if-version" "if_version request returned not_modified"
 
 miss_code="$(curl -s -o /tmp/e2e-miss-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/edge/heartbeat" -H 'Content-Type: application/json' -d "{\"edge_id\":\"${EDGE_ID}\"}")"
 assert_eq "$miss_code" "401" "missing auth should 401"

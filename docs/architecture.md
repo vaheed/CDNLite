@@ -134,8 +134,9 @@ connect, and HTTP failure details are stored by domain, origin, and edge node.
 ```text
 Admin/API change
   -> Core validates and writes PostgreSQL
-  -> ConfigService builds a snapshot
-  -> Snapshot version is stored
+  -> ConfigService marks the published edge config dirty
+  -> One publisher rebuilds the materialized snapshot under a PostgreSQL advisory lock
+  -> Active snapshot stays valid until the new version is stored
   -> Edge agent signs GET /api/v1/edge/config
   -> Agent writes config.json atomically
   -> OpenResty workers validate and atomically activate the fresh snapshot
@@ -204,4 +205,4 @@ or `POST /api/v1/domains/{domainId}/nameservers/verify`, which returns the
 expected, observed, matched, and missing nameserver sets. Admin sessions can use
 `POST /api/v1/domains/{domainId}/nameservers/force-verify` with a reason when
 delegation cannot be observed but the domain must be activated; the action is
-audited, invalidates the active edge snapshot, and triggers DNS reconciliation.
+audited, marks the edge config dirty, and triggers DNS reconciliation.

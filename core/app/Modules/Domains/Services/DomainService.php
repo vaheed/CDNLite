@@ -4,6 +4,7 @@ namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\PowerDnsService;
+use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\Database;
 use App\Support\AuditLog;
@@ -189,7 +190,7 @@ class DomainService
 
     private function invalidateConfigSnapshot(): void
     {
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+        ConfigService::markDirty('domain.changed');
     }
 
     private function reconcileDns(string $domainId): void

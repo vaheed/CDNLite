@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
+use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
 use App\Support\AuditLog;
@@ -72,7 +73,7 @@ class DomainVerificationService
                 'checked' => $now,
                 'id' => $domainId,
             ]);
-            $pdo->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+            ConfigService::markDirty('domain.verification.changed');
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
@@ -123,7 +124,7 @@ class DomainVerificationService
                  last_ns_check_at = :checked, updated_at = :checked WHERE id = :id"
             );
             $update->execute(['checked' => $now, 'id' => $domainId]);
-            $pdo->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+            ConfigService::markDirty('domain.verification.changed');
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();
@@ -212,7 +213,7 @@ class DomainVerificationService
                 'updated_at' => $now,
                 'id' => $domainId,
             ]);
-            $pdo->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+            ConfigService::markDirty('domain.verification.changed');
             $pdo->commit();
         } catch (\Throwable $e) {
             $pdo->rollBack();

@@ -140,8 +140,8 @@ def test_edge_sync_config_reuses_version_when_unchanged():
 
     assert first["version"] >= 1
     assert second["version"] == first["version"]
-    assert second["reused"] is True
-    assert second["generated_at"] > first["generated_at"]
+    assert "reused" not in second
+    assert second["generated_at"] == first["generated_at"]
     assert not_modified["version"] == first["version"]
     assert (not_modified.get("not_modified") is True) or (not_modified.get("reused") is True)
 
@@ -164,7 +164,7 @@ echo json_encode([
 ''',
         str(first["version"]),
     )
-    assert row["generated_at"] == second["generated_at"]
+    assert row["generated_at"] == first["generated_at"]
     assert row["payload_generated_at"] == first["generated_at"]
 
 

@@ -820,12 +820,22 @@ CREATE TABLE IF NOT EXISTS config_state (
   id SMALLINT PRIMARY KEY,
   version BIGINT NOT NULL,
   active_snapshot_version BIGINT NULL,
+  dirty BOOLEAN NOT NULL DEFAULT true,
+  dirty_at BIGINT NULL,
+  published_at BIGINT NULL,
+  last_publish_error TEXT NULL,
+  publishing_started_at BIGINT NULL,
   CONSTRAINT config_state_singleton CHECK (id = 1)
 );
 
 INSERT INTO config_state (id, version) VALUES (1, 0)
 ON CONFLICT (id) DO NOTHING;
 ALTER TABLE config_state ADD COLUMN IF NOT EXISTS active_snapshot_version BIGINT NULL;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS dirty BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS dirty_at BIGINT NULL;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS published_at BIGINT NULL;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS last_publish_error TEXT NULL;
+ALTER TABLE config_state ADD COLUMN IF NOT EXISTS publishing_started_at BIGINT NULL;
 
 CREATE TABLE IF NOT EXISTS config_snapshots (
   version BIGINT PRIMARY KEY,

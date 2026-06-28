@@ -185,6 +185,12 @@ CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 
 Run the destructive DNS stress test only against an explicitly disposable environment.
 
+Useful operator commands include `php artisan cdn:edge:sync-config` to publish or
+fetch the active edge config and `php artisan cdn:config-snapshots:prune
+--keep=2 --batch=5000 --dry-run` to review bounded snapshot cleanup before
+deleting old published artifacts. Snapshot rollback/history endpoints are
+disabled by default because database tables remain the source of truth.
+
 ## Contributing
 
 Contributions are welcome across docs, tests, OpenResty/Lua edge work, Vue dashboard UX, PHP control plane, security hardening, deployment examples, Kubernetes/Helm, Prometheus/Grafana, RBAC, and SSO.

@@ -1223,7 +1223,7 @@ class TrafficRulesService
         return false;
     }
     private function invalidateConfigSnapshot(): void {
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+        ConfigService::markDirty('traffic_rules.changed');
     }
     private function managedWafModes(): array {
         return [

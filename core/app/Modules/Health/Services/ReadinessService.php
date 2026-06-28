@@ -106,16 +106,32 @@ class ReadinessService
 
     private function snapshotCheck(): array
     {
-        $generatedAt = Database::pdo()->query('SELECT MAX(generated_at) FROM config_snapshots')->fetchColumn();
-        if ($generatedAt === false || $generatedAt === null) {
-            return $this->result('config_snapshot', 'warning', 'No edge configuration has been generated', 'Check edge config pulls or run a manual config rebuild', '/edge-nodes');
+        $row = Database::pdo()->query(
+            'SELECT cs.active_snapshot_version, cs.dirty, cs.published_at, cs.dirty_at, cs.last_publish_error, s.generated_at
+             FROM config_state cs
+             LEFT JOIN config_snapshots s ON s.version = cs.active_snapshot_version
+             WHERE cs.id = 1'
+        )->fetch();
+        if (!$row || $row['active_snapshot_version'] === null) {
+            return $this->result('config_snapshot', 'error', 'No active edge configuration has been published', 'Run a manual config publish or allow the first edge pull to publish', '/edge-nodes');
         }
-        $maxAge = max(60, (int) (getenv('CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS') ?: 900));
-        $age = max(0, time() - (int) $generatedAt);
-        if ($age <= $maxAge) {
-            return $this->result('config_snapshot', 'ok', 'Config snapshot is fresh');
+        $details = [
+            'active_version' => (int) $row['active_snapshot_version'],
+            'dirty' => in_array($row['dirty'] ?? false, [true, 1, '1', 't', 'true'], true),
+            'published_at' => $row['published_at'] === null ? null : (int) $row['published_at'],
+            'dirty_at' => $row['dirty_at'] === null ? null : (int) $row['dirty_at'],
+        ];
+        if ($row['generated_at'] === null) {
+            return $this->result('config_snapshot', 'error', 'Active edge configuration row is missing', 'Publish a new edge configuration', '/edge-nodes', $details);
         }
-        return $this->result('config_snapshot', 'warning', sprintf('Edge configuration was last generated %d minutes ago', (int) floor($age / 60)), 'Check edge config pulls or run a manual config rebuild', '/edge-nodes');
+        if ($row['last_publish_error'] !== null && (string) $row['last_publish_error'] !== '') {
+            $details['last_publish_error'] = (string) $row['last_publish_error'];
+            return $this->result('config_snapshot', 'warning', 'Last edge configuration publish failed', 'Review the publish error and publish again', '/edge-nodes', $details);
+        }
+        if ($details['dirty']) {
+            return $this->result('config_snapshot', 'warning', 'Edge configuration has unpublished changes', 'Publish edge configuration when ready', '/edge-nodes', $details);
+        }
+        return $this->result('config_snapshot', 'ok', 'Active edge configuration is published', null, null, $details);
     }
 
     private function certificateExpiryCheck(): array
@@ -159,7 +175,7 @@ class ReadinessService
         );
     }
 
-    private function result(string $key, string $status, string $message, ?string $fix = null, ?string $link = null): array
+    private function result(string $key, string $status, string $message, ?string $fix = null, ?string $link = null, array $details = []): array
     {
         $result = ['key' => $key, 'status' => $status, 'message' => $message];
         if ($fix !== null) {
@@ -167,6 +183,9 @@ class ReadinessService
         }
         if ($link !== null) {
             $result['link'] = $link;
+        }
+        if ($details !== []) {
+            $result['details'] = $details;
         }
         return $result;
     }

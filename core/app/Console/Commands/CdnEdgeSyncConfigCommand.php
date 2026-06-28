@@ -13,7 +13,7 @@ class CdnEdgeSyncConfigCommand
     {
         $opts = CommandIO::parseOptions($argv);
         $ifVersion = isset($opts['if_version']) ? (int) $opts['if_version'] : null;
-        $snapshot = (new ConfigService(new DomainService(), new DnsService()))->buildSnapshotForVersion($ifVersion);
+        $snapshot = (new ConfigService(new DomainService(), new DnsService()))->edgeConfig($ifVersion);
         CommandIO::printJson($snapshot);
         return 0;
     }

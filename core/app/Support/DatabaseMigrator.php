@@ -78,7 +78,7 @@ class DatabaseMigrator
                 try {
                     $this->pdo->beginTransaction();
                     $this->recordMigration($migration, false, null, null, $startedAt);
-                    $this->pdo->exec($migration['sql']);
+                    $this->pdo->exec($this->sqlForExecution($migration));
                     $executionMs = max(0, (int) round((microtime(true) - $startedMs) * 1000));
                     $this->recordMigration($migration, true, null, $executionMs, $startedAt);
                     $this->pdo->commit();
@@ -186,6 +186,55 @@ class DatabaseMigrator
         }
 
         return $migrations;
+    }
+
+    private function sqlForExecution(array $migration): string
+    {
+        if (($migration['version'] ?? '') !== '000031') {
+            return (string) $migration['sql'];
+        }
+
+        $legacyConstraintBlock = "ALTER TABLE domain_origins
+  ADD CONSTRAINT domain_origins_load_balancing_algorithm_check CHECK (load_balancing_algorithm IN ('weighted_hash', 'consistent_hash')),
+  ADD CONSTRAINT domain_origins_connection_timeout_seconds_check CHECK (connection_timeout_seconds BETWEEN 1 AND 60),
+  ADD CONSTRAINT domain_origins_response_timeout_seconds_check CHECK (response_timeout_seconds BETWEEN 1 AND 600),
+  ADD CONSTRAINT domain_origins_retry_attempts_check CHECK (retry_attempts BETWEEN 0 AND 3),
+  ADD CONSTRAINT domain_origins_retry_budget_per_minute_check CHECK (retry_budget_per_minute BETWEEN 0 AND 100000),
+  ADD CONSTRAINT domain_origins_circuit_failure_threshold_check CHECK (circuit_failure_threshold BETWEEN 1 AND 1000),
+  ADD CONSTRAINT domain_origins_circuit_recovery_seconds_check CHECK (circuit_recovery_seconds BETWEEN 1 AND 3600),
+  ADD CONSTRAINT domain_origins_max_concurrent_requests_check CHECK (max_concurrent_requests BETWEEN 0 AND 1000000);";
+
+        $idempotentConstraintBlock = "DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_load_balancing_algorithm_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_load_balancing_algorithm_check CHECK (load_balancing_algorithm IN ('weighted_hash', 'consistent_hash'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_connection_timeout_seconds_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_connection_timeout_seconds_check CHECK (connection_timeout_seconds BETWEEN 1 AND 60);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_response_timeout_seconds_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_response_timeout_seconds_check CHECK (response_timeout_seconds BETWEEN 1 AND 600);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_retry_attempts_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_retry_attempts_check CHECK (retry_attempts BETWEEN 0 AND 3);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_retry_budget_per_minute_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_retry_budget_per_minute_check CHECK (retry_budget_per_minute BETWEEN 0 AND 100000);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_circuit_failure_threshold_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_circuit_failure_threshold_check CHECK (circuit_failure_threshold BETWEEN 1 AND 1000);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_circuit_recovery_seconds_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_circuit_recovery_seconds_check CHECK (circuit_recovery_seconds BETWEEN 1 AND 3600);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_max_concurrent_requests_check' AND conrelid = 'domain_origins'::regclass) THEN
+    ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_max_concurrent_requests_check CHECK (max_concurrent_requests BETWEEN 0 AND 1000000);
+  END IF;
+END $$;";
+
+        // Preserve the historical migration checksum while making legacy schema
+        // adoption idempotent when the fresh schema already created these checks.
+        return str_replace($legacyConstraintBlock, $idempotentConstraintBlock, (string) $migration['sql']);
     }
 
     private function appliedMigrations(): array

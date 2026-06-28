@@ -175,6 +175,9 @@ Core settings:
 | `CDNLITE_CORS_ALLOWED_ORIGINS` | Browser origins allowed to call the API. |
 | `CDNLITE_SSL_SECRET_KEY` | Secret used for stored SSL material handling. |
 | `CDNLITE_ORIGIN_SHIELD_SECRET` | Default origin shield secret. |
+| `CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST` | Count of latest published config snapshots to retain in addition to the active version; default `2`. |
+| `CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE` | Bounded delete batch used after publish and by `cdn:config-snapshots:prune`; default `5000`. |
+| `CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED` | Enables legacy snapshot payload, diff, and rollback endpoints for development; default `false`. |
 | `CDNLITE_ANALYTICS_RETENTION_DAYS` | Detailed edge request/activity retention window for `cdn:usage:prune`; default `30`. |
 | `CDNLITE_SECURITY_EVENT_RETENTION_DAYS` | High-volume WAF, rate-limit, bot, and Geo security-event retention for `cdn:usage:prune --all`; default `90`. |
 | `CDNLITE_DNS_EVENT_RETENTION_DAYS` | Successful DNS sync event retention for `cdn:usage:prune --all`; default `30`. Failed DNS sync events are retained for troubleshooting. |
@@ -307,6 +310,16 @@ or an explicit `--days` value:
 ```bash
 docker compose exec core php artisan cdn:usage:prune --dry-run
 docker compose exec core php artisan cdn:usage:prune --days=30
+```
+
+Config snapshots are a published edge cache, not the source of truth. The core
+keeps the active snapshot plus the latest two snapshots by default and prunes
+after successful publishes. Operators with a large historical table can prune in
+batches without deleting the active snapshot:
+
+```bash
+docker compose exec core php artisan cdn:config-snapshots:prune --keep=2 --batch=5000 --dry-run
+docker compose exec core php artisan cdn:config-snapshots:prune --keep=2 --batch=5000
 ```
 
 Use the wider retention pass for high-volume operational rows after reviewing

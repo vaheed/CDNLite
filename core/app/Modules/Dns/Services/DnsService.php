@@ -3,6 +3,7 @@
 namespace App\Modules\Dns\Services;
 
 use App\Modules\Domains\Services\DomainService;
+use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\OriginHealthService;
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
@@ -539,7 +540,7 @@ class DnsService
 
     private function invalidateConfigSnapshot(): void
     {
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+        ConfigService::markDirty('dns.changed');
     }
 
     private function castRow(array $row): array

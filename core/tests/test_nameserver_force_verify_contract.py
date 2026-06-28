@@ -42,7 +42,7 @@ def test_force_verify_requires_admin_session_and_audits_reason():
     assert "Validator::requiredString($input, 'reason'" in controller
     assert "domain.nameserver.force_verify" in service
     assert "forced_verified" in service
-    assert "UPDATE config_state SET active_snapshot_version = NULL" in service
+    assert "ConfigService::markDirty('domain.verification.changed')" in service
     assert "(new DnsReconciler())->reconcile()" in service
 
 
@@ -64,7 +64,7 @@ def test_reseed_expected_nameservers_is_admin_only_and_audited():
     assert "DELETE FROM domain_nameservers WHERE domain_id" in service
     assert "domain.nameserver.reseed_expected" in service
     assert "reseeded_expected" in service
-    assert "UPDATE config_state SET active_snapshot_version = NULL" in service
+    assert "ConfigService::markDirty('domain.verification.changed')" in service
     assert "(new DnsReconciler())->reconcile()" in service
 
     assert "reseedExpectedNameservers" in api

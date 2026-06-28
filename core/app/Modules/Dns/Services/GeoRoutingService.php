@@ -2,6 +2,7 @@
 
 namespace App\Modules\Dns\Services;
 
+use App\Modules\Proxy\Services\ConfigService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -137,7 +138,7 @@ class GeoRoutingService
 
     private function invalidateConfigSnapshot(): void
     {
-        Database::pdo()->exec('UPDATE config_state SET active_snapshot_version = NULL WHERE id = 1');
+        ConfigService::markDirty('dns.geo_routes.changed');
     }
 
     private function recordExists(string $domainId, string $recordId): bool

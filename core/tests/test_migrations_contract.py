@@ -58,6 +58,18 @@ def test_migrator_supports_legacy_baseline_adoption_and_checksum_validation():
     assert "legacy_schema_incompatible" in migrator
 
 
+def test_phase7_origin_resilience_constraints_are_idempotent_for_legacy_adoption():
+    migrator = (ROOT / "core/app/Support/DatabaseMigrator.php").read_text()
+    migration = (ROOT / "core/database/migrations/000031_phase7_origin_resilience.sql").read_text()
+
+    assert "sqlForExecution" in migrator
+    assert "($migration['version'] ?? '') !== '000031'" in migrator
+    assert "domain_origins_load_balancing_algorithm_check" in migrator
+    assert "IF NOT EXISTS (SELECT 1 FROM pg_constraint" in migrator
+    assert "Preserve the historical migration checksum" in migrator
+    assert "ADD CONSTRAINT domain_origins_load_balancing_algorithm_check" in migration
+
+
 def test_ci_runs_migrations_before_core_tests():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     schema_step = "php core/artisan cdn:db:migrate"
@@ -76,6 +88,7 @@ def test_retention_scheduler_is_opt_in_and_uses_bounded_prune_command():
         assert "retention-scheduler" in source
         assert "CDNLITE_RETENTION_PRUNE_ENABLED" in source
         assert "cdn:usage:prune --all" in source
+        assert "cdn:config-snapshots:prune" in source
         assert "CDNLITE_RETENTION_INTERVAL_SECONDS" in source
         assert "CDNLITE_RETENTION_BATCH_SIZE" in source
 

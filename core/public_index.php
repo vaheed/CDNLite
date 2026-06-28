@@ -279,7 +279,8 @@ $router->add('GET', '/ready', static function () use ($configService): array {
         $checks['schema'] = 'fail';
     }
     try {
-        $configService->buildSnapshotForVersion(null);
+        $snapshot = $configService->activeSnapshot();
+        $checks['config_generation'] = $snapshot === null ? 'warn' : 'ok';
     } catch (\Throwable) {
         $checks['config_generation'] = 'fail';
     }
@@ -350,15 +351,21 @@ $router->add('GET', '/api/v1/security/summary', static fn (Request $req): array 
 $router->add('GET', '/api/v1/audit', static fn (Request $req): array => Response::json($operationsLogController->audit($req->query)), auth: true);
 $router->add('GET', '/api/v1/events', static fn (Request $req): array => Response::json($operationsLogController->events($req->query)), auth: true);
 $router->add('GET', '/api/v1/jobs', static fn (Request $req): array => Response::json($operationsLogController->jobs($req->query)), auth: true);
-$router->add('GET', '/api/v1/config/snapshots', static fn (): array => Response::json(['data' => $configService->snapshots()]), auth: true);
+$router->add('GET', '/api/v1/config/snapshots', static fn (Request $req): array => Response::json(['data' => $configService->snapshots((int) ($req->query['limit'] ?? 20), (int) ($req->query['offset'] ?? 0))]), auth: true);
 $router->add('GET', '/api/v1/config/snapshots/latest', static fn (): array => Response::json(['data' => $configService->latestSnapshotSummary()]), auth: true);
 $router->add('GET', '/api/v1/config/snapshots/{version}', static function (Request $req, array $p) use ($configService): array {
+    if (!truthyEnv('CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED', false)) {
+        return Response::json(['error' => 'config_snapshot_history_disabled'], 404);
+    }
     $snapshot = $configService->snapshot((int) $p['version']);
     return $snapshot === null
         ? Response::json(['error' => 'config_snapshot_not_found'], 404)
         : Response::json(['data' => $snapshot]);
 }, auth: true);
 $router->add('POST', '/api/v1/config/snapshots/diff', static function (Request $req) use ($configService): array {
+    if (!truthyEnv('CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED', false)) {
+        return Response::json(['error' => 'config_snapshot_history_disabled'], 404);
+    }
     try {
         return Response::json(['data' => $configService->diff((int) ($req->body['from_version'] ?? 0), (int) ($req->body['to_version'] ?? 0))]);
     } catch (\OutOfBoundsException $e) {
@@ -366,13 +373,16 @@ $router->add('POST', '/api/v1/config/snapshots/diff', static function (Request $
     }
 }, auth: true);
 $router->add('POST', '/api/v1/config/snapshots/{version}/rollback', static function (Request $req, array $p) use ($configService): array {
+    if (!truthyEnv('CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED', false)) {
+        return Response::json(['error' => 'config_snapshot_history_disabled'], 404);
+    }
     try {
         return Response::json(['data' => $configService->rollback((int) $p['version'])]);
     } catch (\OutOfBoundsException $e) {
         return Response::json(['error' => $e->getMessage()], 404);
     }
 }, auth: true);
-$router->add('POST', '/api/v1/config/snapshots/rebuild', static fn (): array => Response::json(['data' => $configService->rebuild()]), auth: true);
+$router->add('POST', '/api/v1/config/snapshots/rebuild', static fn (): array => Response::json(['data' => $configService->publishSnapshot(true)]), auth: true);
 $router->add('GET', '/api/v1/settings', static fn (): array => Response::json($settingsController->index()), auth: true);
 $router->add('GET', '/api/v1/settings/{group}', static function (Request $req, array $p) use ($settingsController): array {
     try {
@@ -652,7 +662,7 @@ $router->add('GET', '/api/v1/edges/pools', static fn () => Response::json($edgeC
 $router->add('GET', '/api/v1/edges/dns', static fn () => Response::json($edgeController->dns()), auth: true);
 $router->add('POST', '/api/v1/edge/register', static fn (Request $req) => Response::json($edgeController->register($req->body)), edgeAuth: true);
 $router->add('POST', '/api/v1/edge/heartbeat', static fn (Request $req) => Response::json($edgeController->heartbeat($req->body)), edgeAuth: true);
-$router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response::json($configService->buildSnapshotForVersion(isset($req->query['if_version']) ? (int) $req->query['if_version'] : null)), edgeAuth: true);
+$router->add('GET', '/api/v1/edge/config', static fn (Request $req) => Response::json($configService->edgeConfig(isset($req->query['if_version']) ? (int) $req->query['if_version'] : null)), edgeAuth: true);
 $router->add('POST', '/api/v1/collector/usage', static fn (Request $req) => Response::json($collectorController->ingest($req->body)), edgeAuth: true);
 $router->add('POST', '/api/v1/collector/security-events', static fn (Request $req) => Response::json($collectorController->ingestSecurityEvents($req->body)), edgeAuth: true);
 $router->add('GET', '/api/v1/usage/summary', static fn (Request $req) => Response::json($collectorController->summary(isset($req->query['domain_id']) ? (string) $req->query['domain_id'] : null, isset($req->query['bucket']) ? (string) $req->query['bucket'] : null)), auth: true);

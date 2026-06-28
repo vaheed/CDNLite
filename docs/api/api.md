@@ -680,19 +680,19 @@ Edge proxy responses include an origin marker such as `X-CDNLITE-Origin: origin`
 Edge endpoint notes:
 
 - Register and heartbeat requests must have the same `edge_id` in the header and JSON body.
-- `GET /api/v1/edge/config` accepts `if_version` as a query parameter to avoid unnecessary config writes.
+- `GET /api/v1/edge/config` accepts `if_version` as a query parameter. Matching clean versions return `not_modified` from the active published snapshot without rebuilding config.
 - Usage and security-event ingest are queue-friendly. If ingest fails, the agent should keep local payloads for retry.
 
 ## Config Snapshots
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/api/v1/config/snapshots` | List versions. |
+| `GET` | `/api/v1/config/snapshots` | List versions, paginated with `limit` default `20` and max `100`. |
 | `GET` | `/api/v1/config/snapshots/latest` | Return the latest snapshot summary without the snapshot payload. |
-| `GET` | `/api/v1/config/snapshots/{version}` | Show version. |
-| `POST` | `/api/v1/config/snapshots/diff` | Diff JSON paths between versions. |
-| `POST` | `/api/v1/config/snapshots/{version}/rollback` | Activate old version. |
-| `POST` | `/api/v1/config/snapshots/rebuild` | Rebuild from database state. |
+| `GET` | `/api/v1/config/snapshots/{version}` | Show version when `CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=true`; otherwise returns `config_snapshot_history_disabled`. |
+| `POST` | `/api/v1/config/snapshots/diff` | Diff JSON paths between versions when history is enabled. |
+| `POST` | `/api/v1/config/snapshots/{version}/rollback` | Development-only rollback when history is enabled. Disabled by default because JSON rollback does not roll back database source-of-truth tables. |
+| `POST` | `/api/v1/config/snapshots/rebuild` | Force-publish the materialized edge config from database state. |
 
 Diff request:
 
@@ -705,10 +705,10 @@ Diff request:
 
 Snapshot safety tips:
 
-- Diff before rollback.
+- Treat snapshots as a generated edge cache. Domains, DNS records, origins, rules, cache settings, page rules, and SSL rows remain the source of truth.
 - Prefer rebuild after normal database-backed changes.
-- Use rollback for a known-bad config version, then investigate why the bad state was generated.
-- Edge nodes pull snapshots; rollback is not an instant push to every edge.
+- Use `php artisan cdn:config-snapshots:prune --keep=2 --batch=5000` to bound large historical tables without deleting the active snapshot.
+- Edge nodes pull snapshots; publishing is not an instant push to every edge.
 
 ## Settings
 

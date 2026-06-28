@@ -310,6 +310,9 @@ APP_DEBUG=0
 CDNLITE_API_TOKEN=${CDNLITE_API_TOKEN}
 CDNLITE_SSL_SECRET_KEY=${CDNLITE_SSL_SECRET_KEY}
 CDNLITE_ORIGIN_SHIELD_SECRET=${CDNLITE_ORIGIN_SHIELD_SECRET}
+CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST=2
+CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE=5000
+CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=false
 CDNLITE_ACME_DIRECTORY_URL=https://acme-v02.api.letsencrypt.org/directory
 CDNLITE_ACME_CONTACT_EMAIL=${ACME_EMAIL}
 CDNLITE_ACME_DNS_PROPAGATION_SECONDS=30
@@ -681,7 +684,7 @@ services:
       postgres:
         condition: service_healthy
     env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
+    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; php artisan cdn:config-snapshots:prune --keep=\"$${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST:-2}\" --batch=\"$${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE:-5000}\" || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
     networks: [cdnlite-internal]
 
   dashboard:

@@ -9,6 +9,8 @@ use App\Support\Database;
 
 class ConfigService
 {
+    private bool $publishLockHeld = false;
+
     public function __construct(
         private DomainService $domains,
         private DnsService $dns,
@@ -21,17 +23,138 @@ class ConfigService
 
     public function buildSnapshot(): array
     {
-        return $this->buildSnapshotForVersion(null);
+        return $this->publishSnapshot(false);
     }
 
     public function buildSnapshotForVersion(?int $ifVersion = null): array
     {
-        return $this->rebuild($ifVersion);
+        return $this->edgeConfig($ifVersion);
     }
 
     public function rebuild(?int $ifVersion = null): array
     {
+        $payload = $this->publishSnapshot(true);
+        if ($ifVersion !== null && isset($payload['version']) && $ifVersion === (int) $payload['version']) {
+            return ['not_modified' => true, 'version' => (int) $payload['version']];
+        }
+        return $payload;
+    }
+
+    public function edgeConfig(?int $ifVersion = null): array
+    {
+        $this->ensureStateRow();
+        $state = $this->configState();
+        $activeVersion = $state['active_snapshot_version'];
+        $active = $this->activeSnapshot();
+
+        if ($activeVersion !== null && $active !== null && !$state['dirty']) {
+            if ($ifVersion !== null && $ifVersion === $activeVersion) {
+                return ['not_modified' => true, 'version' => $activeVersion];
+            }
+            return $active['payload'];
+        }
+
+        if ($this->tryPublishLock()) {
+            try {
+                return $this->publishSnapshot(false, true);
+            } finally {
+                $this->unlockPublish();
+            }
+        }
+
+        if ($activeVersion !== null && $active !== null) {
+            if ($ifVersion !== null && $ifVersion === $activeVersion) {
+                return ['not_modified' => true, 'version' => $activeVersion, 'stale_while_rebuilding' => true];
+            }
+            $payload = $active['payload'];
+            $payload['stale_while_rebuilding'] = true;
+            return $payload;
+        }
+
+        return ['error' => 'config_publish_in_progress', 'status' => 503];
+    }
+
+    public function publishSnapshot(bool $force = false, bool $lockAlreadyHeld = false): array
+    {
+        $this->ensureStateRow();
+        $state = $this->configState();
+        $active = $this->activeSnapshot();
+        if (!$force && !$state['dirty'] && $active !== null) {
+            return $active['payload'];
+        }
+
+        if (!$lockAlreadyHeld && !$this->tryPublishLock()) {
+            if ($active !== null) {
+                $payload = $active['payload'];
+                $payload['stale_while_rebuilding'] = true;
+                return $payload;
+            }
+            return ['error' => 'config_publish_in_progress', 'status' => 503];
+        }
+
+        try {
+            $this->setPublishingStartedAt(time());
+            $payload = $this->buildAndStoreSnapshot();
+            $this->markPublished((int) ($payload['generated_at'] ?? time()));
+            $this->pruneSnapshots($this->snapshotKeepLast(), $this->snapshotPruneBatchSize());
+            return $payload;
+        } catch (\Throwable $e) {
+            $this->markPublishFailed($e->getMessage());
+            AuditLog::write('config.publish.failed', 'config_snapshot', null, null, null, ['error' => $e->getMessage()]);
+            throw $e;
+        } finally {
+            $this->clearPublishingStartedAt();
+            if (!$lockAlreadyHeld) {
+                $this->unlockPublish();
+            }
+        }
+    }
+
+    public function buildPayload(): array
+    {
+        return $this->buildPayloadData();
+    }
+
+    public static function markDirty(?string $reason = null): void
+    {
+        $pdo = Database::pdo();
+        $pdo->exec('INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING');
+        $wasDirty = in_array($pdo->query('SELECT dirty FROM config_state WHERE id = 1')->fetchColumn(), [true, 1, '1', 't', 'true'], true);
+        $stmt = $pdo->prepare(
+            'UPDATE config_state
+             SET dirty = true, dirty_at = :dirty_at
+             WHERE id = 1'
+        );
+        $stmt->execute([':dirty_at' => time()]);
+        if (!$wasDirty) {
+            AuditLog::write('config.dirty', 'config_state', '1', null, ['dirty' => false], ['dirty' => true, 'reason' => $reason]);
+        }
+    }
+
+    private function buildAndStoreSnapshot(): array
+    {
         $previousActiveVersion = $this->activeSnapshotVersion();
+        $payloadData = $this->buildPayloadData();
+        $contentHash = $this->contentHash($payloadData);
+        $existing = $this->findReusableActiveSnapshot($previousActiveVersion, $contentHash);
+        if ($existing !== null) {
+            $payload = json_decode((string) $existing['payload_json'], true) ?: $payloadData;
+            $payload['reused'] = true;
+            $this->activateSnapshotVersion((int) $existing['version']);
+            $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
+            return $payload;
+        }
+
+        $version = $this->nextVersion();
+        $payload = $payloadData + ['version' => $version, 'generated_at' => time()];
+        $this->storeSnapshot($version, $contentHash, $payload);
+        $this->activateSnapshotVersion($version);
+        $this->auditSnapshotPublish($version, $previousActiveVersion, $version, false);
+        return $payload;
+    }
+
+    private function buildPayloadData(): array
+    {
         $hosts = [];
         foreach ($this->domains->all() as $domain) {
             if ((string) ($domain['status'] ?? '') !== 'active'
@@ -104,44 +227,8 @@ class ConfigService
             foreach ($this->rules->listSslCertificatesForConfig($domainId, $host) as $row) { $sslCertificates[] = $row; }
             foreach ($this->rules->listWaitingRoomPoliciesForConfig($domainId) as $row) { $hosts[$host]['waiting_room'] = $row; }
         }
-        // Keep hash deterministic for unchanged config content.
-        // `generated_at` is intentionally excluded so no-op syncs reuse version.
-        $contentHash = hash('sha256', json_encode(['hosts' => $hosts, 'redirects' => $redirects, 'rate_limits' => $rateLimits, 'waf_rules' => $wafRules, 'header_rules' => $headerRules, 'ip_rules' => $ipRules, 'cache_rules' => $cacheRules, 'cache_purge_versions' => $cachePurgeVersions, 'page_rules' => $pageRules, 'ssl_certificates' => $sslCertificates], JSON_UNESCAPED_SLASHES));
-
-        $existing = $this->findReusableActiveSnapshot($previousActiveVersion, $contentHash);
-        if ($existing !== null) {
-            if ($ifVersion !== null && $ifVersion === (int) $existing['version']) {
-                $this->activateSnapshotVersion((int) $existing['version']);
-                return ['not_modified' => true, 'version' => (int) $existing['version']];
-            }
-
-            $existing = $this->refreshSnapshotGeneratedAt($existing);
-            $this->activateSnapshotVersion((int) $existing['version']);
-            $this->auditSnapshotPublish((int) $existing['version'], $previousActiveVersion, (int) $existing['version'], true);
-
-            return [
-                'schema_version' => 1,
-                'version' => (int) $existing['version'],
-                'generated_at' => (int) $existing['generated_at'],
-                'hosts' => $hosts,
-                'redirects' => $redirects,
-                'rate_limits' => $rateLimits,
-                'waf_rules' => $wafRules,
-                'header_rules' => $headerRules,
-                'ip_rules' => $ipRules,
-                'cache_rules' => $cacheRules,
-                'cache_purge_versions' => $cachePurgeVersions,
-                'page_rules' => $pageRules,
-                'ssl_certificates' => $sslCertificates,
-                'reused' => true,
-            ];
-        }
-
-        $version = $this->nextVersion();
-        $payload = [
+        return [
             'schema_version' => 1,
-            'version' => $version,
-            'generated_at' => time(),
             'hosts' => $hosts,
             'redirects' => $redirects,
             'rate_limits' => $rateLimits,
@@ -153,25 +240,22 @@ class ConfigService
             'page_rules' => $pageRules,
             'ssl_certificates' => $sslCertificates,
         ];
-        $this->storeSnapshot($version, $contentHash, $payload);
-        $this->activateSnapshotVersion($version);
-        $this->auditSnapshotPublish($version, $previousActiveVersion, $version, false);
-
-        if ($ifVersion !== null && $ifVersion === $version) {
-            return ['not_modified' => true, 'version' => $version];
-        }
-
-        return $payload;
     }
 
-    public function snapshots(): array
+    public function snapshots(int $limit = 20, int $offset = 0): array
     {
-        $rows = Database::pdo()->query(
+        $limit = max(1, min(100, $limit));
+        $offset = max(0, $offset);
+        $stmt = Database::pdo()->prepare(
             'SELECT s.version,s.generated_at,s.content_hash,pg_column_size(s.payload_json) AS size,
                     (s.version=cs.active_snapshot_version) AS active
              FROM config_snapshots s CROSS JOIN config_state cs
-             WHERE cs.id=1 ORDER BY s.version DESC'
-        )->fetchAll();
+             WHERE cs.id=1 ORDER BY s.version DESC LIMIT :limit OFFSET :offset'
+        );
+        $stmt->bindValue(':limit', $limit, \PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, \PDO::PARAM_INT);
+        $stmt->execute();
+        $rows = $stmt->fetchAll();
         return array_map(static fn (array $row): array => self::snapshotSummaryFromRow($row), $rows);
     }
 
@@ -306,13 +390,143 @@ class ConfigService
         ];
     }
 
-    private function activeSnapshot(): ?array
+    public function activeSnapshot(): ?array
     {
         $row = Database::pdo()->query(
             'SELECT s.version,s.payload_json FROM config_state cs
              JOIN config_snapshots s ON s.version=cs.active_snapshot_version WHERE cs.id=1'
         )->fetch();
         return $row ? ['version' => (int) $row['version'], 'payload' => json_decode((string) $row['payload_json'], true)] : null;
+    }
+
+    public function pruneSnapshots(int $keepLast = 2, ?int $batchSize = null, bool $dryRun = false): array
+    {
+        $keepLast = max(0, $keepLast);
+        $batchSize = $batchSize === null ? null : max(1, $batchSize);
+        $activeVersion = $this->activeSnapshotVersion();
+        $limitClause = $batchSize === null ? '' : ' LIMIT :batch_size';
+        $sql = $dryRun
+            ? "WITH keep_versions AS (
+                   SELECT active_snapshot_version AS version FROM config_state WHERE id = 1 AND active_snapshot_version IS NOT NULL
+                   UNION
+                   SELECT version FROM config_snapshots ORDER BY version DESC LIMIT :keep_last
+               ),
+               victims AS (
+                   SELECT version FROM config_snapshots
+                   WHERE version NOT IN (SELECT version FROM keep_versions)
+                   ORDER BY version ASC{$limitClause}
+               )
+               SELECT COUNT(*) AS deleted_count FROM victims"
+            : "WITH keep_versions AS (
+                   SELECT active_snapshot_version AS version FROM config_state WHERE id = 1 AND active_snapshot_version IS NOT NULL
+                   UNION
+                   SELECT version FROM config_snapshots ORDER BY version DESC LIMIT :keep_last
+               ),
+               victims AS (
+                   SELECT version FROM config_snapshots
+                   WHERE version NOT IN (SELECT version FROM keep_versions)
+                   ORDER BY version ASC{$limitClause}
+               ),
+               deleted AS (
+                   DELETE FROM config_snapshots
+                   WHERE version IN (SELECT version FROM victims)
+                   RETURNING version
+               )
+               SELECT COUNT(*) AS deleted_count FROM deleted";
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->bindValue(':keep_last', $keepLast, \PDO::PARAM_INT);
+        if ($batchSize !== null) {
+            $stmt->bindValue(':batch_size', $batchSize, \PDO::PARAM_INT);
+        }
+        $stmt->execute();
+        $deletedCount = (int) ($stmt->fetchColumn() ?: 0);
+        $remaining = (int) (Database::pdo()->query('SELECT COUNT(*) FROM config_snapshots')->fetchColumn() ?: 0);
+        if (!$dryRun) {
+            AuditLog::write('config.snapshots.prune', 'config_snapshot', null, null, null, ['deleted_count' => $deletedCount, 'keep_last' => $keepLast, 'active_version' => $activeVersion]);
+        }
+        return [
+            'ok' => true,
+            'dry_run' => $dryRun,
+            'deleted_count' => $deletedCount,
+            'keep_last' => $keepLast,
+            'active_version' => $activeVersion,
+            'remaining_count_estimate' => $dryRun ? max(0, $remaining - $deletedCount) : $remaining,
+        ];
+    }
+
+    private function ensureStateRow(): void
+    {
+        Database::pdo()->exec('INSERT INTO config_state (id, version) VALUES (1, 0) ON CONFLICT (id) DO NOTHING');
+    }
+
+    private function configState(): array
+    {
+        $this->ensureStateRow();
+        $row = Database::pdo()->query('SELECT version, active_snapshot_version, dirty, dirty_at, published_at, last_publish_error, publishing_started_at FROM config_state WHERE id = 1')->fetch();
+        return [
+            'version' => (int) ($row['version'] ?? 0),
+            'active_snapshot_version' => isset($row['active_snapshot_version']) && $row['active_snapshot_version'] !== null ? (int) $row['active_snapshot_version'] : null,
+            'dirty' => in_array($row['dirty'] ?? true, [true, 1, '1', 't', 'true'], true),
+            'dirty_at' => isset($row['dirty_at']) && $row['dirty_at'] !== null ? (int) $row['dirty_at'] : null,
+            'published_at' => isset($row['published_at']) && $row['published_at'] !== null ? (int) $row['published_at'] : null,
+            'last_publish_error' => isset($row['last_publish_error']) ? (string) $row['last_publish_error'] : null,
+            'publishing_started_at' => isset($row['publishing_started_at']) && $row['publishing_started_at'] !== null ? (int) $row['publishing_started_at'] : null,
+        ];
+    }
+
+    private function tryPublishLock(): bool
+    {
+        $locked = Database::pdo()->query("SELECT pg_try_advisory_lock(hashtext('cdnlite_config_publish'))")->fetchColumn();
+        $this->publishLockHeld = in_array($locked, [true, 1, '1', 't', 'true'], true);
+        return $this->publishLockHeld;
+    }
+
+    private function unlockPublish(): void
+    {
+        if (!$this->publishLockHeld) {
+            return;
+        }
+        Database::pdo()->query("SELECT pg_advisory_unlock(hashtext('cdnlite_config_publish'))");
+        $this->publishLockHeld = false;
+    }
+
+    private function setPublishingStartedAt(int $time): void
+    {
+        Database::pdo()->prepare('UPDATE config_state SET publishing_started_at = :time WHERE id = 1')->execute([':time' => $time]);
+    }
+
+    private function clearPublishingStartedAt(): void
+    {
+        Database::pdo()->exec('UPDATE config_state SET publishing_started_at = NULL WHERE id = 1');
+    }
+
+    private function markPublished(int $publishedAt): void
+    {
+        Database::pdo()->prepare(
+            'UPDATE config_state
+             SET dirty = false, published_at = :published_at, last_publish_error = NULL
+             WHERE id = 1'
+        )->execute([':published_at' => $publishedAt]);
+    }
+
+    private function markPublishFailed(string $error): void
+    {
+        Database::pdo()->prepare(
+            'UPDATE config_state
+             SET dirty = true, last_publish_error = :error
+             WHERE id = 1'
+        )->execute([':error' => substr($error, 0, 4000)]);
+    }
+
+    private function snapshotKeepLast(): int
+    {
+        return max(0, (int) (getenv('CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST') ?: 2));
+    }
+
+    private function snapshotPruneBatchSize(): ?int
+    {
+        $value = trim((string) (getenv('CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE') ?: '5000'));
+        return $value === '' || (int) $value <= 0 ? null : (int) $value;
     }
 
     private function diffValues(mixed $from, mixed $to, string $path = ''): array
@@ -360,6 +574,12 @@ class ConfigService
         return (array) $row;
     }
 
+    private function contentHash(array $payloadData): string
+    {
+        // generated_at/version are publish metadata; the hash tracks only edge behavior.
+        return hash('sha256', json_encode($payloadData, JSON_UNESCAPED_SLASHES));
+    }
+
     private function refreshSnapshotGeneratedAt(array $snapshot): array
     {
         $generatedAt = time();
@@ -394,6 +614,7 @@ class ConfigService
 
     private function activeSnapshotVersion(): ?int
     {
+        $this->ensureStateRow();
         $value = Database::pdo()->query('SELECT active_snapshot_version FROM config_state WHERE id = 1')->fetchColumn();
         return $value === false || $value === null ? null : (int) $value;
     }

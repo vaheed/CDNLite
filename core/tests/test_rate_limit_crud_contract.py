@@ -15,7 +15,7 @@ def test_rate_limit_crud_routes_and_snapshot_collection_contract():
     assert "updateRateLimit" in service
     assert "deleteRateLimit" in service
     assert "invalidateConfigSnapshot" in service
-    assert "active_snapshot_version = NULL" in service
+    assert "ConfigService::markDirty('traffic_rules.changed')" in service
     assert "listRateLimits($domainId)" in config
 
 
