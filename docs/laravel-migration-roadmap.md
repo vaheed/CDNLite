@@ -1,5 +1,48 @@
 You are an expert Laravel migration engineer. Convert the repository `vaheed/CDNLite` into a production-grade Laravel application while preserving all existing product behavior, APIs, Docker workflows, dashboard functionality, edge sync behavior, database state, tests, documentation, and CI validation.
 
+Progress status:
+- Phase 1 inventory and baseline is complete.
+- Phase 2 Laravel foundation is started and partially complete.
+- The existing custom HTTP router remains the live container entrypoint through `core/public_index.php` so current API behavior is preserved while Laravel routes are migrated.
+- The existing custom CLI command runner is preserved as `core/artisan-legacy`; the new Laravel-compatible `core/artisan` delegates all current `cdn:*` commands there until each command is converted to Laravel `Command` classes.
+- No endpoint, edge-agent, DNS, SSL, dashboard, schema, or public command behavior has intentionally changed yet.
+
+Completed change log:
+- Added the migration inventory and file mapping in `docs/laravel-migration-inventory.md`.
+- Added a real Laravel project foundation under `core/`:
+  - `core/composer.json`
+  - `core/composer.lock`
+  - `core/artisan`
+  - `core/bootstrap/`
+  - `core/config/`
+  - `core/public/`
+  - `core/routes/`
+  - `core/resources/`
+  - `core/storage/`
+  - `core/phpunit.xml`
+  - `core/tests/TestCase.php`
+- Added `core/.env.example` with Laravel, PostgreSQL, Redis, and CDNLite defaults.
+- Added `core/config/cdnlite.php` for initial CDNLite-specific environment grouping.
+- Configured Laravel PostgreSQL defaults and changed Laravel PHPUnit defaults away from SQLite.
+- Configured Laravel logging to default to stderr for container-friendly logs.
+- Added initial Laravel route definitions for `/health`, `/ready`, `/cdn-health`, and `/api/v1/readiness`.
+- Updated `core/Dockerfile` to copy Composer from a Composer image and run `composer install` during the core image build.
+- Added `core/vendor/` to `.gitignore`.
+
+Validation status:
+- Passed: `find core -path core/vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l`
+- Passed: `docker compose config --quiet`
+- Checked: `php core/artisan cdn:db:status` delegates to the legacy command runner; it then fails locally because the Compose hostname `postgres` is not resolvable outside the Compose network.
+- Checked: `php core/artisan about` reports missing `core/vendor/` on the host, as expected until dependencies are installed or the core image is rebuilt.
+- Skipped: `docker build -t cdnlite-core-laravel-foundation-test core` because the approval request was declined.
+- Skipped: Laravel PHPUnit tests because `core/vendor/` is intentionally not installed on the host.
+
+Immediate next steps:
+1. Verify `core/Dockerfile` with a Docker build once approved.
+2. Add focused Laravel feature tests for the initial health/readiness routes.
+3. Begin Phase 3 by converting `core/database/schema.sql` and the 33 SQL migrations into Laravel migrations without changing the authoritative PostgreSQL schema.
+4. Keep nginx pointed at `core/public_index.php` until equivalent Laravel routes and middleware preserve the full API contract.
+
 Repository context:
 - CDNLite is a self-hosted private CDN control plane and edge platform.
 - Current architecture includes:
@@ -136,6 +179,8 @@ Migration plan:
 Perform the work in safe, reviewable phases.
 
 Phase 1: Inventory and baseline
+Status: Complete.
+
 - Inspect all current files under:
   - `core/`
   - `dash/`
@@ -155,7 +200,17 @@ Phase 1: Inventory and baseline
 - Identify all tests under `core/tests`.
 - Do not start deleting old files until the migration map is complete.
 
+Completed Phase 1 notes:
+- Produced `docs/laravel-migration-inventory.md`.
+- Identified 168 current HTTP route registrations in `core/public_index.php`.
+- Identified 72 current command registrations in `core/artisan`.
+- Identified 33 SQL migration files under `core/database/migrations`.
+- Identified the existing pytest contract suite under `core/tests`.
+- No old implementation files were deleted.
+
 Phase 2: Create Laravel foundation
+Status: Started; foundation files are present, but Docker image verification is still pending.
+
 - Replace the custom PHP core skeleton with a standard Laravel application.
 - Add a real `core/composer.json`.
 - Add Laravel’s standard `artisan`.
@@ -166,7 +221,25 @@ Phase 2: Create Laravel foundation
 - Configure CORS equivalent to the current behavior.
 - Ensure `php artisan` works inside the core container.
 
+Completed Phase 2 notes:
+- Added a real Laravel foundation under `core/` while preserving the existing custom runtime.
+- Added `core/composer.json` and `core/composer.lock`.
+- Added Laravel `core/artisan` with a compatibility fallback to `core/artisan-legacy` for all `cdn:*` commands.
+- Added `core/public/index.php`, `core/bootstrap/app.php`, `core/config/*`, `core/routes/*`, `core/resources/*`, and Laravel storage placeholders.
+- Added PostgreSQL defaults in Laravel database config and `core/.env.example`.
+- Added container-oriented stderr logging defaults.
+- Added initial Laravel health/readiness routes.
+- Updated `core/Dockerfile` to install Composer dependencies during image builds.
+
+Remaining Phase 2 notes:
+- Build the core Docker image and run `php artisan about` inside the container.
+- Add focused Laravel tests for `/health`, `/ready`, `/cdn-health`, and `/api/v1/readiness`.
+- Implement CORS middleware equivalent to the current custom router behavior before moving public API traffic to Laravel.
+- Keep `core/public_index.php` as the served router until Phase 5 route migration and contract tests are ready.
+
 Phase 3: Database migration conversion
+Status: Not started.
+
 - Convert existing SQL migrations into Laravel migrations.
 - Preserve table names, columns, indexes, constraints, defaults, JSON fields, timestamps, and PostgreSQL-specific behavior.
 - Preserve the existing `schema_migrations` compatibility story if existing deployments need it.
