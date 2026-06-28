@@ -266,7 +266,6 @@ protection profile, and edge readiness.
 | `PATCH` | `/api/v1/domains/{domainId}` | Update editable domain fields. |
 | `DELETE` | `/api/v1/domains/{domainId}` | Delete a domain. |
 | `POST` | `/api/v1/domains/{domainId}/nameservers/verify` | Immediately verify registrar delegation and return trace details. |
-| `POST` | `/api/v1/domains/{domainId}/verify-nameservers` | Backward-compatible alias for immediate nameserver verification. |
 | `POST` | `/api/v1/domains/{domainId}/nameservers/force-verify` | Admin-session-only override that marks delegation verified with an audit reason. |
 | `POST` | `/api/v1/domains/{domainId}/nameservers/reseed-expected` | Admin-session-only action that replaces expected nameservers from current platform settings without deleting the domain. |
 | `POST` | `/api/v1/domains/{domainId}/activate` | Activate domain after verification or override. |
@@ -276,7 +275,7 @@ Create request:
 ```json
 {
   "name": "Demo",
-  "domain": "demo.local",
+  "domain": "demo.example",
   "origin_shield_header_name": "X-CDNLite-Origin-Shield",
   "origin_shield_secret": "replace-me"
 }

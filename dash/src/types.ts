@@ -40,7 +40,7 @@ export interface NameserverVerification {
   reason?: string;
 }
 export type DomainNameserverVerification = Domain & NameserverVerification;
-export interface CreateDomainInput { zone_name: string; display_name?: string; }
+export interface CreateDomainInput { domain: string; name?: string; }
 export type UpdateDomainInput = Partial<Omit<Domain, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'nameservers'>>;
 
 export interface DnsRecord {

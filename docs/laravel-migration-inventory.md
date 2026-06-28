@@ -148,7 +148,6 @@ POST /api/v1/domains
 GET /api/v1/domains/{domainId}
 PATCH /api/v1/domains/{domainId}
 DELETE /api/v1/domains/{domainId}
-POST /api/v1/domains/{domainId}/verify-nameservers
 POST /api/v1/domains/{domainId}/nameservers/verify
 POST /api/v1/domains/{domainId}/nameservers/force-verify
 POST /api/v1/domains/{domainId}/nameservers/reseed-expected

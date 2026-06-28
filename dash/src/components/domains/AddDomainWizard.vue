@@ -38,7 +38,7 @@ import type { Domain } from '@/types';
 const emit = defineEmits<{ cancel: []; completed: [domain: Domain] }>();
 const step = ref(1); const zoneName = ref(''); const displayName = ref(''); const domain = ref<Domain | null>(null); const busy = ref(false); const error = ref('');
 const titles = ['Enter your domain', 'Update nameservers', 'Verify delegation', 'Activate domain'];
-async function create() { await run(async () => { domain.value = await domainsApi.create({ zone_name: zoneName.value, display_name: displayName.value || undefined }); step.value = 2; }); }
+async function create() { await run(async () => { domain.value = await domainsApi.create({ domain: zoneName.value, name: displayName.value || undefined }); step.value = 2; }); }
 async function verify() { await run(async () => { domain.value = await domainsApi.verifyNameservers(domain.value!.id); if (domain.value.nameserver_status === 'verified') step.value = 4; }); }
 function complete() { emit('completed', domain.value!); }
 async function run(action: () => Promise<void>) { busy.value = true; error.value = ''; try { await action(); } catch (cause) { error.value = cause instanceof Error ? cause.message : 'Unable to continue onboarding.'; } finally { busy.value = false; } }

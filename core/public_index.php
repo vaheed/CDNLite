@@ -431,10 +431,6 @@ $router->add('PATCH', '/api/v1/domains/{domainId}', static function (Request $re
     return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
 }, auth: true);
 $router->add('DELETE', '/api/v1/domains/{domainId}', static fn (Request $req, array $p) => Response::json($domainController->delete((string) $p['domainId'])), auth: true);
-$router->add('POST', '/api/v1/domains/{domainId}/verify-nameservers', static function (Request $req, array $p) use ($domainController): array {
-    $result = $domainController->verifyNameservers((string) $p['domainId']);
-    return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));
-}, auth: true);
 $router->add('POST', '/api/v1/domains/{domainId}/nameservers/verify', static function (Request $req, array $p) use ($domainController): array {
     $result = $domainController->verifyNameservers((string) $p['domainId']);
     return $result === null ? Response::json(['error' => 'domain_not_found'], 404) : Response::json($result, (int) ($result['status'] ?? 200));

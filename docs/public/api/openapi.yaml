@@ -470,18 +470,6 @@ paths:
           $ref: "#/components/responses/Ok"
         "404":
           $ref: "#/components/responses/Error"
-  /api/v1/domains/{domainId}/verify-nameservers:
-    post:
-      tags: [Domains]
-      summary: Verify nameserver delegation
-      description: Backward-compatible alias for `/api/v1/domains/{domainId}/nameservers/verify`.
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      responses:
-        "200":
-          $ref: "#/components/responses/NameserverVerificationObject"
-        "404":
-          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/nameservers/verify:
     post:
       tags: [Domains]
@@ -2082,13 +2070,9 @@ components:
       properties:
         name:
           type: string
-        display_name:
-          type: string
         domain:
           type: string
           example: example.com
-        zone_name:
-          type: string
         origin_shield_header_name:
           type: string
         origin_shield_secret:
@@ -2099,8 +2083,6 @@ components:
       type: object
       properties:
         name:
-          type: string
-        display_name:
           type: string
         domain:
           type: string

@@ -138,7 +138,7 @@ CDNLITE_RETENTION_PRUNE_ENABLED=true
 ## Verify And Activate A Lab Domain
 
 ```bash
-curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/verify-nameservers" \
+curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/nameservers/verify" \
   -H "Authorization: Bearer $TOKEN"
 
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/activate" \

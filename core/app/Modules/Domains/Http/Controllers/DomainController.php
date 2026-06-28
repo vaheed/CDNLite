@@ -25,9 +25,6 @@ class DomainController
 
     public function store(array $input): array
     {
-        if (isset($input['zone_name']) && !isset($input['domain'])) {
-            $input['domain'] = $input['zone_name'];
-        }
         $domain = Validator::domain($input, 'domain');
         if (($domain['ok'] ?? false) !== true) {
             return $domain;
@@ -51,7 +48,7 @@ class DomainController
             return ['error' => 'domain_already_exists', 'status' => 422];
         }
 
-        $input['name'] = trim((string) ($input['display_name'] ?? $input['name'] ?? $domain['value']));
+        $input['name'] = trim((string) ($input['name'] ?? $domain['value']));
         $input['domain'] = $domain['value'];
 
         try {

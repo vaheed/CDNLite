@@ -78,7 +78,7 @@ assert_http_status "$HTTP_CODE" "201" "domain create failed"
 DOMAIN_ID="$(json_get "$HTTP_BODY" '.data.id')"
 record_step PASS "domain-create" "domain_id=${DOMAIN_ID}"
 
-api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/verify-nameservers" "{}"
+api_post "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/nameservers/verify" "{}"
 assert_http_status "$HTTP_CODE" "200" "manual nameserver verification endpoint should return 200"
 if ! jq -e '.data.expected_nameservers and .data.observed_nameservers and .data.missing_nameservers and .data.checked_at and (.data.resolver_errors != null)' <<<"$HTTP_BODY" >/dev/null; then
   phase0_expect_failure "nameserver-refresh-trace" "manual refresh does not return expected/observed/missing/checked_at/resolver_errors trace fields"
