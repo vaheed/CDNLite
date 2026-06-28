@@ -1,6 +1,6 @@
 FROM composer:2 AS composer
 
-FROM php:8.4-fpm-alpine
+FROM php:8.4-fpm-alpine AS runtime
 
 ENV PHP_FPM_PM_MAX_CHILDREN=24 \
     PHP_FPM_PM_START_SERVERS=4 \
@@ -29,3 +29,8 @@ RUN chmod +x /app/docker-entrypoint.sh
 EXPOSE 8080
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+
+FROM runtime AS test
+
+RUN cp .env.example .env \
+  && composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader

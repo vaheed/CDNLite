@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(CdnliteCors::class);
+        $middleware->prepend(CdnliteCors::class);
         $middleware->alias([
             'admin.auth' => AdminBearerAuth::class,
             'edge.auth' => EdgeSignatureAuth::class,

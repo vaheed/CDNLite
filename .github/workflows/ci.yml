@@ -47,6 +47,7 @@ jobs:
       DB_DATABASE: cdnlite
       DB_USERNAME: cdnlite
       DB_PASSWORD: cdnlite
+      POSTGRES_HOST_PORT: 55432
     steps:
       - uses: actions/checkout@v6
       - uses: shivammathur/setup-php@v2
@@ -113,6 +114,11 @@ jobs:
         run: npm run build
       - name: Run core tests
         run: pytest -q core/tests
+      - name: Run Laravel feature tests
+        run: docker compose run --rm core-test
+      - name: Teardown Laravel test stack
+        if: always()
+        run: docker compose down -v
 
   smoke:
     runs-on: ubuntu-latest

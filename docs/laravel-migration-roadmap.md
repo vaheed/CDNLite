@@ -209,7 +209,8 @@ Completed Phase 1 notes:
 - No old implementation files were deleted.
 
 Phase 2: Create Laravel foundation
-Status: Started; foundation files are present, but Docker image verification is still pending.
+Status: Completed for the initial Laravel foundation and test path. More workflow
+conversion remains in later phases.
 
 - Replace the custom PHP core skeleton with a standard Laravel application.
 - Add a real `core/composer.json`.
@@ -233,28 +234,31 @@ Completed Phase 2 notes:
 - Raised the Laravel core PHP requirement to `>=8.4.2 <9.0`, moved the core
   image to PHP 8.4, and updated CI/docs so the project never targets PHP 8.4.1
   or older.
+- Added a dedicated Docker `test` target and root Compose `core-test` service
+  that installs Composer dev dependencies and runs Laravel tests against
+  PostgreSQL.
+- Refreshed `core/composer.lock` metadata after the Laravel dependency update.
+- Updated CI and developer docs to run Laravel feature tests through
+  `docker compose run --rm core-test`.
+- Verified the production `core` image still builds with Composer `--no-dev`.
+- Verified the Laravel feature suite in the `core-test` container:
+  7 tests passed, 24 assertions.
+- Fixed Laravel CORS middleware ordering so CDNLite origin-specific CORS headers
+  remain authoritative when Laravel's default middleware is present.
+- Added a test-target `.env` copy from `core/.env.example` so PHPUnit runs
+  without dotenv file warnings inside the container.
 
 Remaining Phase 2 notes:
-- Build the core Docker image and run `php artisan about` inside the container.
-- Verify the built core image reports PHP higher than 8.4.1.
-- Add focused Laravel tests for `/health`, `/ready`, `/cdn-health`, and `/api/v1/readiness`.
-- Implement CORS middleware equivalent to the current custom router behavior before moving public API traffic to Laravel.
-- Keep `core/public_index.php` as the served router until Phase 5 route migration and contract tests are ready.
+- Expand focused Laravel tests for `/ready`, `/cdn-health`, and `/api/v1/readiness`.
+- Keep `core/public_index.php` as reference material until each remaining API
+  workflow has a Laravel implementation plus contract coverage.
 
 Phase 2 continuation checklist:
 - Keep PHP runtime declarations aligned:
   - `core/composer.json` must require `>=8.4.2 <9.0`.
-  - `core/composer.lock` must carry the same root platform requirement after the
-    next Composer lock refresh.
+  - `core/composer.lock` must carry the same root platform requirement.
   - `core/Dockerfile` must build from a PHP 8.4 image or newer.
   - CI must run host-side PHP checks on PHP 8.4 or newer.
-- Refresh `core/composer.lock` with Composer once dependency installation is
-  available in the environment, then confirm no package is selected only because
-  of a lower PHP platform.
-- Add Laravel feature tests for the four initial health/readiness routes before
-  migrating additional API routes.
-- Add Laravel CORS/error-response middleware before routing public API traffic
-  through `core/public/index.php`.
 - Keep the custom router and legacy command delegate in place until every route
   and command has an equivalent Laravel implementation plus contract coverage.
 
