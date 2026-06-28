@@ -5,16 +5,39 @@
 These instructions apply to the entire repository unless a narrower
 `AGENTS.md` exists in a subdirectory.
 
-CDNLite is pre-1.0 and fresh-install-only. Backward compatibility is not
-required unless a task explicitly requests it. Do not introduce historical
-migrations, upgrade shims, deprecated environment aliases, or old API and CLI
-aliases. `core/database/schema.sql` is the authoritative PostgreSQL schema.
+CDNLite is pre-1.0 and fresh-install-only. The active product is the Laravel
+rebuild plus the existing dashboard, edge, DNSGeo, deployment, CI, and docs
+surfaces. Backward compatibility is not required unless a task explicitly
+requests it. Do not introduce historical migrations, upgrade shims, deprecated
+environment aliases, old API or CLI aliases, or fallback paths back to the old
+core. `core/database/schema.sql` is the authoritative PostgreSQL schema.
+
+## Laravel Rebuild Direction
+
+- Laravel-native code under `core/app/Http`, `core/app/Services`,
+  `core/routes`, `core/database`, `core/tests/Feature`, and Laravel Artisan
+  commands is the forward path for the control plane.
+- Legacy core files such as `core/public_index.php`, old support classes, and
+  non-Laravel module controllers/services may be read only as product/spec
+  reference while their workflows are migrated.
+- When a workflow is migrated, port all current product behavior needed by the
+  modern product surface, then remove, retire, or honestly isolate the old
+  route, command, test, docs, and dashboard assumptions. Do not keep duplicate
+  legacy paths for compatibility.
+- Do not add aliases from old request fields, URLs, environment variables,
+  command names, response shapes, or database migration history. Prefer a clean
+  fresh-install contract and update clients/docs/tests to match it.
+- Do not route requests back through old PHP front controllers or old service
+  layers to make tests pass. Fix the Laravel implementation or update obsolete
+  tests so they describe the new contract.
+- Keep migrating workflow-by-workflow until the old core has no runtime
+  responsibility. The old code should shrink over time, never regain ownership.
 
 ## Product Surfaces
 
 Treat the repository as one product:
 
-- `core/`: PHP API, control plane, CLI, schedulers, and PostgreSQL access.
+- `core/`: Laravel API, control plane, CLI, schedulers, and PostgreSQL access.
 - `core/database/schema.sql`: complete fresh-install database schema.
 - `dash/`: Vue dashboard for operators and users.
 - `edge/openresty/`: OpenResty/Lua proxy runtime.
