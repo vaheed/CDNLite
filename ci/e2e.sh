@@ -952,6 +952,16 @@ assert_contains "$origin_unchecked_unhealthy_body" '"origin_scheme":"http"' "unc
 assert_contains "$origin_unchecked_unhealthy_body" "\"origin_host\":\"${TEST_DOMAIN}\"" "unchecked unhealthy origin should still preserve requested Host"
 record_step PASS "origin-health-disabled-still-routes" "core health_status=unhealthy did not block edge traffic when health_check_enabled=false"
 
+edge_api POST "/api/v1/collector/usage" "{\"idempotency_key\":\"e2e-${RUN_KEY}-origin-health\",\"items\":[{\"ts\":$(date +%s),\"domain_id\":\"${DOMAIN_ID}\",\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":0,\"bytes_in\":0,\"bytes_out\":0,\"status\":200,\"method\":\"HEALTH\",\"path\":\"/health\",\"host\":\"${TEST_DOMAIN}\",\"origin_id\":\"${PRIMARY_ORIGIN_ID}\",\"origin_host\":\"${ORIGIN_HTTP_IP}\",\"upstream_status\":\"200\",\"upstream_response_time\":\"3.250\",\"router_error\":\"\",\"origin_health_probe\":true},{\"ts\":$(date +%s),\"domain_id\":\"${DOMAIN_ID}\",\"edge_node_id\":\"${EDGE_ID}\",\"requests_count\":0,\"bytes_in\":0,\"bytes_out\":0,\"status\":200,\"method\":\"HEALTH\",\"path\":\"/health\",\"host\":\"${TEST_DOMAIN}\",\"origin_id\":\"${PRIMARY_ORIGIN_ID}\",\"origin_host\":\"${ORIGIN_HTTP_IP}\",\"upstream_status\":\"200\",\"upstream_response_time\":\"1.000\",\"router_error\":\"\",\"origin_health_probe\":true}]}"
+assert_http_status "$HTTP_CODE" "200" "edge origin health observation ingest failed"
+api_get "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/origins/health"
+assert_http_status "$HTTP_CODE" "200" "origin health report failed"
+assert_contains "$HTTP_BODY" '"source":"edge_observations"' "origin health report should be edge-sourced"
+assert_contains "$HTTP_BODY" '"core_active_checks":false' "core active checks should not be authoritative"
+assert_contains "$HTTP_BODY" '"status":"slow"' "slow origin observation should be visible"
+assert_contains "$HTTP_BODY" '"jitter_ms":2250' "origin jitter should be derived from edge observations"
+record_step PASS "origin-health-edge-observations" "edge-sourced origin health report includes slow and jitter details"
+
 ORIGIN_TLS_IP="$(docker compose exec -T edge sh -lc "getent hosts origin-tls | awk '{print \$1; exit}'" | tr -d '\r')"
 if [[ -z "$ORIGIN_TLS_IP" ]]; then
   fail "unable to resolve origin-tls container IP from edge"

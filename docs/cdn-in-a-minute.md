@@ -121,7 +121,7 @@ DOMAIN_ID=replace-with-domain-id
 curl -s -X POST "$API/api/v1/domains/$DOMAIN_ID/origins" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"host":"origin.example.com","scheme":"http","port":80,"role":"origin","enabled":true}'
+  -d '{"host":"origin.example.com","scheme":"http","port":80,"role":"primary","enabled":true}'
 ```
 
 ## Step 8 - Verify End-To-End

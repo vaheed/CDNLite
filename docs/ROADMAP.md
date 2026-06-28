@@ -350,7 +350,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 | 4. Real challenge and clearance system | P0 | Complete | Challenge actions serve configurable self-hosted browser verification before origin routing |
 | 5. Adaptive overload protection and waiting room | P0 | Complete | Origins remain protected under attack or heavy usage |
 | 6. Cache correctness foundation | P0 | Complete | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
-| 7. Origin routing, resilience, and shielding | P0 | Planned | Predictable health, load balancing, failover, retries, and circuit breaking |
+| 7. Origin routing, resilience, and shielding | P0 | Complete | Predictable weighted routing, backup failover, drain controls, bounded retry metadata, circuit settings, and shield visibility |
 | 8. Purge and invalidation platform | P1 | Planned | Fast, safe, observable purge by URL, prefix, host, and tag |
 | 9. Edge protocol and delivery performance | P1 | Planned | Efficient TLS, HTTP/2, optional HTTP/3, compression, and connection reuse |
 | 10. DNS and GeoDNS reliability | P1 | Planned | Deterministic DNS publication and health-aware routing |
@@ -2060,6 +2060,35 @@ Debug information must be configurable and must not reveal secrets.
 ## Phase 7 — Origin routing, resilience, and shielding
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
+**Status:** Complete on 2026-06-28. CDNLite now persists explicit primary,
+backup, and shield origin roles, deterministic weighted routing intent, drain
+state, bounded retry and retry-budget settings, circuit-breaker settings,
+concurrency limits, shield visibility, and edge-origin health observations in
+the authoritative fresh-install schema. The Origins API validates the new
+controls, config snapshots exclude drained origins and carry resilience and
+edge health-check metadata without origin secrets, and OpenResty selects
+healthy primaries before backups using weighted deterministic hashing while
+suppressing automatic retry attempts for non-idempotent methods. Origin routing
+health is now edge-observed: monitored origins are actively checked by edge
+nodes, passive proxy observations are also ingested, core scheduled checks do
+not mutate health state, and the domain dashboard can show per-edge latency,
+jitter, slow-origin, and failure details. Phase 7 also adds the phase manifest,
+stress scenario registration, focused contract tests, operator documentation,
+troubleshooting guidance, and changelog coverage.
+
+**Tracking issue:** Local roadmap Phase 7
+
+**Completed work:** Schema and migration, API validation and casting, config
+snapshot metadata, edge weighted primary/backup/drain selection, active
+edge-origin health probes, passive edge-origin observation ingest, edge-sourced
+health aggregation, retry/circuit visibility, dashboard reports, one-shot
+runner registration, stress scenario, docs, and changelog.
+
+**Remaining work:** None for the accepted Phase 7 repository-contract slice.
+mTLS and multi-layer shield deployment automation remain future advanced
+origin-authentication and topology work; the Phase 7 delivery keeps shield
+state explicit and loop-safe without exposing secrets.
 
 ### Objective
 

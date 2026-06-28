@@ -60,6 +60,10 @@ case "$PHASE" in
     PHASE_CONTRACT="core/tests/test_phase6_cache_correctness_contract.py"
     PHASE_STRESS_SCENARIO="phase6-cache-correctness"
     ;;
+  07)
+    PHASE_CONTRACT="core/tests/test_phase7_origin_resilience_contract.py"
+    PHASE_STRESS_SCENARIO="phase7-origin-resilience"
+    ;;
   *)
     fail "phase ${PHASE} is not registered yet"
     ;;

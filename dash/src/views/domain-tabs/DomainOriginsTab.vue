@@ -9,13 +9,13 @@
 
     <form v-if="editing" class="panel-section" @submit.prevent="save">
       <div class="section-heading">
-        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>The edge chooses from enabled origins and only avoids unhealthy origins when monitoring is enabled.</p></div>
+        <div><h2>{{ editingId ? 'Edit origin' : 'Add origin' }}</h2><p>Edges report origin health from the same network path that serves visitors.</p></div>
         <button type="button" class="icon-button" aria-label="Close editor" @click="editing = false"><X class="h-4 w-4" /></button>
       </div>
       <div class="help-panel">
         <div class="help-item"><b>Host examples</b><span>Use origin.example.com or 192.0.2.10. Do not include http://, https://, or a path.</span></div>
         <div class="help-item"><b>Independent origins</b><span>Add as many backend addresses as you need for the same site. The edge balances between healthy ones automatically.</span></div>
-        <div class="help-item"><b>Health checks</b><span>Off by default so edge traffic can pass even when the core cannot test the origin.</span></div>
+        <div class="help-item"><b>Health checks</b><span>Off by default. Enable monitoring only when you want edge-reported origin health to affect routing.</span></div>
       </div>
       <div class="grid gap-4 md:grid-cols-3">
         <label><span class="field-label">Protocol</span><select v-model="originProtocol" class="input"><option value="http">HTTP :80</option><option value="https">HTTPS :443</option></select><span class="field-description">Choose how the edge connects to this origin.</span></label>
@@ -36,7 +36,7 @@
           <input v-model="form.preserve_host" class="toggle" type="checkbox" />
         </label>
         <label class="setting-row">
-          <span><b>Enable health check for this origin</b><small>When off, CDNLite will still proxy traffic even if the core cannot test this origin. Enable this only when you want CDNLite to actively monitor and avoid unhealthy origins.</small></span>
+          <span><b>Enable edge health routing</b><small>When off, edge reports still appear below, but unhealthy observations do not remove this origin from routing.</small></span>
           <input v-model="form.health_check_enabled" class="toggle" type="checkbox" />
         </label>
       </div>
@@ -97,8 +97,8 @@
                 <dd class="mt-1"><StatusBadge :status="healthSeverity(row)" :label="healthLabel(row)" /></dd>
               </div>
               <div>
-                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Last checked</dt>
-                <dd class="mt-1 text-slate-700 dark:text-slate-300">{{ row.last_check_at ? formatTime(Number(row.last_check_at)) : 'Not checked' }}</dd>
+                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Edge reports</dt>
+                <dd class="mt-1 text-slate-700 dark:text-slate-300">{{ edgeSummary(row).edge_count }} edges</dd>
               </div>
               <div>
                 <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">TLS</dt>
@@ -107,7 +107,7 @@
             </dl>
 
             <div class="grid grid-cols-3 gap-2 xl:flex xl:flex-col">
-              <button class="button-secondary justify-center px-3 py-2 text-xs" @click="check(row)"><RefreshCw class="h-3.5 w-3.5" /> Check</button>
+              <button class="button-secondary justify-center px-3 py-2 text-xs" @click="check(row)"><RefreshCw class="h-3.5 w-3.5" /> Diagnose</button>
               <button class="button-secondary justify-center px-3 py-2 text-xs" @click="startEdit(row)"><Pencil class="h-3.5 w-3.5" /> Edit</button>
               <button class="button-secondary justify-center px-3 py-2 text-xs" @click="toggle(row)">{{ row.enabled ? 'Disable' : 'Enable' }}</button>
               <ConfirmDangerButton class="col-span-3 justify-center px-3 py-2 text-xs xl:col-span-1" confirm-text="Delete this origin?" @confirm="remove(row)"><Trash2 class="h-3.5 w-3.5" /> Delete</ConfirmDangerButton>
@@ -115,6 +115,35 @@
           </article>
         </div>
       </div>
+
+      <section class="panel-section">
+        <div class="section-heading">
+          <div><h2>Origin health from edge nodes</h2><p>Slow, jittery, and failed origin observations reported by edges.</p></div>
+          <StatusBadge status="info" :label="healthReport?.core_active_checks === false ? 'Edge source' : 'Unknown source'" />
+        </div>
+        <div v-if="!healthReport?.items?.length" class="text-sm text-slate-500">No edge origin observations have been ingested yet.</div>
+        <div v-else class="space-y-3">
+          <div v-for="item in healthReport.items" :key="item.origin_id" class="rounded-lg border border-slate-200 p-3 dark:border-white/10">
+            <div class="flex flex-wrap items-center gap-2">
+              <b class="font-mono text-sm text-slate-950 dark:text-white">{{ item.host }}</b>
+              <StatusBadge :status="item.unhealthy_edges > 0 ? 'critical' : item.slow_edges > 0 ? 'warning' : item.healthy_edges > 0 ? 'healthy' : 'unknown'" :label="item.status" />
+              <span class="text-xs text-slate-500">{{ item.edge_count }} edge reports</span>
+              <span v-if="item.max_latency_ms !== null && item.max_latency_ms !== undefined" class="text-xs text-slate-500">max {{ item.max_latency_ms }} ms</span>
+              <span v-if="item.max_jitter_ms !== null && item.max_jitter_ms !== undefined" class="text-xs text-slate-500">jitter {{ item.max_jitter_ms }} ms</span>
+            </div>
+            <div class="mt-3 grid gap-2 md:grid-cols-2">
+              <div v-for="edge in item.edges" :key="`${item.origin_id}-${edge.edge_node_id}`" class="rounded-md bg-slate-50 p-2 text-xs dark:bg-white/[0.04]">
+                <div class="flex items-center justify-between gap-2">
+                  <b class="truncate text-slate-800 dark:text-slate-100">{{ edge.edge_label || edge.edge_node_id }}</b>
+                  <StatusBadge :status="edge.status === 'unhealthy' ? 'critical' : edge.status === 'slow' ? 'warning' : edge.status === 'healthy' ? 'healthy' : 'unknown'" :label="edge.status" />
+                </div>
+                <p class="mt-1 text-slate-500">{{ edge.reason || 'edge_request_ok' }} · {{ edge.upstream_status || 'no status' }}</p>
+                <p class="mt-1 text-slate-500">latency {{ edge.latency_ms ?? 'n/a' }} ms · jitter {{ edge.jitter_ms ?? 'n/a' }} ms · {{ formatTime(edge.last_observed_at) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </section>
   </section>
 </template>
@@ -128,10 +157,11 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { originsApi } from '@/lib/api/origins';
 import { queryKeys } from '@/lib/data/queryKeys';
 import { useInvalidationListener } from '@/lib/data/invalidation';
-import type { DomainOrigin, Severity } from '@/types';
+import type { DomainOrigin, OriginHealthReport, Severity } from '@/types';
 
 const props = defineProps<{ domainId: string }>();
 const rows = ref<DomainOrigin[]>([]);
+const healthReport = ref<OriginHealthReport | null>(null);
 const loading = ref(false);
 const saving = ref(false);
 const editing = ref(false);
@@ -191,7 +221,14 @@ function originDetails(row: DomainOrigin) {
   return details.join(' | ');
 }
 function formatTime(value: number) { return new Date(value * 1000).toLocaleString(); }
-async function load() { loading.value = true; try { rows.value = await originsApi.list(props.domainId); } finally { loading.value = false; } }
+async function load() {
+  loading.value = true;
+  try {
+    const [originRows, report] = await Promise.all([originsApi.list(props.domainId), originsApi.health(props.domainId)]);
+    rows.value = originRows;
+    healthReport.value = report;
+  } finally { loading.value = false; }
+}
 function startCreate() { editingId.value = ''; reset(); editing.value = true; }
 function startEdit(row: Record<string, unknown>) { editingId.value = String(row.id); Object.assign(form, { scheme: String(row.scheme ?? 'http'), host: String(row.host ?? ''), port: Number(row.port ?? 80), host_header: String(row.host_header ?? ''), sni: String(row.sni ?? ''), tls_verify: String(row.tls_verify ?? 'ignore'), preserve_host: row.preserve_host !== false, health_check_enabled: Boolean(row.health_check_enabled), health_check_path: String(row.health_check_path ?? '/'), health_check_interval_seconds: Number(row.health_check_interval_seconds ?? 30), health_check_timeout_seconds: Number(row.health_check_timeout_seconds ?? 5), enabled: Boolean(row.enabled) }); error.value = ''; editing.value = true; }
 async function save() {
@@ -215,7 +252,8 @@ async function save() {
   } finally { saving.value = false; }
 }
 async function toggle(row: Record<string, unknown>) { await originsApi.update(props.domainId, String(row.id), { enabled: !row.enabled }); await load(); }
-async function check(row: Record<string, unknown>) { await originsApi.check(props.domainId, String(row.id)); message.value = 'Origin health checked.'; await load(); }
+function edgeSummary(row: DomainOrigin) { return healthReport.value?.items.find((item) => item.origin_id === row.id) ?? { edge_count: 0 }; }
+async function check(row: Record<string, unknown>) { const result = await originsApi.check(props.domainId, String(row.id)); message.value = `Core diagnostic finished (${result.source || 'diagnostic only'}). Edge reports remain authoritative.`; await load(); }
 async function remove(row: Record<string, unknown>) { await originsApi.remove(props.domainId, String(row.id)); message.value = 'Origin deleted.'; await load(); }
 watch(() => props.domainId, load);
 useInvalidationListener(() => [queryKeys.domainOrigins(props.domainId)], load);

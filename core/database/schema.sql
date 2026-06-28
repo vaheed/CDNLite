@@ -211,8 +211,9 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
   dns_record_id TEXT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
   source TEXT NOT NULL DEFAULT 'manual',
-  role TEXT NOT NULL DEFAULT 'origin',
+  role TEXT NOT NULL DEFAULT 'primary',
   weight INTEGER NOT NULL DEFAULT 1,
+  load_balancing_algorithm TEXT NOT NULL DEFAULT 'weighted_hash',
   scheme TEXT NOT NULL DEFAULT 'http',
   host TEXT NOT NULL,
   port INTEGER NOT NULL DEFAULT 80,
@@ -225,6 +226,16 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   health_check_path TEXT NOT NULL DEFAULT '/',
   health_check_interval_seconds INTEGER NOT NULL DEFAULT 30,
   health_check_timeout_seconds INTEGER NOT NULL DEFAULT 5,
+  connection_timeout_seconds INTEGER NOT NULL DEFAULT 5,
+  response_timeout_seconds INTEGER NOT NULL DEFAULT 30,
+  retry_attempts INTEGER NOT NULL DEFAULT 1,
+  retry_budget_per_minute INTEGER NOT NULL DEFAULT 60,
+  circuit_breaker_enabled BOOLEAN NOT NULL DEFAULT true,
+  circuit_failure_threshold INTEGER NOT NULL DEFAULT 5,
+  circuit_recovery_seconds INTEGER NOT NULL DEFAULT 30,
+  max_concurrent_requests INTEGER NOT NULL DEFAULT 0,
+  drain BOOLEAN NOT NULL DEFAULT false,
+  shield_enabled BOOLEAN NOT NULL DEFAULT false,
   health_status TEXT NOT NULL DEFAULT 'unknown',
   last_check_at BIGINT NULL,
   last_error TEXT NULL,
@@ -234,9 +245,17 @@ CREATE TABLE IF NOT EXISTS domain_origins (
   CHECK (scheme IN ('http', 'https')),
   CHECK (port IN (80, 443)),
   CHECK (source IN ('manual', 'dns_record', 'imported')),
-  CHECK (role IN ('origin')),
+  CHECK (role IN ('primary', 'backup', 'shield')),
+  CHECK (load_balancing_algorithm IN ('weighted_hash', 'consistent_hash')),
   CHECK (tls_verify IN ('verify', 'ignore')),
   CHECK (weight BETWEEN 1 AND 10000),
+  CHECK (connection_timeout_seconds BETWEEN 1 AND 60),
+  CHECK (response_timeout_seconds BETWEEN 1 AND 600),
+  CHECK (retry_attempts BETWEEN 0 AND 3),
+  CHECK (retry_budget_per_minute BETWEEN 0 AND 100000),
+  CHECK (circuit_failure_threshold BETWEEN 1 AND 1000),
+  CHECK (circuit_recovery_seconds BETWEEN 1 AND 3600),
+  CHECK (max_concurrent_requests BETWEEN 0 AND 1000000),
   CHECK (health_status IN ('healthy', 'unhealthy', 'unknown'))
 );
 
@@ -246,6 +265,36 @@ CREATE INDEX IF NOT EXISTS domain_origins_dns_record_idx
 
 CREATE INDEX IF NOT EXISTS domain_origins_domain_source_idx
   ON domain_origins (domain_id, source, enabled);
+
+CREATE INDEX IF NOT EXISTS domain_origins_phase7_routing_idx
+  ON domain_origins (domain_id, enabled, role, drain, health_status, weight, id);
+
+CREATE TABLE IF NOT EXISTS origin_health_observations (
+  id TEXT PRIMARY KEY,
+  domain_id TEXT NOT NULL REFERENCES domains(id) ON DELETE CASCADE,
+  origin_id TEXT NOT NULL REFERENCES domain_origins(id) ON DELETE CASCADE,
+  edge_node_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'unknown',
+  reason TEXT NULL,
+  upstream_status TEXT NULL,
+  latency_ms INTEGER NULL,
+  jitter_ms INTEGER NULL,
+  sample_count INTEGER NOT NULL DEFAULT 1,
+  first_observed_at BIGINT NOT NULL,
+  last_observed_at BIGINT NOT NULL,
+  last_success_at BIGINT NULL,
+  last_failure_at BIGINT NULL,
+  CHECK (status IN ('healthy', 'unhealthy', 'slow', 'unknown')),
+  CHECK (sample_count BETWEEN 1 AND 1000000000),
+  CHECK (latency_ms IS NULL OR latency_ms BETWEEN 0 AND 600000),
+  CHECK (jitter_ms IS NULL OR jitter_ms BETWEEN 0 AND 600000)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS origin_health_observations_edge_origin_idx
+  ON origin_health_observations (domain_id, origin_id, edge_node_id);
+
+CREATE INDEX IF NOT EXISTS origin_health_observations_domain_status_idx
+  ON origin_health_observations (domain_id, status, last_observed_at DESC);
 
 CREATE TABLE IF NOT EXISTS dns_desired_generations (
   id BIGSERIAL PRIMARY KEY,

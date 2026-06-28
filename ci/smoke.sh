@@ -67,7 +67,7 @@ assert_contains "$dashboard_asset" "/onboarding/answers" "dashboard bundle shoul
 assert_contains "$dashboard_asset" "Simple view" "dashboard bundle should include beginner Activity toggle"
 assert_contains "$dashboard_asset" "Beginner Activity summary" "dashboard bundle should include beginner Activity summary"
 assert_contains "$dashboard_asset" "Advanced view" "dashboard bundle should preserve advanced Activity view"
-assert_contains "$dashboard_asset" "Enable health check for this origin" "dashboard bundle should include optional origin health-check toggle"
+assert_contains "$dashboard_asset" "Enable edge health routing" "dashboard bundle should include optional edge origin health toggle"
 record_step PASS "dashboard-security-center-bundle" "Security Center and Protection profile/intent APIs are present in the dashboard bundle"
 record_step PASS "dashboard-recommendations-bundle" "Recommendation panel and APIs are present in the dashboard bundle"
 record_step PASS "dashboard-onboarding-bundle" "Guided onboarding wizard and APIs are present in the dashboard bundle"

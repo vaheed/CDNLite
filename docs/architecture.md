@@ -110,10 +110,24 @@ Client request
   -> Lua router uses the worker-local validated config snapshot
   -> host/domain lookup chooses origin and rules
   -> redirects, WAF, rate limit, IP, cache, and headers are evaluated
-  -> request proxies to a selected healthy origin from the origin pool
+  -> request proxies to a weighted primary, backup, or shield origin from the origin pool
   -> metrics/security events enter bounded shared queues
   -> edge agent later pushes queues to core
 ```
+
+Origin routing is deterministic for a given request seed. The edge filters
+disabled, drained, and actively unhealthy checked origins, selects healthy
+primaries before backups, and uses weighted hashing inside the chosen pool.
+Origin snapshots also carry bounded idempotent retries, retry budgets, circuit
+breaker settings, connection limits, and shield metadata. Non-idempotent
+methods do not receive automatic retry attempts by default.
+
+Origin health is edge-observed. Core keeps manual diagnostics for
+troubleshooting, but scheduled core probes do not drive routing health. Edge
+workers actively probe user-enabled monitored origins and also emit passive
+edge-origin health observations from proxied requests. The edge agent pushes
+those metrics to core, where latency, jitter, slow-origin, timeout, TLS,
+connect, and HTTP failure details are stored by domain, origin, and edge node.
 
 ## Config Flow
 
@@ -143,7 +157,9 @@ queue health.
 | Config snapshot JSON | Core `ConfigService` | Edge agent and OpenResty runtime. |
 | Metrics NDJSON | OpenResty bounded queue flusher | Edge agent, collector API, usage aggregates. |
 | Security events NDJSON | OpenResty bounded queue flusher | Edge agent, collector API, dashboard. Concurrent push attempts are serialized with a queue-scoped lock. |
-| Origin health | Scheduler/CLI | Readiness service and edge backup routing config. |
+| Origin health | OpenResty and edge agent | Readiness service, edge backup routing config, and dashboard reports. |
+| Origin resilience policy | Origins API | Config snapshot builder and OpenResty selector. |
+| edge-origin health observations | OpenResty and edge agent | Collector, origin health reports, and dashboard detail. |
 | Audit records | Core services | Audit log dashboard and API. |
 
 ## Deployment Topology

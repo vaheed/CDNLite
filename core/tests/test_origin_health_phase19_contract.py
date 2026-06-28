@@ -15,7 +15,7 @@ def test_origin_schema_contract():
     assert "health_check_interval_seconds INTEGER NOT NULL DEFAULT 30" in schema
     assert "health_check_enabled BOOLEAN NOT NULL DEFAULT false" in schema
     assert "health_status TEXT NOT NULL DEFAULT 'unknown'" in schema
-    assert "role TEXT NOT NULL DEFAULT 'origin'" in schema
+    assert "role TEXT NOT NULL DEFAULT 'primary'" in schema
 
 
 def test_origin_api_and_cli_contract():
@@ -37,7 +37,8 @@ def test_origin_health_service_and_readiness_contract():
 
     assert "function checkDue" in service
     assert "file_get_contents($url" in service
-    assert "enabled=true AND health_check_enabled=true" in service
+    assert "core_active_checks' => false" in service
+    assert "Origin routing health is updated from edge metrics" in service
     assert "health_status" in service
     assert "origin_health" in readiness
     assert "health_check_enabled=true AND health_status='unhealthy'" in readiness
@@ -79,14 +80,18 @@ def test_dashboard_and_docs_expose_origins():
 
     assert "DomainOriginsTab" in detail
     assert "label: 'Origins'" in detail
-    assert "Enable health check for this origin" in tab
+    assert "Enable edge health routing" in tab
+    assert "Origin health from edge nodes" in tab
     assert "Health pass-through" in tab
     assert "schema-origin-shared-hosting-defaults" in read("ci/smoke.sh")
     assert "origin-ip-shared-hosting-default" in read("ci/e2e.sh")
     assert "origin-health-disabled-still-routes" in read("ci/e2e.sh")
+    assert "origin-health-edge-observations" in read("ci/e2e.sh")
     assert "Add origin" in tab
     assert '<span class="field-label">Protocol</span>' in tab
     assert '<span class="field-label">Port</span>' not in tab
     assert "const originProtocol = computed" in tab
     assert "origins/${originId}/check" in api
+    assert "origins/health" in api
+    assert "/api/v1/domains/{domainId}/origins/health" in docs
     assert "X-CDNLITE-Origin" in docs

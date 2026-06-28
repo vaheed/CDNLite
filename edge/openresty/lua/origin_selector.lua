@@ -14,6 +14,20 @@ local function health_check_enabled(origin)
   return origin.health_check_enabled == true
 end
 
+local function role_rank(origin)
+  local role = tostring(origin.role or 'primary')
+  if role == 'primary' then
+    return 0
+  end
+  if role == 'shield' then
+    return 1
+  end
+  if role == 'backup' then
+    return 2
+  end
+  return 3
+end
+
 local function is_ip_address(host)
   host = tostring(host or '')
   if host:match('^%d+%.%d+%.%d+%.%d+$') then
@@ -30,10 +44,16 @@ local function sort_origins(origins)
       return rank_a < rank_b
     end
 
+    local role_a = role_rank(a)
+    local role_b = role_rank(b)
+    if role_a ~= role_b then
+      return role_a < role_b
+    end
+
     local weight_a = tonumber(a.weight or 1) or 1
     local weight_b = tonumber(b.weight or 1) or 1
     if weight_a ~= weight_b then
-      return weight_a < weight_b
+      return weight_a > weight_b
     end
 
     return tostring(a.id or '') < tostring(b.id or '')
@@ -43,7 +63,7 @@ end
 local function eligible_origins(domain)
   local origins = {}
   for _, origin in ipairs(domain.origins or {}) do
-    if origin and origin.enabled ~= false and type(origin.host) == 'string' and origin.host ~= '' then
+    if origin and origin.enabled ~= false and origin.drain ~= true and type(origin.host) == 'string' and origin.host ~= '' then
       if not (health_check_enabled(origin) and tostring(origin.health_status or 'unknown') == 'unhealthy') then
         table.insert(origins, origin)
       end
@@ -56,10 +76,37 @@ end
 local function candidate_origins(domain, country)
   local geo = domain.geo_origins or {}
   local geo_origin = geo[country] or geo.DEFAULT
-  if type(geo_origin) == 'table' and geo_origin.enabled ~= false and type(geo_origin.host) == 'string' and geo_origin.host ~= '' and not (health_check_enabled(geo_origin) and tostring(geo_origin.health_status or 'unknown') == 'unhealthy') then
+  if type(geo_origin) == 'table' and geo_origin.enabled ~= false and geo_origin.drain ~= true and type(geo_origin.host) == 'string' and geo_origin.host ~= '' and not (health_check_enabled(geo_origin) and tostring(geo_origin.health_status or 'unknown') == 'unhealthy') then
     return { geo_origin }, 'geo_origins.' .. tostring(country or 'DEFAULT')
   end
   return eligible_origins(domain), 'origins'
+end
+
+local function weighted_pick(pool, seed)
+  local total = 0
+  for _, origin in ipairs(pool) do
+    local weight = tonumber(origin.weight or 1) or 1
+    if weight > 0 then
+      total = total + math.floor(weight)
+    end
+  end
+  if total <= 0 then
+    return pool[1]
+  end
+
+  local hash = ngx.crc32_short(seed or '') or 0
+  local slot = (tonumber(hash) or 0) % total
+  local seen = 0
+  for _, origin in ipairs(pool) do
+    local weight = tonumber(origin.weight or 1) or 1
+    if weight > 0 then
+      seen = seen + math.floor(weight)
+      if slot < seen then
+        return origin
+      end
+    end
+  end
+  return pool[1]
 end
 
 local function choose_origin(origins, seed)
@@ -67,21 +114,24 @@ local function choose_origin(origins, seed)
     return nil
   end
 
-  local healthy = {}
-  local unknown = {}
+  local healthy_primary = {}
+  local unknown_primary = {}
+  local healthy_backup = {}
+  local unknown_backup = {}
   for _, origin in ipairs(origins) do
     local status = tostring(origin.health_status or '')
+    local backup = tostring(origin.role or 'primary') == 'backup'
     if status == 'healthy' then
-      table.insert(healthy, origin)
+      table.insert(backup and healthy_backup or healthy_primary, origin)
     elseif not health_check_enabled(origin) or status ~= 'unhealthy' then
-      table.insert(unknown, origin)
+      table.insert(backup and unknown_backup or unknown_primary, origin)
     end
   end
 
-  local pool = healthy
-  if #pool == 0 then
-    pool = unknown
-  end
+  local pool = healthy_primary
+  if #pool == 0 then pool = unknown_primary end
+  if #pool == 0 then pool = healthy_backup end
+  if #pool == 0 then pool = unknown_backup end
   if #pool == 0 then
     return nil
   end
@@ -89,9 +139,7 @@ local function choose_origin(origins, seed)
     return pool[1]
   end
 
-  local hash = ngx.crc32_short(seed or '') or 0
-  local index = (tonumber(hash) or 0) % #pool + 1
-  return pool[index]
+  return weighted_pick(pool, seed)
 end
 
 local function origin_port(origin)
@@ -129,7 +177,7 @@ local function build_metadata(origin, role)
     scheme = tostring(origin.scheme or 'http'),
     port = origin_port(origin),
     id = tostring(origin.id or ''),
-    role = role or 'origin',
+    role = role or 'primary',
     source = tostring(origin.source or ''),
     host = tostring(origin.host or ''),
     host_header = host_header,
@@ -139,6 +187,15 @@ local function build_metadata(origin, role)
     health_check_enabled = origin.health_check_enabled == true,
     health_status = tostring(origin.health_status or 'unknown'),
     weight = tonumber(origin.weight or 1) or 1,
+    load_balancing_algorithm = tostring(origin.load_balancing_algorithm or 'weighted_hash'),
+    retry_attempts = tonumber(origin.retry_attempts or 1) or 1,
+    retry_budget_per_minute = tonumber(origin.retry_budget_per_minute or 60) or 60,
+    circuit_breaker_enabled = origin.circuit_breaker_enabled ~= false,
+    circuit_failure_threshold = tonumber(origin.circuit_failure_threshold or 5) or 5,
+    circuit_recovery_seconds = tonumber(origin.circuit_recovery_seconds or 30) or 30,
+    max_concurrent_requests = tonumber(origin.max_concurrent_requests or 0) or 0,
+    drain = origin.drain == true,
+    shield_enabled = origin.shield_enabled == true,
   }
 end
 

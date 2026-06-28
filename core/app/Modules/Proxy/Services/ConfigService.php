@@ -416,8 +416,9 @@ class ConfigService
             'id' => (string) $origin['id'],
             'dns_record_id' => $origin['dns_record_id'] ?? null,
             'source' => (string) ($origin['source'] ?? 'manual'),
-            'role' => (string) ($origin['role'] ?? 'origin'),
+            'role' => (string) ($origin['role'] ?? 'primary'),
             'weight' => (int) ($origin['weight'] ?? 1),
+            'load_balancing_algorithm' => (string) ($origin['load_balancing_algorithm'] ?? 'weighted_hash'),
             'enabled' => (bool) ($origin['enabled'] ?? true),
             'host' => (string) $origin['host'],
             'scheme' => (string) $origin['scheme'],
@@ -427,6 +428,19 @@ class ConfigService
             'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
             'preserve_host' => (bool) ($origin['preserve_host'] ?? true),
             'health_check_enabled' => (bool) ($origin['health_check_enabled'] ?? false),
+            'health_check_path' => (string) ($origin['health_check_path'] ?? '/'),
+            'health_check_interval_seconds' => (int) ($origin['health_check_interval_seconds'] ?? 30),
+            'health_check_timeout_seconds' => (int) ($origin['health_check_timeout_seconds'] ?? 5),
+            'connection_timeout_seconds' => (int) ($origin['connection_timeout_seconds'] ?? 5),
+            'response_timeout_seconds' => (int) ($origin['response_timeout_seconds'] ?? 30),
+            'retry_attempts' => (int) ($origin['retry_attempts'] ?? 1),
+            'retry_budget_per_minute' => (int) ($origin['retry_budget_per_minute'] ?? 60),
+            'circuit_breaker_enabled' => (bool) ($origin['circuit_breaker_enabled'] ?? true),
+            'circuit_failure_threshold' => (int) ($origin['circuit_failure_threshold'] ?? 5),
+            'circuit_recovery_seconds' => (int) ($origin['circuit_recovery_seconds'] ?? 30),
+            'max_concurrent_requests' => (int) ($origin['max_concurrent_requests'] ?? 0),
+            'drain' => (bool) ($origin['drain'] ?? false),
+            'shield_enabled' => (bool) ($origin['shield_enabled'] ?? false),
             'status' => (string) $origin['health_status'],
             'health_status' => (string) $origin['health_status'],
         ];
@@ -436,7 +450,7 @@ class ConfigService
     {
         $out = [];
         foreach ($origins as $origin) {
-            if (empty($origin['enabled'])) {
+            if (empty($origin['enabled']) || !empty($origin['drain'])) {
                 continue;
             }
             if (!empty($origin['health_check_enabled']) && (string) ($origin['health_status'] ?? 'unknown') === 'unhealthy') {
@@ -469,8 +483,9 @@ class ConfigService
                 'id' => (string) ($record['id'] ?? ''),
                 'dns_record_id' => (string) ($record['id'] ?? ''),
                 'source' => 'dns_record',
-                'role' => 'origin',
+                'role' => 'primary',
                 'weight' => 1,
+                'load_balancing_algorithm' => 'weighted_hash',
                 'enabled' => true,
                 'scheme' => $scheme,
                 'host' => $host,
@@ -480,6 +495,19 @@ class ConfigService
                 'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
                 'preserve_host' => true,
                 'health_check_enabled' => false,
+                'health_check_path' => '/',
+                'health_check_interval_seconds' => 30,
+                'health_check_timeout_seconds' => 5,
+                'connection_timeout_seconds' => 5,
+                'response_timeout_seconds' => 30,
+                'retry_attempts' => 1,
+                'retry_budget_per_minute' => 60,
+                'circuit_breaker_enabled' => true,
+                'circuit_failure_threshold' => 5,
+                'circuit_recovery_seconds' => 30,
+                'max_concurrent_requests' => 0,
+                'drain' => false,
+                'shield_enabled' => false,
                 'health_status' => (string) ($record['origin_status'] ?? 'pending'),
                 'status' => (string) ($record['origin_status'] ?? 'pending'),
             ];
@@ -532,7 +560,7 @@ class ConfigService
         }
         $origins = [];
         foreach ($configuredOrigins as $origin) {
-            if ((string) ($origin['dns_record_id'] ?? '') !== $recordId || empty($origin['enabled'])) {
+            if ((string) ($origin['dns_record_id'] ?? '') !== $recordId || empty($origin['enabled']) || !empty($origin['drain'])) {
                 continue;
             }
             if (!empty($origin['health_check_enabled']) && (string) ($origin['health_status'] ?? 'unknown') === 'unhealthy') {
@@ -571,8 +599,9 @@ class ConfigService
             'id' => (string) ($record['id'] ?? ''),
             'dns_record_id' => (string) ($record['id'] ?? ''),
             'source' => 'dns_record',
-            'role' => 'origin',
+            'role' => 'primary',
             'weight' => 1,
+            'load_balancing_algorithm' => 'weighted_hash',
             'enabled' => true,
             'scheme' => $scheme,
             'host' => $host,
@@ -582,6 +611,19 @@ class ConfigService
             'tls_verify' => (string) ($record['origin_tls_verify'] ?? 'ignore'),
             'preserve_host' => true,
             'health_check_enabled' => false,
+            'health_check_path' => '/',
+            'health_check_interval_seconds' => 30,
+            'health_check_timeout_seconds' => 5,
+            'connection_timeout_seconds' => 5,
+            'response_timeout_seconds' => 30,
+            'retry_attempts' => 1,
+            'retry_budget_per_minute' => 60,
+            'circuit_breaker_enabled' => true,
+            'circuit_failure_threshold' => 5,
+            'circuit_recovery_seconds' => 30,
+            'max_concurrent_requests' => 0,
+            'drain' => false,
+            'shield_enabled' => false,
             'health_status' => (string) ($record['origin_status'] ?? 'pending'),
             'status' => (string) ($record['origin_status'] ?? 'pending'),
         ];
@@ -638,8 +680,9 @@ class ConfigService
             }
             $out[strtoupper(trim($key))] = [
                 'id' => (string) ($origin['id'] ?? 'geo-' . strtoupper(trim($key))),
-                'role' => 'origin',
+                'role' => 'primary',
                 'source' => 'geo_origin',
+                'load_balancing_algorithm' => 'weighted_hash',
                 'host' => $host,
                 // Geo origins should not silently assume TLS. Mirror the
                 // explicit scheme when present, otherwise stay on HTTP/80.
@@ -650,6 +693,19 @@ class ConfigService
                 'tls_verify' => (string) ($origin['tls_verify'] ?? 'ignore'),
                 'preserve_host' => (bool) ($origin['preserve_host'] ?? true),
                 'health_check_enabled' => (bool) ($origin['health_check_enabled'] ?? false),
+                'health_check_path' => (string) ($origin['health_check_path'] ?? '/'),
+                'health_check_interval_seconds' => (int) ($origin['health_check_interval_seconds'] ?? 30),
+                'health_check_timeout_seconds' => (int) ($origin['health_check_timeout_seconds'] ?? 5),
+                'connection_timeout_seconds' => (int) ($origin['connection_timeout_seconds'] ?? 5),
+                'response_timeout_seconds' => (int) ($origin['response_timeout_seconds'] ?? 30),
+                'retry_attempts' => (int) ($origin['retry_attempts'] ?? 1),
+                'retry_budget_per_minute' => (int) ($origin['retry_budget_per_minute'] ?? 60),
+                'circuit_breaker_enabled' => (bool) ($origin['circuit_breaker_enabled'] ?? true),
+                'circuit_failure_threshold' => (int) ($origin['circuit_failure_threshold'] ?? 5),
+                'circuit_recovery_seconds' => (int) ($origin['circuit_recovery_seconds'] ?? 30),
+                'max_concurrent_requests' => (int) ($origin['max_concurrent_requests'] ?? 0),
+                'drain' => (bool) ($origin['drain'] ?? false),
+                'shield_enabled' => (bool) ($origin['shield_enabled'] ?? false),
             ];
         }
         ksort($out);

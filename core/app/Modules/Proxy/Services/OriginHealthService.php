@@ -43,13 +43,24 @@ class OriginHealthService
                 'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : true,
                 'dns_record_id' => $input['dns_record_id'] ?? null,
                 'source' => (string) ($input['source'] ?? 'manual'),
-                'role' => (string) ($input['role'] ?? 'origin'),
+                'role' => (string) ($input['role'] ?? 'primary'),
                 'weight' => (int) ($input['weight'] ?? 1),
+                'load_balancing_algorithm' => (string) ($input['load_balancing_algorithm'] ?? 'weighted_hash'),
                 'is_primary' => false,
                 'health_check_enabled' => array_key_exists('health_check_enabled', $input) ? !empty($input['health_check_enabled']) : false,
                 'health_check_path' => (string) ($input['health_check_path'] ?? '/'),
                 'health_check_interval_seconds' => (int) ($input['health_check_interval_seconds'] ?? 30),
                 'health_check_timeout_seconds' => (int) ($input['health_check_timeout_seconds'] ?? 5),
+                'connection_timeout_seconds' => (int) ($input['connection_timeout_seconds'] ?? 5),
+                'response_timeout_seconds' => (int) ($input['response_timeout_seconds'] ?? 30),
+                'retry_attempts' => (int) ($input['retry_attempts'] ?? 1),
+                'retry_budget_per_minute' => (int) ($input['retry_budget_per_minute'] ?? 60),
+                'circuit_breaker_enabled' => array_key_exists('circuit_breaker_enabled', $input) ? !empty($input['circuit_breaker_enabled']) : true,
+                'circuit_failure_threshold' => (int) ($input['circuit_failure_threshold'] ?? 5),
+                'circuit_recovery_seconds' => (int) ($input['circuit_recovery_seconds'] ?? 30),
+                'max_concurrent_requests' => (int) ($input['max_concurrent_requests'] ?? 0),
+                'drain' => array_key_exists('drain', $input) ? !empty($input['drain']) : false,
+                'shield_enabled' => array_key_exists('shield_enabled', $input) ? !empty($input['shield_enabled']) : false,
                 'health_status' => 'unknown',
                 'enabled' => array_key_exists('enabled', $input) ? !empty($input['enabled']) : true,
                 'created_at' => $now,
@@ -60,9 +71,9 @@ class OriginHealthService
             }
             $pdo->prepare(
                 'INSERT INTO domain_origins
-                 (id,domain_id,dns_record_id,source,role,weight,scheme,host,port,host_header,sni,tls_verify,preserve_host,is_primary,health_check_enabled,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,health_status,last_check_at,last_error,enabled,created_at,updated_at)
+                 (id,domain_id,dns_record_id,source,role,weight,load_balancing_algorithm,scheme,host,port,host_header,sni,tls_verify,preserve_host,is_primary,health_check_enabled,health_check_path,health_check_interval_seconds,health_check_timeout_seconds,connection_timeout_seconds,response_timeout_seconds,retry_attempts,retry_budget_per_minute,circuit_breaker_enabled,circuit_failure_threshold,circuit_recovery_seconds,max_concurrent_requests,drain,shield_enabled,health_status,last_check_at,last_error,enabled,created_at,updated_at)
                  VALUES
-                 (:id,:domain_id,:dns_record_id,:source,:role,:weight,:scheme,:host,:port,:host_header,:sni,:tls_verify,:preserve_host,:is_primary,:health_check_enabled,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
+                 (:id,:domain_id,:dns_record_id,:source,:role,:weight,:load_balancing_algorithm,:scheme,:host,:port,:host_header,:sni,:tls_verify,:preserve_host,:is_primary,:health_check_enabled,:health_check_path,:health_check_interval_seconds,:health_check_timeout_seconds,:connection_timeout_seconds,:response_timeout_seconds,:retry_attempts,:retry_budget_per_minute,:circuit_breaker_enabled,:circuit_failure_threshold,:circuit_recovery_seconds,:max_concurrent_requests,:drain,:shield_enabled,:health_status,NULL,NULL,:enabled,:created_at,:updated_at)'
             )->execute([
                 ':id' => $row['id'],
                 ':domain_id' => $row['domain_id'],
@@ -70,6 +81,7 @@ class OriginHealthService
                 ':source' => $row['source'],
                 ':role' => $row['role'],
                 ':weight' => $row['weight'],
+                ':load_balancing_algorithm' => $row['load_balancing_algorithm'],
                 ':scheme' => $row['scheme'],
                 ':host' => $row['host'],
                 ':port' => $row['port'],
@@ -82,6 +94,16 @@ class OriginHealthService
                 ':health_check_path' => $row['health_check_path'],
                 ':health_check_interval_seconds' => $row['health_check_interval_seconds'],
                 ':health_check_timeout_seconds' => $row['health_check_timeout_seconds'],
+                ':connection_timeout_seconds' => $row['connection_timeout_seconds'],
+                ':response_timeout_seconds' => $row['response_timeout_seconds'],
+                ':retry_attempts' => $row['retry_attempts'],
+                ':retry_budget_per_minute' => $row['retry_budget_per_minute'],
+                ':circuit_breaker_enabled' => (int) $row['circuit_breaker_enabled'],
+                ':circuit_failure_threshold' => $row['circuit_failure_threshold'],
+                ':circuit_recovery_seconds' => $row['circuit_recovery_seconds'],
+                ':max_concurrent_requests' => $row['max_concurrent_requests'],
+                ':drain' => (int) $row['drain'],
+                ':shield_enabled' => (int) $row['shield_enabled'],
                 ':health_status' => $row['health_status'],
                 ':enabled' => (int) $row['enabled'],
                 ':created_at' => $row['created_at'],
@@ -117,8 +139,19 @@ class OriginHealthService
             'sni' => array_key_exists('sni', $input) ? trim((string) $input['sni']) : (string) ($existing['sni'] ?? ''),
             'tls_verify' => (string) ($input['tls_verify'] ?? $existing['tls_verify'] ?? 'ignore'),
             'preserve_host' => array_key_exists('preserve_host', $input) ? !empty($input['preserve_host']) : (bool) ($existing['preserve_host'] ?? true),
-            'role' => array_key_exists('role', $input) ? (string) $input['role'] : (string) ($existing['role'] ?? 'origin'),
+            'role' => array_key_exists('role', $input) ? (string) $input['role'] : (string) ($existing['role'] ?? 'primary'),
             'weight' => (int) ($input['weight'] ?? $existing['weight'] ?? 1),
+            'load_balancing_algorithm' => (string) ($input['load_balancing_algorithm'] ?? $existing['load_balancing_algorithm'] ?? 'weighted_hash'),
+            'connection_timeout_seconds' => (int) ($input['connection_timeout_seconds'] ?? $existing['connection_timeout_seconds'] ?? 5),
+            'response_timeout_seconds' => (int) ($input['response_timeout_seconds'] ?? $existing['response_timeout_seconds'] ?? 30),
+            'retry_attempts' => (int) ($input['retry_attempts'] ?? $existing['retry_attempts'] ?? 1),
+            'retry_budget_per_minute' => (int) ($input['retry_budget_per_minute'] ?? $existing['retry_budget_per_minute'] ?? 60),
+            'circuit_breaker_enabled' => array_key_exists('circuit_breaker_enabled', $input) ? !empty($input['circuit_breaker_enabled']) : (bool) ($existing['circuit_breaker_enabled'] ?? true),
+            'circuit_failure_threshold' => (int) ($input['circuit_failure_threshold'] ?? $existing['circuit_failure_threshold'] ?? 5),
+            'circuit_recovery_seconds' => (int) ($input['circuit_recovery_seconds'] ?? $existing['circuit_recovery_seconds'] ?? 30),
+            'max_concurrent_requests' => (int) ($input['max_concurrent_requests'] ?? $existing['max_concurrent_requests'] ?? 0),
+            'drain' => array_key_exists('drain', $input) ? !empty($input['drain']) : (bool) ($existing['drain'] ?? false),
+            'shield_enabled' => array_key_exists('shield_enabled', $input) ? !empty($input['shield_enabled']) : (bool) ($existing['shield_enabled'] ?? false),
             'enabled' => array_key_exists('enabled', $input) ? !empty($input['enabled']) : (bool) $existing['enabled'],
             'health_check_enabled' => array_key_exists('health_check_enabled', $input) ? !empty($input['health_check_enabled']) : (bool) ($existing['health_check_enabled'] ?? false),
             // DNS-linked origin edits should recover fast after a transient
@@ -136,9 +169,13 @@ class OriginHealthService
         try {
             $pdo->prepare(
                 'UPDATE domain_origins SET scheme=:scheme,host=:host,port=:port,host_header=:host_header,sni=:sni,
-                 tls_verify=:tls_verify,preserve_host=:preserve_host,role=:role,weight=:weight,is_primary=:is_primary,
+                 tls_verify=:tls_verify,preserve_host=:preserve_host,role=:role,weight=:weight,load_balancing_algorithm=:load_balancing_algorithm,is_primary=:is_primary,
                  health_check_enabled=:health_check_enabled,health_check_path=:health_check_path,health_check_interval_seconds=:health_check_interval_seconds,
-                 health_check_timeout_seconds=:health_check_timeout_seconds,health_status=:health_status,
+                 health_check_timeout_seconds=:health_check_timeout_seconds,connection_timeout_seconds=:connection_timeout_seconds,
+                 response_timeout_seconds=:response_timeout_seconds,retry_attempts=:retry_attempts,retry_budget_per_minute=:retry_budget_per_minute,
+                 circuit_breaker_enabled=:circuit_breaker_enabled,circuit_failure_threshold=:circuit_failure_threshold,
+                 circuit_recovery_seconds=:circuit_recovery_seconds,max_concurrent_requests=:max_concurrent_requests,
+                 drain=:drain,shield_enabled=:shield_enabled,health_status=:health_status,
                  last_check_at=:last_check_at,last_error=:last_error,enabled=:enabled,updated_at=:updated_at
                  WHERE domain_id=:domain_id AND id=:id'
             )->execute([
@@ -153,11 +190,22 @@ class OriginHealthService
                 ':preserve_host' => (int) $patch['preserve_host'],
                 ':role' => $patch['role'],
                 ':weight' => $patch['weight'],
+                ':load_balancing_algorithm' => $patch['load_balancing_algorithm'],
                 ':is_primary' => 0,
                 ':health_check_enabled' => (int) $patch['health_check_enabled'],
                 ':health_check_path' => $patch['health_check_path'],
                 ':health_check_interval_seconds' => $patch['health_check_interval_seconds'],
                 ':health_check_timeout_seconds' => $patch['health_check_timeout_seconds'],
+                ':connection_timeout_seconds' => $patch['connection_timeout_seconds'],
+                ':response_timeout_seconds' => $patch['response_timeout_seconds'],
+                ':retry_attempts' => $patch['retry_attempts'],
+                ':retry_budget_per_minute' => $patch['retry_budget_per_minute'],
+                ':circuit_breaker_enabled' => (int) $patch['circuit_breaker_enabled'],
+                ':circuit_failure_threshold' => $patch['circuit_failure_threshold'],
+                ':circuit_recovery_seconds' => $patch['circuit_recovery_seconds'],
+                ':max_concurrent_requests' => $patch['max_concurrent_requests'],
+                ':drain' => (int) $patch['drain'],
+                ':shield_enabled' => (int) $patch['shield_enabled'],
                 ':health_status' => $patch['health_status'],
                 ':last_check_at' => $patch['last_check_at'],
                 ':last_error' => $patch['last_error'],
@@ -225,22 +273,13 @@ class OriginHealthService
 
     public function checkDue(): array
     {
-        $cutoff = time();
-        $stmt = Database::pdo()->prepare(
-            'SELECT * FROM domain_origins
-             WHERE enabled=true AND health_check_enabled=true
-               AND (last_check_at IS NULL OR last_check_at + health_check_interval_seconds <= :now)
-             ORDER BY COALESCE(last_check_at, 0) ASC'
-        );
-        $stmt->execute([':now' => $cutoff]);
-        $results = [];
-        foreach ($stmt->fetchAll() as $row) {
-            $checked = $this->check((string) $row['domain_id'], (string) $row['id']);
-            if ($checked !== null) {
-                $results[] = $checked;
-            }
-        }
-        return ['checked' => count($results), 'results' => $results];
+        return [
+            'checked' => 0,
+            'results' => [],
+            'source' => 'edge_observations',
+            'core_active_checks' => false,
+            'message' => 'Origin routing health is updated from edge metrics. Core checks are diagnostic-only.',
+        ];
     }
 
     public function syncFromDnsRecord(string $domainId, array $record): ?array
@@ -268,7 +307,7 @@ class OriginHealthService
             'preserve_host' => true,
             'health_check_enabled' => false,
             'source' => 'dns_record',
-            'role' => 'origin',
+            'role' => 'primary',
             'is_primary' => false,
             'enabled' => true,
             'dns_record_id' => (string) $record['id'],
@@ -619,12 +658,18 @@ class OriginHealthService
 
     private function cast(array $row): array
     {
-        foreach (['port', 'weight', 'health_check_interval_seconds', 'health_check_timeout_seconds', 'created_at', 'updated_at'] as $key) {
+        foreach ([
+            'port', 'weight', 'health_check_interval_seconds', 'health_check_timeout_seconds',
+            'connection_timeout_seconds', 'response_timeout_seconds', 'retry_attempts',
+            'retry_budget_per_minute', 'circuit_failure_threshold', 'circuit_recovery_seconds',
+            'max_concurrent_requests', 'created_at', 'updated_at',
+        ] as $key) {
             $row[$key] = (int) $row[$key];
         }
         $row['dns_record_id'] = $row['dns_record_id'] === null ? null : (string) $row['dns_record_id'];
         $row['source'] = (string) ($row['source'] ?? 'manual');
-        $row['role'] = (string) ($row['role'] ?? 'origin');
+        $row['role'] = (string) ($row['role'] ?? 'primary');
+        $row['load_balancing_algorithm'] = (string) ($row['load_balancing_algorithm'] ?? 'weighted_hash');
         $row['host_header'] = (string) ($row['host_header'] ?: $row['host']);
         $row['sni'] = (string) ($row['sni'] ?? '');
         $row['tls_verify'] = (string) ($row['tls_verify'] ?? 'ignore');
@@ -633,6 +678,9 @@ class OriginHealthService
         $row['enabled'] = in_array($row['enabled'], [true, 1, '1', 't', 'true'], true);
         $row['preserve_host'] = in_array($row['preserve_host'], [true, 1, '1', 't', 'true'], true);
         $row['health_check_enabled'] = in_array($row['health_check_enabled'] ?? false, [true, 1, '1', 't', 'true'], true);
+        $row['circuit_breaker_enabled'] = in_array($row['circuit_breaker_enabled'] ?? true, [true, 1, '1', 't', 'true'], true);
+        $row['drain'] = in_array($row['drain'] ?? false, [true, 1, '1', 't', 'true'], true);
+        $row['shield_enabled'] = in_array($row['shield_enabled'] ?? false, [true, 1, '1', 't', 'true'], true);
         return $row;
     }
 

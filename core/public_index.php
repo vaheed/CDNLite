@@ -643,6 +643,7 @@ $router->add('GET', '/api/v1/domains/{domainId}/analytics/cache', static fn (Req
 $router->add('GET', '/api/v1/domains/{domainId}/activity/requests', static fn (Request $req, array $p) => Response::json($collectorController->recentRequests((string) $p['domainId'], $req->query)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/activity', static fn (Request $req, array $p) => Response::json($collectorController->activityTimeline((string) $p['domainId'], $req->query)), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/activity/summary', static fn (Request $req, array $p) => Response::json($collectorController->activitySummary((string) $p['domainId'], $req->query)), auth: true);
+$router->add('GET', '/api/v1/domains/{domainId}/origins/health', static fn (Request $req, array $p) => Response::json($collectorController->originHealth((string) $p['domainId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/activity/requests/{requestId}', static fn (Request $req, array $p) => Response::json($collectorController->findRequest((string) $p['domainId'], (string) $p['requestId'])), auth: true);
 $router->add('GET', '/api/v1/domains/{domainId}/activity/export', static fn (Request $req, array $p) => Response::json($collectorController->activityExport((string) $p['domainId'], $req->query)), auth: true);
 

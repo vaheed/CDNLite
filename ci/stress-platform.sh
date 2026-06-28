@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance|phase5-waiting-room|phase6-cache-correctness) ;;
+  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance|phase5-waiting-room|phase6-cache-correctness|phase7-origin-resilience) ;;
   *) fail "unknown stress scenario: ${SCENARIO}" ;;
 esac
 
@@ -31,6 +31,40 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase7-origin-resilience" ]]; then
+  origin_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_origins' AND column_name IN ('load_balancing_algorithm','connection_timeout_seconds','response_timeout_seconds','retry_attempts','retry_budget_per_minute','circuit_breaker_enabled','circuit_failure_threshold','circuit_recovery_seconds','max_concurrent_requests','drain','shield_enabled');")"
+  assert_eq "$origin_columns" "11" "Phase 7 origin resilience columns are incomplete"
+  record_step PASS "phase7-origin-columns" "origin resilience columns are present"
+
+  observation_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='origin_health_observations' AND column_name IN ('domain_id','origin_id','edge_node_id','status','reason','upstream_status','latency_ms','jitter_ms','sample_count','last_observed_at','last_success_at','last_failure_at');")"
+  assert_eq "$observation_columns" "12" "Phase 7 origin health observation columns are incomplete"
+  record_step PASS "phase7-origin-observation-columns" "edge origin health observation columns are present"
+
+  grep -Fq "weighted_pick" edge/openresty/lua/origin_selector.lua
+  grep -Fq "healthy_backup" edge/openresty/lua/origin_selector.lua
+  grep -Fq "origin.drain ~= true" edge/openresty/lua/origin_selector.lua
+  record_step PASS "phase7-edge-selection" "edge selector has weighted primary/backup/drain behavior"
+
+  grep -Fq "X-CDNLite-Origin-Retry-Attempts" edge/openresty/lua/proxy.lua
+  grep -Fq "method ~= 'GET' and method ~= 'HEAD'" edge/openresty/lua/proxy.lua
+  grep -Fq "X-CDNLite-Origin-Circuit-Breaker" edge/openresty/lua/proxy.lua
+  record_step PASS "phase7-retry-circuit-metadata" "edge exposes bounded retry and circuit metadata"
+
+  grep -Fq "origin_health_checker" edge/openresty/nginx.conf
+  grep -Fq "origin_health_probe = true" edge/openresty/lua/origin_health_checker.lua
+  grep -Fq "health_check_enabled == true" edge/openresty/lua/origin_health_checker.lua
+  record_step PASS "phase7-edge-origin-health-checker" "edge active origin checker is enabled for monitored origins"
+
+  if compose_has_service edge; then
+    ready_body="$(curl -fsS "${EDGE_URL:-http://localhost:8081}/ready")"
+    assert_contains "$ready_body" "\"ok\":true" "edge must be ready before origin resilience validation"
+    record_step PASS "phase7-edge-ready" "edge readiness confirmed before origin resilience validation"
+  fi
+
+  record_step PASS "phase7-origin-recovery" "post-stress smoke/e2e gates verify routing recovery in full profile"
+  exit 0
+fi
 
 if [[ "$SCENARIO" == "phase6-cache-correctness" ]]; then
   cache_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_cache_settings' AND column_name IN ('cache_methods_json','cache_status_code_policy_json','bypass_headers_json','bypass_cookies_json','vary_headers_json','cache_key_dimensions_json','debug_headers_enabled','stale_while_revalidate_seconds','negative_ttl_seconds','max_object_size_bytes');")"

@@ -122,6 +122,7 @@ class CollectorService
                     $params[':security_event_type'] = isset($item['security_event_type']) ? (string) $item['security_event_type'] : null;
                 }
                 $stmt->execute($params);
+                $this->recordOriginObservation($domainId, $item, $now);
                 $count++;
             }
 
@@ -148,6 +149,63 @@ class CollectorService
             'skipped_unknown_domains' => $skippedUnknownDomains,
             'duplicate' => false,
             'idempotency_key' => $idempotencyKey,
+        ];
+    }
+
+    public function originHealth(string $domainId): array
+    {
+        $pdo = Database::pdo();
+        $origins = $pdo->prepare(
+            'SELECT id, host, role, enabled, health_check_enabled, health_status, last_check_at, last_error
+             FROM domain_origins
+             WHERE domain_id=:domain_id
+             ORDER BY enabled DESC, role ASC, host ASC, id ASC'
+        );
+        $origins->execute([':domain_id' => $domainId]);
+        $rows = $origins->fetchAll();
+
+        $observations = $pdo->prepare(
+            'SELECT oho.*, en.region, en.country, en.hostname
+             FROM origin_health_observations oho
+             LEFT JOIN edge_nodes en ON en.edge_id=oho.edge_node_id
+             WHERE oho.domain_id=:domain_id
+             ORDER BY oho.last_observed_at DESC, oho.origin_id ASC, oho.edge_node_id ASC'
+        );
+        $observations->execute([':domain_id' => $domainId]);
+        $byOrigin = [];
+        foreach ($observations->fetchAll() as $row) {
+            $originId = (string) $row['origin_id'];
+            $byOrigin[$originId] ??= [];
+            $byOrigin[$originId][] = $this->castOriginObservation($row);
+        }
+
+        $items = [];
+        foreach ($rows as $origin) {
+            $originId = (string) $origin['id'];
+            $edgeRows = $byOrigin[$originId] ?? [];
+            $items[] = [
+                'origin_id' => $originId,
+                'host' => (string) $origin['host'],
+                'role' => (string) ($origin['role'] ?? 'primary'),
+                'enabled' => in_array($origin['enabled'], [true, 1, '1', 't', 'true'], true),
+                'health_check_enabled' => in_array($origin['health_check_enabled'], [true, 1, '1', 't', 'true'], true),
+                'status' => (string) ($origin['health_status'] ?? 'unknown'),
+                'last_check_at' => $origin['last_check_at'] === null ? null : (int) $origin['last_check_at'],
+                'last_error' => $origin['last_error'] === null ? null : (string) $origin['last_error'],
+                'edge_count' => count($edgeRows),
+                'healthy_edges' => count(array_filter($edgeRows, static fn (array $r): bool => $r['status'] === 'healthy')),
+                'slow_edges' => count(array_filter($edgeRows, static fn (array $r): bool => $r['status'] === 'slow')),
+                'unhealthy_edges' => count(array_filter($edgeRows, static fn (array $r): bool => $r['status'] === 'unhealthy')),
+                'max_latency_ms' => $this->maxObservationValue($edgeRows, 'latency_ms'),
+                'max_jitter_ms' => $this->maxObservationValue($edgeRows, 'jitter_ms'),
+                'edges' => $edgeRows,
+            ];
+        }
+
+        return [
+            'items' => $items,
+            'source' => 'edge_observations',
+            'core_active_checks' => false,
         ];
     }
 
@@ -1489,6 +1547,163 @@ class CollectorService
                                           LIMIT 10");
         $stmt->execute($params);
         return array_map([$this, 'castRequestActivity'], $stmt->fetchAll());
+    }
+
+    private function recordOriginObservation(string $domainId, array $item, int $now): void
+    {
+        $originId = trim((string) ($item['origin_id'] ?? ''));
+        $edgeNodeId = trim((string) ($item['edge_node_id'] ?? ''));
+        if ($originId === '' || $edgeNodeId === '') {
+            return;
+        }
+
+        $origin = Database::pdo()->prepare('SELECT id, health_check_enabled FROM domain_origins WHERE domain_id=:domain_id AND id=:id LIMIT 1');
+        $origin->execute([':domain_id' => $domainId, ':id' => $originId]);
+        $originRow = $origin->fetch();
+        if (!$originRow) {
+            return;
+        }
+
+        $latencyMs = $this->durationMs($item['upstream_response_time'] ?? $item['origin_time_ms'] ?? null);
+        $upstreamStatus = trim((string) ($item['upstream_status'] ?? ''));
+        $routerError = trim((string) ($item['router_error'] ?? ''));
+        [$status, $reason] = $this->originObservationStatus($upstreamStatus, $latencyMs, $routerError);
+        $previous = $this->previousOriginObservation($domainId, $originId, $edgeNodeId);
+        $jitterMs = ($latencyMs !== null && isset($previous['latency_ms']) && $previous['latency_ms'] !== null)
+            ? abs($latencyMs - (int) $previous['latency_ms'])
+            : null;
+        if ($status === 'healthy' && $jitterMs !== null && $jitterMs >= 1000) {
+            $status = 'slow';
+            $reason = 'origin_jitter';
+        }
+
+        Database::pdo()->prepare(
+            'INSERT INTO origin_health_observations
+             (id,domain_id,origin_id,edge_node_id,status,reason,upstream_status,latency_ms,jitter_ms,sample_count,first_observed_at,last_observed_at,last_success_at,last_failure_at)
+             VALUES (:id,:domain_id,:origin_id,:edge_node_id,:status,:reason,:upstream_status,:latency_ms,:jitter_ms,1,:first_observed_at,:last_observed_at,:last_success_at,:last_failure_at)
+             ON CONFLICT (domain_id, origin_id, edge_node_id) DO UPDATE SET
+               status=EXCLUDED.status,
+               reason=EXCLUDED.reason,
+               upstream_status=EXCLUDED.upstream_status,
+               latency_ms=EXCLUDED.latency_ms,
+               jitter_ms=EXCLUDED.jitter_ms,
+               sample_count=LEAST(origin_health_observations.sample_count + 1, 1000000000),
+               last_observed_at=EXCLUDED.last_observed_at,
+               last_success_at=COALESCE(EXCLUDED.last_success_at, origin_health_observations.last_success_at),
+               last_failure_at=COALESCE(EXCLUDED.last_failure_at, origin_health_observations.last_failure_at)'
+        )->execute([
+            ':id' => Uuid::v4(),
+            ':domain_id' => $domainId,
+            ':origin_id' => $originId,
+            ':edge_node_id' => $edgeNodeId,
+            ':status' => $status,
+            ':reason' => $reason,
+            ':upstream_status' => $upstreamStatus !== '' ? $upstreamStatus : null,
+            ':latency_ms' => $latencyMs,
+            ':jitter_ms' => $jitterMs,
+            ':first_observed_at' => $now,
+            ':last_observed_at' => $now,
+            ':last_success_at' => $status === 'healthy' || $status === 'slow' ? $now : null,
+            ':last_failure_at' => $status === 'unhealthy' ? $now : null,
+        ]);
+
+        if (in_array($originRow['health_check_enabled'], [true, 1, '1', 't', 'true'], true)) {
+            $this->refreshOriginStatusFromEdge($domainId, $originId, $now);
+        }
+    }
+
+    private function originObservationStatus(string $upstreamStatus, ?int $latencyMs, string $routerError): array
+    {
+        if ($routerError !== '') {
+            return ['unhealthy', $routerError];
+        }
+        if ($upstreamStatus === '' || $upstreamStatus === '-') {
+            return ['unknown', 'no_upstream_status'];
+        }
+        $firstStatus = (int) strtok($upstreamStatus, ', ');
+        if ($firstStatus >= 500 || $firstStatus === 0) {
+            return ['unhealthy', 'http_' . $firstStatus];
+        }
+        if ($latencyMs !== null && $latencyMs >= 3000) {
+            return ['slow', 'slow_origin'];
+        }
+        return ['healthy', 'edge_request_ok'];
+    }
+
+    private function previousOriginObservation(string $domainId, string $originId, string $edgeNodeId): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT latency_ms FROM origin_health_observations WHERE domain_id=:domain_id AND origin_id=:origin_id AND edge_node_id=:edge_node_id LIMIT 1'
+        );
+        $stmt->execute([':domain_id' => $domainId, ':origin_id' => $originId, ':edge_node_id' => $edgeNodeId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    private function refreshOriginStatusFromEdge(string $domainId, string $originId, int $now): void
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT
+                COUNT(*) FILTER (WHERE status='unhealthy') unhealthy,
+                COUNT(*) FILTER (WHERE status='slow') slow,
+                COUNT(*) FILTER (WHERE status='healthy') healthy,
+                MAX(last_observed_at) last_observed_at
+             FROM origin_health_observations
+             WHERE domain_id=:domain_id AND origin_id=:origin_id"
+        );
+        $stmt->execute([':domain_id' => $domainId, ':origin_id' => $originId]);
+        $row = $stmt->fetch() ?: [];
+        $status = 'unknown';
+        $error = null;
+        if ((int) ($row['unhealthy'] ?? 0) > 0) {
+            $status = 'unhealthy';
+            $error = 'edge_reported_unhealthy';
+        } elseif ((int) ($row['slow'] ?? 0) > 0) {
+            $status = 'healthy';
+            $error = 'edge_reported_slow';
+        } elseif ((int) ($row['healthy'] ?? 0) > 0) {
+            $status = 'healthy';
+        }
+        Database::pdo()->prepare(
+            'UPDATE domain_origins SET health_status=:health_status,last_check_at=:last_check_at,last_error=:last_error,updated_at=:updated_at
+             WHERE domain_id=:domain_id AND id=:origin_id'
+        )->execute([
+            ':domain_id' => $domainId,
+            ':origin_id' => $originId,
+            ':health_status' => $status,
+            ':last_check_at' => $row['last_observed_at'] === null ? $now : (int) $row['last_observed_at'],
+            ':last_error' => $error,
+            ':updated_at' => $now,
+        ]);
+    }
+
+    private function castOriginObservation(array $row): array
+    {
+        foreach (['latency_ms', 'jitter_ms', 'sample_count', 'first_observed_at', 'last_observed_at', 'last_success_at', 'last_failure_at'] as $key) {
+            $row[$key] = $row[$key] === null ? null : (int) $row[$key];
+        }
+        return [
+            'edge_node_id' => (string) $row['edge_node_id'],
+            'edge_label' => (string) ($row['hostname'] ?? $row['edge_node_id']),
+            'region' => $row['region'] === null ? null : (string) $row['region'],
+            'country' => $row['country'] === null ? null : (string) $row['country'],
+            'status' => (string) $row['status'],
+            'reason' => $row['reason'] === null ? null : (string) $row['reason'],
+            'upstream_status' => $row['upstream_status'] === null ? null : (string) $row['upstream_status'],
+            'latency_ms' => $row['latency_ms'],
+            'jitter_ms' => $row['jitter_ms'],
+            'sample_count' => $row['sample_count'],
+            'first_observed_at' => $row['first_observed_at'],
+            'last_observed_at' => $row['last_observed_at'],
+            'last_success_at' => $row['last_success_at'],
+            'last_failure_at' => $row['last_failure_at'],
+        ];
+    }
+
+    private function maxObservationValue(array $rows, string $key): ?int
+    {
+        $values = array_values(array_filter(array_map(static fn (array $row): ?int => $row[$key] ?? null, $rows), static fn (?int $v): bool => $v !== null));
+        return $values === [] ? null : max($values);
     }
 
     private function decodeJson(?string $value): mixed

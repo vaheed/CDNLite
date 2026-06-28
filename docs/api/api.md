@@ -383,8 +383,9 @@ DNS tips:
 | `POST` | `/api/v1/domains/{domainId}/origins` | Create origin. |
 | `PATCH` | `/api/v1/domains/{domainId}/origins/{originId}` | Update origin. |
 | `DELETE` | `/api/v1/domains/{domainId}/origins/{originId}` | Delete origin. |
-| `POST` | `/api/v1/domains/{domainId}/origins/{originId}/check` | Run manual health check. |
+| `POST` | `/api/v1/domains/{domainId}/origins/{originId}/check` | Run a core diagnostic only. It does not update authoritative origin health. |
 | `POST` | `/api/v1/domains/{domainId}/origins/{originId}/test` | Run a non-mutating origin diagnostic with DNS, TCP, TLS, and HTTP timing details. |
+| `GET` | `/api/v1/domains/{domainId}/origins/health` | Edge health observations, latency, jitter, failure reason, and per-edge detail for dashboard reporting. |
 | `POST` | `/api/v1/domains/{domainId}/route-debug` | Preview the selected origin, origin pool size, cache/rule counts, and SSL state for a host/path/country using the active config snapshot. |
 
 Example:
@@ -399,7 +400,14 @@ Example:
   "tls_verify": "ignore",
   "preserve_host": true,
   "health_check_enabled": false,
-  "role": "origin",
+  "role": "primary",
+  "weight": 10,
+  "load_balancing_algorithm": "weighted_hash",
+  "retry_attempts": 1,
+  "retry_budget_per_minute": 60,
+  "circuit_breaker_enabled": true,
+  "drain": false,
+  "shield_enabled": false,
   "enabled": true
 }
 ```
@@ -411,6 +419,25 @@ Origin tips:
   `dns_record_id`; manual origins use `source: "manual"`.
 - Duplicate manual origin hosts are allowed as separate rows because routing
   identity is the origin id, not only host and scheme.
+- Use primary, backup, and shield roles to make failover explicit. The edge
+  selects healthy primary origins first, falls back to unknown primaries, then
+  uses backups only when primaries are unavailable. Drained origins are removed
+  from snapshots and edge candidate pools.
+- Edge health observations are authoritative for routing health. Core does not
+  probe customer origins on a schedule. When `health_check_enabled` is true,
+  edge nodes actively probe the configured path and also report passive origin
+  status, latency, jitter, and failure reasons through the collector metrics
+  path. When it is false, reports are still visible but do not remove the
+  origin from routing.
+- Weighted pools use deterministic `weighted_hash` selection. `consistent_hash`
+  is accepted as a stable operator intent and currently uses the same bounded
+  request hash path so routing remains predictable.
+- Retries are bounded by `retry_attempts` and `retry_budget_per_minute`.
+  Non-idempotent methods do not receive automatic retry attempts by default.
+- Circuit breaker, connection limit, and shield fields are included in API
+  responses and config snapshots for edge policy visibility. Shield loops are
+  prevented by explicit shield role metadata and the `shield_enabled` flag; do
+  not point a shield origin back at the same public hostname.
 - When the scheme is omitted for a DNS-linked origin, CDNLite keeps the
   backend on plain HTTP/80 unless you explicitly set `scheme: "https"`.
 - For shared hosting or cPanel origins, point the origin `host` at the server
@@ -425,7 +452,9 @@ Origin tips:
 - Health checks are off by default. With `health_check_enabled: false`,
   `unknown` health does not block config snapshots or edge traffic. When
   enabled, checked unhealthy origins are avoided and surfaced as warnings.
-- Use the manual health-check route when you intentionally monitor an origin.
+- Use the diagnostic route when you want to compare core reachability during
+  troubleshooting. The result is marked non-authoritative and does not mutate
+  stored origin health.
 - Use the non-mutating origin diagnostic route when debugging 502s. It reports
   DNS resolution, TCP connect, TLS handshake, HTTP status, timing, configured
   host header, and SNI without changing the stored origin health state.

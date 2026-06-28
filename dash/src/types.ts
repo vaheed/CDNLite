@@ -149,12 +149,37 @@ export interface IpRule extends ManagedRuleMetadata { id: Id; enabled: boolean; 
 export interface DomainOrigin {
   id: Id; domain_id: Id; scheme: 'http' | 'https'; host: string; port: 80 | 443 | number;
   dns_record_id?: Id | null; source?: 'manual' | 'dns_record' | 'imported' | string; role?: 'primary' | 'backup' | string;
-  weight?: number; host_header?: string | null; sni?: string | null; tls_verify?: 'verify' | 'ignore';
+  weight?: number; load_balancing_algorithm?: 'weighted_hash' | 'consistent_hash' | string;
+  host_header?: string | null; sni?: string | null; tls_verify?: 'verify' | 'ignore';
   preserve_host?: boolean; health_check_enabled?: boolean;
   is_primary: boolean; health_check_path: string; health_check_interval_seconds: number;
+  connection_timeout_seconds?: number; response_timeout_seconds?: number; retry_attempts?: number;
+  retry_budget_per_minute?: number; circuit_breaker_enabled?: boolean; circuit_failure_threshold?: number;
+  circuit_recovery_seconds?: number; max_concurrent_requests?: number; drain?: boolean; shield_enabled?: boolean;
   health_check_timeout_seconds: number; health_status: 'healthy' | 'unhealthy' | 'unknown' | string;
   last_check_at?: number | null; last_error?: string | null; enabled: boolean;
   created_at?: number; updated_at?: number;
+}
+export interface OriginHealthEdgeObservation {
+  edge_node_id: string; edge_label: string; region?: string | null; country?: string | null;
+  status: 'healthy' | 'unhealthy' | 'slow' | 'unknown' | string; reason?: string | null;
+  upstream_status?: string | null; latency_ms?: number | null; jitter_ms?: number | null;
+  sample_count: number; first_observed_at: number; last_observed_at: number;
+  last_success_at?: number | null; last_failure_at?: number | null;
+}
+export interface OriginHealthReportItem {
+  origin_id: Id; host: string; role: string; enabled: boolean; health_check_enabled: boolean;
+  status: string; last_check_at?: number | null; last_error?: string | null; edge_count: number;
+  healthy_edges: number; slow_edges: number; unhealthy_edges: number;
+  max_latency_ms?: number | null; max_jitter_ms?: number | null; edges: OriginHealthEdgeObservation[];
+}
+export interface OriginHealthReport {
+  items: OriginHealthReportItem[]; source: 'edge_observations' | string; core_active_checks: boolean;
+}
+export interface OriginDiagnosticResult {
+  origin_id: Id; healthy: boolean; error?: string | null; duration_ms?: number | null;
+  dns?: Record<string, unknown>; tcp?: Record<string, unknown>; tls?: Record<string, unknown>; http?: Record<string, unknown>;
+  authoritative?: boolean; source?: string;
 }
 export interface SslCertificate { id: Id; hostname: string; status?: string; acme_status?: string; days_left?: number; days_until_expiry?: number; not_after?: number; expires_at?: number | string; issuer?: string; subject?: string; last_error?: string; created_at?: number | string; }
 export interface SslSettings { domain_id: Id; force_https: boolean; min_tls_version: '1.2' | '1.3'; auto_renew: boolean; created_at?: number; updated_at?: number; }

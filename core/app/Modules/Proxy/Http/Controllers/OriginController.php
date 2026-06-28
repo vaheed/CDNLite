@@ -42,8 +42,8 @@ class OriginController
 
     public function check(string $domainId, string $originId): array
     {
-        $origin = $this->service->check($domainId, $originId);
-        return $origin === null ? ['error' => 'origin_not_found', 'status' => 404] : ['data' => $origin];
+        $result = $this->service->test($domainId, $originId);
+        return $result === null ? ['error' => 'origin_not_found', 'status' => 404] : ['data' => $result + ['authoritative' => false, 'source' => 'core_diagnostic_only']];
     }
 
     public function test(string $domainId, string $originId): array
@@ -76,9 +76,15 @@ class OriginController
             }
         }
         if (array_key_exists('role', $body)) {
-            $role = Validator::enum($body, 'role', ['origin']);
+            $role = Validator::enum($body, 'role', ['primary', 'backup', 'shield']);
             if (($role['ok'] ?? false) !== true) {
-                return ['error' => 'invalid_field', 'field' => 'role', 'detail' => 'must_be_origin', 'status' => 422];
+                return ['error' => 'invalid_field', 'field' => 'role', 'detail' => 'must_be_primary_backup_or_shield', 'status' => 422];
+            }
+        }
+        if (array_key_exists('load_balancing_algorithm', $body)) {
+            $algorithm = Validator::enum($body, 'load_balancing_algorithm', ['weighted_hash', 'consistent_hash']);
+            if (($algorithm['ok'] ?? false) !== true) {
+                return ['error' => 'invalid_field', 'field' => 'load_balancing_algorithm', 'detail' => 'must_be_weighted_hash_or_consistent_hash', 'status' => 422];
             }
         }
         foreach (['host_header', 'sni'] as $field) {
@@ -101,7 +107,7 @@ class OriginController
                 return $weight;
             }
         }
-        foreach (['is_primary', 'enabled', 'preserve_host', 'health_check_enabled'] as $field) {
+        foreach (['is_primary', 'enabled', 'preserve_host', 'health_check_enabled', 'circuit_breaker_enabled', 'drain', 'shield_enabled'] as $field) {
             if (array_key_exists($field, $body)) {
                 $bool = Validator::bool($body, $field);
                 if (($bool['ok'] ?? false) !== true) {
@@ -119,6 +125,22 @@ class OriginController
             }
         }
         foreach (['health_check_interval_seconds' => [5, 3600], 'health_check_timeout_seconds' => [1, 60]] as $field => $range) {
+            if (array_key_exists($field, $body)) {
+                $value = Validator::intRange($body, $field, $range[0], $range[1]);
+                if (($value['ok'] ?? false) !== true) {
+                    return $value;
+                }
+            }
+        }
+        foreach ([
+            'connection_timeout_seconds' => [1, 60],
+            'response_timeout_seconds' => [1, 600],
+            'retry_attempts' => [0, 3],
+            'retry_budget_per_minute' => [0, 100000],
+            'circuit_failure_threshold' => [1, 1000],
+            'circuit_recovery_seconds' => [1, 3600],
+            'max_concurrent_requests' => [0, 1000000],
+        ] as $field => $range) {
             if (array_key_exists($field, $body)) {
                 $value = Validator::intRange($body, $field, $range[0], $range[1]);
                 if (($value['ok'] ?? false) !== true) {

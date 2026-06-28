@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Phase 4 real challenge and clearance system for WAF, rate-limit, and Emergency Protection flows, including a self-hosted browser verification page, per-rule challenge difficulty, edge-only verification endpoint, scoped HttpOnly clearance cookies, block-rule precedence, edge secret and difficulty fallback configuration, one-shot phase manifest, e2e coverage, and stress scenario registration.
 - Phase 5 waiting room with persisted per-domain policy, API and dashboard controls, signed edge queue tickets, signed admission cookies, local queue/status endpoints, bounded edge queue state, and operator documentation.
 - Phase 6 cache correctness with explicit eligibility and key-dimension settings, safe debug headers, personalized-request bypass defaults, per-rule edge TTL honoring, cache-status headers, a one-shot phase manifest, and stress scenario registration.
+- Phase 7 origin routing resilience with primary, backup, and shield roles, deterministic weighted selection, drain controls, bounded idempotent retry metadata, circuit-breaker settings, shield visibility, edge-sourced origin health observations, per-edge latency and jitter reporting, one-shot phase manifest, and stress scenario registration.
 - Single canonical roadmap at `docs/ROADMAP.md`; removed duplicate root, lower-case, and legacy roadmap files.
 - Repository-level project presentation, contribution, security, roadmap, changelog, issue template, and pull request template documentation.
 

@@ -120,6 +120,11 @@ class CollectorController
         return ['data' => $this->service->activitySummary($domainId, $query)];
     }
 
+    public function originHealth(string $domainId): array
+    {
+        return ['data' => $this->service->originHealth($domainId)];
+    }
+
     public function findRequest(string $domainId, string $requestId): array
     {
         $requestId = trim($requestId);

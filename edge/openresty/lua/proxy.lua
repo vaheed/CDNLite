@@ -158,20 +158,28 @@ function M.forward(domain)
   ngx.var.target_origin_id = tostring((ngx.ctx.origin or {}).id or '')
   ngx.var.target_origin_host = tostring((ngx.ctx.origin or {}).host or '')
   ngx.var.target_origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'ignore')
+  ngx.var.target_origin_retry_attempts = tostring((ngx.ctx.origin or {}).retry_attempts or 1)
+  if method ~= 'GET' and method ~= 'HEAD' then
+    ngx.var.target_origin_retry_attempts = '0'
+  end
   -- Keep the routing context on the request itself so the error page can
   -- recover it even when an internal redirect clears Lua state.
   ngx.req.set_header('X-CDNLite-Domain-Id', tostring(domain.domain_id or ''))
   ngx.req.set_header('X-CDNLite-Origin-Id', tostring((ngx.ctx.origin or {}).id or ''))
   ngx.req.set_header('X-CDNLite-Origin-Host', tostring((ngx.ctx.origin or {}).host or ''))
-  ngx.req.set_header('X-CDNLite-Origin-Role', tostring((ngx.ctx.origin or {}).role or 'origin'))
+  ngx.req.set_header('X-CDNLite-Origin-Role', tostring((ngx.ctx.origin or {}).role or 'primary'))
   ngx.req.set_header('X-CDNLite-Origin-Tls-Verify', tostring((ngx.ctx.origin or {}).tls_verify or 'ignore'))
+  ngx.req.set_header('X-CDNLite-Origin-Retry-Attempts', tostring(ngx.var.target_origin_retry_attempts or '0'))
+  ngx.req.set_header('X-CDNLite-Origin-Circuit-Breaker', tostring((ngx.ctx.origin or {}).circuit_breaker_enabled ~= false))
   local request_context = cjson.encode({
     domain_id = tostring(domain.domain_id or ''),
     origin = {
       id = tostring((ngx.ctx.origin or {}).id or ''),
       host = tostring((ngx.ctx.origin or {}).host or ''),
-      role = tostring((ngx.ctx.origin or {}).role or 'origin'),
+      role = tostring((ngx.ctx.origin or {}).role or 'primary'),
       tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or 'ignore'),
+      retry_attempts = tonumber(ngx.var.target_origin_retry_attempts or 0) or 0,
+      circuit_breaker_enabled = (ngx.ctx.origin or {}).circuit_breaker_enabled ~= false,
     },
   })
   if request_context then
@@ -196,7 +204,7 @@ function M.forward(domain)
   edge_log.debug('proxy_forward', {
     domain_id = tostring(domain.domain_id or ''),
     origin_id = tostring(ngx.var.target_origin_id or ''),
-    origin_role = tostring((ngx.ctx.origin or {}).role or 'origin'),
+    origin_role = tostring((ngx.ctx.origin or {}).role or 'primary'),
     upstream = upstream,
   })
   return true

@@ -1,0 +1,58 @@
+phase: "07"
+name: "Origin routing, resilience, and shielding"
+owner: "CDNLite maintainers"
+status: "complete"
+topology: "root docker-compose.yml"
+profiles:
+  pr:
+    clean_required: false
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests/test_phase7_origin_resilience_contract.py"
+      - "luac -p edge/openresty/lua/origin_selector.lua edge/openresty/lua/proxy.lua edge/openresty/lua/router.lua"
+      - "bash -n ci/smoke.sh"
+  full:
+    clean_required: true
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests"
+      - "sh -n edge/agent/register.sh"
+      - "sh -n edge/agent/heartbeat.sh"
+      - "sh -n edge/agent/pull_config.sh"
+      - "sh -n edge/agent/push_metrics.sh"
+      - "sh -n edge/agent/run.sh"
+      - "bash -n ci/smoke.sh"
+      - "bash -n ci/e2e.sh"
+      - "bash -n ci/stress-platform.sh"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "ci/stress-platform.sh --scenario phase7-origin-resilience"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "(cd dash && npm run typecheck && npm test && npm run build)"
+      - "(cd docs && npm run docs:build)"
+  release:
+    clean_required: true
+    destructive: true
+    commands:
+      - "./ci/phase.sh 07 --profile full --clean"
+required_docs:
+  - "docs/ROADMAP.md"
+  - "docs/api/api.md"
+  - "docs/architecture.md"
+  - "docs/troubleshooting.md"
+  - "CHANGELOG.md"
+evidence:
+  json: "ci/reports/phase-07-report.json"
+  markdown: "ci/reports/phase-07-report.md"
+stress_scenarios:
+  - "phase7-origin-resilience"
+recovery_assertions:
+  - "Primary origins are selected before backups while eligible."
+  - "Drained origins are removed from snapshots and edge candidate pools."
+  - "Non-idempotent requests do not receive automatic retry attempts."
+  - "Origin health status comes from edge observations, not scheduled core probes."

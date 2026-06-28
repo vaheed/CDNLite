@@ -166,7 +166,7 @@ local function restore_activity_context()
 
   local origin_id = tostring(ngx.var.target_origin_id or headers["X-CDNLite-Origin-Id"] or headers["x-cdnlite-origin-id"] or shared_origin_value(shared_context, "id") or "")
   local origin_host = tostring(ngx.var.target_origin_host or headers["X-CDNLite-Origin-Host"] or headers["x-cdnlite-origin-host"] or shared_origin_value(shared_context, "host") or "")
-  local origin_role = tostring((ngx.ctx.origin or {}).role or headers["X-CDNLite-Origin-Role"] or headers["x-cdnlite-origin-role"] or shared_origin_value(shared_context, "role") or "origin")
+  local origin_role = tostring((ngx.ctx.origin or {}).role or headers["X-CDNLite-Origin-Role"] or headers["x-cdnlite-origin-role"] or shared_origin_value(shared_context, "role") or "primary")
   local origin_tls_verify = tostring((ngx.ctx.origin or {}).tls_verify or headers["X-CDNLite-Origin-Tls-Verify"] or headers["x-cdnlite-origin-tls-verify"] or shared_origin_value(shared_context, "tls_verify") or "ignore")
   if origin_id ~= "" or origin_host ~= "" then
     ngx.ctx.origin = {

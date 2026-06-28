@@ -92,7 +92,21 @@ curl -s http://localhost:8081/ready
 docker compose exec edge wget -qO- http://127.0.0.1:8081/__cdnlite_reload_config
 ```
 
-If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. For shared hosting or cPanel, keep `preserve_host` on so the origin receives the requested site hostname in Host and SNI even when the backend address is an IP. If the edge returns `no_healthy_origin`, check that at least one enabled origin is not a health-checked unhealthy origin.
+If `config.json` is missing or empty, focus on edge auth and `/api/v1/edge/config`. If config exists but traffic fails, focus on host matching, DNS, origin health, and edge logs. For shared hosting or cPanel, keep `preserve_host` on so the origin receives the requested site hostname in Host and SNI even when the backend address is an IP. If the edge returns `no_healthy_origin`, check that at least one enabled origin is not drained, disabled, or a health-checked unhealthy origin.
+
+During an origin incident, drain the origin before disabling it when you want
+new traffic to move away while preserving the row for recovery. Backups are
+used only after eligible primaries are unavailable. For unexpected duplicate
+writes, confirm the request method is non-idempotent and check
+`X-CDNLite-Origin-Retry-Attempts`; POST, PUT, PATCH, and DELETE should report
+zero automatic retry attempts.
+
+Origin health status comes from edge nodes, not scheduled core requests. If
+the dashboard shows stale origin health, check edge `/ready`, the edge-agent
+metrics queue, `/agent/push_metrics.sh`, and
+`GET /api/v1/domains/{domainId}/origins/health`. The core diagnostic button is
+only a comparison probe from the control plane and does not update routing
+health.
 
 The edge keeps a worker-local last-known-good snapshot. If `/ready` reports
 `reload_failures` or `last_reload_error`, fix the snapshot on disk or force the

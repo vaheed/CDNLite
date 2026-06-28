@@ -81,3 +81,18 @@ scenarios:
       - "authenticated and no-cache requests bypass by default"
       - "sanitized cache key debug contains bounded dimensions"
       - "post-stress smoke and e2e gates run after cache pressure"
+  phase7-origin-resilience:
+    phase: "07"
+    workload: "origin-routing-resilience"
+    description: "Validate primary/backup weighted routing metadata, drain exclusion, edge-origin health observations, bounded idempotent retry metadata, and circuit/shield visibility."
+    stress:
+      origin_pool_size: 12
+      weighted_selection: true
+      backup_failover: true
+      drained_origins: true
+      non_idempotent_retry_block: true
+      edge_origin_health_observations: true
+    recovery:
+      - "primary origins win before backups while eligible"
+      - "drained origins are excluded from snapshots and edge pools"
+      - "post-stress smoke/e2e gates verify recovery after routing pressure"
