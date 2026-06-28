@@ -19,31 +19,34 @@ def test_origin_schema_contract():
 
 
 def test_origin_api_and_cli_contract():
-    public_index = read("core/public_index.php")
-    artisan = read("core/artisan")
+    routes = read("core/routes/api.php")
+    controller = read("core/app/Http/Controllers/Api/DomainController.php")
+    scheduler = read("core/app/Console/Commands/ScheduleRunCommand.php")
 
-    assert "/api/v1/domains/{domainId}/origins" in public_index
-    assert "/api/v1/domains/{domainId}/origins/{originId}" in public_index
-    assert "/api/v1/domains/{domainId}/origins/{originId}/check" in public_index
-    assert "OriginController" in public_index
-    assert "cdn:origins:health-check" in artisan
-    assert "cdn:origins:list" in artisan
+    assert "Route::get('/domains/{domainId}/origins'" in routes
+    assert "Route::post('/domains/{domainId}/origins/{originId}/check'" in routes
+    assert "Route::post('/domains/{domainId}/origins/{originId}/test'" in routes
+    assert "Route::get('/domains/{domainId}/origins/health'" in routes
+    assert "OriginLifecycleService" in controller
+    assert "checkOrigin" in controller
+    assert "originHealth" in controller
+    assert "cdn:origins:health-check" in scheduler
 
 
 def test_origin_health_service_and_readiness_contract():
-    service = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
+    service = read("core/app/Services/ControlPlane/OriginLifecycleService.php")
     readiness = read("core/app/Modules/Health/Services/ReadinessService.php")
     compose = read("docker-compose.yml")
 
-    assert "function checkDue" in service
-    assert "file_get_contents($url" in service
+    assert "function healthReport" in service
+    assert "function diagnose" in service
     assert "core_active_checks' => false" in service
     assert "Origin routing health is updated from edge metrics" in service
     assert "health_status" in service
     assert "origin_health" in readiness
     assert "health_check_enabled=true AND health_status='unhealthy'" in readiness
     assert "Check the origin or review the origin pool" in readiness
-    assert "cdn:scheduler:run" in compose
+    assert "php /app/artisan schedule:run" in compose
     assert "CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS" in compose
     assert "CDNLITE_SCHEDULER_IDLE" in compose
     assert "CDNLITE_SCHEDULER_TICK_SECONDS" in compose

@@ -37,14 +37,15 @@ def test_phase7_schema_exposes_origin_resilience_controls():
 
 
 def test_phase7_api_snapshot_and_dashboard_types_include_resilience_model():
-    controller = read("core/app/Modules/Proxy/Http/Controllers/OriginController.php")
-    service = read("core/app/Modules/Proxy/Services/OriginHealthService.php")
+    controller = read("core/app/Http/Controllers/Api/DomainController.php")
+    request = read("core/app/Http/Requests/StoreOriginRequest.php")
+    service = read("core/app/Services/ControlPlane/OriginLifecycleService.php")
     collector = read("core/app/Modules/Collector/Services/CollectorService.php")
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
-    public_index = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     types = read("dash/src/types.ts")
 
-    assert "must_be_primary_backup_or_shield" in controller
+    assert "Rule::in(['primary', 'backup', 'shield'])" in request
     for token in (
         "retry_attempts",
         "retry_budget_per_minute",
@@ -53,11 +54,11 @@ def test_phase7_api_snapshot_and_dashboard_types_include_resilience_model():
         "drain",
         "shield_enabled",
     ):
-        assert token in controller
+        assert token in request
         assert token in service
         assert token in config
 
-    assert "load_balancing_algorithm" in controller
+    assert "load_balancing_algorithm" in request
     assert "load_balancing_algorithm" in service
     assert "load_balancing_algorithm" in config
     assert "recordOriginObservation" in collector
@@ -65,8 +66,8 @@ def test_phase7_api_snapshot_and_dashboard_types_include_resilience_model():
     assert "refreshOriginStatusFromEdge" in collector
     assert "origin_jitter" in collector
     assert "jitterMs >= 1000" in collector
-    assert "core_active_checks' => false" in service
-    assert "/api/v1/domains/{domainId}/origins/health" in public_index
+    assert "'core_active_checks' => false" in service
+    assert "Route::get('/domains/{domainId}/origins/health'" in routes
 
     assert "'role' => (string) ($origin['role'] ?? 'primary')" in config
     assert "empty($origin['enabled']) || !empty($origin['drain'])" in config

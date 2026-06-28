@@ -182,6 +182,121 @@ class FreshInstallApiTest extends TestCase
         $this->assertDatabaseHas('audit_log', ['action' => 'origin.delete', 'domain_id' => $domain['id']]);
     }
 
+    public function test_origin_diagnostics_and_edge_health_report_are_laravel_native(): void
+    {
+        $token = $this->adminToken();
+        $now = UnixTime::now();
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'origin-health.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $origin = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/origins", [
+                'host' => '127.0.0.1',
+                'scheme' => 'http',
+                'health_check_enabled' => true,
+                'health_check_path' => '/health',
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        DB::table('edge_nodes')->insert([
+            'id' => (string) Str::uuid(),
+            'edge_id' => 'edge-origin-report-1',
+            'hostname' => 'edge-origin-report-1.local',
+            'public_ip' => '203.0.113.10',
+            'public_ipv4' => '203.0.113.10',
+            'public_ipv6' => null,
+            'region' => 'iad',
+            'country' => 'US',
+            'continent' => 'NA',
+            'latitude' => null,
+            'longitude' => null,
+            'version' => 'test',
+            'status' => 'online',
+            'is_enabled' => true,
+            'last_heartbeat' => $now,
+            'last_heartbeat_at' => $now,
+            'health_status' => 'healthy',
+            'applied_config_version' => null,
+            'last_config_pull_at' => null,
+            'config_apply_error' => null,
+            'weight' => 100,
+            'priority' => 100,
+            'geo_enabled' => true,
+            'anycast_enabled' => false,
+            'proxy_enabled' => true,
+            'dns_enabled' => true,
+            'cache_enabled' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('origin_health_observations')->insert([
+            'id' => (string) Str::uuid(),
+            'domain_id' => $domain['id'],
+            'origin_id' => $origin['id'],
+            'edge_node_id' => 'edge-origin-report-1',
+            'status' => 'slow',
+            'reason' => 'origin_jitter',
+            'upstream_status' => '200',
+            'latency_ms' => 3250,
+            'jitter_ms' => 2250,
+            'sample_count' => 2,
+            'first_observed_at' => $now - 10,
+            'last_observed_at' => $now,
+            'last_success_at' => $now,
+            'last_failure_at' => null,
+        ]);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domain['id']}/origins/health")
+            ->assertOk()
+            ->assertJsonPath('source', 'edge_observations')
+            ->assertJsonPath('core_active_checks', false)
+            ->assertJsonPath('items.0.origin_id', $origin['id'])
+            ->assertJsonPath('items.0.edge_count', 1)
+            ->assertJsonPath('items.0.slow_edges', 1)
+            ->assertJsonPath('items.0.max_jitter_ms', 2250)
+            ->assertJsonPath('items.0.edges.0.edge_label', 'edge-origin-report-1.local');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/origins/{$origin['id']}/check")
+            ->assertOk()
+            ->assertJsonPath('data.origin_id', $origin['id'])
+            ->assertJsonPath('data.authoritative', false)
+            ->assertJsonPath('data.source', 'core_diagnostic_only');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/origins/{$origin['id']}/test")
+            ->assertOk()
+            ->assertJsonPath('data.origin_id', $origin['id'])
+            ->assertJsonMissingPath('data.authoritative');
+
+        $this->assertDatabaseHas('domain_origins', [
+            'id' => $origin['id'],
+            'health_status' => 'unknown',
+            'last_check_at' => null,
+        ]);
+    }
+
+    public function test_origin_validation_rejects_invalid_health_check_path(): void
+    {
+        $token = $this->adminToken();
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'origin-validation.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/origins", [
+                'host' => 'origin.example',
+                'health_check_path' => 'health',
+            ])
+            ->assertStatus(422);
+    }
+
     public function test_admin_auth_is_required_for_domain_routes(): void
     {
         $this->getJson('/api/v1/domains')

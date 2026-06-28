@@ -206,6 +206,33 @@ final class DomainController extends Controller
             : response()->json(['data' => $origin]);
     }
 
+    public function checkOrigin(string $domainId, string $originId, OriginLifecycleService $origins): JsonResponse
+    {
+        $result = $origins->diagnose($domainId, $originId);
+
+        return $result === null
+            ? response()->json(['error' => 'origin_not_found'], 404)
+            : response()->json(['data' => $result + ['authoritative' => false, 'source' => 'core_diagnostic_only']]);
+    }
+
+    public function testOrigin(string $domainId, string $originId, OriginLifecycleService $origins): JsonResponse
+    {
+        $result = $origins->diagnose($domainId, $originId);
+
+        return $result === null
+            ? response()->json(['error' => 'origin_not_found'], 404)
+            : response()->json(['data' => $result]);
+    }
+
+    public function originHealth(string $domainId, OriginLifecycleService $origins): JsonResponse
+    {
+        $report = $origins->healthReport($domainId);
+
+        return $report === null
+            ? response()->json(['error' => 'domain_not_found'], 404)
+            : response()->json($report);
+    }
+
     public function destroyOrigin(Request $request, string $domainId, string $originId, OriginLifecycleService $origins): JsonResponse
     {
         return $origins->delete($domainId, $originId, $this->adminUser($request))

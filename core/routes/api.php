@@ -33,6 +33,9 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/domains/{domainId}/dns/records', [DomainController::class, 'storeDnsRecord']);
     Route::get('/domains/{domainId}/origins', [DomainController::class, 'origins']);
     Route::post('/domains/{domainId}/origins', [DomainController::class, 'storeOrigin']);
+    Route::get('/domains/{domainId}/origins/health', [DomainController::class, 'originHealth']);
+    Route::post('/domains/{domainId}/origins/{originId}/check', [DomainController::class, 'checkOrigin']);
+    Route::post('/domains/{domainId}/origins/{originId}/test', [DomainController::class, 'testOrigin']);
     Route::patch('/domains/{domainId}/origins/{originId}', [DomainController::class, 'updateOrigin']);
     Route::delete('/domains/{domainId}/origins/{originId}', [DomainController::class, 'destroyOrigin']);
 

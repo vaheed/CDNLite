@@ -77,6 +77,7 @@ export default defineConfig({
           { text: 'API Reference', link: '/api/api' },
           { text: 'OpenAPI YAML', link: `${base}api/openapi.yaml` },
           { text: 'Local Development', link: '/setup' },
+          { text: 'Migration Roadmap', link: '/full-project-migration-roadmap' },
           { text: 'Extending The Edge', link: '/extensions' },
           { text: 'Dashboard Reporting', link: '/dashboard-reporting' }
         ]

@@ -148,7 +148,7 @@ export interface HeaderRule extends ManagedRuleMetadata { id: Id; enabled: boole
 export interface IpRule extends ManagedRuleMetadata { id: Id; enabled: boolean; rule_type: 'allow' | 'block' | string; cidr: string; description?: string | null; }
 export interface DomainOrigin {
   id: Id; domain_id: Id; scheme: 'http' | 'https'; host: string; port: 80 | 443 | number;
-  dns_record_id?: Id | null; source?: 'manual' | 'dns_record' | 'imported' | string; role?: 'primary' | 'backup' | string;
+  dns_record_id?: Id | null; source?: 'manual' | 'dns_record' | 'imported' | string; role?: 'primary' | 'backup' | 'shield' | string;
   weight?: number; load_balancing_algorithm?: 'weighted_hash' | 'consistent_hash' | string;
   host_header?: string | null; sni?: string | null; tls_verify?: 'verify' | 'ignore';
   preserve_host?: boolean; health_check_enabled?: boolean;

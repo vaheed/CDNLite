@@ -22,7 +22,7 @@ final class StoreOriginRequest extends FormRequest
             'weight' => ['nullable', 'integer', 'between:1,10000'],
             'enabled' => ['nullable', 'boolean'],
             'health_check_enabled' => ['nullable', 'boolean'],
-            'health_check_path' => ['nullable', 'string', 'max:255'],
+            'health_check_path' => ['nullable', 'string', 'max:255', 'starts_with:/'],
             'host_header' => ['nullable', 'string', 'max:255'],
             'sni' => ['nullable', 'string', 'max:255'],
             'tls_verify' => ['nullable', Rule::in(['verify', 'ignore'])],

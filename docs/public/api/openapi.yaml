@@ -734,7 +734,7 @@ paths:
   /api/v1/domains/{domainId}/origins/{originId}/check:
     post:
       tags: [Origins]
-      summary: Run origin health check
+      summary: Run diagnostic-only origin check
       parameters:
         - $ref: "#/components/parameters/DomainId"
         - name: originId
@@ -756,6 +756,15 @@ paths:
           required: true
           schema:
             type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/domains/{domainId}/origins/health:
+    get:
+      tags: [Origins]
+      summary: Report edge-observed origin health
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
@@ -2242,7 +2251,7 @@ components:
           type: integer
         role:
           type: string
-          enum: [origin]
+          enum: [primary, backup, shield]
         host_header:
           type: string
           nullable: true
@@ -2272,11 +2281,10 @@ components:
           enum: [http, https]
         port:
           type: integer
-          minimum: 1
-          maximum: 65535
+          enum: [80, 443]
         role:
           type: string
-          enum: [origin]
+          enum: [primary, backup, shield]
         host_header:
           type: string
           nullable: true
