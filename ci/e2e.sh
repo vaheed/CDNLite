@@ -25,7 +25,6 @@ TEST_DOMAIN="e2e-${RUN_KEY}.test.local"
 TEST_DOMAIN_2="e2e-${RUN_KEY}-b.test.local"
 DOMAIN_ID=""
 DNS_IDS=()
-NAMESERVER_SCHEDULER_PAUSED=0
 
 init_report
 
@@ -62,9 +61,6 @@ cleanup() {
       curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}/dns/records/${rid}" >/dev/null || true
     done
     curl -sS -X DELETE "${CORE_URL}/api/v1/domains/${DOMAIN_ID}" >/dev/null || true
-  fi
-  if [[ "$NAMESERVER_SCHEDULER_PAUSED" == "1" ]]; then
-    docker compose start nameserver-scheduler >/dev/null 2>&1 || true
   fi
 }
 
@@ -494,10 +490,10 @@ record_step PASS "edge-config-version" "edge heartbeat persisted the applied sna
 retry 40 2 curl -fsS "$EDGE_URL/ready" >/dev/null
 record_step PASS "edge-token-register" "edge token provisioned and healthy heartbeat persisted"
 
-if compose_has_service nameserver-scheduler; then
-  docker compose stop nameserver-scheduler >/dev/null
-  NAMESERVER_SCHEDULER_PAUSED=1
-fi
+docker compose exec -T core php artisan cdn:scheduler:run --force >/tmp/e2e-schedule-run.json
+assert_contains "$(cat /tmp/e2e-schedule-run.json)" '"dns_reconcile"' "cdn:scheduler:run should include DNS reconciliation"
+assert_contains "$(cat /tmp/e2e-schedule-run.json)" '"nameserver_verify_all"' "cdn:scheduler:run should include nameserver verification"
+record_step PASS "core-scheduler-run" "supervised scheduler command registered DNS and nameserver tasks"
 
 if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
   no_auth_code="$(curl -sS -o /tmp/e2e-auth.txt -w '%{http_code}' -X POST "${CORE_URL}/api/v1/domains" \

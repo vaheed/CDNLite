@@ -30,6 +30,10 @@ trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 retry 40 2 curl -fsS "$CORE_URL/health" >/dev/null
 record_step PASS "core-health" "core health endpoint reachable"
+retry 40 2 curl -fsS "$CORE_URL/ready" >/dev/null
+record_step PASS "core-ready" "core readiness endpoint reachable through nginx/php-fpm"
+docker compose exec -T core sh -c "ps | grep -q '[p]hp-fpm' && ps | grep -q '[n]ginx' && ps | grep -q '[s]upervisord'"
+record_step PASS "core-runtime-processes" "core runs supervisord, nginx, and php-fpm"
 retry 40 2 curl -fsS "$EDGE_URL/health" >/dev/null
 record_step PASS "edge-health" "edge health endpoint reachable"
 
@@ -93,6 +97,10 @@ fi
 # Initialize core DB schema explicitly before table assertions.
 retry 40 2 docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; App\\Support\\Database::pdo(); echo 'ok';" >/dev/null
 record_step PASS "core-db-init" "core schema initialization completed"
+docker compose exec -T core php artisan cdn:scheduler:run --force >/tmp/smoke-schedule-run.json
+assert_contains "$(cat /tmp/smoke-schedule-run.json)" '"dns_reconcile"' "cdn:scheduler:run should include DNS reconciliation"
+assert_contains "$(cat /tmp/smoke-schedule-run.json)" '"nameserver_verify_all"' "cdn:scheduler:run should include nameserver verification"
+record_step PASS "core-scheduler-run" "scheduler registered DNS and nameserver jobs"
 
 if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
   bootstrap_admin_code="$(curl -sS -o /tmp/smoke-bootstrap-admin.json -w '%{http_code}' \

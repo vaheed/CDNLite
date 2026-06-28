@@ -294,9 +294,24 @@ class CollectorService
 
         $deleted = 0;
         if (!$dryRun && $matching > 0) {
-            $deleteStmt = $pdo->prepare('DELETE FROM usage_rollups WHERE ts < :cutoff');
-            $deleteStmt->execute([':cutoff' => $cutoff]);
-            $deleted = $deleteStmt->rowCount();
+            $batchSize = $this->retentionBatchSize();
+            // Keep the legacy single-table prune bounded so manual runs do not
+            // hold one oversized transaction on high-volume usage_rollups.
+            do {
+                $deleteStmt = $pdo->prepare(
+                    "WITH doomed AS (
+                        SELECT ctid FROM usage_rollups
+                        WHERE ts < :cutoff
+                        ORDER BY ts ASC
+                        LIMIT {$batchSize}
+                    )
+                    DELETE FROM usage_rollups
+                    WHERE ctid IN (SELECT ctid FROM doomed)"
+                );
+                $deleteStmt->execute([':cutoff' => $cutoff]);
+                $batchDeleted = $deleteStmt->rowCount();
+                $deleted += $batchDeleted;
+            } while ($batchDeleted === $batchSize);
         }
 
         return [

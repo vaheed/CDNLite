@@ -385,6 +385,9 @@ CREATE TABLE IF NOT EXISTS edge_request_nonces (
   UNIQUE(edge_id, nonce)
 );
 
+CREATE INDEX IF NOT EXISTS idx_edge_request_nonces_expires_at
+  ON edge_request_nonces(expires_at);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id TEXT PRIMARY KEY,
   actor_type TEXT NOT NULL,
@@ -405,6 +408,9 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_domain_created
   ON audit_log(domain_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_log_domain_created_id
+  ON audit_log(domain_id, created_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_event_created
   ON audit_log(event, created_at DESC);
@@ -542,8 +548,15 @@ CREATE TABLE IF NOT EXISTS usage_rollups (
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_ts
   ON usage_rollups(domain_id, ts DESC);
 
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_ts_id
+  ON usage_rollups(domain_id, ts DESC, id DESC);
+
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_request_id
   ON usage_rollups(request_id)
+  WHERE request_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_request_id
+  ON usage_rollups(domain_id, request_id)
   WHERE request_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_ts
@@ -557,6 +570,12 @@ CREATE INDEX IF NOT EXISTS idx_usage_rollups_cache_ts
 
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_status_ts
   ON usage_rollups(status, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_status_ts
+  ON usage_rollups(domain_id, status, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rollups_domain_cache_status_ts
+  ON usage_rollups(domain_id, cache_status, ts DESC);
 
 CREATE INDEX IF NOT EXISTS idx_usage_rollups_country_ts
   ON usage_rollups(client_country, ts DESC)
@@ -577,6 +596,9 @@ CREATE TABLE IF NOT EXISTS usage_ingest_keys (
   item_count INTEGER NOT NULL,
   created_at BIGINT NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_usage_ingest_keys_created_at
+  ON usage_ingest_keys(created_at);
 
 CREATE TABLE IF NOT EXISTS usage_aggregates (
   id TEXT PRIMARY KEY,

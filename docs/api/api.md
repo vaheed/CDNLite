@@ -613,7 +613,7 @@ SSL tips:
 - When an active, verified domain receives or updates a proxied DNS record, CDNLite also ensures the default managed apex and wildcard SSL job exists.
 - The dashboard uses `/ssl/request` and polls `/ssl/jobs/{jobId}` so operators can see queued, DNS-checking, issuing, installing, issued, or failed states without refreshing.
 - The `cdn:ssl:request` CLI follows the queued `/ssl/request` behavior and returns the scheduler job metadata.
-- Queued jobs include `scheduler_stale`, `stale_seconds`, and `scheduler_hint` when `ssl-scheduler` has not claimed them after the configured scheduler interval.
+- Queued jobs include `scheduler_stale`, `stale_seconds`, and `scheduler_hint` when the supervised core scheduler has not claimed them after the configured scheduler interval.
 - ACME DNS-01 TXT records are short-lived PowerDNS records, not durable dashboard DNS rows. The issuer verifies the TXT through the PowerDNS API, then asks ACME to validate. Set `CDNLITE_ACME_PUBLIC_DNS_PRECHECK=true` to require a recursive public DNS precheck before ACME validation.
 - DNS-01 issuance requests require an active, nameserver-verified domain and PowerDNS challenge publishing; automatic initial bootstrap is queued asynchronously after verification and does not require any customer DNS record to be proxied.
 - Keep DNS-only `_acme-challenge` records available during issuance.

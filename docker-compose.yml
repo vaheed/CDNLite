@@ -16,12 +16,25 @@ services:
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - redisdata:/data
+
   core:
     build:
       context: ./core
       dockerfile: Dockerfile
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DB_HOST: ${DB_HOST:-postgres}
@@ -30,6 +43,16 @@ services:
       DB_USERNAME: ${DB_USERNAME:-cdnlite}
       DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
       APP_ENV: ${APP_ENV:-local}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION:-redis}
+      CACHE_STORE: ${CACHE_STORE:-redis}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      HORIZON_PREFIX: ${HORIZON_PREFIX:-cdnlite}
+      PHP_FPM_PM_MAX_CHILDREN: ${PHP_FPM_PM_MAX_CHILDREN:-24}
+      PHP_FPM_PM_START_SERVERS: ${PHP_FPM_PM_START_SERVERS:-4}
+      PHP_FPM_PM_MIN_SPARE_SERVERS: ${PHP_FPM_PM_MIN_SPARE_SERVERS:-2}
+      PHP_FPM_PM_MAX_SPARE_SERVERS: ${PHP_FPM_PM_MAX_SPARE_SERVERS:-8}
+      PHP_FPM_PM_MAX_REQUESTS: ${PHP_FPM_PM_MAX_REQUESTS:-500}
       APP_LOG_ENABLED: ${APP_LOG_ENABLED:-1}
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-info}
       APP_DEBUG: ${APP_DEBUG:-0}
@@ -71,6 +94,19 @@ services:
       CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS: ${CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS:-2}
       CDNLITE_ACME_POLL_ATTEMPTS: ${CDNLITE_ACME_POLL_ATTEMPTS:-10}
       CDNLITE_SSL_JOB_STALE_RETRY_SECONDS: ${CDNLITE_SSL_JOB_STALE_RETRY_SECONDS:-900}
+      CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS: ${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}
+      CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS: ${CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS:-30}
+      CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS: ${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}
+      CDNLITE_SYNC_INTERVAL_SECONDS: ${CDNLITE_SYNC_INTERVAL_SECONDS:-30}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
+      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED:-false}
+      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}
+      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE:-5000}
+      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS:-30}
+      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS:-90}
+      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS:-30}
+      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS:-180}
+      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS:-7}
       CDNLITE_ADMIN_SESSION_TTL_SECONDS: ${CDNLITE_ADMIN_SESSION_TTL_SECONDS:-28800}
       CDNLITE_CORS_ALLOWED_ORIGINS: ${CDNLITE_CORS_ALLOWED_ORIGINS:-http://localhost:8082,http://127.0.0.1:8082}
       CDNLITE_BOOTSTRAP_ADMIN_USER: ${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}
@@ -78,6 +114,11 @@ services:
       CDNLITE_BOOTSTRAP_ADMIN_PASSWORD: ${CDNLITE_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME:-Local Admin}
       CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS: ${CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS:-900}
+      CDNLITE_SCHEDULER_COMMAND: ${CDNLITE_SCHEDULER_COMMAND:-php /app/artisan cdn:scheduler:run}
+      CDNLITE_SCHEDULER_TICK_SECONDS: ${CDNLITE_SCHEDULER_TICK_SECONDS:-30}
+      CDNLITE_SCHEDULER_STATE_PATH: ${CDNLITE_SCHEDULER_STATE_PATH:-/app/storage/scheduler-state.json}
+      TELEMETRY_MAX_BATCH_ITEMS: ${TELEMETRY_MAX_BATCH_ITEMS:-1000}
+      TELEMETRY_MAX_PAYLOAD_BYTES: ${TELEMETRY_MAX_PAYLOAD_BYTES:-1048576}
       CDNLITE_POWERDNS_VERIFY_AFTER_WRITE: ${CDNLITE_POWERDNS_VERIFY_AFTER_WRITE:-true}
       CDNLITE_POWERDNS_RETRIES: ${CDNLITE_POWERDNS_RETRIES:-3}
       CDNLITE_POWERDNS_RETRY_SLEEP_MS: ${CDNLITE_POWERDNS_RETRY_SLEEP_MS:-250}
@@ -90,124 +131,6 @@ services:
       interval: 2s
       timeout: 2s
       retries: 60
-
-  ssl-scheduler:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CDNLITE_SSL_SECRET_KEY: ${CDNLITE_SSL_SECRET_KEY:-dev-ssl-secret-change-me}
-      CDNLITE_ACME_DIRECTORY_URL: ${CDNLITE_ACME_DIRECTORY_URL:-https://acme-staging-v02.api.letsencrypt.org/directory}
-      CDNLITE_ACME_CONTACT_EMAIL: ${CDNLITE_ACME_CONTACT_EMAIL:-admin@example.com}
-      CDNLITE_ACME_DNS_PROPAGATION_SECONDS: ${CDNLITE_ACME_DNS_PROPAGATION_SECONDS:-0}
-      CDNLITE_ACME_PUBLIC_DNS_PRECHECK: ${CDNLITE_ACME_PUBLIC_DNS_PRECHECK:-false}
-      CDNLITE_ACME_DNS_VERIFY_ATTEMPTS: ${CDNLITE_ACME_DNS_VERIFY_ATTEMPTS:-30}
-      CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS: ${CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS:-2}
-      CDNLITE_ACME_POLL_ATTEMPTS: ${CDNLITE_ACME_POLL_ATTEMPTS:-10}
-      CDNLITE_SSL_JOB_STALE_RETRY_SECONDS: ${CDNLITE_SSL_JOB_STALE_RETRY_SECONDS:-900}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
-      CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS: ${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep \"$${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}\"; done"]
-    restart: unless-stopped
-
-  origin-health-scheduler:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
-    restart: unless-stopped
-
-  nameserver-scheduler:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS: ${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'nameserver scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:domains:verify-all || true; sleep \"$${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}\"; done"]
-    restart: unless-stopped
-
-  retention-scheduler:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
-      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED:-false}
-      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}
-      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE:-5000}
-      CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST: ${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST:-2}
-      CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE: ${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE:-5000}
-      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS:-30}
-      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS:-90}
-      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS:-30}
-      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS:-180}
-      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS:-7}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; php artisan cdn:config-snapshots:prune --keep=\"$${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST:-2}\" --batch=\"$${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE:-5000}\" || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
-    restart: unless-stopped
-
-  dns-reconciler:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST:-postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CDNLITE_SYNC_INTERVAL_SECONDS: ${CDNLITE_SYNC_INTERVAL_SECONDS:-30}
-      CDNLITE_CDN_ZONE: ${CDNLITE_CDN_ZONE:-cdn.example.net}
-      CDNLITE_CDN_PROXY_HOST: ${CDNLITE_CDN_PROXY_HOST:-proxy.cdn.example.net}
-      CDNLITE_EDGE_TTL: ${CDNLITE_EDGE_TTL:-60}
-      CDNLITE_EDGE_HEALTH_MODE: ${CDNLITE_EDGE_HEALTH_MODE:-ifportup}
-      CDNLITE_EDGE_HEALTH_PORT: ${CDNLITE_EDGE_HEALTH_PORT:-80}
-      CDNLITE_EDGE_HEALTH_URL: ${CDNLITE_EDGE_HEALTH_URL:-/cdn-health}
-      CDNLITE_EDGE_HEALTH_TIMEOUT: ${CDNLITE_EDGE_HEALTH_TIMEOUT:-1}
-      CDNLITE_EDGE_HEALTH_INTERVAL: ${CDNLITE_EDGE_HEALTH_INTERVAL:-10}
-      CDNLITE_EDGE_HEALTH_MIN_FAILURES: ${CDNLITE_EDGE_HEALTH_MIN_FAILURES:-2}
-      CDNLITE_EDGE_SELECTOR: ${CDNLITE_EDGE_SELECTOR:-pickclosest}
-      CDNLITE_EDGE_BACKUP_SELECTOR: ${CDNLITE_EDGE_BACKUP_SELECTOR:-empty}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE:-0}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'dns reconciler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:dns:reconcile || true; sleep \"$${CDNLITE_SYNC_INTERVAL_SECONDS:-30}\"; done"]
-    restart: unless-stopped
 
   edge:
     build:
@@ -584,6 +507,7 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
   pdns-pgdata:
   pdns-postgres-tls:
   pdns-mmdb:

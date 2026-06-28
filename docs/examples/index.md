@@ -128,7 +128,7 @@ docker compose exec core php artisan cdn:usage:prune --all --dry-run
 docker compose exec core php artisan cdn:usage:prune --all
 ```
 
-Enable the `retention-scheduler` only after the dry-run counts match your
+Enable scheduled retention pruning only after the dry-run counts match your
 policy:
 
 ```bash
@@ -357,7 +357,9 @@ curl -s "$API/api/v1/domains/$DOMAIN_ID/ssl/acme-status" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-Use staging ACME first. The request endpoint queues a scheduler job; keep `ssl-scheduler` running and poll the job until it reaches `issued` or `failed`.
+Use staging ACME first. The request endpoint queues scheduler-owned work; keep
+the core `cdnlite-scheduler` Supervisor program running and poll the job until
+it reaches `issued` or `failed`.
 
 ## Signed Edge Config Pull Sketch
 

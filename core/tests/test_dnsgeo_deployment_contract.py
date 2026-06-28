@@ -24,7 +24,7 @@ def test_compose_keeps_geoip_and_replication_without_seed_zones():
     ):
         assert obsolete not in compose
 
-    dns_reconciler = compose.split("  dns-reconciler:", 1)[1].split("\n  edge:", 1)[0]
+    core = compose.split("  core:", 1)[1].split("\n  edge:", 1)[0]
     for setting in (
         "CDNLITE_CDN_ZONE",
         "CDNLITE_CDN_PROXY_HOST",
@@ -38,7 +38,7 @@ def test_compose_keeps_geoip_and_replication_without_seed_zones():
         "CDNLITE_EDGE_SELECTOR",
         "CDNLITE_EDGE_BACKUP_SELECTOR",
     ):
-        assert setting in dns_reconciler
+        assert setting in core
 
     pdns_auth = compose.split("  pdns-auth:", 1)[1].split("\n  poweradmin:", 1)[0]
     assert "restart: unless-stopped" in pdns_auth

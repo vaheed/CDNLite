@@ -8,7 +8,7 @@ description: DNS reconciliation, PowerDNS publishing, DNSGeo routing, Lua apex p
 ## Desired-State Reconciliation
 
 Core generates all durable customer and edge rrsets into `desired_dns_rrsets`. Event-driven
-changes and the `dns-reconciler` scheduler both run `php artisan cdn:dns:reconcile`.
+changes and the supervised core scheduler both run `php artisan cdn:dns:reconcile`.
 A PostgreSQL advisory lock prevents overlapping runs. Each run compares desired state with
 the live PowerDNS zone, sends one batch PATCH per changed zone, verifies the write, and
 deletes rrsets that were previously owned by CDNLite but are no longer desired.
@@ -30,7 +30,10 @@ records as readonly managed rows. They come from current platform nameserver
 settings, not from editable customer DNS records.
 
 Use `CDNLITE_SYNC_INTERVAL_SECONDS` to set the scheduled convergence interval (default:
-`30`). `php artisan cdn:powerdns:dry-run` previews desired rrsets, while
+`30`). The scheduled command is registered in
+`core/app/Console/Commands/ScheduleRunCommand.php` and is launched by the
+`cdnlite-scheduler` Supervisor program in the core container. `php artisan
+cdn:powerdns:dry-run` previews desired rrsets, while
 `php artisan cdn:powerdns:force-sync` forces a full replacement pass.
 
 Every managed PowerDNS zone also gets one apex `SOA` record owned by platform
@@ -247,9 +250,9 @@ Follow [DNS Stress Testing](stress-testing.md) for prerequisites, reduced and
 full qualification commands, configuration, pass criteria, and troubleshooting.
 Operators can create and edit records before registrar delegation is complete.
 Those records remain stored but are not published until the domain's expected
-nameservers are verified. The `nameserver-scheduler` rechecks every domain daily
-by default and automatically withdraws records and edge configuration when
-delegation no longer matches. Set
+nameservers are verified. The supervised core scheduler rechecks every domain
+daily by default and automatically withdraws records and edge configuration
+when delegation no longer matches. Set
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` to change that interval.
 
 Adding another proxied A/AAAA target at a hostname that already has a proxied

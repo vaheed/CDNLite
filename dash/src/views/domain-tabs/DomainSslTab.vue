@@ -269,7 +269,7 @@ function isActiveJob(job: SslJob) { return ['queued', 'checking_dns', 'creating_
 function newestActiveJob(jobs: SslJob[]) { return jobs.find(isActiveJob) ?? null; }
 function formatDate(value: number | string) { return new Date(Number(value) * 1000).toLocaleString(); }
 function hostnamesLabel(job: SslJob) { return job.hostnames.length ? job.hostnames.join(', ') : 'the domain default hostnames'; }
-function schedulerHint(job: SslJob) { return job.scheduler_hint || 'ssl-scheduler has not claimed this queued job. Check the ssl-scheduler service and run php artisan cdn:ssl:renew-due.'; }
+function schedulerHint(job: SslJob) { return job.scheduler_hint || 'The core scheduler has not claimed this queued job. Check core logs and run php artisan cdn:scheduler:run --force.'; }
 function rememberJobStatus(job: SslJob) { lastJobStatuses.set(job.id, job.status); }
 function announceJobChanges(jobs: SslJob[]) {
   for (const job of jobs) {

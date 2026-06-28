@@ -16,11 +16,27 @@ services:
     networks:
       - internal
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - redisdata:/data
+    networks:
+      - internal
+
   core:
     image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DB_HOST: ${DB_HOST}
@@ -29,6 +45,16 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       APP_ENV: ${APP_ENV}
+      QUEUE_CONNECTION: ${QUEUE_CONNECTION}
+      CACHE_STORE: ${CACHE_STORE}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      HORIZON_PREFIX: ${HORIZON_PREFIX}
+      PHP_FPM_PM_MAX_CHILDREN: ${PHP_FPM_PM_MAX_CHILDREN}
+      PHP_FPM_PM_START_SERVERS: ${PHP_FPM_PM_START_SERVERS}
+      PHP_FPM_PM_MIN_SPARE_SERVERS: ${PHP_FPM_PM_MIN_SPARE_SERVERS}
+      PHP_FPM_PM_MAX_SPARE_SERVERS: ${PHP_FPM_PM_MAX_SPARE_SERVERS}
+      PHP_FPM_PM_MAX_REQUESTS: ${PHP_FPM_PM_MAX_REQUESTS}
       APP_LOG_ENABLED: ${APP_LOG_ENABLED}
       APP_LOG_LEVEL: ${APP_LOG_LEVEL}
       APP_DEBUG: ${APP_DEBUG}
@@ -74,6 +100,21 @@ services:
       CDNLITE_BOOTSTRAP_ADMIN_PASSWORD: ${CDNLITE_BOOTSTRAP_ADMIN_PASSWORD}
       CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME}
       CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS: ${CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS}
+      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
+      CDNLITE_SCHEDULER_TICK_SECONDS: ${CDNLITE_SCHEDULER_TICK_SECONDS}
+      CDNLITE_SCHEDULER_STATE_PATH: ${CDNLITE_SCHEDULER_STATE_PATH}
+      CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS: ${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS}
+      CDNLITE_SYNC_INTERVAL_SECONDS: ${CDNLITE_SYNC_INTERVAL_SECONDS}
+      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED}
+      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS}
+      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE}
+      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS}
+      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS}
+      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS}
+      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS}
+      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS}
+      TELEMETRY_MAX_BATCH_ITEMS: ${TELEMETRY_MAX_BATCH_ITEMS}
+      TELEMETRY_MAX_PAYLOAD_BYTES: ${TELEMETRY_MAX_PAYLOAD_BYTES}
     ports:
       - "${CORE_HOST_PORT}:8080"
     healthcheck:
@@ -84,93 +125,6 @@ services:
     networks:
       - internal
       - external
-
-  ssl-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      CDNLITE_SSL_SECRET_KEY: ${CDNLITE_SSL_SECRET_KEY}
-      CDNLITE_ACME_DIRECTORY_URL: ${CDNLITE_ACME_DIRECTORY_URL}
-      CDNLITE_ACME_CONTACT_EMAIL: ${CDNLITE_ACME_CONTACT_EMAIL}
-      CDNLITE_ACME_DNS_PROPAGATION_SECONDS: ${CDNLITE_ACME_DNS_PROPAGATION_SECONDS}
-      CDNLITE_ACME_DNS_VERIFY_ATTEMPTS: ${CDNLITE_ACME_DNS_VERIFY_ATTEMPTS}
-      CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS: ${CDNLITE_ACME_DNS_VERIFY_INTERVAL_SECONDS}
-      CDNLITE_ACME_POLL_ATTEMPTS: ${CDNLITE_ACME_POLL_ATTEMPTS}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
-      CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS: ${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep \"$${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}\"; done"]
-    networks:
-      - internal
-
-  origin-health-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
-    networks:
-      - internal
-
-  nameserver-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS: ${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'nameserver scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:domains:verify-all || true; sleep \"$${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-86400}\"; done"]
-    networks:
-      - internal
-
-  retention-scheduler:
-    image: ghcr.io/${REGISTRY_OWNER}/cdnlite-core:${IMAGE_TAG}
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_DATABASE: ${DB_DATABASE}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      CDNLITE_SCHEDULER_IDLE: ${CDNLITE_SCHEDULER_IDLE}
-      CDNLITE_RETENTION_PRUNE_ENABLED: ${CDNLITE_RETENTION_PRUNE_ENABLED}
-      CDNLITE_RETENTION_INTERVAL_SECONDS: ${CDNLITE_RETENTION_INTERVAL_SECONDS}
-      CDNLITE_RETENTION_BATCH_SIZE: ${CDNLITE_RETENTION_BATCH_SIZE}
-      CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST: ${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST}
-      CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE: ${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE}
-      CDNLITE_ANALYTICS_RETENTION_DAYS: ${CDNLITE_ANALYTICS_RETENTION_DAYS}
-      CDNLITE_SECURITY_EVENT_RETENTION_DAYS: ${CDNLITE_SECURITY_EVENT_RETENTION_DAYS}
-      CDNLITE_DNS_EVENT_RETENTION_DAYS: ${CDNLITE_DNS_EVENT_RETENTION_DAYS}
-      CDNLITE_SSL_JOB_RETENTION_DAYS: ${CDNLITE_SSL_JOB_RETENTION_DAYS}
-      CDNLITE_INGEST_KEY_RETENTION_DAYS: ${CDNLITE_INGEST_KEY_RETENTION_DAYS}
-    command: ["sh", "-c", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; php artisan cdn:config-snapshots:prune --keep=\"$${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST:-2}\" --batch=\"$${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE:-5000}\" || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
-    networks:
-      - internal
 
   dashboard:
     image: ghcr.io/${REGISTRY_OWNER}/cdnlite-dashboard:${IMAGE_TAG}
@@ -197,3 +151,4 @@ networks:
 
 volumes:
   pgdata:
+  redisdata:

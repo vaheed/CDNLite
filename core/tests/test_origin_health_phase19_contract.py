@@ -43,11 +43,10 @@ def test_origin_health_service_and_readiness_contract():
     assert "origin_health" in readiness
     assert "health_check_enabled=true AND health_status='unhealthy'" in readiness
     assert "Check the origin or review the origin pool" in readiness
-    assert "origin-health-scheduler" in compose
-    assert "cdn:origins:health-check" in compose
+    assert "cdn:scheduler:run" in compose
+    assert "CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS" in compose
     assert "CDNLITE_SCHEDULER_IDLE" in compose
-    assert "origin health scheduler idle" in compose
-    assert "sleep 30" in compose
+    assert "CDNLITE_SCHEDULER_TICK_SECONDS" in compose
 
 
 def test_config_snapshot_and_edge_failover_contract():

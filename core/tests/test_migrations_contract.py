@@ -83,12 +83,14 @@ def test_retention_scheduler_is_opt_in_and_uses_bounded_prune_command():
     starter_compose = (ROOT / "deploy/starter/docker-compose.yml").read_text()
     core_compose = (ROOT / "deploy/core/docker-compose.yml").read_text()
     generator = (ROOT / "deploy/generate-deployment.sh").read_text()
+    scheduler = (ROOT / "core/app/Console/Commands/ScheduleRunCommand.php").read_text()
 
+    assert "cdn:scheduler:run" in root_compose
+    assert "retention_prune" in scheduler
+    assert "'cdn:usage:prune --all'" in scheduler
+    assert "cdn:config-snapshots:prune --keep=" in scheduler
     for source in (root_compose, starter_compose, core_compose, generator):
-        assert "retention-scheduler" in source
         assert "CDNLITE_RETENTION_PRUNE_ENABLED" in source
-        assert "cdn:usage:prune --all" in source
-        assert "cdn:config-snapshots:prune" in source
         assert "CDNLITE_RETENTION_INTERVAL_SECONDS" in source
         assert "CDNLITE_RETENTION_BATCH_SIZE" in source
 

@@ -195,7 +195,7 @@ Local quickstart can bootstrap `admin` / `admin` from `.env.example` when `CDNLI
 php core/artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'
 ```
 
-Core stores admin passwords with PHP `password_hash`. Login returns an opaque bearer session token whose SHA-256 hash is stored in `admin_sessions`; the dashboard keeps the raw session token in browser memory only. A browser refresh requires logging in again.
+Core stores admin passwords with PHP `password_hash`. Login returns an opaque bearer session token whose SHA-256 hash is stored in `admin_sessions`; the dashboard stores the raw session token in browser `sessionStorage`, so it survives a page refresh and is cleared when the browser session ends. Like other browser storage, it is readable by injected JavaScript if an XSS vulnerability is present.
 
 If Core is behind Nginx or another reverse proxy, the Core API proxy must forward
 the `Authorization` header. The dashboard proxy only serves static browser

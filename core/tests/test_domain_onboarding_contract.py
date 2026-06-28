@@ -40,7 +40,7 @@ def test_nameserver_lifecycle_is_automatic_and_scheduled():
     assert "@dns_get_record($domain, DNS_NS)" in verification
     assert "d.nameserver_status = 'verified'" in builder
     assert "cdn:domains:verify-all" in artisan
-    assert "nameserver-scheduler:" in compose
+    assert "cdn:scheduler:run" in compose
     assert "CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS" in compose
 
 

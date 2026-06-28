@@ -74,6 +74,7 @@ use App\Console\Commands\CdnPowerDnsDryRunCommand;
 use App\Console\Commands\CdnPowerDnsForceSyncCommand;
 use App\Console\Commands\CdnRecommendationsGenerateCommand;
 use App\Console\Commands\CdnConfigSnapshotsPruneCommand;
+use App\Console\Commands\ScheduleRunCommand;
 
 $runner = new CommandRunner();
 $runner->register('cdn:admin:create', new CdnAdminCreateCommand());
@@ -147,5 +148,6 @@ $runner->register('cdn:db:migrate', new CdnDbMigrateCommand());
 $runner->register('cdn:db:status', new CdnDbStatusCommand());
 $runner->register('cdn:db:fresh', new CdnDbFreshCommand());
 $runner->register('cdn:bootstrap:fresh', new CdnBootstrapFreshCommand());
+$runner->register('cdn:scheduler:run', new ScheduleRunCommand());
 
 exit($runner->run($argv));

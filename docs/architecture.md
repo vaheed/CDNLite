@@ -31,9 +31,10 @@ Durable DNS publishing has one path. `DnsDesiredStateBuilder` projects Core stat
 applies and verifies batched rrset changes. The persisted desired table is also the
 ownership ledger used to remove stale rrsets after records or domains are deleted.
 
-The Compose `dns-reconciler` service runs the same command used by mutation-triggered
-and operator-triggered syncs. ACME DNS-01 TXT records are deliberately excluded because
-they are short-lived challenge state rather than durable product DNS state.
+The supervised core scheduler runs the same command used by mutation-triggered
+and operator-triggered syncs: `php artisan cdn:dns:reconcile`. ACME DNS-01 TXT
+records are deliberately excluded because they are short-lived challenge state
+rather than durable product DNS state.
 
 Scale-critical DNS lookups use partial indexes for active records and ownership
 indexes for desired generations and zones. `ci/stress-dns.sh` validates those
@@ -169,9 +170,8 @@ The root `docker-compose.yml` is the supported local and CI stack:
 
 ```text
 postgres
+redis
 core
-ssl-scheduler
-origin-health-scheduler
 edge
 edge-agent
 dashboard
@@ -184,6 +184,29 @@ poweradmin -------------------^
 ```
 
 CI intentionally uses this root Compose file. Do not add CI-only override files; use environment variables for job-specific behavior.
+Core runs Nginx, PHP-FPM, and a supervised `php artisan cdn:scheduler:run` loop in
+one container. The public HTTP entrypoint is Nginx on port `8080`; it forwards
+all API requests to PHP-FPM on `127.0.0.1:9000`. Supervisor starts three
+programs from `core/docker/supervisor/supervisord.conf`: `php-fpm`, `nginx`,
+and `cdnlite-scheduler`.
+
+The scheduler loop is not a separate Compose service. It runs inside the core
+container and calls `php /app/artisan cdn:scheduler:run` every
+`CDNLITE_SCHEDULER_TICK_SECONDS` seconds. Scheduled command registration lives
+in `core/app/Console/Commands/ScheduleRunCommand.php`:
+
+- DNS reconciliation: `cdn:dns:reconcile`, interval `CDNLITE_SYNC_INTERVAL_SECONDS`.
+- Nameserver verification: `cdn:domains:verify-all`, interval `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS`.
+- SSL renew/claim work: `cdn:ssl:renew-due`, interval `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS`.
+- Origin health refresh: `cdn:origins:health-check`, interval `CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS`.
+- Retention pruning: `cdn:usage:prune --all` and `cdn:config-snapshots:prune`, gated by `CDNLITE_RETENTION_PRUNE_ENABLED`.
+
+`core/artisan` is CDNLite's custom CLI entrypoint; it is not a framework marker.
+Horizon is not part of CDNLite, so there is no `/horizon` web panel, no Horizon
+worker queue, and no Horizon queue names to monitor. Scheduled work is
+inspectable through core logs, command JSON output, readiness endpoints, and the
+underlying PostgreSQL job/status tables such as `ssl_jobs`,
+`analytics_rollup_jobs`, `dns_sync_state`, and `schema_migrations`.
 
 ## Storage
 
@@ -196,10 +219,10 @@ PostgreSQL is the supported backend. The edge uses mounted local files under `/v
 - Edge endpoints require edge ID, bearer token, timestamp, nonce, and HMAC signature.
 - SSL material depends on `CDNLITE_SSL_SECRET_KEY`; keep it stable and private.
 - Dashboard Vite variables are compiled into browser assets and must not contain production secrets unless the deployment is private and separately protected.
-The separate `nameserver-scheduler` periodically resolves every customer
-domain's NS set. Verification controls domain lifecycle: matching delegation
-enables desired-active records, while missing or changed delegation disables
-their effective publication without overwriting each record's desired status.
+The supervised core scheduler periodically resolves every customer domain's NS
+set. Verification controls domain lifecycle: matching delegation enables
+desired-active records, while missing or changed delegation disables their
+effective publication without overwriting each record's desired status.
 Operators can also run an immediate per-domain verification from the dashboard
 or `POST /api/v1/domains/{domainId}/nameservers/verify`, which returns the
 expected, observed, matched, and missing nameserver sets. Admin sessions can use

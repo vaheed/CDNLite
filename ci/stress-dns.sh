@@ -21,7 +21,7 @@ TOTAL_RECORDS=$((DOMAINS * RECORDS_PER_DOMAIN))
 
 mkdir -p "$REPORT_DIR"
 CORE_WRITERS_STOPPED=0
-CORE_WRITER_SERVICES=(core dns-reconciler ssl-scheduler origin-health-scheduler)
+CORE_WRITER_SERVICES=(core)
 
 log() {
   printf '[%s] %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$*"

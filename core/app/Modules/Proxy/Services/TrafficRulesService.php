@@ -1847,7 +1847,7 @@ class TrafficRulesService
         $r['stale_seconds'] = $age;
         $r['scheduler_stale'] = ($r['status'] ?? '') === 'queued' && $age >= $staleAfter;
         if ($r['scheduler_stale']) {
-            $r['scheduler_hint'] = 'ssl-scheduler has not claimed this queued job. Check the ssl-scheduler service and run php artisan cdn:ssl:renew-due to process queued SSL jobs.';
+            $r['scheduler_hint'] = 'The core scheduler has not claimed this queued job. Check core logs and run php artisan cdn:scheduler:run --force or php artisan cdn:ssl:renew-due to process queued SSL jobs.';
         }
         unset($r['hostnames_json']);
         return $r;

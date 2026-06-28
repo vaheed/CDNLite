@@ -21,7 +21,7 @@ def test_stress_runner_defaults_to_full_scale_and_root_compose():
     assert "http://127.0.0.1:8089" in script
     assert "Waiting for Core and PowerDNS readiness" in script
     assert "trap on_error ERR" in script
-    assert "CORE_WRITER_SERVICES=(core dns-reconciler ssl-scheduler origin-health-scheduler)" in script
+    assert "CORE_WRITER_SERVICES=(core)" in script
     assert 'docker compose stop "${CORE_WRITER_SERVICES[@]}"' in script
     assert "docker compose run --rm --no-deps core php artisan cdn:db:fresh --force" in script
     assert "Restoring Core writer services" in script

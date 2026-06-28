@@ -143,4 +143,4 @@ def test_dashboard_polls_ssl_job_progress():
     assert "{ hostnames: job.hostnames }" in view
     assert "scheduler_stale" in types
     assert "schedulerHint" in view
-    assert "ssl-scheduler has not claimed this queued job" in view
+    assert "The core scheduler has not claimed this queued job" in view

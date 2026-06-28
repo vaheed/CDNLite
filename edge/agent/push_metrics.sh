@@ -6,6 +6,8 @@ count_file="${payload_file}.count"
 lock_dir="${METRIC_PATH}.push.lock"
 response_file="${payload_file}.response"
 bad_file="${METRIC_PATH}.bad"
+max_batch_items="${TELEMETRY_MAX_BATCH_ITEMS:-${CDNLITE_TELEMETRY_MAX_BATCH_ITEMS:-1000}}"
+max_payload_bytes="${TELEMETRY_MAX_PAYLOAD_BYTES:-${CDNLITE_TELEMETRY_MAX_PAYLOAD_BYTES:-1048576}}"
 
 if ! mkdir "$lock_dir" 2>/dev/null; then
   exit 0
@@ -42,14 +44,22 @@ build_payload() {
   tmp_metrics="${METRIC_PATH}.valid.$$"
   tmp_payload="${payload_file}.$$"
   tmp_bad="${bad_file}.$$"
-  if ! python3 - "$METRIC_PATH" "$tmp_metrics" "$tmp_payload" "$tmp_bad" <<'PY'
+  if ! python3 - "$METRIC_PATH" "$tmp_metrics" "$tmp_payload" "$tmp_bad" "$max_batch_items" "$max_payload_bytes" <<'PY'
 import json
 import sys
 import time
 
-source, metrics_out, payload_out, bad_out = sys.argv[1:5]
-items = []
+source, metrics_out, payload_out, bad_out, max_items_raw, max_bytes_raw = sys.argv[1:7]
+max_items = max(1, int(max_items_raw or "1000"))
+max_bytes = max(1024, int(max_bytes_raw or "1048576"))
+batch = []
 bad_count = 0
+
+def payload_bytes(items):
+    return len(json.dumps({
+        "idempotency_key": "agent-pending",
+        "items": items,
+    }, separators=(",", ":")).encode("utf-8"))
 
 with open(source, "r", encoding="utf-8", errors="replace") as fh, \
      open(metrics_out, "w", encoding="utf-8") as metrics_fh, \
@@ -78,7 +88,12 @@ with open(source, "r", encoding="utf-8", errors="replace") as fh, \
                 "raw": line,
             }, separators=(",", ":")) + "\n")
             continue
-        items.append(item)
+        if len(batch) < max_items:
+            candidate = batch + [item]
+            # Always allow one item so an unusually large single metric gets a
+            # collector-side 413/422 response without blocking later retries.
+            if len(batch) == 0 or payload_bytes(candidate) <= max_bytes:
+                batch = candidate
         metrics_fh.write(json.dumps(item, separators=(",", ":")) + "\n")
 
 if bad_count:
@@ -87,10 +102,10 @@ if bad_count:
 with open(payload_out, "w", encoding="utf-8") as payload_fh:
     json.dump({
         "idempotency_key": "agent-pending",
-        "items": items,
+        "items": batch,
     }, payload_fh, separators=(",", ":"))
 
-print(len(items))
+print(len(batch))
 PY
   then
     rm -f "$tmp_metrics" "$tmp_payload" "$tmp_bad"
@@ -109,15 +124,16 @@ PY
     return 1
   fi
 
-  metrics_hash="$(sha256sum "$METRIC_PATH" | awk '{print $1}')"
-  python3 - "$tmp_payload" "$payload_file" "$metrics_hash" <<'PY'
+  python3 - "$tmp_payload" "$payload_file" <<'PY'
+import hashlib
 import json
 import sys
 
-pending, target, metrics_hash = sys.argv[1:4]
+pending, target = sys.argv[1:3]
 with open(pending, "r", encoding="utf-8", errors="replace") as fh:
     payload = json.load(fh)
-payload["idempotency_key"] = "agent-" + metrics_hash
+stable = json.dumps(payload.get("items", []), separators=(",", ":"), sort_keys=True).encode("utf-8")
+payload["idempotency_key"] = "agent-" + hashlib.sha256(stable).hexdigest()
 with open(target, "w", encoding="utf-8") as fh:
     json.dump(payload, fh, separators=(",", ":"))
 PY

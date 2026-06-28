@@ -26,7 +26,6 @@ WWW_ID=""
 PLAIN_ID=""
 MX_ID=""
 ADMIN_SESSION_TOKEN=""
-NAMESERVER_SCHEDULER_PAUSED=0
 export CORE_URL POWERDNS_PUBLIC_API_URL PDNS_API_KEY CI_ENV_NAME ADMIN_SESSION_TOKEN
 
 init_report
@@ -38,9 +37,6 @@ cleanup() {
   fi
   db_query "DELETE FROM edge_nodes WHERE edge_id IN ('dns-e2e-eu','dns-e2e-us');" >/dev/null || true
   docker compose exec -T core php artisan cdn:dns:reconcile --force >/dev/null 2>&1 || true
-  if [[ "$NAMESERVER_SCHEDULER_PAUSED" == "1" ]]; then
-    docker compose start nameserver-scheduler >/dev/null 2>&1 || true
-  fi
 }
 
 finish() {
@@ -129,10 +125,12 @@ retry 60 2 curl -fsS -H "X-API-Key: ${PDNS_API_KEY}" \
 wait_for_postgres
 login
 
-if compose_has_service nameserver-scheduler; then
-  docker compose stop nameserver-scheduler >/dev/null
-  NAMESERVER_SCHEDULER_PAUSED=1
+docker compose exec -T core php artisan cdn:scheduler:run --force >/tmp/dns-e2e-schedule-run.json
+if ! grep -q '"dns_reconcile"' /tmp/dns-e2e-schedule-run.json ||
+   ! grep -q '"nameserver_verify_all"' /tmp/dns-e2e-schedule-run.json; then
+  fail "cdn:scheduler:run did not include DNS reconcile and nameserver verification tasks"
 fi
+record_step PASS "core-scheduler-run" "core scheduler registered DNS reconcile and nameserver verification"
 
 api_patch "${CORE_URL}/api/v1/settings/platform.powerdns" \
   "{\"values\":{\"enabled\":true,\"strict\":true,\"api_url\":\"http://pdns-auth:8081\",\"api_key\":\"${PDNS_API_KEY}\",\"server_id\":\"localhost\"}}"

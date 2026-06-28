@@ -87,7 +87,11 @@ rollouts and run migrations manually after taking a backup.
 Useful commands:
 
 ```bash
+docker compose exec core php artisan cdn:scheduler:run --force
 docker compose exec core php artisan cdn:dns:reconcile
+docker compose exec core php artisan cdn:domains:verify-all
+docker compose exec core php artisan cdn:ssl:renew-due
+docker compose exec core php artisan cdn:origins:health-check
 docker compose exec core php artisan cdn:domain:list
 docker compose exec core php artisan cdn:db:migrate --dry-run
 docker compose exec core php artisan cdn:db:migrate
@@ -99,8 +103,73 @@ docker compose exec core php artisan cdn:usage:prune --dry-run
 
 Migrations are applied automatically before the Core web process starts when
 auto-migration is enabled. Durable DNS state is reconciled after mutations and by the
-`dns-reconciler` service every
-`CDNLITE_SYNC_INTERVAL_SECONDS` seconds (default `30`).
+supervised core scheduler every `CDNLITE_SYNC_INTERVAL_SECONDS` seconds
+(default `30`).
+
+Runtime process ownership:
+
+- Nginx owns public HTTP on `:8080` and forwards to PHP-FPM.
+- PHP-FPM owns `/health`, `/ready`, and `/api/v1/*` request execution.
+- Supervisor owns `php-fpm`, `nginx`, and `cdnlite-scheduler`.
+- `cdnlite-scheduler` runs `php /app/artisan cdn:scheduler:run` in a bounded loop.
+- There are no standalone `dns-reconciler`, `nameserver-scheduler`,
+  `ssl-scheduler`, `origin-health-scheduler`, or `retention-scheduler`
+  containers in the root Compose topology.
+- `core/artisan` is CDNLite's custom CLI entrypoint; it is not a framework
+  marker. Horizon is not part of CDNLite, so there is no `/horizon` route or
+  Horizon worker dashboard.
+
+## Horizon Web Panel
+
+CDNLite does not install or run Horizon, and there is no local or production
+Horizon dashboard URL. The path `/horizon` is intentionally not served.
+
+| Question | CDNLite answer |
+| --- | --- |
+| Local access URL | None. There is no `/horizon` panel in the core API container. |
+| Production protection | Not applicable because no Horizon route is exposed. Keep Core itself behind authenticated HTTPS or private ingress as usual. |
+| Enabled by environment | No Horizon enable flag exists. `QUEUE_CONNECTION`, `CACHE_STORE`, `REDIS_HOST`, and `HORIZON_PREFIX` are reserved compatibility/runtime knobs, but they do not start a Horizon dashboard. |
+| Queues monitored | None through Horizon. Current durable work is tracked in PostgreSQL tables and API feeds. |
+| Verify Horizon is running | It should not be running. Verify the CDNLite scheduler instead with `docker compose logs core` and `docker compose exec core php artisan cdn:scheduler:run --force`. |
+
+Use these CDNLite-native views instead:
+
+```bash
+curl -H "Authorization: Bearer $CDNLITE_API_TOKEN" \
+  "$CORE_URL/api/v1/jobs?status=failed"
+
+curl -H "Authorization: Bearer $CDNLITE_API_TOKEN" \
+  "$CORE_URL/api/v1/reports/operations"
+
+docker compose exec core php artisan cdn:ssl:list
+docker compose exec core php artisan cdn:db:status
+docker compose exec core php artisan cdn:readiness:check
+docker compose exec core php artisan cdn:scheduler:run --force
+```
+
+The dashboard Job Queue and Operations views use `/api/v1/jobs` and
+`/api/v1/reports/operations` for failed-job timeline, recent jobs, and
+operational status. Failed SSL jobs are retried by correcting the reported
+cause and submitting a new managed SSL request, or by running:
+
+```bash
+docker compose exec core php artisan cdn:ssl:request --domain_id="$DOMAIN_ID"
+docker compose exec core php artisan cdn:ssl:renew-due
+```
+
+DNS reconciliation failures are visible through readiness, DNS status, and
+`dns_sync_state`; retry after fixing PowerDNS/settings with:
+
+```bash
+docker compose exec core php artisan cdn:dns:reconcile
+```
+
+Analytics aggregate jobs are stored in `analytics_rollup_jobs`. Re-run a
+recalculation through the dashboard/API or:
+
+```bash
+docker compose exec core php artisan cdn:usage:recalculate
+```
 
 If an existing development volume logs a missing `powerdns_zone_serials` table
 or Activity shows request country but an unknown client IP, run
@@ -108,7 +177,7 @@ or Activity shows request country but an unknown client IP, run
 schema reconciliation migration that restores durable PowerDNS SOA serial state
 and the Activity `client_ip` diagnostics column.
 
-The `nameserver-scheduler` runs `php artisan cdn:domains:verify-all` every
+The supervised core scheduler runs `php artisan cdn:domains:verify-all` every
 `CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS` seconds (default `86400`). A verified
 domain activates automatically and queues managed ACME DNS-01 SSL for the apex
 hostname and wildcard hostname. If its authoritative nameservers later move
@@ -183,7 +252,7 @@ Core settings:
 | `CDNLITE_DNS_EVENT_RETENTION_DAYS` | Successful DNS sync event retention for `cdn:usage:prune --all`; default `30`. Failed DNS sync events are retained for troubleshooting. |
 | `CDNLITE_SSL_JOB_RETENTION_DAYS` | Terminal SSL job retention for `cdn:usage:prune --all`; default `180`. Active jobs are never pruned. |
 | `CDNLITE_INGEST_KEY_RETENTION_DAYS` | Edge ingest idempotency-key retention for `cdn:usage:prune --all`; default `7`. |
-| `CDNLITE_RETENTION_PRUNE_ENABLED` | Enables the `retention-scheduler` service when set to `true`; default `false` for upgrade safety. |
+| `CDNLITE_RETENTION_PRUNE_ENABLED` | Enables scheduled retention pruning when set to `true`; default `false` for upgrade safety. |
 | `CDNLITE_RETENTION_INTERVAL_SECONDS`, `CDNLITE_RETENTION_BATCH_SIZE` | Retention scheduler interval and bounded delete batch size; defaults `86400` and `5000`. |
 | `CDNLITE_STORE_FULL_CLIENT_IP` | Store full client IPs in security-event audit details only when explicitly `true`; default stores a SHA-256 hash. |
 | `CDNLITE_ACME_*` | ACME directory, contact email, DNS propagation delay, optional public DNS TXT precheck, and polling for automatic apex and wildcard certificates. |
@@ -332,7 +401,7 @@ docker compose exec core php artisan cdn:usage:prune --all --dry-run
 docker compose exec core php artisan cdn:usage:prune --all
 ```
 
-The `retention-scheduler` service ships disabled by default. Set
+Scheduled retention pruning ships disabled by default. Set
 `CDNLITE_RETENTION_PRUNE_ENABLED=true` only after confirming the dry-run counts
 match your operational policy. Longer-term rollups and dashboard summaries
 should use aggregate views and exports, not indefinite raw request retention.
@@ -348,6 +417,9 @@ Dashboard variables:
 | `VITE_CDNLITE_EDGE_URL` | Browser URL for edge. |
 | `VITE_CDNLITE_APP_NAME` | Dashboard name. |
 | `VITE_CDNLITE_API_TOKEN` | Optional local/private API token compiled into assets. |
+| `TELEMETRY_MAX_BATCH_ITEMS` | Maximum collector items per telemetry request; default `1000`. |
+| `TELEMETRY_MAX_PAYLOAD_BYTES` | Maximum collector telemetry payload size; default `1048576`. |
+| `CDNLITE_SCHEDULER_TICK_SECONDS` | Supervisor scheduler loop sleep between `cdn:scheduler:run` passes; default `30`. |
 | `VITE_ENABLE_EDGE_DEV_TOOLS` | Enables signed edge request tools. |
 | `VITE_ENABLE_USAGE_SIMULATOR` | Enables usage simulation tools. |
 | `VITE_ENABLE_SSL_TOOLS` | Shows SSL tooling. |

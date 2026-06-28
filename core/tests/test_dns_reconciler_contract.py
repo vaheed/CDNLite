@@ -106,8 +106,9 @@ def test_all_durable_dns_triggers_use_the_reconciler():
 def test_scheduled_and_operator_sync_share_the_same_command_path():
     compose = read("docker-compose.yml")
     artisan = read("core/artisan")
-    assert "dns-reconciler:" in compose
-    assert "php artisan cdn:dns:reconcile" in compose
+    scheduler = read("core/app/Console/Commands/ScheduleRunCommand.php")
+    assert "cdn:scheduler:run" in compose
+    assert "'cdn:dns:reconcile'" in scheduler
     assert "CDNLITE_SYNC_INTERVAL_SECONDS" in compose
     assert "cdn:dns:reconcile" in artisan
 

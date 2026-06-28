@@ -117,7 +117,7 @@ Check service state and logs:
 ```bash
 docker compose ps -a
 docker compose logs --no-color --tail=300 \
-  core dns-reconciler postgres pdns-auth pdns-postgres pdns-recursor
+  core postgres pdns-auth pdns-postgres pdns-recursor
 ```
 
 If PowerDNS exits after an MMDB refresh, recreate it and confirm that the
@@ -131,7 +131,7 @@ docker compose ps pdns-auth
 If a run is interrupted, start the Core writer services again:
 
 ```bash
-docker compose up -d core dns-reconciler ssl-scheduler origin-health-scheduler
+docker compose up -d core
 ```
 
 Because the dataset is disposable, the clean recovery path is:

@@ -182,6 +182,7 @@ runtime_dirs() {
   if [ "$kind" = "core" ]; then
     mkdir -p \
       "$base/runtime/core-postgres-data" \
+      "$base/runtime/redis-data" \
       "$base/runtime/pdns-postgres-data" \
       "$base/runtime/pdns-postgres-tls" \
       "$base/runtime/pdns-mmdb" \
@@ -207,6 +208,7 @@ cd "$(dirname "$0")/.."
 mkdir -p runtime
 find runtime -type d -exec chmod 755 {} \;
 if [ -d runtime/core-postgres-data ]; then chmod 700 runtime/core-postgres-data || true; fi
+if [ -d runtime/redis-data ]; then chmod 700 runtime/redis-data || true; fi
 if [ -d runtime/pdns-postgres-data ]; then chmod 700 runtime/pdns-postgres-data || true; fi
 if [ -d runtime/pdns-postgres-tls ]; then chmod 755 runtime/pdns-postgres-tls || true; fi
 if [ -d runtime/cdnlite-edge-data ]; then chmod 755 runtime/cdnlite-edge-data || true; fi
@@ -304,6 +306,16 @@ DB_PASSWORD=${CDNLITE_DB_PASSWORD}
 
 # ===== CDNLite core =====
 APP_ENV=production
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+HORIZON_PREFIX=cdnlite
+PHP_FPM_PM_MAX_CHILDREN=48
+PHP_FPM_PM_START_SERVERS=8
+PHP_FPM_PM_MIN_SPARE_SERVERS=4
+PHP_FPM_PM_MAX_SPARE_SERVERS=16
+PHP_FPM_PM_MAX_REQUESTS=500
 APP_LOG_ENABLED=1
 APP_LOG_LEVEL=info
 APP_DEBUG=0
@@ -328,6 +340,8 @@ CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=${CDNLITE_ADMIN_PASSWORD}
 CDNLITE_BOOTSTRAP_ADMIN_DISPLAY_NAME=CDNLite Admin
 CDNLITE_READINESS_SNAPSHOT_MAX_AGE_SECONDS=900
 CDNLITE_SCHEDULER_IDLE=0
+CDNLITE_SCHEDULER_TICK_SECONDS=30
+CDNLITE_SCHEDULER_STATE_PATH=/app/storage/scheduler-state.json
 CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS=300
 CDNLITE_SYNC_INTERVAL_SECONDS=30
 CDNLITE_RETENTION_PRUNE_ENABLED=true
@@ -338,6 +352,8 @@ CDNLITE_SECURITY_EVENT_RETENTION_DAYS=90
 CDNLITE_DNS_EVENT_RETENTION_DAYS=30
 CDNLITE_SSL_JOB_RETENTION_DAYS=180
 CDNLITE_INGEST_KEY_RETENTION_DAYS=7
+TELEMETRY_MAX_BATCH_ITEMS=1000
+TELEMETRY_MAX_PAYLOAD_BYTES=1048576
 CDNLITE_POWERDNS_VERIFY_AFTER_WRITE=true
 CDNLITE_POWERDNS_RETRIES=3
 CDNLITE_POWERDNS_RETRY_SLEEP_MS=500
@@ -619,11 +635,26 @@ services:
       - ./runtime/core-postgres-data:/var/lib/postgresql/data
     networks: [cdnlite-internal]
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - ./runtime/redis-data:/data
+    networks: [cdnlite-internal]
+
   core:
     <<: *cdnlite-core
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     env_file: .env
     ports:
@@ -634,58 +665,6 @@ services:
       timeout: 2s
       retries: 60
     networks: [cdnlite-internal, public]
-
-  nameserver-scheduler:
-    <<: *cdnlite-core
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'nameserver scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:domains:verify-all || true; sleep \"$${CDNLITE_NAMESERVER_CHECK_INTERVAL_SECONDS:-300}\"; done"]
-    networks: [cdnlite-internal]
-
-  dns-reconciler:
-    <<: *cdnlite-core
-    restart: unless-stopped
-    depends_on:
-      core:
-        condition: service_healthy
-      platform-settings-bootstrap:
-        condition: service_completed_successfully
-    env_file: .env
-    command: ["sh", "-lc", "while true; do php artisan cdn:dns:reconcile || true; php artisan cdn:powerdns:force-sync || true; sleep \"$${CDNLITE_SYNC_INTERVAL_SECONDS:-30}\"; done"]
-    networks: [cdnlite-internal]
-
-  ssl-scheduler:
-    <<: *cdnlite-core
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'ssl scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:ssl:renew-due || true; sleep \"$${CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30}\"; done"]
-    networks: [cdnlite-internal]
-
-  origin-health-scheduler:
-    <<: *cdnlite-core
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ]; then echo 'origin health scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:origins:health-check || true; sleep 30; done"]
-    networks: [cdnlite-internal]
-
-  retention-scheduler:
-    <<: *cdnlite-core
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    env_file: .env
-    command: ["sh", "-lc", "if [ \"$${CDNLITE_SCHEDULER_IDLE:-0}\" = \"1\" ] || [ \"$${CDNLITE_RETENTION_PRUNE_ENABLED:-false}\" != \"true\" ]; then echo 'retention scheduler idle'; tail -f /dev/null; fi; while true; do php artisan cdn:usage:prune --all || true; php artisan cdn:config-snapshots:prune --keep=\"$${CDNLITE_CONFIG_SNAPSHOT_KEEP_LAST:-2}\" --batch=\"$${CDNLITE_CONFIG_SNAPSHOT_PRUNE_BATCH_SIZE:-5000}\" || true; sleep \"$${CDNLITE_RETENTION_INTERVAL_SECONDS:-86400}\"; done"]
-    networks: [cdnlite-internal]
 
   dashboard:
     image: "${CDNLITE_DASHBOARD_IMAGE}"

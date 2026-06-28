@@ -19,9 +19,18 @@ class CollectorController
 
     public function ingest(array $input): array
     {
+        $limit = $this->telemetryMaxItems();
         $items = $input['items'] ?? null;
         if (!is_array($items)) {
             return ['error' => 'items_must_be_array', 'status' => 422];
+        }
+        if (count($items) > $limit) {
+            return ['error' => 'telemetry_batch_too_large', 'max_items' => $limit, 'status' => 413];
+        }
+        $payloadBytes = strlen(json_encode($input, JSON_UNESCAPED_SLASHES) ?: '');
+        $maxPayloadBytes = $this->telemetryMaxPayloadBytes();
+        if ($payloadBytes > $maxPayloadBytes) {
+            return ['error' => 'telemetry_payload_too_large', 'max_payload_bytes' => $maxPayloadBytes, 'status' => 413];
         }
 
         $idempotencyKey = null;
@@ -37,9 +46,18 @@ class CollectorController
 
     public function ingestSecurityEvents(array $input): array
     {
+        $limit = $this->telemetryMaxItems();
         $items = $input['items'] ?? null;
         if (!is_array($items)) {
             return ['error' => 'items_must_be_array', 'status' => 422];
+        }
+        if (count($items) > $limit) {
+            return ['error' => 'telemetry_batch_too_large', 'max_items' => $limit, 'status' => 413];
+        }
+        $payloadBytes = strlen(json_encode($input, JSON_UNESCAPED_SLASHES) ?: '');
+        $maxPayloadBytes = $this->telemetryMaxPayloadBytes();
+        if ($payloadBytes > $maxPayloadBytes) {
+            return ['error' => 'telemetry_payload_too_large', 'max_payload_bytes' => $maxPayloadBytes, 'status' => 413];
         }
         $idempotencyKey = null;
         if (isset($input['idempotency_key']) && is_string($input['idempotency_key']) && trim($input['idempotency_key']) !== '') {
@@ -141,5 +159,17 @@ class CollectorController
     public function activityExport(string $domainId, array $query): array
     {
         return ['data' => $this->service->activityExport($domainId, $query)];
+    }
+
+    private function telemetryMaxItems(): int
+    {
+        $raw = getenv('TELEMETRY_MAX_BATCH_ITEMS') ?: getenv('CDNLITE_TELEMETRY_MAX_BATCH_ITEMS') ?: '1000';
+        return max(1, min(100000, is_numeric($raw) ? (int) $raw : 1000));
+    }
+
+    private function telemetryMaxPayloadBytes(): int
+    {
+        $raw = getenv('TELEMETRY_MAX_PAYLOAD_BYTES') ?: getenv('CDNLITE_TELEMETRY_MAX_PAYLOAD_BYTES') ?: '1048576';
+        return max(1024, min(10485760, is_numeric($raw) ? (int) $raw : 1048576));
     }
 }

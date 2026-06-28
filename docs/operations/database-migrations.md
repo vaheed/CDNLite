@@ -112,6 +112,47 @@ Migration `000027_usage_aggregate_range_indexes.sql` is additive. It adds
 range indexes for bucketed analytics reads over `usage_aggregates`, both global
 and domain-scoped.
 
+## Runtime Retention Indexes
+
+Migration `000033_runtime_retention_indexes.sql` is additive. It creates
+idempotent PostgreSQL indexes for high-volume runtime paths:
+
+- `usage_rollups(domain_id, ts DESC, id DESC)` for recent request timelines.
+- `usage_rollups(domain_id, request_id)` where `request_id IS NOT NULL` for request detail lookup.
+- `usage_rollups(domain_id, status, ts DESC)` for status-filtered activity.
+- `usage_rollups(domain_id, cache_status, ts DESC)` for cache-filtered activity.
+- `audit_log(domain_id, created_at DESC, id DESC)` for domain activity timelines.
+- `edge_request_nonces(expires_at)` for replay nonce cleanup.
+- `usage_ingest_keys(created_at)` for telemetry idempotency retention.
+
+The migration uses ordinary `CREATE INDEX IF NOT EXISTS` statements and runs
+inside the current CDNLite SQL migrator transaction. It does not use
+`CREATE INDEX CONCURRENTLY`, because the current custom migrator wraps each
+migration in a transaction. On very large production tables, index creation can
+take time and can hold locks that briefly affect writes. For no-downtime
+requirements, schedule a maintenance window or pre-create equivalent indexes
+manually with PostgreSQL `CREATE INDEX CONCURRENTLY` before applying the
+release; the migration will then no-op because the index names already exist.
+
+Recommended upgrade flow:
+
+```bash
+docker compose exec core php artisan cdn:db:migrate --dry-run
+docker compose exec core php artisan cdn:db:migrate
+docker compose exec core php artisan cdn:db:status
+```
+
+Verify success by checking `schema_migrations` for version `000033` and by
+confirming each `idx_usage_rollups_*`, `idx_audit_log_domain_created_id`,
+`idx_edge_request_nonces_expires_at`, and `idx_usage_ingest_keys_created_at`
+index exists in `pg_indexes`.
+
+Rollback is not recommended for production indexes. They are additive and
+support query and pruning paths; removing them can regress performance without
+recovering user data. If a rollback is unavoidable, drop the indexes during a
+maintenance window after reverting the application code that expects the faster
+paths.
+
 ## Shared-Hosting Origin Defaults
 
 Migration `000023_origin_shared_hosting_defaults.sql` is additive and intended
