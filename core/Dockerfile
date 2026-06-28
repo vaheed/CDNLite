@@ -1,3 +1,5 @@
+FROM composer:2 AS composer
+
 FROM php:8.3-fpm-alpine
 
 ENV PHP_FPM_PM_MAX_CHILDREN=24 \
@@ -6,13 +8,15 @@ ENV PHP_FPM_PM_MAX_CHILDREN=24 \
     PHP_FPM_PM_MAX_SPARE_SERVERS=8 \
     PHP_FPM_PM_MAX_REQUESTS=500
 
-RUN apk add --no-cache nginx libpq supervisor \
+RUN apk add --no-cache git nginx libpq supervisor unzip \
   && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev \
   && docker-php-ext-install opcache pdo pdo_pgsql \
   && apk del .build-deps
 
 WORKDIR /app
+COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY . /app
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-cdnlite.ini

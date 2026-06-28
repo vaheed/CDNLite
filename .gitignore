@@ -4,6 +4,7 @@ edge/logs/*
 !edge/logs/.gitkeep
 core/storage/*.sqlite
 core/storage/*.sqlite-*
+core/vendor/
 storage/*.sqlite
 storage/*.sqlite-*
 ci/reports/*.*
