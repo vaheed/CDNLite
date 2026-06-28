@@ -11,7 +11,7 @@ This page lists the external libraries, runtime extensions, and integrations use
 
 | Extension | Purpose |
 | --- | --- |
-| PHP 8.3 | Core runtime and CLI command execution. |
+| PHP 8.4.2+ | Core runtime and CLI command execution. |
 | `pdo_pgsql` | PostgreSQL access from PHP. |
 | PostgreSQL 16 | Persistent control-plane data. |
 | OpenSSL | HMAC signing and certificate workflows. |

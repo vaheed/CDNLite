@@ -13,7 +13,7 @@ This guide covers local development, dashboard development, production-oriented 
 | --- | --- |
 | OS | Linux or macOS with Docker support. Windows works best through WSL2. |
 | Containers | Docker Engine and Docker Compose v2. |
-| Backend | PHP 8.3 with `pdo_pgsql` for host-side lint/tests. |
+| Backend | PHP 8.4.2 or newer with `pdo_pgsql` for host-side lint/tests. |
 | Tests | Python 3.12 and `pytest`. |
 | Frontend | Node.js 22 and npm. |
 | Optional docs render | Node.js 22 and npm for VitePress local preview/build. |

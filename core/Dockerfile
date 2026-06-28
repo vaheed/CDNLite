@@ -1,6 +1,6 @@
 FROM composer:2 AS composer
 
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 ENV PHP_FPM_PM_MAX_CHILDREN=24 \
     PHP_FPM_PM_START_SERVERS=4 \

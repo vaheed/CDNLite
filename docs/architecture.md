@@ -68,7 +68,7 @@ responses.
 
 | Component | Technology | Responsibility |
 | --- | --- | --- |
-| Core API | PHP 8.3, custom router | Domain, DNS, rules, SSL, settings, analytics, admin auth, edge auth. |
+| Core API | PHP 8.4.2+, custom router during Laravel migration | Domain, DNS, rules, SSL, settings, analytics, admin auth, edge auth. |
 | Database | PostgreSQL 16 | Domains, records, rules, snapshots, usage, events, audits, admins. |
 | Dashboard | Vue 3, TypeScript, Vite, Pinia, TanStack Query, Tailwind, ECharts | Browser admin console. |
 | Edge runtime | OpenResty, Nginx, Lua | Host routing, caching, rule enforcement, TLS serving, metric queues. |

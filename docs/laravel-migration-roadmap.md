@@ -46,7 +46,7 @@ Immediate next steps:
 Repository context:
 - CDNLite is a self-hosted private CDN control plane and edge platform.
 - Current architecture includes:
-  - PHP 8.3 custom Core API.
+  - PHP 8.4.2+ custom Core API during the Laravel migration.
   - PostgreSQL 16 state store.
   - Vue 3 + TypeScript + Vite dashboard.
   - OpenResty/Nginx/Lua edge proxy.
@@ -230,12 +230,33 @@ Completed Phase 2 notes:
 - Added container-oriented stderr logging defaults.
 - Added initial Laravel health/readiness routes.
 - Updated `core/Dockerfile` to install Composer dependencies during image builds.
+- Raised the Laravel core PHP requirement to `>=8.4.2 <9.0`, moved the core
+  image to PHP 8.4, and updated CI/docs so the project never targets PHP 8.4.1
+  or older.
 
 Remaining Phase 2 notes:
 - Build the core Docker image and run `php artisan about` inside the container.
+- Verify the built core image reports PHP higher than 8.4.1.
 - Add focused Laravel tests for `/health`, `/ready`, `/cdn-health`, and `/api/v1/readiness`.
 - Implement CORS middleware equivalent to the current custom router behavior before moving public API traffic to Laravel.
 - Keep `core/public_index.php` as the served router until Phase 5 route migration and contract tests are ready.
+
+Phase 2 continuation checklist:
+- Keep PHP runtime declarations aligned:
+  - `core/composer.json` must require `>=8.4.2 <9.0`.
+  - `core/composer.lock` must carry the same root platform requirement after the
+    next Composer lock refresh.
+  - `core/Dockerfile` must build from a PHP 8.4 image or newer.
+  - CI must run host-side PHP checks on PHP 8.4 or newer.
+- Refresh `core/composer.lock` with Composer once dependency installation is
+  available in the environment, then confirm no package is selected only because
+  of a lower PHP platform.
+- Add Laravel feature tests for the four initial health/readiness routes before
+  migrating additional API routes.
+- Add Laravel CORS/error-response middleware before routing public API traffic
+  through `core/public/index.php`.
+- Keep the custom router and legacy command delegate in place until every route
+  and command has an equivalent Laravel implementation plus contract coverage.
 
 Phase 3: Database migration conversion
 Status: Not started.
@@ -250,7 +271,67 @@ Status: Not started.
 - Add migration tests for a fresh database.
 - Add compatibility tests for existing schema where feasible.
 
+Phase 3 continuation checklist:
+- Treat `core/database/schema.sql` as the authoritative fresh-install target and
+  `core/database/migrations/*.sql` as the ordered history that explains how the
+  target schema was reached.
+- Create Laravel migration files under `core/database/migrations/` with stable,
+  reviewable names that keep the existing numeric order visible. Example:
+  `2026_01_01_000001_cdnlite_base_schema.php` for the base schema and
+  `2026_01_01_0000NN_<legacy_slug>.php` for each converted SQL migration.
+- Do not delete the existing `.sql` migrations in the same change that adds the
+  Laravel versions. Keep them as comparison fixtures until the Laravel migration
+  runner is proven by fresh-install and contract tests.
+- Prefer Laravel schema builder for ordinary table/index definitions only when
+  it emits equivalent PostgreSQL. Use `DB::statement()` for PostgreSQL-specific
+  features such as partial indexes, check constraints, generated expressions,
+  JSONB defaults, extensions, trigger-like behavior, and vendor-specific DDL.
+- Keep migration `up()` methods deterministic and idempotent where the current
+  SQL uses `IF NOT EXISTS`. Avoid `down()` methods that pretend destructive
+  rollback is safe; for pre-1.0 fresh-install-only work, empty `down()` methods
+  with a short comment are acceptable when rollback would drop product data.
+- Preserve the root schema contract:
+  - PostgreSQL remains the only supported runtime database.
+  - `core/database/schema.sql` remains the complete fresh-install schema until
+    a later phase intentionally replaces it with generated Laravel schema
+    dumps and updates the repository guide.
+  - The custom `schema_migrations` table must not be removed until the legacy
+    runner no longer needs it and the replacement path is documented.
+- Add a migration parity check that can apply the Laravel migrations to an empty
+  PostgreSQL database and compare table names, column types/nullability/defaults,
+  primary keys, foreign keys, unique constraints, indexes, and check constraints
+  against `core/database/schema.sql`.
+- Keep the existing `cdn:db:migrate`, `cdn:db:status`, and `cdn:db:fresh`
+  commands delegated to the legacy runner until the Laravel migration commands
+  can return equivalent output and exit codes.
+- Do not run automatic Laravel migrations at container startup until the Docker
+  entrypoint policy is explicitly updated and documented.
+- Document any intentional schema representation difference in this roadmap and
+  in `docs/operations/database-migrations.md` before merging it.
+
+Phase 3 implementation order:
+1. Add a base Laravel migration that reproduces `core/database/schema.sql` for
+   fresh installs without changing any table, index, or constraint name.
+2. Convert each legacy SQL migration into a Laravel migration in numeric order,
+   keeping raw SQL blocks where fidelity matters more than abstraction.
+3. Add focused migration tests that run against PostgreSQL, not SQLite.
+4. Add an adoption/status command only if it is needed to reconcile Laravel's
+   `migrations` table with the existing custom `schema_migrations` state.
+5. Update CI only after the migration tests are reliable in the local Compose
+   or GitHub Actions PostgreSQL service.
+
+Phase 3 completion criteria:
+- A fresh PostgreSQL database can be built by Laravel migrations and matches
+  `core/database/schema.sql`.
+- Existing pytest contract tests still pass against the legacy runtime.
+- No public API, edge-agent, DNS, SSL, dashboard, or CLI behavior changes as a
+  side effect of the schema conversion.
+- The roadmap, inventory, and database operations docs state exactly which
+  migration runner is authoritative at that point in the transition.
+
 Phase 4: Models and repositories
+Status: Not started.
+
 - Add Eloquent models or query-builder repositories for all main tables:
   - domains
   - domain_nameservers
@@ -275,7 +356,22 @@ Phase 4: Models and repositories
 - Use query builder/raw SQL where PostgreSQL-specific bulk operations or performance-critical reporting require it.
 - Preserve existing JSON response shapes.
 
+Phase 4 continuation checklist:
+- Introduce models/repositories behind the existing services before changing
+  controllers. This keeps route behavior stable while database access moves
+  toward Laravel idioms.
+- Add explicit `$table`, primary key, timestamp, cast, hidden, and fillable or
+  guarded definitions so Eloquent does not infer incompatible names.
+- Avoid route model binding until Phase 5 proves that Laravel 404/validation
+  behavior can be shaped to match the current API contract.
+- Keep analytics/reporting rollups on query builder/raw SQL when Eloquent would
+  hide important PostgreSQL behavior or create inefficient N+1 queries.
+- Add unit tests around repository methods that produce DNS desired state,
+  config snapshots, auth decisions, usage aggregates, and SSL job state changes.
+
 Phase 5: HTTP API migration
+Status: Not started.
+
 - Recreate every current route in Laravel.
 - Preserve methods, paths, parameters, status codes, and payload formats.
 - At minimum preserve these route groups:
@@ -305,7 +401,33 @@ Phase 5: HTTP API migration
 - Implement route model binding only if it does not change error behavior.
 - Add feature tests for all critical endpoints.
 
+Phase 5 continuation checklist:
+- Migrate routes in small resource groups, not as one large router rewrite.
+  Recommended order:
+  - public health/readiness routes
+  - admin auth/session routes
+  - settings/read-only overview/reporting routes
+  - domain read/list routes
+  - domain write routes
+  - DNS operations and PowerDNS routes
+  - edge-agent registration/heartbeat/config/telemetry routes
+  - SSL, cache, rule, recommendation, operations, and analytics routes
+- For every migrated group, compare old and Laravel responses for:
+  - status code
+  - content type
+  - JSON keys and value types
+  - validation error shape
+  - auth failure shape
+  - not-found behavior
+  - side effects in PostgreSQL
+- Keep nginx serving `core/public_index.php` until all migrated route groups
+  have feature tests plus existing pytest contract coverage.
+- When switching nginx to `core/public/index.php`, keep a rollback plan in the
+  same change by preserving the legacy front controller until smoke/e2e pass.
+
 Phase 6: Auth and security
+Status: Not started.
+
 - Implement admin login/session behavior using Laravel services/middleware.
 - Preserve current bootstrap admin variables:
   - `CDNLITE_BOOTSTRAP_ADMIN_USER`
