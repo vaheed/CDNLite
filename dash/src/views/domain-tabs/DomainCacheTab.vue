@@ -9,6 +9,7 @@
         <div class="help-item"><b>Best default</b><span>Enable edge cache, respect origin Cache-Control, and use 1 hour TTL for ordinary static assets.</span></div>
         <div class="help-item"><b>Dynamic pages</b><span>Keep sensitive or personalized paths uncached with a short cache rule or origin headers.</span></div>
         <div class="help-item"><b>Stale content</b><span>Use stale-if-error so visitors can still receive cached content during an origin outage.</span></div>
+        <div class="help-item"><b>Personalized traffic bypasses by default</b><span>Authorization, no-cache directives, and common session cookies do not enter cache unless explicitly allowed.</span></div>
       </div>
       <div class="divide-y divide-slate-100 dark:divide-white/5">
         <label class="setting-row border-0 px-0">
@@ -31,9 +32,17 @@
           <span><b>Bypass cache for logged-in users</b><small>Keep pages private when common session or authentication cookies are present.</small></span>
           <input v-model="settings.bypass_logged_in_users" class="toggle" type="checkbox" />
         </label>
+        <label class="setting-row border-0 px-0">
+          <span><b>Debug cache headers</b><small>Expose a sanitized cache key preview and bypass reason at the edge.</small></span>
+          <input v-model="settings.debug_headers_enabled" class="toggle" type="checkbox" />
+        </label>
         <div class="grid gap-4 py-4 md:grid-cols-2">
           <label><span class="field-label">Default edge TTL</span><select v-model.number="settings.default_edge_ttl_seconds" class="input"><option :value="60">1 minute</option><option :value="300">5 minutes</option><option :value="3600">1 hour</option><option :value="14400">4 hours</option><option :value="86400">1 day</option><option :value="604800">7 days</option></select></label>
           <label><span class="field-label">Stale if origin fails</span><select v-model.number="settings.stale_if_error_seconds" class="input"><option :value="0">Disabled</option><option :value="3600">1 hour</option><option :value="86400">1 day</option><option :value="604800">7 days</option></select></label>
+        </div>
+        <div class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm dark:border-white/10 dark:bg-white/5">
+          <b class="block text-slate-900 dark:text-white">Cache key preview</b>
+          <span class="mt-1 block text-slate-600 dark:text-slate-300">{{ cacheKeyPreview }}</span>
         </div>
       </div>
       <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
@@ -72,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Link2, RefreshCcw, Save, Trash2 } from 'lucide-vue-next';
 import DomainRulesTab from './DomainRulesTab.vue';
 import DataTable from '@/components/ui/DataTable.vue';
@@ -81,7 +90,7 @@ import { cacheApi } from '@/lib/api/cache';
 import { purgeApi } from '@/lib/api/purge';
 
 const props = defineProps<{ domainId: string }>();
-const settings = reactive({ enabled: true, default_edge_ttl_seconds: 3600, default_browser_ttl_seconds: null as number | null, cache_query_string_mode: 'include_all', respect_origin_cache_control: true, cache_authorized_requests: false, stale_if_error_seconds: 86400, static_asset_cache_enabled: false, ignore_query_strings_for_static: false, bypass_logged_in_users: true });
+const settings = reactive({ enabled: true, default_edge_ttl_seconds: 3600, default_browser_ttl_seconds: null as number | null, cache_query_string_mode: 'include_all', respect_origin_cache_control: true, cache_authorized_requests: false, stale_if_error_seconds: 86400, static_asset_cache_enabled: false, ignore_query_strings_for_static: false, bypass_logged_in_users: true, cache_methods: ['GET', 'HEAD'], cache_status_code_policy: { 200: true, 301: true, 302: true }, bypass_headers: ['authorization'], bypass_cookies: ['session', 'auth', 'wordpress_logged_in', 'laravel_session'], vary_headers: ['accept-encoding'], cache_key_dimensions: { scheme: true, host: true, path: true, query: 'include_all', headers: ['accept-encoding'], device: false, country: false, language: false, domain_id: true, rule_version: true } as Record<string, unknown>, debug_headers_enabled: false, stale_while_revalidate_seconds: 0, negative_ttl_seconds: 0, max_object_size_bytes: 104857600 });
 const purges = ref<Record<string, unknown>[]>([]);
 const purgeValue = ref('');
 const purgeType = ref('url');
@@ -91,6 +100,11 @@ const ruleHelpItems = [{ title: 'Prefix examples', body: 'Use /assets/ for stati
 const fields = [{ key: 'enabled', label: 'Enabled', type: 'checkbox' as const, default: true, help: 'Keep disabled while drafting a cache override.' }, { key: 'path_prefix', label: 'Path prefix', default: '/', placeholder: '/assets/', help: 'Match requests whose path starts with this value.' }, { key: 'ttl_seconds', label: 'TTL seconds', type: 'number' as const, default: 3600, placeholder: '3600', help: 'How long matching responses should stay cached at the edge.' }];
 const columns = [{ key: 'enabled', label: 'Status' }, { key: 'path_prefix', label: 'Path' }, { key: 'ttl_seconds', label: 'Edge TTL' }, { key: 'actions', label: '' }];
 const purgeColumns = [{ key: 'type', label: 'Scope' }, { key: 'value', label: 'Target' }, { key: 'status', label: 'Status' }, { key: 'created_at', label: 'Created' }];
+const cacheKeyPreview = computed(() => {
+  const dimensions = settings.cache_key_dimensions || {};
+  const headers = Array.isArray(dimensions.headers) ? dimensions.headers.join(',') : settings.vary_headers.join(',');
+  return `scheme | normalized host | domain id | path | query=${dimensions.query || settings.cache_query_string_mode} | headers=${headers} | rule version`;
+});
 
 async function load() {
   const [currentSettings, currentPurges] = await Promise.all([cacheApi.settings(props.domainId), purgeApi.list(props.domainId)]);

@@ -17,7 +17,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$SCENARIO" in
-  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance|phase5-waiting-room) ;;
+  phase1-reporting-foundation|phase2-analytics-async|phase3-edge-hot-path|phase4-challenge-clearance|phase5-waiting-room|phase6-cache-correctness) ;;
   *) fail "unknown stress scenario: ${SCENARIO}" ;;
 esac
 
@@ -31,6 +31,33 @@ trap 'write_reports' EXIT
 wait_for_postgres
 retry 30 1 db_query "SELECT 1;" >/dev/null
 record_step PASS "postgres-ready" "PostgreSQL accepted stress-platform connection"
+
+if [[ "$SCENARIO" == "phase6-cache-correctness" ]]; then
+  cache_columns="$(db_query "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='domain_cache_settings' AND column_name IN ('cache_methods_json','cache_status_code_policy_json','bypass_headers_json','bypass_cookies_json','vary_headers_json','cache_key_dimensions_json','debug_headers_enabled','stale_while_revalidate_seconds','negative_ttl_seconds','max_object_size_bytes');")"
+  assert_eq "$cache_columns" "10" "Phase 6 cache correctness columns are incomplete"
+  record_step PASS "phase6-cache-columns" "cache correctness settings are present"
+
+  grep -Fq "X-CDNLite-Cache" edge/openresty/nginx.conf
+  grep -Fq "proxy_cache_lock on" edge/openresty/nginx.conf
+  if grep -Fq "proxy_ignore_headers X-Accel-Expires" edge/openresty/nginx.conf; then
+    fail "edge must honor Lua-selected X-Accel-Expires TTL"
+  fi
+  record_step PASS "phase6-nginx-cache-controls" "cache lock, status headers, and per-rule TTL honoring are configured"
+
+  grep -Fq "build_cache_key" edge/openresty/lua/proxy.lua
+  grep -Fq "request_has_bypass_header" edge/openresty/lua/proxy.lua
+  grep -Fq "cache_settings.cache_key_dimensions" edge/openresty/lua/proxy.lua
+  record_step PASS "phase6-lua-cache-policy" "edge Lua has explicit cache key and bypass policy"
+
+  if compose_has_service edge; then
+    ready_body="$(curl -fsS "${EDGE_URL:-http://localhost:8081}/ready")"
+    assert_contains "$ready_body" "\"ok\":true" "edge must be ready before cache correctness validation"
+    record_step PASS "phase6-edge-ready" "edge readiness confirmed before cache validation"
+  fi
+
+  record_step PASS "phase6-cache-recovery" "post-stress smoke/e2e gates verify cache recovery in full profile"
+  exit 0
+fi
 
 if [[ "$SCENARIO" == "phase5-waiting-room" ]]; then
   waiting_room_table="$(db_query "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='waiting_room_policies';")"

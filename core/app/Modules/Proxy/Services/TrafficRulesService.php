@@ -548,10 +548,20 @@ class TrafficRulesService
             'static_asset_cache_enabled' => false,
             'ignore_query_strings_for_static' => false,
             'bypass_logged_in_users' => true,
+            'cache_methods_json' => '["GET","HEAD"]',
+            'cache_status_code_policy_json' => '{"200":true,"301":true,"302":true,"404":false,"500":false,"502":false,"503":false,"504":false}',
+            'bypass_headers_json' => '["authorization"]',
+            'bypass_cookies_json' => '["session","auth","wordpress_logged_in","laravel_session"]',
+            'vary_headers_json' => '["accept-encoding"]',
+            'cache_key_dimensions_json' => '{"scheme":true,"host":true,"path":true,"query":"include_all","headers":["accept-encoding"],"device":false,"country":false,"language":false,"domain_id":true,"rule_version":true}',
+            'debug_headers_enabled' => false,
+            'stale_while_revalidate_seconds' => 0,
+            'negative_ttl_seconds' => 0,
+            'max_object_size_bytes' => 104857600,
             'created_at' => $now,
             'updated_at' => $now,
         ];
-        $ins = Database::pdo()->prepare('INSERT INTO domain_cache_settings (domain_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,static_asset_cache_enabled,ignore_query_strings_for_static,bypass_logged_in_users,created_at,updated_at) VALUES (:domain_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:static_assets,:ignore_static_query,:bypass_logged_in,:created_at,:updated_at)');
+        $ins = Database::pdo()->prepare('INSERT INTO domain_cache_settings (domain_id,enabled,default_edge_ttl_seconds,default_browser_ttl_seconds,cache_query_string_mode,respect_origin_cache_control,cache_authorized_requests,stale_if_error_seconds,static_asset_cache_enabled,ignore_query_strings_for_static,bypass_logged_in_users,cache_methods_json,cache_status_code_policy_json,bypass_headers_json,bypass_cookies_json,vary_headers_json,cache_key_dimensions_json,debug_headers_enabled,stale_while_revalidate_seconds,negative_ttl_seconds,max_object_size_bytes,created_at,updated_at) VALUES (:domain_id,:enabled,:edge,:browser,:mode,:respect,:authorized,:stale,:static_assets,:ignore_static_query,:bypass_logged_in,:methods,:status_policy,:bypass_headers,:bypass_cookies,:vary_headers,:key_dimensions,:debug_headers,:swr,:negative_ttl,:max_object,:created_at,:updated_at)');
         $ins->execute([
             ':domain_id' => $domainId,
             ':enabled' => 1,
@@ -564,6 +574,16 @@ class TrafficRulesService
             ':static_assets' => 0,
             ':ignore_static_query' => 0,
             ':bypass_logged_in' => 1,
+            ':methods' => $defaults['cache_methods_json'],
+            ':status_policy' => $defaults['cache_status_code_policy_json'],
+            ':bypass_headers' => $defaults['bypass_headers_json'],
+            ':bypass_cookies' => $defaults['bypass_cookies_json'],
+            ':vary_headers' => $defaults['vary_headers_json'],
+            ':key_dimensions' => $defaults['cache_key_dimensions_json'],
+            ':debug_headers' => 0,
+            ':swr' => 0,
+            ':negative_ttl' => 0,
+            ':max_object' => 104857600,
             ':created_at' => $now,
             ':updated_at' => $now,
         ]);
@@ -583,12 +603,30 @@ class TrafficRulesService
             ':static_assets' => (int) ($in['static_asset_cache_enabled'] ?? $existing['static_asset_cache_enabled']),
             ':ignore_static_query' => (int) ($in['ignore_query_strings_for_static'] ?? $existing['ignore_query_strings_for_static']),
             ':bypass_logged_in' => (int) ($in['bypass_logged_in_users'] ?? $existing['bypass_logged_in_users']),
+            ':methods' => $this->jsonSetting($in, $existing, 'cache_methods_json', 'cache_methods'),
+            ':status_policy' => $this->jsonSetting($in, $existing, 'cache_status_code_policy_json', 'cache_status_code_policy'),
+            ':bypass_headers' => $this->jsonSetting($in, $existing, 'bypass_headers_json', 'bypass_headers'),
+            ':bypass_cookies' => $this->jsonSetting($in, $existing, 'bypass_cookies_json', 'bypass_cookies'),
+            ':vary_headers' => $this->jsonSetting($in, $existing, 'vary_headers_json', 'vary_headers'),
+            ':key_dimensions' => $this->jsonSetting($in, $existing, 'cache_key_dimensions_json', 'cache_key_dimensions'),
+            ':debug_headers' => (int) ($in['debug_headers_enabled'] ?? $existing['debug_headers_enabled']),
+            ':swr' => (int) ($in['stale_while_revalidate_seconds'] ?? $existing['stale_while_revalidate_seconds']),
+            ':negative_ttl' => (int) ($in['negative_ttl_seconds'] ?? $existing['negative_ttl_seconds']),
+            ':max_object' => (int) ($in['max_object_size_bytes'] ?? $existing['max_object_size_bytes']),
             ':updated_at' => time(),
         ];
-        $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,static_asset_cache_enabled=:static_assets,ignore_query_strings_for_static=:ignore_static_query,bypass_logged_in_users=:bypass_logged_in,updated_at=:updated_at WHERE domain_id=:domain_id');
+        $u = Database::pdo()->prepare('UPDATE domain_cache_settings SET enabled=:enabled,default_edge_ttl_seconds=:edge,default_browser_ttl_seconds=:browser,cache_query_string_mode=:mode,respect_origin_cache_control=:respect,cache_authorized_requests=:authorized,stale_if_error_seconds=:stale,static_asset_cache_enabled=:static_assets,ignore_query_strings_for_static=:ignore_static_query,bypass_logged_in_users=:bypass_logged_in,cache_methods_json=:methods,cache_status_code_policy_json=:status_policy,bypass_headers_json=:bypass_headers,bypass_cookies_json=:bypass_cookies,vary_headers_json=:vary_headers,cache_key_dimensions_json=:key_dimensions,debug_headers_enabled=:debug_headers,stale_while_revalidate_seconds=:swr,negative_ttl_seconds=:negative_ttl,max_object_size_bytes=:max_object,updated_at=:updated_at WHERE domain_id=:domain_id');
         $u->execute($payload);
         $this->invalidateConfigSnapshot();
         return $this->getDomainCacheSettings($domainId);
+    }
+    private function jsonSetting(array $input, array $existing, string $key, string $decodedKey): string {
+        $value = array_key_exists($key, $input) ? $input[$key] : (array_key_exists($decodedKey, $input) ? $input[$decodedKey] : ($existing[$key] ?? ($existing[$decodedKey] ?? null)));
+        if (is_string($value)) {
+            json_decode($value, true);
+            return json_last_error() === JSON_ERROR_NONE ? $value : json_encode($existing[$key] ?? null, JSON_UNESCAPED_SLASHES);
+        }
+        return json_encode($value, JSON_UNESCAPED_SLASHES);
     }
     public function createCachePurgeRequest(string $domainId, array $in): array {
         $type = (string) ($in['type'] ?? 'domain');
@@ -1796,7 +1834,7 @@ class TrafficRulesService
         }
         return $payload;
     }
-    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=in_array($r[$b], [true, 1, '1', 't', 'true'], true);}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','last_generated_at','last_applied_at','challenge_difficulty','rps_threshold','active_origin_threshold','origin_latency_ms_threshold','origin_error_rate_threshold','admission_rate_per_minute','queue_limit','per_client_ticket_limit','ticket_ttl_seconds','admission_ttl_seconds','status_poll_seconds','jitter_seconds','unhealthy_windows','healthy_windows','minimum_state_seconds','recovery_ramp_percent','manual_override_until'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } if (array_key_exists('trusted_cidrs_json', $r)) { $r['trusted_cidrs'] = json_decode((string) $r['trusted_cidrs_json'], true) ?: []; unset($r['trusted_cidrs_json']); } if (array_key_exists('counters_json', $r)) { $r['counters'] = json_decode((string) $r['counters_json'], true) ?: []; unset($r['counters_json']); } unset($r['private_key_pem']); return $r; }
+    private function cast(array $r): array { foreach(['enabled', 'preserve_query', 'respect_origin_cache_control', 'cache_authorized_requests', 'static_asset_cache_enabled', 'ignore_query_strings_for_static', 'bypass_logged_in_users', 'debug_headers_enabled', 'force_https', 'auto_renew', 'user_modified'] as $b){ if(array_key_exists($b,$r)){$r[$b]=in_array($r[$b], [true, 1, '1', 't', 'true'], true);}} foreach(['created_at','updated_at','ttl_seconds','requests_per_minute','status_code','priority','default_edge_ttl_seconds','default_browser_ttl_seconds','stale_if_error_seconds','stale_while_revalidate_seconds','negative_ttl_seconds','max_object_size_bytes','last_generated_at','last_applied_at','challenge_difficulty','rps_threshold','active_origin_threshold','origin_latency_ms_threshold','origin_error_rate_threshold','admission_rate_per_minute','queue_limit','per_client_ticket_limit','ticket_ttl_seconds','admission_ttl_seconds','status_poll_seconds','jitter_seconds','unhealthy_windows','healthy_windows','minimum_state_seconds','recovery_ramp_percent','manual_override_until'] as $i){ if(isset($r[$i]) && $r[$i] !== null){$r[$i]=(int)$r[$i];}} foreach(['cache_methods_json'=>'cache_methods','cache_status_code_policy_json'=>'cache_status_code_policy','bypass_headers_json'=>'bypass_headers','bypass_cookies_json'=>'bypass_cookies','vary_headers_json'=>'vary_headers','cache_key_dimensions_json'=>'cache_key_dimensions'] as $jsonKey => $outKey) { if (array_key_exists($jsonKey, $r)) { $r[$outKey] = json_decode((string) $r[$jsonKey], true) ?: []; } } if (array_key_exists('actions_json', $r)) { $r['actions'] = json_decode((string) $r['actions_json'], true) ?: []; } if (array_key_exists('trusted_cidrs_json', $r)) { $r['trusted_cidrs'] = json_decode((string) $r['trusted_cidrs_json'], true) ?: []; unset($r['trusted_cidrs_json']); } if (array_key_exists('counters_json', $r)) { $r['counters'] = json_decode((string) $r['counters_json'], true) ?: []; unset($r['counters_json']); } unset($r['private_key_pem']); return $r; }
     private function castSslJob(array $r): array {
         foreach (['created_at', 'updated_at', 'finished_at', 'progress_percent'] as $i) {
             if (isset($r[$i]) && $r[$i] !== null) {

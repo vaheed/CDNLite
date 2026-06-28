@@ -35,6 +35,54 @@ local function has_logged_in_cookie(value)
     or value:find('%f[%w]laravel_session%s*=') ~= nil
 end
 
+local function list_contains(list, needle)
+  if type(list) ~= 'table' then return false end
+  needle = string.lower(tostring(needle or ''))
+  for _, value in ipairs(list) do
+    if string.lower(tostring(value)) == needle then return true end
+  end
+  return false
+end
+
+local function request_has_bypass_header(headers)
+  if type(headers) ~= 'table' then return nil end
+  for _, name in ipairs(headers) do
+    local value = ngx.req.get_headers()[tostring(name):lower()]
+    if value and tostring(value) ~= '' then return tostring(name):lower() end
+  end
+  return nil
+end
+
+local function cache_key_part(name, value)
+  value = tostring(value or '')
+  return name .. '=' .. ngx.escape_uri(value)
+end
+
+local function build_cache_key(domain, cache_settings, cache_rule, static_asset)
+  local dimensions = cache_settings.cache_key_dimensions or {}
+  local parts = {}
+  if dimensions.scheme ~= false then table.insert(parts, cache_key_part('scheme', ngx.var.scheme)) end
+  if dimensions.host ~= false then table.insert(parts, cache_key_part('host', string.lower(ngx.var.host or ''))) end
+  if dimensions.domain_id ~= false then table.insert(parts, cache_key_part('domain', domain.domain_id)) end
+  if dimensions.path ~= false then table.insert(parts, cache_key_part('path', ngx.var.uri or '/')) end
+
+  local query_mode = dimensions.query or cache_settings.cache_query_string_mode or 'include_all'
+  if static_asset and cache_settings.ignore_query_strings_for_static == true then query_mode = 'ignore' end
+  if query_mode == 'include_all' then table.insert(parts, cache_key_part('query', ngx.var.args or '')) end
+
+  local headers = dimensions.headers or cache_settings.vary_headers or {'accept-encoding'}
+  for _, header in ipairs(headers) do
+    local header_name = string.lower(tostring(header))
+    if header_name ~= 'authorization' and header_name ~= 'cookie' then
+      table.insert(parts, cache_key_part('h.' .. header_name, ngx.req.get_headers()[header_name] or ''))
+    end
+  end
+  if dimensions.country == true then table.insert(parts, cache_key_part('country', geoip.request_country())) end
+  if dimensions.language == true then table.insert(parts, cache_key_part('lang', ngx.var.http_accept_language or '')) end
+  if dimensions.rule_version ~= false then table.insert(parts, cache_key_part('rule', (cache_rule and cache_rule.id) or 'default')) end
+  return table.concat(parts, '|'), table.concat(parts, '; ')
+end
+
 function M.forward(domain)
   local upstream = ngx.ctx.upstream or domain.upstream
   if not upstream then
@@ -48,6 +96,7 @@ function M.forward(domain)
   local cache_rule = ngx.ctx.cache_rule
   local cache_rules_enabled = ngx.ctx.cache_rules_enabled == true
   local static_asset = is_static_asset(ngx.var.uri)
+  local bypass_reason = nil
   local edge_ttl = nil
   if cache_rule and tonumber(cache_rule.ttl_seconds) and tonumber(cache_rule.ttl_seconds) > 0 then
     edge_ttl = math.floor(tonumber(cache_rule.ttl_seconds))
@@ -62,26 +111,44 @@ function M.forward(domain)
   if method ~= 'GET' and method ~= 'HEAD' then
     cache_bypass = true
     cache_no_store = true
+    bypass_reason = 'method'
+  end
+
+  if type(cache_settings.cache_methods) == 'table' and not list_contains(cache_settings.cache_methods, method) then
+    cache_bypass = true
+    cache_no_store = true
+    bypass_reason = bypass_reason or 'method_policy'
   end
 
   if cache_settings.enabled == false or not edge_ttl then
     cache_bypass = true
     cache_no_store = true
+    bypass_reason = bypass_reason or 'disabled_or_no_ttl'
   end
 
   if cache_settings.cache_authorized_requests ~= true and ngx.var.http_authorization and ngx.var.http_authorization ~= '' then
     cache_bypass = true
     cache_no_store = true
+    bypass_reason = bypass_reason or 'authorization'
   end
 
   if cache_settings.bypass_logged_in_users ~= false and has_logged_in_cookie(ngx.var.http_cookie) then
     cache_bypass = true
     cache_no_store = true
+    bypass_reason = bypass_reason or 'cookie'
+  end
+
+  local bypass_header = request_has_bypass_header(cache_settings.bypass_headers)
+  if bypass_header and bypass_header ~= 'authorization' then
+    cache_bypass = true
+    cache_no_store = true
+    bypass_reason = bypass_reason or ('header:' .. bypass_header)
   end
 
   if header_has_cache_directive(ngx.var.http_cache_control) then
     cache_bypass = true
     cache_no_store = true
+    bypass_reason = bypass_reason or 'request_cache_control'
   end
 
   ngx.var.target_upstream = upstream
@@ -115,11 +182,10 @@ function M.forward(domain)
   end
   ngx.var.cdnlite_cache_bypass = cache_bypass and '1' or '0'
   ngx.var.cdnlite_cache_no_store = cache_no_store and '1' or '0'
-  local cache_uri = ngx.var.request_uri or ngx.var.uri or '/'
-  if static_asset and cache_settings.ignore_query_strings_for_static == true then
-    cache_uri = ngx.var.uri or '/'
-  end
-  ngx.var.cdnlite_cache_key = table.concat({ngx.var.scheme or '', ngx.var.host or '', cache_uri, ngx.var.http_accept_encoding or '', geoip.request_country()}, '|')
+  local cache_key, cache_debug = build_cache_key(domain, cache_settings, cache_rule, static_asset)
+  ngx.var.cdnlite_cache_key = cache_key
+  ngx.var.cdnlite_cache_debug = cache_debug
+  ngx.var.cdnlite_cache_bypass_reason = bypass_reason or ''
   if edge_ttl and not cache_no_store then
     ngx.header['X-Accel-Expires'] = tostring(edge_ttl)
   end

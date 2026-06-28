@@ -30,7 +30,8 @@ def test_performance_starter_persists_safe_controls_and_enforces_them_at_edge():
     assert "cache_settings.static_asset_cache_enabled == true" in proxy
     assert "cache_settings.ignore_query_strings_for_static == true" in proxy
     assert "cache_settings.bypass_logged_in_users ~= false" in proxy
-    assert "ngx.var.cdnlite_cache_key = table.concat" in proxy
+    assert "local function build_cache_key" in proxy
+    assert "ngx.var.cdnlite_cache_key = cache_key" in proxy
 
 
 def test_performance_starter_has_dashboard_docs_smoke_and_e2e_coverage():

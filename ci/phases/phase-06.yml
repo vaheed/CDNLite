@@ -1,0 +1,58 @@
+phase: "06"
+name: "Cache correctness foundation"
+owner: "CDNLite maintainers"
+status: "complete"
+topology: "root docker-compose.yml"
+profiles:
+  pr:
+    clean_required: false
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests/test_phase6_cache_correctness_contract.py"
+      - "luac -p edge/openresty/lua/proxy.lua edge/openresty/lua/router.lua"
+      - "bash -n ci/smoke.sh"
+      - "(cd dash && npm run typecheck)"
+  full:
+    clean_required: true
+    destructive: false
+    commands:
+      - "docker compose config --quiet"
+      - "find core -name '*.php' -print0 | xargs -0 -n1 php -l"
+      - "pytest -q core/tests"
+      - "sh -n edge/agent/register.sh"
+      - "sh -n edge/agent/heartbeat.sh"
+      - "sh -n edge/agent/pull_config.sh"
+      - "sh -n edge/agent/push_metrics.sh"
+      - "sh -n edge/agent/run.sh"
+      - "bash -n ci/smoke.sh"
+      - "bash -n ci/e2e.sh"
+      - "bash -n ci/stress-platform.sh"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "ci/stress-platform.sh --scenario phase6-cache-correctness"
+      - "ci/smoke.sh"
+      - "ci/e2e.sh"
+      - "(cd dash && npm run typecheck && npm test && npm run build)"
+      - "(cd docs && npm run docs:build)"
+  release:
+    clean_required: true
+    destructive: true
+    commands:
+      - "./ci/phase.sh 06 --profile full --clean"
+required_docs:
+  - "docs/ROADMAP.md"
+  - "docs/api/api.md"
+  - "docs/security.md"
+  - "docs/setup.md"
+  - "CHANGELOG.md"
+evidence:
+  json: "ci/reports/phase-06-report.json"
+  markdown: "ci/reports/phase-06-report.md"
+stress_scenarios:
+  - "phase6-cache-correctness"
+recovery_assertions:
+  - "Personalized and authenticated requests bypass cache by default."
+  - "Cache keys include bounded, operator-visible dimensions."
+  - "Per-rule TTLs are honored through X-Accel-Expires."

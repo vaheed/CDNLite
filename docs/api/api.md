@@ -510,7 +510,7 @@ Protection intents are the beginner/simple API layer. Preview does not mutate st
 
 API Shield (`protect_api`) generates real advanced rules for `/api/`: IP/path rate limits, `Authorization` header/path limits for token-aware APIs, and `path_method_not_allowed` WAF rules that block unsupported methods only inside the API prefix. The generated method rule uses a pattern such as `/api/:GET,POST,PUT,PATCH,DELETE,OPTIONS`, so advanced users can edit the prefix or method set without losing ownership metadata.
 
-Cache settings additionally support `static_asset_cache_enabled`, `ignore_query_strings_for_static`, and `bypass_logged_in_users`. Static caching covers CSS, JavaScript, common image formats, fonts, MP4, and PDF. When enabled, query-string stripping applies only to those static extensions; common session/authentication cookies always bypass cache by default.
+Cache settings additionally support `static_asset_cache_enabled`, `ignore_query_strings_for_static`, `bypass_logged_in_users`, `cache_methods`, `cache_status_code_policy`, `bypass_headers`, `bypass_cookies`, `vary_headers`, `cache_key_dimensions`, `debug_headers_enabled`, `stale_while_revalidate_seconds`, `negative_ttl_seconds`, and `max_object_size_bytes`. Static caching covers CSS, JavaScript, common image formats, fonts, MP4, and PDF. When enabled, query-string stripping applies only to those static extensions; common session/authentication cookies always bypass cache by default.
 
 Protection profiles are one-click bundles over the same intent engine. One-click profiles compose protection intents for Basic Website, WordPress, API, SaaS App, E-commerce, and Emergency Protection presets. Preview returns the per-intent generated rules without mutating state. Apply creates or updates a profile record, enables the profile-owned intents, writes profile/audit history, stores rollback points, and invalidates edge config. Disable turns off the generated rules for intents owned by that profile while preserving the underlying advanced rules for inspection and rollback.
 
@@ -556,6 +556,8 @@ Cache tips:
 
 - Prefer `url` or `prefix` purges over `everything`.
 - Use short TTLs while validating an origin migration.
+- Use the dashboard Cache key preview to confirm bounded key dimensions before adding country, language, or header variation.
+- Enable debug cache headers only during diagnosis. `X-CDNLite-Cache-Key` is sanitized and omits secrets, while `X-CDNLite-Cache-Reason` explains safe bypasses such as authorization, cookie, method, or request cache-control.
 - Check cache analytics after rule changes; a sudden hit-ratio drop usually means a bypass condition was introduced.
 - Requests with authorization or explicit no-cache headers should not be used to judge normal cache behavior.
 

@@ -349,7 +349,7 @@ Destructive and high-volume tests must run only against an explicitly disposable
 | 3. Edge hot-path performance and bounded telemetry | P0 | Complete | No repeated config parsing or synchronous per-request telemetry writes |
 | 4. Real challenge and clearance system | P0 | Complete | Challenge actions serve configurable self-hosted browser verification before origin routing |
 | 5. Adaptive overload protection and waiting room | P0 | Complete | Origins remain protected under attack or heavy usage |
-| 6. Cache correctness foundation | P0 | Planned | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
+| 6. Cache correctness foundation | P0 | Complete | Standards-aware cache keys, eligibility, revalidation, and stale behavior |
 | 7. Origin routing, resilience, and shielding | P0 | Planned | Predictable health, load balancing, failover, retries, and circuit breaking |
 | 8. Purge and invalidation platform | P1 | Planned | Fast, safe, observable purge by URL, prefix, host, and tag |
 | 9. Edge protocol and delivery performance | P1 | Planned | Efficient TLS, HTTP/2, optional HTTP/3, compression, and connection reuse |
@@ -1883,6 +1883,8 @@ Add:
 ## Phase 6 — Cache correctness foundation
 
 > **One-shot completion gate:** Implement the full vertical slice, update documentation, changelog, and roadmap progress, run automated tests, clean-stack smoke, end-to-end, phase-specific stress/scale/failure/recovery, publish evidence, and only then mark the phase Complete.
+
+**Status:** Complete on 2026-06-28. CDNLite now has explicit cache-method, status-code, bypass-header, bypass-cookie, vary-header, cache-key-dimension, stale, negative-cache, max-object, and safe debug-header controls in the authoritative schema; API and dashboard visibility for cache key previews; edge Lua cache eligibility and normalized key construction; per-rule TTLs honored through `X-Accel-Expires`; consistent `X-CDNLite-Cache` and bypass-reason headers; Phase 6 one-shot manifest and stress scenario registration.
 
 ### Objective
 

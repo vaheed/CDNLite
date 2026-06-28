@@ -223,6 +223,7 @@ Edge and agent settings:
 | `METRIC_PATH` | Metrics queue file for the agent. |
 | `SECURITY_EVENT_PATH` | Security event queue file for the agent. |
 | `CDNLITE_CACHE_DEFAULT_TTL` | Default OpenResty cache TTL. |
+| `CDNLITE_EDGE_DEBUG_HEADERS` | Set to `1` to expose sanitized cache key and bypass reason headers during diagnosis. |
 | `CDNLITE_EDGE_WORKER_PROCESSES`, `CDNLITE_EDGE_WORKER_CONNECTIONS` | OpenResty worker capacity. Defaults are `auto` and `4096`. |
 | `CDNLITE_EDGE_LIMITS_DICT_SIZE`, `CDNLITE_EDGE_REQUEST_CONTEXT_DICT_SIZE`, `CDNLITE_EDGE_METRIC_QUEUE_DICT_SIZE`, `CDNLITE_EDGE_SECURITY_EVENT_QUEUE_DICT_SIZE` | Shared memory budgets for rate limits, request context, metrics, and security-event queues. |
 | `CDNLITE_EDGE_WAITING_ROOM_DICT_SIZE`, `CDNLITE_EDGE_WAITING_ROOM_SECRET` | Shared-memory budget and signing secret for local waiting-room queue tickets and admission cookies. Initial queues are local to each edge node and are not globally fair across nodes. |

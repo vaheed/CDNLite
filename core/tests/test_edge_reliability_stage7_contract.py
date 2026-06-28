@@ -26,7 +26,8 @@ def test_stage7_schema_and_request_id_contract():
     assert "local geoip = require('geoip')" in metrics
     assert "client_country" in metrics
     assert "geoip.request_country()" in metrics
-    assert "proxy_ignore_headers X-Accel-Expires;" in nginx
+    assert "proxy_ignore_headers X-Accel-Expires;" not in nginx
+    assert "X-Accel-Expires" in proxy
     assert "security_event_type" in metrics
     assert "security_action" in metrics
     assert "blocked_by_waf" in router

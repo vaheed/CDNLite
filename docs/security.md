@@ -210,14 +210,17 @@ In production, put both the dashboard and the CDNLite API behind real authentica
 The edge runtime bypasses cache storage and lookup when request risk is high:
 - Non-`GET`/`HEAD` methods set cache bypass.
 - `Authorization` header sets cache bypass.
+- Configured bypass headers and common session/authentication cookies set cache bypass.
 - `Cache-Control: no-cache` or `no-store` sets cache bypass.
 
 When domain cache is enabled, ordinary `GET`/`HEAD` responses use the domain
 default edge TTL while no path-specific cache rules exist. Once one or more
 cache rules are enabled for a host, those rules become an allowlist: matching
-paths use their rule TTL and non-matching paths bypass cache. Upstream
-`X-Accel-Expires` is ignored at the CDNLite edge so origin-local nginx
-directives do not accidentally disable CDN caching for an entire site.
+paths use their rule TTL and non-matching paths bypass cache. Lua sets
+`X-Accel-Expires` from the matched rule or domain default so Nginx honors the
+selected freshness lifetime. Debug cache headers are opt-in through
+`CDNLITE_EDGE_DEBUG_HEADERS` and expose only sanitized key dimensions and bypass
+reasons.
 
 Edge access logs are JSON lines on stdout and edge diagnostics are emitted to
 stderr. They include request ids and safe routing metadata, but must not include

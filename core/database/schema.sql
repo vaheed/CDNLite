@@ -1114,6 +1114,16 @@ CREATE TABLE IF NOT EXISTS domain_cache_settings (
   static_asset_cache_enabled BOOLEAN NOT NULL DEFAULT false,
   ignore_query_strings_for_static BOOLEAN NOT NULL DEFAULT false,
   bypass_logged_in_users BOOLEAN NOT NULL DEFAULT true,
+  cache_methods_json TEXT NOT NULL DEFAULT '["GET","HEAD"]',
+  cache_status_code_policy_json TEXT NOT NULL DEFAULT '{"200":true,"301":true,"302":true,"404":false,"500":false,"502":false,"503":false,"504":false}',
+  bypass_headers_json TEXT NOT NULL DEFAULT '["authorization"]',
+  bypass_cookies_json TEXT NOT NULL DEFAULT '["session","auth","wordpress_logged_in","laravel_session"]',
+  vary_headers_json TEXT NOT NULL DEFAULT '["accept-encoding"]',
+  cache_key_dimensions_json TEXT NOT NULL DEFAULT '{"scheme":true,"host":true,"path":true,"query":"include_all","headers":["accept-encoding"],"device":false,"country":false,"language":false,"domain_id":true,"rule_version":true}',
+  debug_headers_enabled BOOLEAN NOT NULL DEFAULT false,
+  stale_while_revalidate_seconds INTEGER NOT NULL DEFAULT 0,
+  negative_ttl_seconds INTEGER NOT NULL DEFAULT 0,
+  max_object_size_bytes BIGINT NOT NULL DEFAULT 104857600,
   created_at BIGINT NOT NULL,
   updated_at BIGINT NOT NULL
 );
