@@ -400,11 +400,13 @@ function M.handle()
   if not rate_limit_ok then
     return false, 'rate_limited'
   end
+  ngx.ctx.cache_rule, ngx.ctx.cache_rules_enabled = match_cache_rule(cfg, host)
+  ngx.ctx.cache_settings = domain.cache or {}
+  local country = request_country()
   local waiting_ok = waiting_room.apply(domain.waiting_room, domain)
   if not waiting_ok then
     return false, 'waiting_room'
   end
-  local country = request_country()
   local upstream, origin_meta = origin_selector.select(domain, country, tostring(ngx.ctx.request_id or ngx.var.request_id or ngx.var.uri or ''))
   if not upstream then
     edge_log.error('router_error', { domain_id = tostring(domain.domain_id or ''), router_error = tostring(origin_meta or 'no_healthy_origin') })
@@ -414,8 +416,6 @@ function M.handle()
   ngx.ctx.origin = origin_meta or {}
   ngx.ctx.origin_scheme = ngx.ctx.origin.scheme
   ngx.ctx.origin_pool_size = #(domain.origins or {})
-  ngx.ctx.cache_rule, ngx.ctx.cache_rules_enabled = match_cache_rule(cfg, host)
-  ngx.ctx.cache_settings = domain.cache or {}
   edge_log.info('origin_selected', {
     domain_id = tostring(domain.domain_id or ''),
     origin_id = tostring(ngx.ctx.origin.id or ''),

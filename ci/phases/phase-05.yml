@@ -1,7 +1,7 @@
 phase: "05"
 name: "Adaptive overload protection and waiting room"
 owner: "CDNLite maintainers"
-status: "in_progress"
+status: "complete"
 topology: "root docker-compose.yml"
 profiles:
   pr:

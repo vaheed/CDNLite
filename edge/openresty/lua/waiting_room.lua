@@ -90,6 +90,69 @@ local function client_ip()
   return tostring(ngx.var.remote_addr or '')
 end
 
+local function header_has_cache_directive(value)
+  if not value then
+    return false
+  end
+  value = string.lower(value)
+  return value:find('no-cache', 1, true) ~= nil or value:find('no-store', 1, true) ~= nil
+end
+
+local function has_logged_in_cookie(value)
+  if not value then return false end
+  value = string.lower(value)
+  return value:find('%f[%w]session[%w_%-]*%s*=') ~= nil
+    or value:find('%f[%w]auth[%w_%-]*%s*=') ~= nil
+    or value:find('%f[%w]wordpress_logged_in[%w_%-]*%s*=') ~= nil
+    or value:find('%f[%w]laravel_session%s*=') ~= nil
+end
+
+local static_extensions = {
+  css = true, js = true, png = true, jpg = true, jpeg = true, gif = true,
+  svg = true, webp = true, ico = true, woff = true, woff2 = true, ttf = true,
+  mp4 = true, pdf = true,
+}
+
+local function is_static_asset(path)
+  local extension = string.lower((path or ''):match('%.([%w]+)$') or '')
+  return static_extensions[extension] == true
+end
+
+local function cache_candidate()
+  local method = ngx.req.get_method()
+  if method ~= 'GET' and method ~= 'HEAD' then
+    return false
+  end
+  local cache_settings = ngx.ctx.cache_settings or {}
+  if cache_settings.enabled == false then
+    return false
+  end
+  local cache_rule = ngx.ctx.cache_rule
+  local cache_rules_enabled = ngx.ctx.cache_rules_enabled == true
+  local edge_ttl = nil
+  if cache_rule and tonumber(cache_rule.ttl_seconds) and tonumber(cache_rule.ttl_seconds) > 0 then
+    edge_ttl = math.floor(tonumber(cache_rule.ttl_seconds))
+  elseif not cache_rules_enabled and tonumber(cache_settings.default_edge_ttl_seconds) and tonumber(cache_settings.default_edge_ttl_seconds) > 0 then
+    edge_ttl = math.floor(tonumber(cache_settings.default_edge_ttl_seconds))
+  end
+  if not edge_ttl and is_static_asset(ngx.var.uri) and cache_settings.static_asset_cache_enabled == true and tonumber(cache_settings.default_edge_ttl_seconds) and tonumber(cache_settings.default_edge_ttl_seconds) > 0 then
+    edge_ttl = math.floor(tonumber(cache_settings.default_edge_ttl_seconds))
+  end
+  if not edge_ttl then
+    return false
+  end
+  if cache_settings.cache_authorized_requests ~= true and ngx.var.http_authorization and ngx.var.http_authorization ~= '' then
+    return false
+  end
+  if cache_settings.bypass_logged_in_users ~= false and has_logged_in_cookie(ngx.var.http_cookie) then
+    return false
+  end
+  if header_has_cache_directive(ngx.var.http_cache_control) then
+    return false
+  end
+  return true
+end
+
 local function has_admission(policy, domain_id)
   local claims = decode_token(ngx.var['cookie_' .. admit_cookie] or '')
   return claims and tostring(claims.domain_id or '') == tostring(domain_id or '') and tostring(claims.client_ip or '') == client_ip()
@@ -148,6 +211,10 @@ function M.apply(policy, domain)
   if not overload_active(policy) then return true end
   local domain_id = tostring(domain.domain_id or '')
   local method = ngx.req.get_method()
+  if cache_candidate() then
+    ngx.ctx.waiting_room_cache_candidate = true
+    return true
+  end
   if has_admission(policy, domain_id) then return true end
   if method ~= 'GET' and method ~= 'HEAD' then
     return json_response(429, { error = 'waiting_room_required', request_id = tostring(ngx.ctx.request_id or ''), estimated_wait_seconds = tonumber(policy.status_poll_seconds or 5) or 5 }, tonumber(policy.status_poll_seconds or 5) or 5)
@@ -170,6 +237,7 @@ end
 function M.mark_origin(domain)
   local dict = ngx.shared.cdnlite_waiting_room
   if not dict or not domain then return end
+  if ngx.ctx.waiting_room_cache_candidate == true then return end
   local domain_id = tostring(domain.domain_id or '')
   ngx.ctx.waiting_room_domain_id = domain_id
   ngx.ctx.waiting_room_origin_marked = true

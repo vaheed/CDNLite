@@ -61,6 +61,8 @@ def test_edge_waiting_room_uses_signed_tokens_bounded_state_and_local_endpoints(
     assert "admission_rate_per_minute" in waiting_room
     assert "rps_threshold" in waiting_room
     assert "status_poll_seconds" in waiting_room
+    assert "cache_candidate" in waiting_room
+    assert "waiting_room_cache_candidate" in waiting_room
     assert "same_host_path" in waiting_room
     assert "function M.queue_page()" in waiting_room
     assert "function M.queue_status()" in waiting_room
@@ -69,6 +71,7 @@ def test_edge_waiting_room_uses_signed_tokens_bounded_state_and_local_endpoints(
     assert "function M.on_log()" in waiting_room
     assert "waiting_room.apply(domain.waiting_room, domain)" in router
     assert "waiting_room.mark_origin(domain)" in router
+    assert "ngx.ctx.cache_rule, ngx.ctx.cache_rules_enabled = match_cache_rule(cfg, host)" in router
     assert "local waiting_room = require('waiting_room')" in router
     assert "lua_shared_dict cdnlite_waiting_room" in nginx
     assert "location = /.well-known/cdnlite/queue" in nginx
@@ -95,7 +98,7 @@ def test_dashboard_docs_smoke_and_phase_gate_cover_waiting_room():
 
     assert "interface WaitingRoomPolicy" in types
     assert "Waiting room" in tab
-    assert "Activate 1 hour" in tab
+    assert "Activate for 1 hour" in tab
     assert "waitingRoomApi" in api
     assert "waiting-room/emergency/activate" in api
     assert "DomainWaitingRoomTab" in domain_detail
