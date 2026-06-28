@@ -50,15 +50,15 @@ curl -fsS http://localhost:8081/health
 
 ## Dashboard Login
 
-The local `.env.example` enables admin bootstrap:
+Fresh installs create a local-only admin through Laravel seeders:
 
 ```text
-CDNLITE_BOOTSTRAP_ADMIN_USER=1
-CDNLITE_BOOTSTRAP_ADMIN_USERNAME=admin
-CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=admin
+CDNLITE_DEV_ADMIN_USERNAME=admin@example.test
+CDNLITE_DEV_ADMIN_PASSWORD=cdnlite-local-admin
 ```
 
-Create a deliberate admin account when bootstrap is disabled:
+Create a deliberate admin account for non-local environments after rotating the
+seeded password:
 
 ```bash
 docker compose exec core php artisan cdn:admin:create \
@@ -76,13 +76,16 @@ docker compose exec core php artisan cdn:admin:delete --username=old-admin
 
 ## Backend Setup
 
-The core image runs PHP from `core/public_index.php` and CLI commands from
-`core/artisan`. Database upgrades run through ordered PostgreSQL migrations in
-`core/database/migrations/`. `core/database/schema.sql` is a development
-snapshot for inspection and fresh local rebuilds, not the production upgrade
-path. Core containers run migrations at startup when `CDNLITE_AUTO_MIGRATE`
-is `true` (the local default). Set it to `false` for controlled production
-rollouts and run migrations manually after taking a backup.
+The core image serves Laravel from `core/public/index.php` and CLI commands from
+Laravel's `core/artisan`. Fresh installs run Laravel migrations and seeders:
+
+```bash
+docker compose exec core php artisan migrate --seed
+```
+
+`core/database/schema.sql` is the authoritative fresh-install PostgreSQL schema
+loaded by the initial Laravel migration. CDNLite is pre-1.0 and does not ship
+old-data upgrade migrations or compatibility shims.
 
 Useful commands:
 
@@ -93,9 +96,7 @@ docker compose exec core php artisan cdn:domains:verify-all
 docker compose exec core php artisan cdn:ssl:renew-due
 docker compose exec core php artisan cdn:origins:health-check
 docker compose exec core php artisan cdn:domain:list
-docker compose exec core php artisan cdn:db:migrate --dry-run
-docker compose exec core php artisan cdn:db:migrate
-docker compose exec core php artisan cdn:db:status
+docker compose exec core php artisan migrate --seed
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:usage:prune --dry-run
@@ -115,9 +116,8 @@ Runtime process ownership:
 - There are no standalone `dns-reconciler`, `nameserver-scheduler`,
   `ssl-scheduler`, `origin-health-scheduler`, or `retention-scheduler`
   containers in the root Compose topology.
-- `core/artisan` is CDNLite's custom CLI entrypoint; it is not a framework
-  marker. Horizon is not part of CDNLite, so there is no `/horizon` route or
-  Horizon worker dashboard.
+- `core/artisan` is Laravel's CLI entrypoint. Remaining `cdn:*` commands are
+  converted phase-by-phase and should not add new compatibility aliases.
 
 ## Horizon Web Panel
 

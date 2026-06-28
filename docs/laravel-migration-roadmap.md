@@ -1,11 +1,11 @@
-You are an expert Laravel migration engineer. Convert the repository `vaheed/CDNLite` into a production-grade Laravel application while preserving all existing product behavior, APIs, Docker workflows, dashboard functionality, edge sync behavior, database state, tests, documentation, and CI validation.
+You are an expert Laravel rebuild engineer. Convert the repository `vaheed/CDNLite` into a production-grade Laravel application for fresh installs. The current rebuild does not preserve old database contents, deprecated environment aliases, custom router architecture, or historical API/CLI compatibility unless a task explicitly asks for it.
 
 Progress status:
 - Phase 1 inventory and baseline is complete.
 - Phase 2 Laravel foundation is started and partially complete.
-- The existing custom HTTP router remains the live container entrypoint through `core/public_index.php` so current API behavior is preserved while Laravel routes are migrated.
+- Laravel `core/public/index.php` is the HTTP entrypoint. The custom `core/public_index.php` is retained only as old implementation reference until later deletion.
 - The existing custom CLI command runner is preserved as `core/artisan-legacy`; the new Laravel-compatible `core/artisan` delegates all current `cdn:*` commands there until each command is converted to Laravel `Command` classes.
-- No endpoint, edge-agent, DNS, SSL, dashboard, schema, or public command behavior has intentionally changed yet.
+- Backward compatibility is intentionally out of scope for this fresh-install rebuild.
 
 Completed change log:
 - Added the migration inventory and file mapping in `docs/laravel-migration-inventory.md`.

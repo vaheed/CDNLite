@@ -13,7 +13,7 @@ Self-hosted private CDN control plane and edge platform for companies, hosting p
 
 Published OpenAPI YAML: https://vaheed.github.io/CDNLite/api/openapi.yaml
 
-CDNLite lets operators run a private CDN-style platform with a PHP control plane, PostgreSQL state, Vue dashboard, OpenResty/Lua edge proxy, PowerDNS/DNSGeo publishing, cache and security rules, SSL workflows, analytics, audit logs, and signed edge-agent sync.
+CDNLite lets operators run a private CDN-style platform with a Laravel control plane, PostgreSQL state, Vue dashboard, OpenResty/Lua edge proxy, PowerDNS/DNSGeo publishing, cache and security rules, SSL workflows, analytics, audit logs, and signed edge-agent sync.
 
 It is intended as a production-oriented private CDN foundation, not a promise that every large public CDN or enterprise identity feature is already present.
 
@@ -97,11 +97,12 @@ The normal topology is the root [docker-compose.yml](docker-compose.yml). Split 
 ```bash
 cp .env.example .env
 docker compose up -d --build
+docker compose exec core php artisan migrate --seed
 curl -fsS http://localhost:8080/health
 curl -fsS http://localhost:8081/health
 ```
 
-Open the dashboard at `http://localhost:8082`. Local bootstrap credentials are `admin` / `admin`; these are for local development only and must not be used in shared or production deployments.
+Open the dashboard at `http://localhost:8082`. Local seeded credentials are `admin@example.test` / `cdnlite-local-admin`; these are for local development only and must not be used in shared or production deployments.
 
 Next steps:
 
@@ -169,7 +170,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the fuller roadmap.
 ```bash
 docker compose config --quiet
 find core -name '*.php' -print0 | xargs -0 -n1 php -l
-pytest -q core/tests
+(cd core && php artisan test)
 cd dash && npm ci && npm run typecheck && npm test && npm run build
 cd docs && npm ci && npm run docs:build
 ```
@@ -185,11 +186,9 @@ CDNLITE_EDGE_HEALTH_MODE=static ./ci/dns_e2e.sh
 
 Run the destructive DNS stress test only against an explicitly disposable environment.
 
-Useful operator commands include `php artisan cdn:edge:sync-config` to publish or
-fetch the active edge config and `php artisan cdn:config-snapshots:prune
---keep=2 --batch=5000 --dry-run` to review bounded snapshot cleanup before
-deleting old published artifacts. Snapshot rollback/history endpoints are
-disabled by default because database tables remain the source of truth.
+The Laravel rebuild is fresh-install-only. Historical database migrations,
+custom front-controller routing, and deprecated bootstrap environment aliases
+are intentionally not part of the new install path.
 
 ## Contributing
 

@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Foundation\Application;
+use App\Http\Middleware\AdminBearerAuth;
 use App\Http\Middleware\CdnliteCors;
+use App\Http\Middleware\EdgeSignatureAuth;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
@@ -15,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(CdnliteCors::class);
+        $middleware->alias([
+            'admin.auth' => AdminBearerAuth::class,
+            'edge.auth' => EdgeSignatureAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

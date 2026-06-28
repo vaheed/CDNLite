@@ -1,14 +1,13 @@
 # Laravel Migration Inventory
 
-This inventory is the Phase 1 baseline for converting `core/` from the custom
-PHP control-plane framework to a standard Laravel application. No custom core
-files have been removed yet. The migration status for every row starts as
-`Not started` so the Laravel replacement can be reviewed and tested before the
-old implementation is retired.
+This inventory is the Phase 1 baseline for rebuilding `core/` from the custom
+PHP control-plane framework to a standard Laravel application. The rebuild is
+fresh-install-only; old database contents, deprecated aliases, and custom
+framework compatibility are intentionally not preserved.
 
 ## Current Runtime Summary
 
-- Core HTTP entrypoint: `core/public_index.php`
+- Core HTTP entrypoint: `core/public/index.php`
 - Core CLI entrypoint: `core/artisan`
 - Custom bootstrap/autoload/config layer: `core/app/Support/bootstrap.php`
 - Custom router/request/response layer: `core/app/Support/Router.php`,
@@ -26,9 +25,9 @@ old implementation is retired.
 
 ## Migration Principles
 
-- Preserve public HTTP methods, paths, status codes, error keys, and response
-  envelopes before refactoring internals.
-- Preserve every command name currently registered in `core/artisan`.
+- Prefer Laravel-native routes, requests, resources, middleware, policies,
+  migrations, jobs, scheduler entries, and tests over preserving old internals.
+- Keep only public behavior required by the current product surface.
 - Keep PostgreSQL as the only supported database backend.
 - Use `core/database/schema.sql` and the SQL migrations as the source of truth
   for Laravel migrations.

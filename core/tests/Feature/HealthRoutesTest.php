@@ -25,4 +25,10 @@ class HealthRoutesTest extends TestCase
         $response->assertHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
         $response->assertHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-CDNLITE-Edge-Id, X-CDNLITE-Timestamp, X-CDNLITE-Nonce, X-CDNLITE-Signature');
     }
+
+    public function test_unknown_api_route_no_longer_falls_through_to_legacy_router(): void
+    {
+        $this->getJson('/api/v1/does-not-exist')
+            ->assertNotFound();
+    }
 }

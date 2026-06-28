@@ -85,12 +85,15 @@ conflicts return `dns_record_name_conflict` with status `409`.
 Control-plane endpoints marked as protected require:
 
 ```http
-Authorization: Bearer <CDNLITE_API_TOKEN or admin session token>
+Authorization: Bearer <admin session token>
 ```
 
-When `CDNLITE_API_TOKEN` is empty, protected control-plane routes are open for local development. Do not run production that way.
-
-Admin sessions are also bearer tokens. A browser login calls `/api/v1/admin/login` and then sends the returned token on protected routes. API-token clients and admin-session clients therefore share the same `Authorization` header shape.
+The Laravel rebuild uses admin session bearer tokens for the dashboard and
+control-plane API. The project chose Sanctum-style first-party session tokens
+over Passport because CDNLite needs operator/API sessions for a self-hosted
+control plane, not an OAuth authorization server. The current implementation
+stores hashed bearer tokens in `admin_sessions`; installing `laravel/sanctum`
+is the next dependency-refresh step once Composer can update the lock file.
 
 Edge endpoints require bearer token plus replay-protection and HMAC headers:
 
@@ -138,7 +141,7 @@ curl -s "$API/api/v1/domains" \
 ```bash
 SESSION=$(curl -s -X POST http://localhost:8080/api/v1/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin"}' | jq -r '.data.token')
+  -d '{"username":"admin@example.test","password":"cdnlite-local-admin"}' | jq -r '.token')
 
 curl -s http://localhost:8080/api/v1/readiness \
   -H "Authorization: Bearer $SESSION"
