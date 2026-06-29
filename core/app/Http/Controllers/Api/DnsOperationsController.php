@@ -4,14 +4,19 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\ControlPlane\DnsDesiredStateService;
+use App\Services\ControlPlane\DnsPowerDnsReconciler;
+use App\Services\ControlPlane\PowerDnsClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 final class DnsOperationsController extends Controller
 {
-    public function __construct(private DnsDesiredStateService $desiredState)
-    {
+    public function __construct(
+        private DnsDesiredStateService $desiredState,
+        private DnsPowerDnsReconciler $reconciler,
+        private PowerDnsClient $powerDns,
+    ) {
     }
 
     public function status(): JsonResponse
@@ -75,8 +80,16 @@ final class DnsOperationsController extends Controller
     public function forceSync(): JsonResponse
     {
         return response()->json([
-            'data' => $this->desiredState->persistDesiredState(),
+            'data' => $this->reconciler->forceSync(),
         ]);
+    }
+
+    public function actual(string $zone): JsonResponse
+    {
+        $result = $this->powerDns->getZone($zone);
+        $status = ($result['ok'] ?? false) === true ? 200 : 502;
+
+        return response()->json(['data' => $result], $status);
     }
 
     private function zoneStatuses(): array
@@ -145,7 +158,7 @@ final class DnsOperationsController extends Controller
             'apex_proxy_mode' => 'LUA',
             'bundled_dnsgeo' => true,
             'poweradmin_url' => (string) env('CDNLITE_POWERADMIN_URL', 'http://localhost:8084'),
-            'api' => ['ok' => $enabled, 'disabled' => !$enabled],
+            'api' => $enabled ? $this->powerDns->status() : ['ok' => true, 'disabled' => true],
         ];
     }
 

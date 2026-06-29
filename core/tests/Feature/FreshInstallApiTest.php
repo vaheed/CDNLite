@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\ControlPlane\UnixTime;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -336,6 +337,96 @@ class FreshInstallApiTest extends TestCase
             ->assertJsonFragment(['records' => ['198.51.100.200']]);
     }
 
+    public function test_dns_force_sync_writes_laravel_desired_state_to_powerdns(): void
+    {
+        $token = $this->adminToken();
+        $this->configurePowerDns([
+            'platform.powerdns.verify_after_write' => false,
+        ]);
+
+        $requests = [];
+        Http::fake(function ($request) use (&$requests) {
+            $requests[] = ['method' => $request->method(), 'url' => (string) $request->url(), 'body' => $request->data()];
+
+            if ($request->method() === 'GET' && str_contains((string) $request->url(), '/zones/')) {
+                return Http::response(['error' => 'not found'], 404);
+            }
+            if ($request->method() === 'POST' && str_ends_with((string) $request->url(), '/zones')) {
+                return Http::response(['id' => 'created'], 201);
+            }
+            if ($request->method() === 'PATCH') {
+                return Http::response(null, 204);
+            }
+
+            return Http::response(['id' => 'localhost'], 200);
+        });
+
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'pdns-sync.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/nameservers/force-verify", ['reason' => 'feature test'])
+            ->assertOk();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'CNAME',
+                'name' => 'www',
+                'content' => 'origin.pdns-sync.example',
+                'proxied' => true,
+            ])
+            ->assertCreated();
+
+        $this->withToken($token)
+            ->postJson('/api/v1/dns/force-sync')
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'powerdns_reconciled')
+            ->assertJsonPath('data.ok', true);
+
+        $this->assertTrue(collect($requests)->contains(
+            fn (array $request): bool => $request['method'] === 'POST' && str_ends_with($request['url'], '/zones')
+        ));
+        $this->assertTrue(collect($requests)->contains(
+            fn (array $request): bool => $request['method'] === 'PATCH'
+                && collect($request['body']['rrsets'] ?? [])->contains(fn (array $rrset): bool => ($rrset['type'] ?? null) === 'CNAME')
+        ));
+        $this->assertDatabaseHas('dns_sync_state', [
+            'zone_name' => 'pdns-sync.example.',
+            'status' => 'ok',
+            'pending_changes' => 0,
+            'in_progress' => false,
+        ]);
+        $this->assertDatabaseHas('dns_sync_events', [
+            'zone_name' => 'pdns-sync.example.',
+            'action' => 'patch_rrsets',
+            'status' => 'success',
+        ]);
+    }
+
+    public function test_dns_actual_zone_endpoint_reads_powerdns_through_laravel(): void
+    {
+        $token = $this->adminToken();
+        $this->configurePowerDns();
+
+        Http::fake([
+            'http://powerdns.test/api/v1/servers/localhost/zones/actual.example.' => Http::response([
+                'id' => 'actual.example.',
+                'name' => 'actual.example.',
+                'rrsets' => [
+                    ['name' => 'actual.example.', 'type' => 'NS', 'ttl' => 300, 'records' => [['content' => 'ns1.cdnlite.test.', 'disabled' => false]]],
+                ],
+            ], 200),
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/dns/zones/actual.example./actual')
+            ->assertOk()
+            ->assertJsonPath('data.ok', true)
+            ->assertJsonPath('data.zone.name', 'actual.example.');
+    }
+
     public function test_domain_lifecycle_crud_writes_audit_and_marks_config_dirty(): void
     {
         $token = $this->adminToken();
@@ -643,5 +734,36 @@ class FreshInstallApiTest extends TestCase
             'is_secret' => false,
             'updated_at' => UnixTime::now(),
         ]], ['key'], ['value_json', 'updated_at']);
+    }
+
+    private function configurePowerDns(array $overrides = []): void
+    {
+        $settings = [
+            'platform.powerdns.enabled' => true,
+            'platform.powerdns.api_url' => 'http://powerdns.test',
+            'platform.powerdns.api_key' => 'test-key',
+            'platform.powerdns.server_id' => 'localhost',
+            'platform.powerdns.zone_kind' => 'NATIVE',
+            'platform.powerdns.verify_after_write' => true,
+            'platform.powerdns.retries' => 0,
+            'platform.powerdns.retry_sleep_ms' => 0,
+            'platform.powerdns.timeout_seconds' => 1,
+        ];
+        foreach ($overrides as $key => $value) {
+            $settings[$key] = $value;
+        }
+
+        $rows = [];
+        foreach ($settings as $key => $value) {
+            $rows[] = [
+                'key' => $key,
+                'group_name' => 'platform',
+                'value_json' => json_encode($value, JSON_UNESCAPED_SLASHES),
+                'is_secret' => $key === 'platform.powerdns.api_key',
+                'updated_at' => UnixTime::now(),
+            ];
+        }
+
+        DB::table('platform_settings')->upsert($rows, ['key'], ['value_json', 'is_secret', 'updated_at']);
     }
 }

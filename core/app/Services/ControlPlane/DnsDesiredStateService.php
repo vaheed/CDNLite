@@ -75,8 +75,8 @@ final class DnsDesiredStateService
     {
         return DB::transaction(function (): array {
             $rrsets = $this->build();
-            $generationId = $this->persist($rrsets);
-            $this->prune($generationId);
+            $generationId = $this->persistGeneration($rrsets);
+            $this->pruneGeneration($generationId);
             $this->refreshSyncState($rrsets, $generationId);
 
             return [
@@ -184,7 +184,7 @@ final class DnsDesiredStateService
         return $rrsets;
     }
 
-    private function persist(array $rrsets): int
+    public function persistGeneration(array $rrsets): int
     {
         $now = UnixTime::now();
         $desiredHash = hash('sha256', json_encode($rrsets, JSON_UNESCAPED_SLASHES) ?: '[]');
@@ -222,7 +222,7 @@ final class DnsDesiredStateService
         return (int) $generationId;
     }
 
-    private function prune(int $generationId): void
+    public function pruneGeneration(int $generationId): void
     {
         DB::table('desired_dns_rrsets')
             ->where('owner', 'cdnlite')
@@ -230,7 +230,7 @@ final class DnsDesiredStateService
             ->delete();
     }
 
-    private function refreshSyncState(array $rrsets, int $generationId): void
+    public function refreshSyncState(array $rrsets, int $generationId): void
     {
         $now = UnixTime::now();
         foreach ($this->zoneSummaries($rrsets) as $zone) {

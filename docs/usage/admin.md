@@ -104,8 +104,11 @@ per family. When set, the shared proxy host publishes plain A/AAAA records for
 all configured addresses in those families instead of DNSGeo Lua.
 
 Use `Dry run` to calculate desired records without writing PowerDNS. Use
-`Force sync now` to run the advisory-locked reconciler immediately. Poweradmin
-opens from the configured `CDNLITE_POWERADMIN_URL`.
+`Force sync now` to persist the current desired generation and run the
+advisory-locked PowerDNS reconciler when PowerDNS is enabled and configured.
+If PowerDNS settings are incomplete, the response remains a persist-only preview
+and shows the skipped reason. Poweradmin opens from the configured
+`CDNLITE_POWERADMIN_URL`.
 
 Raw config snapshots are no longer exposed in dashboard navigation. They remain
 an internal edge runtime mechanism. The readiness timestamp advances after a

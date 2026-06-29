@@ -135,13 +135,29 @@ Completed in the desired-state migration slice:
   sync-state visibility, inactive/unverified filtering, LUA/CNAME projection,
   DNSGeo Lua projection, and anycast override projection.
 
+Completed in the PowerDNS writer migration slice:
+
+- Laravel-native PowerDNS client for configured API health, zone reads, zone
+  creation, rrset PATCH, optional verify-after-write, and zone deletion.
+- `/api/v1/dns/force-sync` now persists the current Laravel desired generation
+  and reconciles it to PowerDNS when the integration is enabled and configured.
+  Missing PowerDNS settings keep the fresh-install persist-only behavior visible
+  through `powerdns_skipped_reason`.
+- `/api/v1/dns/zones/{zone}/actual` now reads raw actual-zone data through the
+  Laravel PowerDNS client.
+- Sync attempts, successes, failures, status codes, pending counts, applied
+  hashes, and errors are written to `dns_sync_state` and `dns_sync_events`.
+- PostgreSQL-backed Laravel feature coverage fakes the PowerDNS API to verify
+  zone creation, PATCH writes, sync-state convergence, sync events, and actual
+  zone reads without calling the old DNS module.
+
 Scope:
 
 - Continue desired-state and PowerDNS/DNSGeo reconciliation migration.
 - Migrate DNS routing settings and GeoDNS route management.
 - Migrate desired-state generation for customer zones and shared CDN records.
-- Migrate PowerDNS zone writes, dry-run, force-sync, actual-state reads, and
-  sync status visibility.
+- Continue hardening PowerDNS reconciliation with SOA repair, stale-zone delete
+  integration coverage, and real/local PowerDNS e2e validation.
 - Keep proxied apex records as PowerDNS `LUA` and proxied subdomains as CNAME.
 - Keep DNSGeo as the project GeoDNS implementation.
 - Keep edge pool updates shared-record based; do not rewrite every customer zone
