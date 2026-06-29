@@ -36,7 +36,7 @@ class DnsOperationsService
                     'ipv4' => array_values((array) ($edgeDns['anycast_ipv4'] ?? [])),
                     'ipv6' => array_values((array) ($edgeDns['anycast_ipv6'] ?? [])),
                 ],
-                'apex_proxy_mode' => 'DIRECT',
+                'apex_proxy_mode' => 'LUA',
                 'bundled_dnsgeo' => true,
                 'poweradmin_url' => (string) (getenv('CDNLITE_POWERADMIN_URL') ?: 'http://localhost:8084'),
                 'api' => $api,

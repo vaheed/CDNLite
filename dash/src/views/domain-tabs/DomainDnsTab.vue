@@ -68,7 +68,7 @@
 
       <div v-if="form.proxied" class="notice-info">
         <Cloud class="mt-0.5 h-5 w-5 shrink-0" />
-        <p>{{ isApex(form.name) ? 'The apex is published as PowerDNS LUA from the shared edge pool' : 'This subdomain is published as a CNAME to the stable site target' }}. Origins remain private backend targets.</p>
+        <p>{{ isApex(form.name) ? 'The apex is published as PowerDNS LUA from the shared edge pool' : 'This subdomain is published as a CNAME to the stable CDN target' }}. Origins remain private backend targets.</p>
       </div>
       <p v-if="error" class="state-error">{{ error }}</p>
       <div class="flex justify-end gap-2"><button type="button" class="button-secondary" @click="editing = false">Cancel</button><button class="button-primary" :disabled="saving">{{ saving ? 'Saving...' : 'Save record' }}</button></div>

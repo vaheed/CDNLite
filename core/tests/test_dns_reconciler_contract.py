@@ -86,8 +86,8 @@ def test_apex_proxy_can_coexist_with_mail_and_verification_records():
     assert "$proxied && $existingProxied" in service
     assert "trim($publicContent) === trim($existingContent)" in service
     assert "$newType === 'CNAME' || $existingType === 'CNAME'" in service
-    assert "$newType === 'ALIAS' && $existingType === 'ALIAS'" in service
-    assert "['CNAME', 'ALIAS']" not in service
+    assert "$newType === 'LUA' && $existingType === 'LUA'" in service
+    assert "['CNAME', 'LUA']" not in service
 
 
 def test_all_durable_dns_triggers_use_the_reconciler():

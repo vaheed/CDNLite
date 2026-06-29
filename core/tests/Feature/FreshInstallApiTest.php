@@ -55,8 +55,8 @@ class FreshInstallApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.name', '@')
-            ->assertJsonPath('data.public_type', 'ALIAS')
-            ->assertJsonPath('data.public_content', 'proxy.cdn.example.net')
+            ->assertJsonPath('data.public_type', 'LUA')
+            ->assertJsonPath('data.public_content', 'managed edge pool')
             ->assertJsonPath('data.publication_status', 'queued')
             ->json('data');
 
@@ -135,6 +135,205 @@ class FreshInstallApiTest extends TestCase
             ])
             ->assertStatus(409)
             ->assertJson(['error' => 'dns_record_name_conflict']);
+    }
+
+    public function test_dns_operations_build_and_persist_laravel_desired_state(): void
+    {
+        $token = $this->adminToken();
+
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'desired.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/nameservers/force-verify", ['reason' => 'feature test'])
+            ->assertOk();
+
+        $apex = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'A',
+                'name' => '@',
+                'content' => 'origin.desired.example',
+                'proxied' => true,
+                'ttl' => 300,
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $www = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'CNAME',
+                'name' => 'www',
+                'content' => 'origin.desired.example',
+                'proxied' => true,
+                'ttl' => 300,
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $geo = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'A',
+                'name' => 'geo',
+                'content' => '198.51.100.10',
+                'proxied' => false,
+                'ttl' => 120,
+            ])
+            ->assertCreated()
+            ->json('data');
+
+        $inactiveDomain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'not-delegated.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$inactiveDomain['id']}/dns/records", [
+                'type' => 'A',
+                'name' => '@',
+                'content' => '203.0.113.50',
+                'proxied' => false,
+            ])
+            ->assertCreated();
+
+        $now = UnixTime::now();
+        DB::table('edge_nodes')->insert([
+            'id' => (string) Str::uuid(),
+            'edge_id' => 'edge-dns-desired-1',
+            'hostname' => 'edge-dns-desired-1.local',
+            'public_ip' => '203.0.113.10',
+            'public_ipv4' => '203.0.113.10',
+            'public_ipv6' => null,
+            'region' => 'iad',
+            'country' => 'US',
+            'continent' => 'NA',
+            'latitude' => null,
+            'longitude' => null,
+            'version' => 'test',
+            'status' => 'online',
+            'is_enabled' => true,
+            'last_heartbeat' => $now,
+            'last_heartbeat_at' => $now,
+            'health_status' => 'healthy',
+            'applied_config_version' => null,
+            'last_config_pull_at' => null,
+            'config_apply_error' => null,
+            'weight' => 100,
+            'priority' => 100,
+            'geo_enabled' => true,
+            'anycast_enabled' => false,
+            'proxy_enabled' => true,
+            'dns_enabled' => true,
+            'cache_enabled' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        DB::table('dns_record_geo_routes')->insert([
+            [
+                'id' => (string) Str::uuid(),
+                'dns_record_id' => $geo['id'],
+                'route_scope' => 'default',
+                'country_code' => null,
+                'continent_code' => null,
+                'edge_node_id' => null,
+                'edge_pool_id' => null,
+                'answer_type' => 'A',
+                'answer_value' => '198.51.100.10',
+                'priority' => 0,
+                'weight' => 100,
+                'enabled' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => (string) Str::uuid(),
+                'dns_record_id' => $geo['id'],
+                'route_scope' => 'country',
+                'country_code' => 'US',
+                'continent_code' => null,
+                'edge_node_id' => null,
+                'edge_pool_id' => null,
+                'answer_type' => 'A',
+                'answer_value' => '198.51.100.11',
+                'priority' => 10,
+                'weight' => 100,
+                'enabled' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        $this->withToken($token)
+            ->postJson('/api/v1/dns/dry-run')
+            ->assertOk()
+            ->assertJsonPath('mode', 'dry_run')
+            ->assertJsonFragment(['zone_name' => 'desired.example.'])
+            ->assertJsonFragment(['rrset_type' => 'LUA'])
+            ->assertJsonFragment(['source' => 'dns_record:'.$apex['id'].':apex_a']);
+
+        DB::table('platform_settings')->upsert([[
+            'key' => 'platform.edge_dns.anycast_ipv4',
+            'group_name' => 'platform.edge_dns',
+            'value_json' => json_encode(['198.51.100.200'], JSON_UNESCAPED_SLASHES),
+            'is_secret' => false,
+            'updated_at' => $now,
+        ]], ['key'], ['value_json', 'updated_at']);
+
+        $this->withToken($token)
+            ->postJson('/api/v1/dns/force-sync')
+            ->assertOk()
+            ->assertJsonPath('data.mode', 'desired_state_persisted')
+            ->assertJsonPath('data.ok', true);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/dns/operations')
+            ->assertOk()
+            ->assertJsonPath('data.setup.apex_proxy_mode', 'LUA')
+            ->assertJsonPath('data.setup.static_anycast.ipv4.0', '198.51.100.200')
+            ->assertJsonPath('data.dnsgeo.alias_expansion', false)
+            ->assertJsonFragment(['zone_name' => 'desired.example.']);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/dns/zones')
+            ->assertOk()
+            ->assertJsonFragment(['zone_name' => 'desired.example.', 'status' => 'unknown']);
+
+        $this->assertDatabaseHas('desired_dns_rrsets', [
+            'zone_name' => 'desired.example.',
+            'rrset_name' => 'desired.example.',
+            'rrset_type' => 'A',
+            'source' => 'dns_record:'.$apex['id'].':apex_a',
+        ]);
+        $this->assertDatabaseHas('desired_dns_rrsets', [
+            'zone_name' => 'desired.example.',
+            'rrset_name' => 'www.desired.example.',
+            'rrset_type' => 'CNAME',
+            'source' => 'dns_record:'.$www['id'],
+        ]);
+        $this->assertDatabaseHas('desired_dns_rrsets', [
+            'zone_name' => 'desired.example.',
+            'rrset_name' => 'geo.desired.example.',
+            'rrset_type' => 'LUA',
+            'source' => 'dns_record:'.$geo['id'].':raw_geodns',
+        ]);
+        $this->assertDatabaseHas('dns_sync_state', [
+            'zone_name' => 'desired.example.',
+            'status' => 'unknown',
+            'in_progress' => false,
+        ]);
+        $this->assertDatabaseMissing('desired_dns_rrsets', [
+            'zone_name' => 'not-delegated.example.',
+            'rrset_type' => 'A',
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/dns/desired?zone=desired.example.')
+            ->assertOk()
+            ->assertJsonFragment(['rrset_name' => 'www.desired.example.'])
+            ->assertJsonFragment(['records' => ['proxy.cdn.example.net.']])
+            ->assertJsonFragment(['records' => ['198.51.100.200']]);
     }
 
     public function test_domain_lifecycle_crud_writes_audit_and_marks_config_dirty(): void

@@ -73,9 +73,9 @@ expand-alias=yes
 resolver=pdns-recursor:5300
 ```
 
-The resolver is a separate process. It forwards the configured `CDNLITE_DNS_BASE_DOMAIN` and `CDNLITE_CDN_ZONE` to `pdns-auth`; it never points recursive traffic back to the authoritative server as a general resolver. Proxied customer apex records do not use ALIAS; they publish direct managed apex `A`/`AAAA` answers from static anycast settings or PowerDNS `LUA` edge-pool records.
+The resolver is a separate process. It forwards the configured `CDNLITE_DNS_BASE_DOMAIN` and `CDNLITE_CDN_ZONE` to `pdns-auth`; it never points recursive traffic back to the authoritative server as a general resolver. Proxied customer apex records publish PowerDNS `LUA` edge-pool answers.
 
-DNSSEC signing is not enabled by the bundled fresh-install defaults. Operators enabling DNSSEC must validate Lua answers, parent DS publication, and any manually added ALIAS records before production rollout.
+DNSSEC signing is not enabled by the bundled fresh-install defaults. Operators enabling DNSSEC must validate Lua answers and parent DS publication before production rollout.
 
 ## Configuration
 
@@ -112,18 +112,13 @@ static anycast IPs are configured, the shared proxy host publishes plain `A` or
 `AAAA` rrsets containing all configured addresses for that family and
 completely bypasses DNSGeo Lua, country routing, and continent routing for that
 family. CDNLite keeps proxied subdomains on stable `CNAME` targets, while
-proxied apex records publish from the same canonical edge-pool renderer as the
-shared proxy host: direct `A`/`AAAA` when static anycast is configured, and
-PowerDNS `LUA` otherwise.
+proxied apex records publish PowerDNS `LUA` edge-pool answers.
 
-Stable `site-<domain-id>.cdn.example.net` CNAMEs point to that shared host for
-proxied subdomains. Proxied customer apex records are always published directly
-at the zone apex, never as `ALIAS` or `CNAME`. Static anycast settings publish
-normal managed apex `A`/`AAAA`; otherwise CDNLite publishes PowerDNS `LUA`
-`A`/`AAAA` content. DNS-only apex `A` and `AAAA` records remain normal address
-records. Changing an edge IP, health state, or static anycast setting updates
-the shared proxy records and every managed proxied apex record through
-reconciliation. Edge heartbeat and
+DNS-only apex `A` and `AAAA` records remain normal address records. If static
+anycast IPs are configured, proxied apex and shared proxy answers publish those
+plain anycast `A`/`AAAA` records instead of edge GeoDNS IPs. Changing an edge IP,
+health state, or static anycast setting updates shared CDN records through
+reconciliation without rewriting every customer zone. Edge heartbeat and
 registration requests trigger reconciliation only when the effective DNS edge
 pool changes. Each generation records distinct edge-state hashes in
 `edge_state_generations` for inspection and test assertions.

@@ -81,7 +81,7 @@ const dnsGeoRows = computed(() => {
   return [
     { label: 'PowerDNS auth', ok: !!status?.powerdns_auth }, { label: 'PostgreSQL', ok: !!status?.postgresql },
     { label: 'MMDB updater', ok: !!status?.mmdb }, { label: 'EDNS subnet', ok: !!status?.edns_subnet_processing },
-    { label: 'Lua records', ok: !!status?.lua_records }, { label: 'No apex ALIAS', ok: !status?.alias_expansion },
+    { label: 'Lua apex records', ok: !!status?.lua_records }, { label: 'No apex ALIAS', ok: !status?.alias_expansion },
     { label: 'Resolver', ok: !!status?.resolver_configured }, { label: 'API private', ok: !status?.api_publicly_exposed },
   ];
 });
@@ -96,14 +96,14 @@ async function runDryRun() {
   busy.value = true;
   try {
     const result = await dnsOperationsApi.dryRun();
-    message.value = `Dry run: ${result.changes} desired RRsets across ${result.zones} zones.`;
+    message.value = `Dry run: ${result.planned_changes} desired RRsets across ${result.zones.length} zones.`;
   } finally { busy.value = false; }
 }
 async function forceSync() {
   busy.value = true;
   try {
     const result = await dnsOperationsApi.forceSync();
-    message.value = result.ok ? `Sync complete: ${result.changes ?? 0} changes.` : `Sync failed: ${result.error ?? 'unknown error'}.`;
+    message.value = result.ok ? `Desired state saved: ${result.planned_changes} pending RRsets across ${result.zones.length} zones.` : `Sync failed: ${result.error ?? 'unknown error'}.`;
     await load();
   } finally { busy.value = false; }
 }

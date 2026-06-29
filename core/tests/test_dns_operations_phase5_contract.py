@@ -22,7 +22,7 @@ def test_dns_operations_api_exposes_setup_sync_and_operator_actions():
     ]:
         assert endpoint in routes
     for capability in [
-        "'apex_proxy_mode' => 'DIRECT'",
+        "'apex_proxy_mode' => 'LUA'",
         "'alias_expansion' => false",
         "'lua_records' => true",
         "'edns_subnet_processing' => true",

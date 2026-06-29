@@ -120,7 +120,7 @@ export function humanizeApiError(code: string): string {
     domain_required: 'Domain is required.',
     origin_host_required: 'Origin host is required.',
     dns_record_duplicate: 'This DNS record already exists.',
-    dns_record_name_conflict: 'This DNS name already has an incompatible CNAME or ALIAS record.',
+    dns_record_name_conflict: 'This DNS name already has an incompatible CNAME or managed apex LUA record.',
     dns_publish_failed: 'DNS changes were saved locally, but publishing to PowerDNS failed. Run DNS reconcile or use the retry action.',
     at_least_one_field_required: 'Change at least one field before saving.',
     must_be_one_of_http_https: 'Scheme must be HTTP or HTTPS.',

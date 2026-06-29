@@ -252,7 +252,7 @@ final class DnsRecordService
         }
 
         return $this->isApex($record['name'], (string) $domain['domain'])
-            ? ['type' => 'ALIAS', 'content' => $this->proxyHost()]
+            ? ['type' => 'LUA', 'content' => 'managed edge pool']
             : ['type' => 'CNAME', 'content' => $this->proxyHost()];
     }
 
@@ -289,10 +289,10 @@ final class DnsRecordService
             $newType = strtoupper((string) $public['type']);
             if ($record['proxied'] && $existingProxied && $newType === $existingType
                 && trim((string) $public['content']) === $existingContent
-                && in_array($newType, ['ALIAS', 'CNAME'], true)) {
+                && in_array($newType, ['LUA', 'CNAME'], true)) {
                 continue;
             }
-            if ($newType === 'CNAME' || $existingType === 'CNAME' || ($newType === 'ALIAS' && $existingType === 'ALIAS')) {
+            if ($newType === 'CNAME' || $existingType === 'CNAME' || ($newType === 'LUA' && $existingType === 'LUA')) {
                 throw new RuntimeException('dns_record_name_conflict');
             }
         }

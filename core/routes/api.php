@@ -48,7 +48,7 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::get('/dns/zones', [DnsOperationsController::class, 'zones']);
     Route::get('/dns/desired', [DnsOperationsController::class, 'desired']);
     Route::post('/dns/dry-run', [DnsOperationsController::class, 'dryRun']);
-    Route::post('/dns/force-sync', [DnsOperationsController::class, 'dryRun']);
+    Route::post('/dns/force-sync', [DnsOperationsController::class, 'forceSync']);
 
     Route::get('/edge/nodes', [EdgeController::class, 'index']);
     Route::get('/edges/dns', [EdgeController::class, 'dns']);

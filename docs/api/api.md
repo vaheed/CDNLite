@@ -347,9 +347,9 @@ publishing is enabled. The record response includes `public_type`,
 PowerDNS has already verified the zone write.
 
 For proxied records, the private `content` remains the origin target. Proxied
-apex records project to an `ALIAS` at the stable CDN proxy hostname, and proxied
-subdomains project to a `CNAME` at the same stable hostname. DNS-only records
-project to their original type and content.
+apex records project to PowerDNS `LUA` edge-pool answers, and proxied subdomains
+project to a `CNAME` at the stable CDN hostname. DNS-only records project to
+their original type and content.
 
 Routing mode values include `geo`, `anycast`, and `dns_only`.
 
@@ -646,8 +646,8 @@ SSL tips:
 | `GET` | `/api/v1/dns/zones` | Protected | Per-zone convergence, hashes, pending changes, timestamps, and errors. |
 | `GET` | `/api/v1/dns/desired` | Protected | Desired CDNLite-owned RRsets; accepts optional `zone`. |
 | `GET` | `/api/v1/dns/zones/{zone}/actual` | Protected | Current raw PowerDNS zone response. |
-| `POST` | `/api/v1/dns/dry-run` | Protected | Build desired DNS state without writes. |
-| `POST` | `/api/v1/dns/force-sync` | Protected | Run an immediate forced reconciliation. |
+| `POST` | `/api/v1/dns/dry-run` | Protected | Build Laravel desired DNS state without persisting desired rows or writing PowerDNS. |
+| `POST` | `/api/v1/dns/force-sync` | Protected | Persist the current Laravel desired DNS generation and per-zone sync state for the reconciler. PowerDNS PATCH/verify is the next migration slice. |
 | `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |

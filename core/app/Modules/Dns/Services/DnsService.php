@@ -642,11 +642,11 @@ class DnsService
             $existingProxied = in_array($row['proxied'], [true, 1, '1', 't', 'true'], true);
             if ($proxied && $existingProxied && $newType === $existingType
                 && trim($publicContent) === trim($existingContent)
-                && in_array($newType, ['ALIAS', 'CNAME'], true)) {
+                && in_array($newType, ['LUA', 'CNAME'], true)) {
                 continue;
             }
             if ($newType === 'CNAME' || $existingType === 'CNAME'
-                || ($newType === 'ALIAS' && $existingType === 'ALIAS')) {
+                || ($newType === 'LUA' && $existingType === 'LUA')) {
                 throw new \RuntimeException('dns_record_name_conflict');
             }
         }

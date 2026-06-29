@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **25% complete**.
+Current estimated migration progress: **28% complete**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -39,6 +39,14 @@ complete when code, tests, dashboard contracts, docs, Compose, and CI are aligne
 
 - `core/database/schema.sql` remains the authoritative fresh-install PostgreSQL schema.
 - PostgreSQL is the only supported runtime and test database.
+- Mandatory migration rule: migrate the project to Laravel and do not change any
+  product logic in the middle.
+- DNS migration must preserve the existing product logic: do not use ALIAS for
+  proxied apex records. Proxied apex records must use PowerDNS `LUA` records.
+  Proxied subdomains must use `CNAME`. All proxied answers ultimately point to
+  edge IPs with GeoDNS. If anycast input IPs are configured, all proxied apex
+  and shared proxy answers must point to the anycast IPs instead of edge GeoDNS
+  IPs. Migrate to Laravel without changing this logic in the middle.
 - Laravel-native code under `core/app/Http`, `core/app/Services`, `core/routes`,
   `core/database`, `core/tests/Feature`, and Laravel Artisan commands is the
   control-plane forward path.
@@ -106,11 +114,26 @@ Completed in the first DNS migration slice:
 - Laravel-native domain DNS status endpoint for dashboard publication state.
 - Laravel-native per-record reconcile queue endpoint.
 - DNS record writes normalize fresh-install fields, reject duplicate/conflicting
-  records with stable `409` errors, compute public ALIAS/CNAME projection, write
+  records with stable `409` errors, compute public LUA/CNAME projection, write
   audit rows, mark config dirty, and queue PowerDNS reconciliation when enabled.
 - PostgreSQL-backed Laravel feature coverage for DNS record lifecycle, status,
   retry queue, duplicate errors, and name conflicts.
 - API docs updated for the Laravel DNS record contract.
+
+Completed in the desired-state migration slice:
+
+- Laravel-native desired RRset builder for platform CDN zone nameservers,
+  customer zone nameservers, active verified customer DNS records, proxied apex
+  `LUA`, proxied subdomain `CNAME`, raw DNSGeo `LUA` routes, and static anycast
+  `A`/`AAAA` overrides.
+- `/api/v1/dns/dry-run` now builds the Laravel projection without persisting
+  rows or writing PowerDNS.
+- `/api/v1/dns/force-sync` now persists a desired generation, refreshes
+  `desired_dns_rrsets`, prunes stale desired rows, and updates per-zone
+  `dns_sync_state` for the upcoming PowerDNS writer.
+- PostgreSQL-backed Laravel feature coverage for desired-state persistence,
+  sync-state visibility, inactive/unverified filtering, LUA/CNAME projection,
+  DNSGeo Lua projection, and anycast override projection.
 
 Scope:
 
@@ -119,7 +142,7 @@ Scope:
 - Migrate desired-state generation for customer zones and shared CDN records.
 - Migrate PowerDNS zone writes, dry-run, force-sync, actual-state reads, and
   sync status visibility.
-- Keep proxied apex records as PowerDNS `ALIAS` and proxied subdomains as CNAME.
+- Keep proxied apex records as PowerDNS `LUA` and proxied subdomains as CNAME.
 - Keep DNSGeo as the project GeoDNS implementation.
 - Keep edge pool updates shared-record based; do not rewrite every customer zone
   for one edge IP or health change.
@@ -128,8 +151,8 @@ Scope:
 Exit checks:
 
 - Real/local PowerDNS API writes covered.
-- ALIAS, CNAME, Lua records, health-driven answers, ALIAS answer equivalence,
-  and shared-record updates tested.
+- LUA apex records, CNAME records, Lua raw GeoDNS records, health-driven answers,
+  anycast override answers, and shared-record updates tested.
 - `ci/dns_e2e.sh` and `ci/powerdns_dns_checks.sh` remain aligned.
 
 ### 35-45% Edge Control Plane
@@ -382,13 +405,15 @@ Work this phase in narrow vertical slices:
 1. **Record contract**: implement Laravel list/show/create/update/delete for DNS
    records with fresh-install request/response fields only.
 2. **Validation**: enforce RR type, name normalization, TTL bounds, proxied
-   record rules, CNAME/ALIAS exclusivity, duplicate multi-value rules, and clear
+   record rules, CNAME/LUA exclusivity, duplicate multi-value rules, and clear
    `409` errors.
 3. **Side effects**: write audit rows, mark edge config dirty when applicable,
    enqueue DNS reconcile, and expose saved-but-not-published failures clearly.
-4. **Desired state**: build rrsets for customer zones, apex ALIAS, proxied
+4. **Desired state**: build rrsets for customer zones, apex LUA, proxied
    subdomain CNAMEs, direct records, SOA/NS records, and shared CDN/DNSGeo edge
-   pool records from Laravel services.
+   pool records from Laravel services. **Mostly complete for persisted desired
+   rows; SOA repair and full shared health-aware edge Lua records remain with
+   the PowerDNS writer slice.**
 5. **PowerDNS client**: implement bounded retry, PATCH, verify-after-write,
    actual-state reads, error capture, and idempotent stale-record cleanup.
 6. **Sync operations**: split dry-run from force-sync, persist `dns_sync_state`,
@@ -404,7 +429,7 @@ DNS phase exit evidence must include:
   dirty state, and reconcile enqueueing.
 - Product-level tests for desired rrsets and stale rrset cleanup.
 - Local PowerDNS integration coverage for zone writes, dry run, force sync,
-  ALIAS/CNAME/Lua records, health-driven answers, and shared-record updates.
+  LUA/CNAME/Lua records, health-driven answers, anycast override answers, and shared-record updates.
 - `ci/dns_e2e.sh` and `ci/powerdns_dns_checks.sh` results, or a documented
   reason they were intentionally deferred.
 
@@ -580,7 +605,7 @@ Required result:
 - Force-sync writes, verifies, persists status, and reports bounded failures.
 - Customer-zone records and shared CDN/DNSGeo edge-pool records are reconciled
   independently.
-- Proxied apex records publish as ALIAS.
+- Proxied apex records publish as LUA.
 - Proxied subdomain records publish as CNAME to the stable CDN hostname.
 - Edge pool health or IP changes update shared records without rewriting every
   customer zone.
