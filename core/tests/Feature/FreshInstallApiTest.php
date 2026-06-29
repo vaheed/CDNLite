@@ -717,6 +717,134 @@ class FreshInstallApiTest extends TestCase
             ->assertJson(['error' => 'admin_auth_required']);
     }
 
+    public function test_laravel_owns_traffic_rule_workflows(): void
+    {
+        $token = $this->adminToken();
+        $domainId = $this->insertDomain('traffic-rules.example');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/cache-rules", [
+                'enabled' => true,
+                'path_prefix' => '/assets',
+                'ttl_seconds' => 300,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.path_prefix', '/assets');
+
+        $this->withToken($token)
+            ->putJson("/api/v1/domains/{$domainId}/cache/settings", [
+                'enabled' => true,
+                'default_edge_ttl_seconds' => 600,
+                'cache_query_string_mode' => 'include_all',
+                'respect_origin_cache_control' => true,
+                'cache_authorized_requests' => false,
+                'stale_if_error_seconds' => 60,
+                'static_asset_cache_enabled' => true,
+                'ignore_query_strings_for_static' => true,
+                'bypass_logged_in_users' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.default_edge_ttl_seconds', 600);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/cache/purge", [
+                'type' => 'prefix',
+                'value' => '/assets',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'prefix');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/waf-rules", [
+                'enabled' => true,
+                'type' => 'path_contains',
+                'pattern' => '../',
+                'action' => 'challenge',
+                'challenge_difficulty' => 2,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.action', 'challenge');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/rate-limits", [
+                'enabled' => true,
+                'path_prefix' => '/api',
+                'requests_per_minute' => 120,
+                'key_type' => 'ip_path',
+                'action' => 'block',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.requests_per_minute', 120);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/ip-rules", [
+                'rule_type' => 'block',
+                'cidr' => '192.0.2.0/24',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.rule_type', 'block');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/redirects", [
+                'enabled' => true,
+                'source_path' => '/old',
+                'target_url' => 'https://traffic-rules.example/new',
+                'status_code' => 308,
+                'match_type' => 'exact_path',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status_code', 308);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/redirects/test", ['path' => '/old'])
+            ->assertOk()
+            ->assertJsonPath('data.matched', true);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/headers", [
+                'operation' => 'set',
+                'header_name' => 'X-CDNLite-Test',
+                'header_value' => 'enabled',
+                'path_pattern' => '/*',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.header_name', 'X-CDNLite-Test');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/page-rules", [
+                'enabled' => true,
+                'pattern' => '/docs*',
+                'actions' => ['cache_ttl' => 60],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.pattern', '/docs*');
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/domains/{$domainId}/waiting-room", [
+                'enabled' => true,
+                'mode' => 'manual',
+                'state' => 'healthy',
+                'admission_rate_per_minute' => 30,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.enabled', true);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/waiting-room/emergency/activate", [
+                'ttl_seconds' => 300,
+                'reason' => 'load-test',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.state', 'manual_emergency');
+    }
+
+    public function test_admin_auth_is_required_for_traffic_rule_routes(): void
+    {
+        $this->getJson('/api/v1/domains/domain-test/cache-rules')
+            ->assertUnauthorized()
+            ->assertJson(['error' => 'admin_auth_required']);
+    }
+
     private function adminToken(): string
     {
         $now = UnixTime::now();
@@ -743,6 +871,25 @@ class FreshInstallApiTest extends TestCase
         ]);
 
         return $token;
+    }
+
+    private function insertDomain(string $hostname): string
+    {
+        $now = UnixTime::now();
+        $domainId = (string) Str::uuid();
+
+        DB::table('domains')->insert([
+            'id' => $domainId,
+            'user_id' => 'system',
+            'name' => $hostname,
+            'domain' => $hostname,
+            'status' => 'active',
+            'nameserver_status' => 'verified',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $domainId;
     }
 
     private function enablePowerDnsQueue(): void

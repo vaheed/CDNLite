@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **45% complete**.
+Current estimated migration progress: **45% complete, with 55% traffic-rule API route ownership in progress**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ Current estimated migration progress: **45% complete**.
 | 30% | Complete | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
 | 35% | Complete | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
 | 45% | Complete | Collector, analytics, activity, security ingest, and reports migrated. |
-| 55% | Pending | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room migrated. |
+| 55% | In progress | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room Laravel API route ownership started; full phase exit remains open. |
 | 65% | Pending | SSL/ACME, certificates, renewal scheduler, jobs, and queues migrated. |
 | 75% | Pending | Dashboard API contract alignment and remaining API/OpenAPI cleanup. |
 | 85% | Pending | Laravel CLI command conversion and scheduler ownership complete. |
@@ -245,7 +245,7 @@ Exit evidence:
 
 ### 55-70% Traffic Rules And Delivery Features
 
-Status: **Pending**.
+Status: **In progress**.
 
 Scope:
 
@@ -262,6 +262,22 @@ Exit checks:
 - Dashboard tabs keep type-safe API contracts.
 - Config snapshots carry all expected edge fields.
 - Smoke/e2e coverage for cache, WAF, rate, redirects, headers, and waiting room.
+
+Current progress evidence:
+
+- Laravel `core/routes/api.php` now registers the cache settings/rules/purge,
+  WAF, rate limit, IP rule, redirect, response header, page rule, and waiting
+  room API endpoints under the admin-authenticated
+  `/api/v1/domains/{domainId}` surface.
+- Feature coverage in `core/tests/Feature/FreshInstallApiTest.php` exercises the
+  Laravel route surface for the 55% traffic-rule work and verifies admin
+  auth protects those routes.
+- The phase is not complete until dashboard contracts, config snapshot impact,
+  smoke/e2e coverage, and legacy route isolation are verified for every listed
+  traffic-rule family.
+- Local PHP validation was not run in the current workstation because `php` is
+  not available on `PATH`; run `php -l core/routes/api.php` and
+  `php artisan test --filter=FreshInstallApiTest` in a PHP-enabled environment.
 
 ### 70-80% SSL, ACME, Jobs, Queues, Scheduler
 
