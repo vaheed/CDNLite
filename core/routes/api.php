@@ -29,8 +29,13 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/domains/{domainId}/nameservers/force-verify', [DomainController::class, 'forceVerifyNameservers']);
     Route::post('/domains/{domainId}/nameservers/reseed-expected', [DomainController::class, 'reseedExpectedNameservers']);
     Route::post('/domains/{domainId}/activate', [DomainController::class, 'activate']);
+    Route::get('/domains/{domainId}/dns/status', [DomainController::class, 'dnsStatus']);
     Route::get('/domains/{domainId}/dns/records', [DomainController::class, 'dnsRecords']);
     Route::post('/domains/{domainId}/dns/records', [DomainController::class, 'storeDnsRecord']);
+    Route::get('/domains/{domainId}/dns/records/{recordId}', [DomainController::class, 'showDnsRecord']);
+    Route::patch('/domains/{domainId}/dns/records/{recordId}', [DomainController::class, 'updateDnsRecord']);
+    Route::delete('/domains/{domainId}/dns/records/{recordId}', [DomainController::class, 'destroyDnsRecord']);
+    Route::post('/domains/{domainId}/dns/records/{recordId}/reconcile', [DomainController::class, 'reconcileDnsRecord']);
     Route::get('/domains/{domainId}/origins', [DomainController::class, 'origins']);
     Route::post('/domains/{domainId}/origins', [DomainController::class, 'storeOrigin']);
     Route::get('/domains/{domainId}/origins/health', [DomainController::class, 'originHealth']);

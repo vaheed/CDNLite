@@ -34,6 +34,109 @@ class FreshInstallApiTest extends TestCase
             ->assertJsonPath('data.type', 'CNAME');
     }
 
+    public function test_dns_record_lifecycle_is_laravel_native_and_records_side_effects(): void
+    {
+        $token = $this->adminToken();
+        $this->enablePowerDnsQueue();
+        DB::table('config_state')->where('id', 1)->update(['dirty' => false, 'dirty_at' => null]);
+
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'dns-lifecycle.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $record = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'A',
+                'name' => '@',
+                'content' => 'origin.dns-lifecycle.example',
+                'proxied' => true,
+                'ttl' => 600,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', '@')
+            ->assertJsonPath('data.public_type', 'ALIAS')
+            ->assertJsonPath('data.public_content', 'proxy.cdn.example.net')
+            ->assertJsonPath('data.publication_status', 'queued')
+            ->json('data');
+
+        $this->assertDatabaseHas('audit_log', ['action' => 'dns.record.create', 'domain_id' => $domain['id']]);
+        $this->assertDatabaseHas('audit_log', ['action' => 'dns.reconcile.queued', 'domain_id' => $domain['id']]);
+        $this->assertDatabaseHas('config_state', ['id' => 1, 'dirty' => true]);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domain['id']}/dns/records/{$record['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $record['id']);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domain['id']}/dns/status")
+            ->assertOk()
+            ->assertJsonPath('data.zone_name', 'dns-lifecycle.example')
+            ->assertJsonPath('data.status', 'pending');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records/{$record['id']}/reconcile")
+            ->assertOk()
+            ->assertJsonPath('data.queued', true)
+            ->assertJsonPath('data.record.id', $record['id']);
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/domains/{$domain['id']}/dns/records/{$record['id']}", [
+                'name' => 'www',
+                'content' => 'origin2.dns-lifecycle.example',
+                'ttl' => 120,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'www')
+            ->assertJsonPath('data.public_type', 'CNAME');
+
+        $this->assertDatabaseHas('audit_log', ['action' => 'dns.record.update', 'domain_id' => $domain['id']]);
+
+        $this->withToken($token)
+            ->deleteJson("/api/v1/domains/{$domain['id']}/dns/records/{$record['id']}")
+            ->assertOk()
+            ->assertJson(['ok' => true]);
+
+        $this->assertDatabaseMissing('dns_records', ['id' => $record['id']]);
+        $this->assertDatabaseHas('audit_log', ['action' => 'dns.record.delete', 'domain_id' => $domain['id']]);
+    }
+
+    public function test_dns_record_duplicate_and_name_conflicts_return_stable_errors(): void
+    {
+        $token = $this->adminToken();
+        $domain = $this->withToken($token)
+            ->postJson('/api/v1/domains', ['domain' => 'dns-conflict.example'])
+            ->assertCreated()
+            ->json('data');
+
+        $payload = [
+            'type' => 'TXT',
+            'name' => 'verify',
+            'content' => 'same-token',
+            'proxied' => false,
+        ];
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", $payload)
+            ->assertCreated();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", $payload)
+            ->assertStatus(409)
+            ->assertJson(['error' => 'dns_record_duplicate']);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domain['id']}/dns/records", [
+                'type' => 'CNAME',
+                'name' => 'verify',
+                'content' => 'target.example',
+                'proxied' => false,
+            ])
+            ->assertStatus(409)
+            ->assertJson(['error' => 'dns_record_name_conflict']);
+    }
+
     public function test_domain_lifecycle_crud_writes_audit_and_marks_config_dirty(): void
     {
         $token = $this->adminToken();
@@ -330,5 +433,16 @@ class FreshInstallApiTest extends TestCase
         ]);
 
         return $token;
+    }
+
+    private function enablePowerDnsQueue(): void
+    {
+        DB::table('platform_settings')->upsert([[
+            'key' => 'platform.powerdns.enabled',
+            'group_name' => 'platform',
+            'value_json' => json_encode(true),
+            'is_secret' => false,
+            'updated_at' => UnixTime::now(),
+        ]], ['key'], ['value_json', 'updated_at']);
     }
 }

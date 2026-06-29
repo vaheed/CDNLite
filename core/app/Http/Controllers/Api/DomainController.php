@@ -7,14 +7,13 @@ use App\Http\Requests\StoreDnsRecordRequest;
 use App\Http\Requests\StoreDomainRequest;
 use App\Http\Requests\StoreOriginRequest;
 use App\Http\Resources\DomainResource;
+use App\Services\ControlPlane\DnsRecordService;
 use App\Services\ControlPlane\DomainLifecycleService;
 use App\Services\ControlPlane\DomainNameserverVerifier;
 use App\Services\ControlPlane\OriginLifecycleService;
-use App\Services\ControlPlane\UnixTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -131,46 +130,95 @@ final class DomainController extends Controller
             : response()->json(['data' => new DomainResource($domain)]);
     }
 
-    public function dnsRecords(string $domainId): JsonResponse
+    public function dnsStatus(string $domainId, DomainLifecycleService $domains): JsonResponse
     {
-        return response()->json(['data' => DB::table('dns_records')->where('domain_id', $domainId)->orderBy('name')->get()]);
-    }
-
-    public function storeDnsRecord(StoreDnsRecordRequest $request, string $domainId): JsonResponse
-    {
-        if (DB::table('domains')->where('id', $domainId)->doesntExist()) {
+        $domain = $domains->find($domainId);
+        if ($domain === null) {
             return response()->json(['error' => 'domain_not_found'], 404);
         }
 
-        $record = $request->validated();
-        $now = UnixTime::now();
-        $record += [
-            'ttl' => 300,
-            'priority' => null,
-            'proxied' => true,
-        ];
-        $record = array_merge($record, [
-            'id' => (string) Str::uuid(),
-            'domain_id' => $domainId,
-            'origin_type' => null,
-            'origin_content' => null,
-            'public_type' => null,
-            'public_content' => null,
-            'origin_host' => null,
-            'origin_tls_verify' => 'ignore',
-            'origin_scheme' => null,
-            'origin_status' => 'pending',
-            'geo_origins_json' => null,
-            'routing_policy' => 'standard',
-            'managed_by' => null,
-            'status' => 'active',
-            'created_at' => $now,
-            'updated_at' => $now,
+        $state = DB::table('dns_sync_state')->where('zone_name', $domain['domain'])->first();
+        $lastError = $state?->last_error ?? null;
+        $pendingChanges = (int) ($state?->pending_changes ?? 0);
+
+        return response()->json([
+            'data' => [
+                'domain_id' => $domainId,
+                'zone_name' => $domain['domain'],
+                'status' => $state?->status ?? 'pending',
+                'converged' => $state !== null && $pendingChanges === 0 && $lastError === null,
+                'pending_changes' => $pendingChanges,
+                'last_success_at' => $state?->last_success_at === null ? null : (int) $state->last_success_at,
+                'last_attempt_at' => $state?->last_attempt_at === null ? null : (int) $state->last_attempt_at,
+                'last_error' => $lastError,
+            ],
         ]);
+    }
 
-        DB::table('dns_records')->insert($record);
+    public function dnsRecords(string $domainId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        $records = $dnsRecords->list($domainId);
 
-        return response()->json(['data' => $record], 201);
+        return $records === null
+            ? response()->json(['error' => 'domain_not_found'], 404)
+            : response()->json(['data' => $records]);
+    }
+
+    public function storeDnsRecord(StoreDnsRecordRequest $request, string $domainId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        try {
+            $record = $dnsRecords->create($domainId, $request->validated(), $this->adminUser($request));
+        } catch (RuntimeException $e) {
+            return $this->dnsError($e);
+        }
+
+        return $record === null
+            ? response()->json(['error' => 'domain_not_found'], 404)
+            : response()->json(['data' => $record], 201);
+    }
+
+    public function showDnsRecord(string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        $record = $dnsRecords->find($domainId, $recordId);
+
+        return $record === null
+            ? response()->json(['error' => 'dns_record_not_found'], 404)
+            : response()->json(['data' => $record]);
+    }
+
+    public function updateDnsRecord(Request $request, string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        if ($request->json()->all() === []) {
+            return response()->json(['error' => 'invalid_request', 'detail' => 'at_least_one_field_required'], 422);
+        }
+
+        $validated = validator($request->json()->all(), $this->dnsRecordUpdateRules())->validate();
+
+        try {
+            $record = $dnsRecords->update($domainId, $recordId, $validated, $this->adminUser($request));
+        } catch (RuntimeException $e) {
+            return $this->dnsError($e);
+        }
+
+        return $record === null
+            ? response()->json(['error' => 'dns_record_not_found'], 404)
+            : response()->json(['data' => $record]);
+    }
+
+    public function destroyDnsRecord(Request $request, string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        return $dnsRecords->delete($domainId, $recordId, $this->adminUser($request))
+            ? response()->json(['ok' => true])
+            : response()->json(['error' => 'dns_record_not_found'], 404);
+    }
+
+    public function reconcileDnsRecord(Request $request, string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        $record = $dnsRecords->queueReconcile($domainId, $recordId, $this->adminUser($request));
+
+        return $record === null
+            ? response()->json(['error' => 'dns_record_not_found'], 404)
+            : response()->json(['data' => ['record' => $record, 'reconciled' => false, 'queued' => true]]);
     }
 
     public function origins(string $domainId, OriginLifecycleService $origins): JsonResponse
@@ -263,5 +311,26 @@ final class DomainController extends Controller
         $rules['host'] = ['sometimes', 'string', 'max:253'];
 
         return $rules;
+    }
+
+    private function dnsRecordUpdateRules(): array
+    {
+        return [
+            'type' => ['sometimes', 'in:A,AAAA,CNAME,TXT,MX,CAA,NS,SRV'],
+            'name' => ['sometimes', 'string', 'max:253'],
+            'content' => ['sometimes', 'string', 'max:2048'],
+            'ttl' => ['sometimes', 'integer', 'between:60,86400'],
+            'priority' => ['sometimes', 'nullable', 'integer', 'between:0,65535'],
+            'proxied' => ['sometimes', 'boolean'],
+            'status' => ['sometimes', 'in:active,disabled'],
+        ];
+    }
+
+    private function dnsError(RuntimeException $e): JsonResponse
+    {
+        $message = $e->getMessage();
+        $status = in_array($message, ['dns_record_duplicate', 'dns_record_name_conflict'], true) ? 409 : 422;
+
+        return response()->json(['error' => $message], $status);
     }
 }

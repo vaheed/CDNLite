@@ -314,11 +314,13 @@ Tips:
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| `GET` | `/api/v1/domains/{domainId}/dns/status` | Show publication state for this domain's zone. |
 | `GET` | `/api/v1/domains/{domainId}/dns/records` | List records. |
 | `POST` | `/api/v1/domains/{domainId}/dns/records` | Create record. |
+| `GET` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Show one record. |
 | `PATCH` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Update record. |
 | `DELETE` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Delete record. |
-| `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile` | Retry PowerDNS reconciliation for one record. |
+| `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile` | Queue PowerDNS reconciliation for one record's domain. |
 | `GET` | `/api/v1/domains/{domainId}/routing` | Show domain routing settings. |
 | `PATCH` | `/api/v1/domains/{domainId}/routing` | Update routing mode and health options. |
 | `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing` | Preview routing result. |
@@ -333,10 +335,21 @@ Record request:
   "name": "www",
   "content": "203.0.113.10",
   "ttl": 300,
-  "proxied": true,
-  "routing_policy": "standard"
+  "proxied": true
 }
 ```
+
+Fresh-install Laravel DNS record writes accept `type`, `name`, `content`, `ttl`,
+`priority`, `proxied`, and, on update, `status`. A successful write saves local
+state, marks edge config dirty, and queues DNS reconciliation when PowerDNS
+publishing is enabled. The record response includes `public_type`,
+`public_content`, and `publication_status`; local save does not imply that
+PowerDNS has already verified the zone write.
+
+For proxied records, the private `content` remains the origin target. Proxied
+apex records project to an `ALIAS` at the stable CDN proxy hostname, and proxied
+subdomains project to a `CNAME` at the same stable hostname. DNS-only records
+project to their original type and content.
 
 Routing mode values include `geo`, `anycast`, and `dns_only`.
 
