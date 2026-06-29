@@ -79,6 +79,8 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/dns/force-sync', [DnsOperationsController::class, 'forceSync']);
 
     Route::get('/edge/nodes', [EdgeController::class, 'index']);
+    Route::get('/edge/config/status', [EdgeController::class, 'configStatus']);
+    Route::post('/edge/config/publish', [EdgeController::class, 'publishConfig']);
     Route::get('/edges/dns', [EdgeController::class, 'dns']);
 });
 
@@ -87,4 +89,5 @@ Route::middleware('edge.auth')->prefix('/v1')->group(function (): void {
     Route::post('/edge/heartbeat', [EdgeController::class, 'heartbeat']);
     Route::get('/edge/config', [EdgeController::class, 'config']);
     Route::post('/collector/usage', [CollectorController::class, 'usage']);
+    Route::post('/collector/security-events', [CollectorController::class, 'securityEvents']);
 });

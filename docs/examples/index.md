@@ -388,6 +388,12 @@ The edge agent scripts already do this; the example is for developers writing cu
 ## Config Snapshot Publish And Prune
 
 ```bash
+curl -s "$API/api/v1/edge/config/status" \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -s -X POST "$API/api/v1/edge/config/publish" \
+  -H "Authorization: Bearer $TOKEN"
+
 curl -s "$API/api/v1/config/snapshots" \
   -H "Authorization: Bearer $TOKEN"
 

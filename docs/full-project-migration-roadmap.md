@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **30% complete**.
+Current estimated migration progress: **35% complete**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Current estimated migration progress: **30% complete**.
 | 20% | Complete | Domain-scoped origin CRUD, diagnostics, and edge-observed health report. |
 | 25% | Complete | Laravel DNS record CRUD, status, retry queue, audit/config dirty side effects. |
 | 30% | Complete | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
-| 35% | Pending | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
+| 35% | Complete | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
 | 45% | Pending | Collector, analytics, activity, security ingest, and reports migrated. |
 | 55% | Pending | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room migrated. |
 | 65% | Pending | SSL/ACME, certificates, renewal scheduler, jobs, and queues migrated. |
@@ -106,7 +106,7 @@ Remaining risks:
 
 ### 20-35% DNS, PowerDNS, And DNSGeo
 
-Status: **In progress**.
+Status: **Complete**.
 
 Completed in the first DNS migration slice:
 
@@ -191,7 +191,7 @@ Exit checks:
 
 ### 35-45% Edge Control Plane
 
-Status: **Pending**.
+Status: **In progress**.
 
 Scope:
 
@@ -421,9 +421,6 @@ Known gaps to close before advancing milestone percentages:
   Compose DNSGeo topology.
 - Desired DNS generation needs remaining Laravel tests for ACME challenge
   exclusion and edge-pool change behavior.
-- Edge config currently returns a direct database projection; the migrated
-  contract needs the same published snapshot behavior, versioning, last-known
-  good semantics, size limits, and OpenResty fields used by the edge runtime.
 - Collector usage ingest is present, but security-event ingest, rollup rebuilds,
   activity timelines, summaries, retention, and recommendations still need
   Laravel ownership.
@@ -671,6 +668,37 @@ Follow-up hardening:
 
 Target milestone: move from **35% pending** to active edge control-plane
 completion.
+
+Status: **Complete**.
+
+Completed in the first edge-config slice:
+
+- Laravel `EdgeConfigSnapshotService` publishes active snapshots to
+  `config_snapshots` and serves `/api/v1/edge/config` from
+  `config_state.active_snapshot_version`.
+- Admin routes `/api/v1/edge/config/status` and
+  `/api/v1/edge/config/publish` expose publication state and explicit publish.
+- Signed edge config pulls support `if_version`, return `not_modified` for the
+  active version, update edge pull metadata, and return an empty `edge-config.v1`
+  shape before the first publish.
+- Publishes enforce `CDNLITE_EDGE_CONFIG_MAX_BYTES`, preserve the last active
+  snapshot on failure, record `last_publish_error`, and expose oversized active
+  snapshots through readiness.
+- The Laravel snapshot contract carries current OpenResty fields for origins,
+  geo origins, cache settings/rules, WAF, rate limits, IP rules, redirects,
+  response headers, waiting room defaults/policies, SSL settings/material
+  references, verified bot sources, page rules, purge versions, and telemetry
+  defaults.
+- Edge agent security-event pushes now have a signed Laravel route at
+  `/api/v1/collector/security-events`, recorded in the telemetry batch ledger
+  until the collector phase owns full event storage and reports.
+- `cdn:edge:list`, `cdn:edge:show`, `cdn:edge:register-token`,
+  `cdn:edge:rotate-token`, and `cdn:edge:sync-config` are routed through
+  Laravel console ownership instead of the legacy command runner.
+- PostgreSQL-backed feature coverage verifies signed publish/fetch,
+  conditional fetch, first-publish fallback behavior, size-limit rejection, and
+  readiness reporting. Root-stack smoke covered edge registration, heartbeat,
+  config pull, and security-event push through the normal Compose services.
 
 Files likely to change:
 

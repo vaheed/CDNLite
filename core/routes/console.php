@@ -2,7 +2,9 @@
 
 use Illuminate\Foundation\Inspiring;
 use App\Services\ControlPlane\DnsPowerDnsReconciler;
+use App\Services\ControlPlane\EdgeConfigSnapshotService;
 use App\Services\ControlPlane\PowerDnsClient;
+use App\Services\ControlPlane\UnixTime;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
@@ -86,3 +88,89 @@ Artisan::command('cdn:powerdns:doctor', function (): int {
 
     return ($powerDns->enabled() && (($health['ok'] ?? false) !== true || $invalidSoa !== [])) ? self::FAILURE : self::SUCCESS;
 })->purpose('Report PowerDNS API, sync, and managed SOA health');
+
+Artisan::command('cdn:edge:register-token {--edge_id=} {--token=}', function (): int {
+    $edgeId = trim((string) $this->option('edge_id'));
+    $token = (string) $this->option('token');
+    if ($edgeId === '' || $token === '') {
+        $this->error('edge_id_and_token_required');
+
+        return self::FAILURE;
+    }
+
+    DB::table('edge_tokens')->upsert([[
+        'edge_id' => $edgeId,
+        'token_hash' => password_hash($token, PASSWORD_BCRYPT),
+        'created_at' => UnixTime::now(),
+        'updated_at' => UnixTime::now(),
+    ]], ['edge_id'], ['token_hash', 'updated_at']);
+
+    $this->line(json_encode(['data' => ['edge_id' => $edgeId, 'registered' => true]], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Register or replace an edge HMAC token');
+
+Artisan::command('cdn:edge:rotate-token {--edge_id=} {--token=}', function (): int {
+    $edgeId = trim((string) $this->option('edge_id'));
+    $token = (string) ($this->option('token') ?: bin2hex(random_bytes(32)));
+    if ($edgeId === '') {
+        $this->error('edge_id_required');
+
+        return self::FAILURE;
+    }
+
+    DB::table('edge_tokens')->upsert([[
+        'edge_id' => $edgeId,
+        'token_hash' => password_hash($token, PASSWORD_BCRYPT),
+        'created_at' => UnixTime::now(),
+        'updated_at' => UnixTime::now(),
+    ]], ['edge_id'], ['token_hash', 'updated_at']);
+
+    $this->line(json_encode(['data' => ['edge_id' => $edgeId, 'token' => $token]], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Rotate an edge HMAC token');
+
+Artisan::command('cdn:edge:list', function (): int {
+    $edges = DB::table('edge_nodes')->orderBy('edge_id')->get()->map(fn (object $edge): array => (array) $edge)->all();
+    $this->line(json_encode(['data' => $edges], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('List registered edge nodes');
+
+Artisan::command('cdn:edge:show {--edge_id=}', function (): int {
+    $edgeId = trim((string) $this->option('edge_id'));
+    if ($edgeId === '') {
+        $this->error('edge_id_required');
+
+        return self::FAILURE;
+    }
+    $edge = DB::table('edge_nodes')->where('edge_id', $edgeId)->first();
+    if ($edge === null) {
+        $this->error('edge_not_found');
+
+        return self::FAILURE;
+    }
+
+    $this->line(json_encode(['data' => (array) $edge], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Show one edge node');
+
+Artisan::command('cdn:edge:sync-config', function (): int {
+    try {
+        $result = app(EdgeConfigSnapshotService::class)->publish();
+    } catch (\RuntimeException $error) {
+        if (str_starts_with($error->getMessage(), 'config_snapshot_too_large:')) {
+            $this->line(json_encode(['error' => 'config_snapshot_too_large', 'detail' => $error->getMessage()], JSON_UNESCAPED_SLASHES));
+
+            return self::FAILURE;
+        }
+
+        throw $error;
+    }
+
+    $this->line(json_encode(['data' => $result], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Publish the active Laravel edge config snapshot');

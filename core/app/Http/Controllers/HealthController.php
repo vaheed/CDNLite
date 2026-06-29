@@ -3,9 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Modules\Health\Services\ReadinessService;
-use App\Modules\Proxy\Services\ConfigService;
-use App\Modules\Domains\Services\DomainService;
-use App\Modules\Dns\Services\DnsService;
 use App\Support\ApiAuth;
 use App\Support\Database;
 use Illuminate\Http\JsonResponse;
@@ -58,9 +55,8 @@ class HealthController extends Controller
         }
 
         try {
-            $configService = new ConfigService(new DomainService(), new DnsService());
-            $snapshot = $configService->activeSnapshot();
-            $checks['config_generation'] = $snapshot === null ? 'warn' : 'ok';
+            $activeVersion = Database::pdo()->query('SELECT active_snapshot_version FROM config_state WHERE id = 1')->fetchColumn();
+            $checks['config_generation'] = $activeVersion === false || $activeVersion === null ? 'warn' : 'ok';
         } catch (\Throwable) {
             $checks['config_generation'] = 'fail';
         }

@@ -10,6 +10,11 @@ $laravelCdnCommands = [
     'cdn:powerdns:doctor',
     'cdn:powerdns:dry-run',
     'cdn:powerdns:force-sync',
+    'cdn:edge:list',
+    'cdn:edge:register-token',
+    'cdn:edge:rotate-token',
+    'cdn:edge:show',
+    'cdn:edge:sync-config',
 ];
 if (is_string($command) && str_starts_with($command, 'cdn:') && !in_array($command, $laravelCdnCommands, true)) {
     require __DIR__ . '/artisan-legacy';

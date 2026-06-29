@@ -8,6 +8,7 @@ return [
     'edge' => [
         'id' => env('EDGE_ID', 'edge-local-1'),
         'token' => env('EDGE_TOKEN', 'edge-dev-token'),
+        'config_max_bytes' => (int) env('CDNLITE_EDGE_CONFIG_MAX_BYTES', 1048576),
     ],
     'powerdns' => [
         'verify_after_write' => env('CDNLITE_POWERDNS_VERIFY_AFTER_WRITE', true),

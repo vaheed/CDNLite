@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\ControlPlane\EdgeConfigSnapshotService;
 use App\Services\ControlPlane\UnixTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,6 +12,10 @@ use Illuminate\Support\Str;
 
 final class EdgeController extends Controller
 {
+    public function __construct(private EdgeConfigSnapshotService $configSnapshots)
+    {
+    }
+
     public function index(): JsonResponse
     {
         return response()->json(['data' => DB::table('edge_nodes')->orderBy('edge_id')->get()]);
@@ -59,28 +64,34 @@ final class EdgeController extends Controller
 
     public function config(Request $request): JsonResponse
     {
-        $version = (int) DB::table('config_state')->where('id', 1)->value('version');
-        $requested = $request->integer('if_version');
+        $ifVersion = $request->query('if_version') === null ? null : $request->integer('if_version');
+        $edgeId = (string) $request->attributes->get('edge_id', '');
 
-        if ($requested > 0 && $requested === $version) {
-            return response()->json(['changed' => false, 'version' => $version]);
+        return response()->json($this->configSnapshots->edgeResponse($ifVersion, $edgeId));
+    }
+
+    public function configStatus(): JsonResponse
+    {
+        return response()->json(['data' => $this->configSnapshots->status()]);
+    }
+
+    public function publishConfig(): JsonResponse
+    {
+        try {
+            return response()->json(['data' => $this->configSnapshots->publish()]);
+        } catch (\RuntimeException $error) {
+            if (str_starts_with($error->getMessage(), 'config_snapshot_too_large:')) {
+                [, $bytes, $max] = explode(':', $error->getMessage()) + [null, null, null];
+
+                return response()->json([
+                    'error' => 'config_snapshot_too_large',
+                    'bytes' => (int) $bytes,
+                    'max_bytes' => (int) $max,
+                ], 422);
+            }
+
+            throw $error;
         }
-
-        $domains = DB::table('domains')->where('status', 'active')->orderBy('domain')->get();
-        $origins = DB::table('domain_origins')->where('enabled', true)->get()->groupBy('domain_id');
-        $records = DB::table('dns_records')->where('status', 'active')->get()->groupBy('domain_id');
-
-        return response()->json([
-            'changed' => true,
-            'version' => $version,
-            'generated_at' => UnixTime::now(),
-            'domains' => $domains->map(fn ($domain) => [
-                'id' => $domain->id,
-                'domain' => $domain->domain,
-                'origins' => ($origins[$domain->id] ?? collect())->values(),
-                'dns_records' => ($records[$domain->id] ?? collect())->values(),
-            ])->values(),
-        ]);
     }
 
     public function dns(): JsonResponse

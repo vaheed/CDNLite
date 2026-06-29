@@ -649,15 +649,17 @@ SSL tips:
 | `POST` | `/api/v1/dns/dry-run` | Protected | Build Laravel desired DNS state and SOA repair plans without persisting desired rows or writing PowerDNS. |
 | `POST` | `/api/v1/dns/force-sync` | Protected | Persist the current Laravel desired DNS generation and reconcile it to PowerDNS when enabled and configured. If PowerDNS settings are incomplete, the response remains persist-only and includes `powerdns_skipped_reason`. |
 | `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
+| `GET` | `/api/v1/edge/config/status` | Protected | Current published edge config version, dirty state, publish timestamps, and last publish error. |
+| `POST` | `/api/v1/edge/config/publish` | Protected | Publish a Laravel-generated edge config snapshot and make it active. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
 | `POST` | `/api/v1/edge/heartbeat` | Edge signed | Heartbeat edge. |
+| `GET` | `/api/v1/edge/config` | Edge signed | Fetch the active published edge config snapshot. |
 
 The bundled edge agent includes `health_status: "healthy"` in successful
 heartbeats so fresh local nodes become eligible for the shared DNS edge pool.
 Register and heartbeat calls update local edge state only; run
 `cdn:dns:reconcile` or use DNS force sync when you need immediate PowerDNS
 publication.
-| `GET` | `/api/v1/edge/config` | Edge signed | Fetch config snapshot. |
 | `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. Edge metrics include `client_ip` and `client_country` when the edge resolves a visitor country from `X-CDNLITE-Country`, `CF-IPCountry`, or the configured MMDB. |
 | `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |
 
@@ -695,13 +697,18 @@ Edge proxy responses include an origin marker such as `X-CDNLITE-Origin: origin`
 Edge endpoint notes:
 
 - Register and heartbeat requests must have the same `edge_id` in the header and JSON body.
-- `GET /api/v1/edge/config` accepts `if_version` as a query parameter. Matching clean versions return `not_modified` from the active published snapshot without rebuilding config.
+- `POST /api/v1/edge/config/publish` materializes the active edge config into `config_snapshots`; `GET /api/v1/edge/config` serves that active snapshot instead of rebuilding from live tables on every pull.
+- Publishes that exceed `CDNLITE_EDGE_CONFIG_MAX_BYTES` return `422 config_snapshot_too_large`, record `last_publish_error`, and keep the previous active snapshot.
+- `GET /api/v1/edge/config` accepts `if_version` as a query parameter. Matching active versions return `{ "not_modified": true, "version": ... }` and update the edge node's last config pull metadata.
+- Before the first publish, the signed edge config endpoint returns an empty last-known-good shape with `version: 0`, `schema: "edge-config.v1"`, and `hosts: {}` so a healthy edge can keep its previous local config.
 - Usage and security-event ingest are queue-friendly. If ingest fails, the agent should keep local payloads for retry.
 
 ## Config Snapshots
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| `GET` | `/api/v1/edge/config/status` | Laravel edge config publication status. |
+| `POST` | `/api/v1/edge/config/publish` | Publish the Laravel active edge config snapshot. |
 | `GET` | `/api/v1/config/snapshots` | List versions, paginated with `limit` default `20` and max `100`. |
 | `GET` | `/api/v1/config/snapshots/latest` | Return the latest snapshot summary without the snapshot payload. |
 | `GET` | `/api/v1/config/snapshots/{version}` | Show version when `CDNLITE_CONFIG_SNAPSHOT_HISTORY_ENABLED=true`; otherwise returns `config_snapshot_history_disabled`. |

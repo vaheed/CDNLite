@@ -107,7 +107,7 @@ class ReadinessService
     private function snapshotCheck(): array
     {
         $row = Database::pdo()->query(
-            'SELECT cs.active_snapshot_version, cs.dirty, cs.published_at, cs.dirty_at, cs.last_publish_error, s.generated_at
+            'SELECT cs.active_snapshot_version, cs.dirty, cs.published_at, cs.dirty_at, cs.last_publish_error, s.generated_at, s.payload_json
              FROM config_state cs
              LEFT JOIN config_snapshots s ON s.version = cs.active_snapshot_version
              WHERE cs.id = 1'
@@ -123,6 +123,13 @@ class ReadinessService
         ];
         if ($row['generated_at'] === null) {
             return $this->result('config_snapshot', 'error', 'Active edge configuration row is missing', 'Publish a new edge configuration', '/edge-nodes', $details);
+        }
+        $payloadBytes = is_string($row['payload_json'] ?? null) ? strlen((string) $row['payload_json']) : 0;
+        $maxBytes = max(0, (int) config('cdnlite.edge.config_max_bytes', 1048576));
+        $details['active_snapshot_bytes'] = $payloadBytes;
+        $details['max_snapshot_bytes'] = $maxBytes;
+        if ($maxBytes > 0 && $payloadBytes > $maxBytes) {
+            return $this->result('config_snapshot', 'error', 'Active edge configuration is larger than the edge limit', 'Reduce config size or raise CDNLITE_EDGE_CONFIG_MAX_BYTES on core and edge', '/edge-nodes', $details);
         }
         if ($row['last_publish_error'] !== null && (string) $row['last_publish_error'] !== '') {
             $details['last_publish_error'] = (string) $row['last_publish_error'];
