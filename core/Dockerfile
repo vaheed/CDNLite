@@ -18,7 +18,7 @@ RUN apk add --no-cache git nginx libpq supervisor unzip \
 WORKDIR /app
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY . /app
-RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+RUN composer install --no-dev --prefer-install=auto --no-interaction --no-progress --optimize-autoloader
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-cdnlite.ini
@@ -35,4 +35,4 @@ CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
 FROM runtime AS test
 
 RUN cp .env.example .env \
-  && composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+  && composer install --prefer-install=auto --no-interaction --no-progress --optimize-autoloader
