@@ -97,7 +97,7 @@ The normal topology is the root [docker-compose.yml](docker-compose.yml). Split 
 ```bash
 cp .env.example .env
 docker compose up -d --build
-docker compose exec core php artisan migrate --seed
+docker compose exec core php artisan cdn:db:status
 curl -fsS http://localhost:8080/health
 curl -fsS http://localhost:8081/health
 ```

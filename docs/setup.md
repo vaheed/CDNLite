@@ -77,15 +77,16 @@ docker compose exec core php artisan cdn:admin:delete --username=old-admin
 ## Backend Setup
 
 The core image serves Laravel from `core/public/index.php` and CLI commands from
-Laravel's `core/artisan`. Fresh installs run Laravel migrations and seeders:
+Laravel's `core/artisan`. Fresh installs apply the authoritative PostgreSQL
+schema through the CDNLite schema migrator:
 
 ```bash
-docker compose exec core php artisan migrate --seed
+docker compose exec core php artisan cdn:db:migrate
 ```
 
 `core/database/schema.sql` is the authoritative fresh-install PostgreSQL schema
-loaded by the initial Laravel migration. CDNLite is pre-1.0 and does not ship
-old-data upgrade migrations or compatibility shims.
+mirrored by the SQL migration set. CDNLite is pre-1.0 and does not ship old-data
+upgrade migrations or compatibility shims.
 
 Useful commands:
 
@@ -96,7 +97,7 @@ docker compose exec core php artisan cdn:domains:verify-all
 docker compose exec core php artisan cdn:ssl:renew-due
 docker compose exec core php artisan cdn:origins:health-check
 docker compose exec core php artisan cdn:domain:list
-docker compose exec core php artisan migrate --seed
+docker compose exec core php artisan cdn:db:migrate
 docker compose exec core php artisan cdn:readiness:check
 docker compose exec core php artisan cdn:edge:list
 docker compose exec core php artisan cdn:usage:prune --dry-run

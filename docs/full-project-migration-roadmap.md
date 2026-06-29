@@ -573,7 +573,7 @@ Completed evidence:
   and publication semantics.
 - Validation: `docker compose run --rm -v /root/cdnlite/core/app:/app/app -v
   /root/cdnlite/core/routes:/app/routes -v /root/cdnlite/core/tests:/app/tests
-  core-test sh -lc 'php artisan migrate:fresh --seed --force && php artisan test
+  core-test sh -lc 'php artisan cdn:db:fresh --force && php artisan test
   --filter=FreshInstallApiTest'` passed with 10 tests and 109 assertions.
 
 Files likely to change:

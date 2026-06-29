@@ -8,8 +8,8 @@ CORE_URL="${CORE_URL:-http://localhost:${CORE_HOST_PORT:-8080}}"
 POWERDNS_PUBLIC_API_URL="${POWERDNS_PUBLIC_API_URL:-http://localhost:${PDNS_API_HOST_PORT:-8089}}"
 PDNS_API_KEY="${PDNS_API_KEY:-test-key}"
 PDNS_DNS_HOST_PORT="${PDNS_DNS_HOST_PORT:-5353}"
-ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin@example.test}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-cdnlite-local-admin}"
 CI_ENV_NAME="${CI_ENV_NAME:-dns-e2e}"
 CDN_ZONE="${CDNLITE_CDN_ZONE:-cdn.example.net}"
 PROXY_HOST="${CDNLITE_CDN_PROXY_HOST:-proxy.cdn.example.net}"
@@ -64,7 +64,7 @@ login() {
     -H 'Content-Type: application/json' \
     -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
   assert_eq "$code" "200" "admin login should succeed"
-  ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/dns-e2e-login.json)" '.data.token')"
+  ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/dns-e2e-login.json)" '.data.token // .token')"
   export ADMIN_SESSION_TOKEN
 }
 

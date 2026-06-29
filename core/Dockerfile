@@ -10,6 +10,8 @@ ENV PHP_FPM_PM_MAX_CHILDREN=24 \
 
 RUN apk add --no-cache git nginx libpq supervisor unzip \
   && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev \
+  && pecl install redis \
+  && docker-php-ext-enable redis \
   && docker-php-ext-install opcache pdo pdo_pgsql \
   && apk del .build-deps
 

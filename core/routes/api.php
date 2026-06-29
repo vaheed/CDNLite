@@ -7,6 +7,8 @@ use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\EdgeController;
 use App\Http\Controllers\Api\OperationsController;
 use App\Http\Controllers\HealthController;
+use App\Modules\Settings\Http\Controllers\SettingsController as PlatformSettingsController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/v1/readiness', [HealthController::class, 'readiness']);
@@ -17,7 +19,32 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);
 
     Route::get('/overview', [OperationsController::class, 'overview']);
-    Route::get('/settings', [OperationsController::class, 'settings']);
+    Route::get('/settings', static fn (PlatformSettingsController $settings) => response()->json($settings->index()));
+    Route::get('/settings/{group}', static function (string $group, PlatformSettingsController $settings) {
+        try {
+            return response()->json($settings->show($group));
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => $error->getMessage()], 404);
+        }
+    });
+    Route::patch('/settings/{group}', static function (string $group, Request $request, PlatformSettingsController $settings) {
+        try {
+            $admin = $request->attributes->get('admin_user');
+            return response()->json($settings->update($group, $request->all(), $admin['username'] ?? null));
+        } catch (\InvalidArgumentException $error) {
+            $status = $error->getMessage() === 'settings_group_not_found' ? 404 : 422;
+            return response()->json(['error' => $error->getMessage()], $status);
+        }
+    });
+    Route::post('/settings/validate', static function (Request $request, PlatformSettingsController $settings) {
+        try {
+            return response()->json($settings->validate($request->all()));
+        } catch (\InvalidArgumentException $error) {
+            $status = $error->getMessage() === 'settings_group_not_found' ? 404 : 422;
+            return response()->json(['error' => $error->getMessage()], $status);
+        }
+    });
+    Route::post('/settings/test/powerdns', static fn (PlatformSettingsController $settings) => response()->json($settings->testPowerDns()));
     Route::get('/audit', [OperationsController::class, 'audit']);
 
     Route::get('/domains', [DomainController::class, 'index']);
