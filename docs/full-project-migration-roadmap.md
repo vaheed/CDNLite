@@ -424,8 +424,9 @@ Known gaps to close before advancing milestone percentages:
 - Collector usage and security-event ingest are present. Laravel now also owns
   dashboard-facing usage summaries, cache analytics, domain activity timelines,
   request lookup/export, security event summaries, and usage aggregate
-  recalculation/job status. Retention, recommendations, Laravel CLI ownership,
-  and broader operational reports still need Laravel ownership.
+  recalculation/job status, and retention pruning. Recommendations, remaining
+  Laravel CLI ownership, and broader operational reports still need Laravel
+  ownership.
 - Dashboard clients already reference many rule, edge, DNS, SSL, analytics, and
   security endpoints; each client must be reconciled against the Laravel route
   list instead of preserved through legacy fallbacks.
@@ -756,7 +757,11 @@ Required result:
   Recommendations still need Laravel ownership in a later collector slice.
 - Rollup rebuild/query support remains available for `minute|hour|day` through
   Laravel API endpoints; CLI ownership still needs conversion.
-- Retention pruning is explicit, bounded, and documented.
+- Retention pruning is explicit, bounded, documented, and owned by Laravel
+  `TelemetryRetentionService` plus `cdn:usage:prune`. The full pass covers raw
+  request rows, high-volume security audit rows, rejected telemetry diagnostics,
+  telemetry ingest receipts, legacy ingest keys while they still exist, successful
+  DNS sync events, terminal SSL jobs, and expired edge replay nonces.
 
 Do not advance past this queue if:
 

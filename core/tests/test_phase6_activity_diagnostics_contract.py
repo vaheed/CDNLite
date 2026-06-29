@@ -57,20 +57,24 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert "/api/v1/domains/{domainId}/activity/summary" in routes
     assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in routes
     assert "/api/v1/domains/{domainId}/activity/export" in routes
-    assert "public function pruneDetailedEvents" in collector
-    assert "CDNLITE_ANALYTICS_RETENTION_DAYS" in collector
+    retention = read("core/app/Services/ControlPlane/TelemetryRetentionService.php")
+
+    assert "public function pruneDetailedEvents" in retention
+    assert "CDNLITE_ANALYTICS_RETENTION_DAYS" in retention
     assert "CDNLITE_STORE_FULL_CLIENT_IP" in collector
     assert "'sha256:' . hash('sha256', $ip)" in collector
     assert "cdn:usage:prune" in artisan
-    assert "pruneDetailedEvents($days, $dryRun)" in prune_command
-    assert "pruneOperationalRetention" in collector
-    assert "WITH doomed AS" in collector
-    assert "CDNLITE_SECURITY_EVENT_RETENTION_DAYS" in collector
-    assert "CDNLITE_RETENTION_BATCH_SIZE" in collector
-    assert "event IN ('waf_match','rate_limited','bot_match','geo_block')" in collector
-    assert "status IN ('success','verified')" in collector
-    assert "status IN ('issued','failed','cancelled')" in collector
-    assert "pruneOperationalRetention([" in prune_command
+    assert "$retention->pruneDetailedEvents($days, $dryRun, $batchSize)" in prune_command
+    assert "public function pruneOperationalRetention" in retention
+    assert "CDNLITE_SECURITY_EVENT_RETENTION_DAYS" in retention
+    assert "CDNLITE_RETENTION_BATCH_SIZE" in retention
+    assert "'geo_block'," in retention
+    assert "'success'," in retention and "'verified'," in retention
+    assert "'issued'," in retention and "'failed'," in retention and "'cancelled'," in retention
+    assert "telemetry_ingest_batches" in retention
+    assert "usage_ingest_keys" in retention
+    assert "cdn:usage:prune" in read("core/artisan")
+    assert "$retention->pruneOperationalRetention([" in prune_command
     assert "isset($opts['all'])" in prune_command
 
 

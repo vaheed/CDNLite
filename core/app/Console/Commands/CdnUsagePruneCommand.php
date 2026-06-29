@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Collector\Services\CollectorService;
+use App\Services\ControlPlane\TelemetryRetentionService;
 use App\Support\CommandIO;
 
 class CdnUsagePruneCommand
@@ -13,11 +13,11 @@ class CdnUsagePruneCommand
         $days = isset($opts['days']) && is_numeric($opts['days']) ? (int) $opts['days'] : null;
         $dryRun = isset($opts['dry-run']) || isset($opts['dry_run']);
         $batchSize = isset($opts['batch-size']) && is_numeric($opts['batch-size']) ? (int) $opts['batch-size'] : null;
-        $collector = new CollectorService();
+        $retention = new TelemetryRetentionService();
 
         if (isset($opts['all'])) {
             CommandIO::printJson([
-                'data' => $collector->pruneOperationalRetention([
+                'data' => $retention->pruneOperationalRetention([
                     'dry_run' => $dryRun,
                     'batch_size' => $batchSize,
                     'usage_days' => $days,
@@ -30,7 +30,7 @@ class CdnUsagePruneCommand
             return 0;
         }
 
-        CommandIO::printJson(['data' => $collector->pruneDetailedEvents($days, $dryRun)]);
+        CommandIO::printJson(['data' => $retention->pruneDetailedEvents($days, $dryRun, $batchSize)]);
         return 0;
     }
 

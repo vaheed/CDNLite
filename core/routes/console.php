@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use App\Services\ControlPlane\DnsPowerDnsReconciler;
 use App\Services\ControlPlane\EdgeConfigSnapshotService;
 use App\Services\ControlPlane\PowerDnsClient;
+use App\Services\ControlPlane\TelemetryRetentionService;
 use App\Services\ControlPlane\UnixTime;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -283,42 +284,23 @@ Artisan::command('cdn:usage:recalculate {--domain_id=} {--bucket=}', function ()
     return self::SUCCESS;
 })->purpose('Recalculate Laravel usage aggregates');
 
-Artisan::command('cdn:usage:prune {--all} {--dry-run} {--days=} {--security-days=} {--idempotency-days=} {--batch-size=}', function (): int {
-    $dryRun = (bool) $this->option('dry-run');
-    $all = (bool) $this->option('all');
-    $batchSize = max(100, min(50000, (int) ($this->option('batch-size') ?: env('CDNLITE_RETENTION_BATCH_SIZE', 5000))));
-    $now = UnixTime::now();
-    $usageDays = max(1, min(3650, (int) ($this->option('days') ?: env('CDNLITE_ANALYTICS_RETENTION_DAYS', 30))));
-    $securityDays = max(1, min(3650, (int) ($this->option('security-days') ?: env('CDNLITE_SECURITY_EVENT_RETENTION_DAYS', 90))));
-    $idempotencyDays = max(1, min(3650, (int) ($this->option('idempotency-days') ?: env('CDNLITE_INGEST_KEY_RETENTION_DAYS', 7))));
-
-    $plans = [
-        'usage_rollups' => ['table' => 'usage_rollups', 'column' => 'ts', 'cutoff' => $now - ($usageDays * 86400), 'retention_days' => $usageDays],
-    ];
-    if ($all) {
-        $plans['audit_log_security'] = ['table' => 'audit_log', 'column' => 'created_at', 'cutoff' => $now - ($securityDays * 86400), 'retention_days' => $securityDays, 'security_only' => true];
-        $plans['telemetry_rejected_events'] = ['table' => 'telemetry_rejected_events', 'column' => 'created_at', 'cutoff' => $now - ($securityDays * 86400), 'retention_days' => $securityDays];
-        $plans['telemetry_ingest_batches'] = ['table' => 'telemetry_ingest_batches', 'column' => 'ingested_at', 'cutoff' => $now - ($idempotencyDays * 86400), 'retention_days' => $idempotencyDays];
-        $plans['edge_request_nonces'] = ['table' => 'edge_request_nonces', 'column' => 'expires_at', 'cutoff' => $now, 'retention_days' => 0];
-    }
-
-    $result = ['dry_run' => $dryRun, 'batch_size' => $batchSize, 'tables' => []];
-    foreach ($plans as $key => $plan) {
-        $query = DB::table($plan['table'])->where($plan['column'], '<', $plan['cutoff']);
-        if (($plan['security_only'] ?? false) === true) {
-            $query->whereIn('event', ['waf_match', 'rate_limited', 'bot_match', 'geo_block', 'ip_block', 'challenge', 'waiting_room']);
-        }
-        $count = (clone $query)->count();
-        $deleted = 0;
-        if (!$dryRun && $count > 0) {
-            $ids = (clone $query)->limit($batchSize)->pluck($plan['table'] === 'dns_sync_events' ? 'id' : ($plan['table'] === 'telemetry_ingest_batches' ? 'batch_id' : 'id'))->all();
-            if ($ids !== []) {
-                $keyColumn = $plan['table'] === 'telemetry_ingest_batches' ? 'batch_id' : 'id';
-                $deleted = DB::table($plan['table'])->whereIn($keyColumn, $ids)->delete();
-            }
-        }
-        $result['tables'][$key] = ['retention_days' => $plan['retention_days'], 'cutoff' => $plan['cutoff'], 'matched' => $count, 'deleted' => $deleted];
-    }
+Artisan::command('cdn:usage:prune {--all} {--dry-run} {--days=} {--security-days=} {--dns-days=} {--ssl-job-days=} {--idempotency-days=} {--batch-size=}', function (): int {
+    $retention = app(TelemetryRetentionService::class);
+    $result = (bool) $this->option('all')
+        ? $retention->pruneOperationalRetention([
+            'dry_run' => (bool) $this->option('dry-run'),
+            'batch_size' => $this->option('batch-size'),
+            'usage_days' => $this->option('days'),
+            'security_days' => $this->option('security-days'),
+            'dns_days' => $this->option('dns-days'),
+            'ssl_job_days' => $this->option('ssl-job-days'),
+            'idempotency_days' => $this->option('idempotency-days'),
+        ])
+        : $retention->pruneDetailedEvents(
+            is_numeric($this->option('days')) ? (int) $this->option('days') : null,
+            (bool) $this->option('dry-run'),
+            is_numeric($this->option('batch-size')) ? (int) $this->option('batch-size') : null,
+        );
 
     $this->line(json_encode(['data' => $result], JSON_UNESCAPED_SLASHES));
 

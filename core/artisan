@@ -15,6 +15,7 @@ $laravelCdnCommands = [
     'cdn:edge:rotate-token',
     'cdn:edge:show',
     'cdn:edge:sync-config',
+    'cdn:usage:prune',
 ];
 if (is_string($command) && str_starts_with($command, 'cdn:') && !in_array($command, $laravelCdnCommands, true)) {
     require __DIR__ . '/artisan-legacy';
