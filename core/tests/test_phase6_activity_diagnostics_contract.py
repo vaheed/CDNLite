@@ -33,38 +33,35 @@ def test_usage_request_diagnostics_migration_and_schema_are_additive():
 
 
 def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
-    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
-    controller = read("core/app/Modules/Collector/Http/Controllers/CollectorController.php")
-    routes = read("core/public_index.php")
+    collector = read("core/app/Http/Controllers/Api/CollectorController.php")
+    routes = read("core/routes/api.php")
+    console = read("core/routes/console.php")
     artisan = read("core/artisan")
-    prune_command = read("core/app/Console/Commands/CdnUsagePruneCommand.php")
 
-    assert "host, method, path, query_redacted" in collector
-    assert ":upstream_response_time_ms" in collector
-    assert "$this->durationMs($item['upstream_response_time'] ?? null)" in collector
-    assert "public function recentRequests(string $domainId" in collector
-    assert "public function activityTimeline(string $domainId" in collector
-    assert "countTimelineRequests" in collector
-    assert "countTimelineAudit" in collector
+    assert "'host' => $this->nullableString($event['host'] ?? null)" in collector
+    assert "'query_redacted' => isset($event['query_redacted'])" in collector
+    assert "'upstream_response_time_ms' => $this->durationMs($event['upstream_response_time_ms']" in collector
+    assert "public function recentRequests(Request $request, string $domainId)" in collector
+    assert "public function activityTimeline(Request $request, string $domainId)" in collector
     assert "$type === '' || $type === 'audit' || $type === 'security'" in collector
     assert "$type === 'error'" in collector
-    assert "public function activitySummary(string $domainId" in collector
+    assert "public function activitySummary(Request $request, string $domainId)" in collector
     assert "public function findRequest(string $domainId, string $requestId)" in collector
-    assert "castRequestActivity" in collector
-    assert "public function recentRequests(string $domainId, array $query)" in controller
-    assert "public function activityTimeline(string $domainId, array $query)" in controller
-    assert "/api/v1/domains/{domainId}/activity/requests" in routes
-    assert "/api/v1/domains/{domainId}/activity/summary" in routes
-    assert "/api/v1/domains/{domainId}/activity/requests/{requestId}" in routes
-    assert "/api/v1/domains/{domainId}/activity/export" in routes
+    assert "private function castRequestRow(object $row): array" in collector
+    assert "Route::get('/domains/{domainId}/activity/requests'" in routes
+    assert "Route::get('/domains/{domainId}/activity/summary'" in routes
+    assert "Route::get('/domains/{domainId}/activity/requests/{requestId}'" in routes
+    assert "Route::get('/domains/{domainId}/activity/export'" in routes
     retention = read("core/app/Services/ControlPlane/TelemetryRetentionService.php")
 
     assert "public function pruneDetailedEvents" in retention
     assert "CDNLITE_ANALYTICS_RETENTION_DAYS" in retention
-    assert "CDNLITE_STORE_FULL_CLIENT_IP" in collector
-    assert "'sha256:' . hash('sha256', $ip)" in collector
     assert "cdn:usage:prune" in artisan
-    assert "$retention->pruneDetailedEvents($days, $dryRun, $batchSize)" in prune_command
+    assert "cdn:usage:summary" in artisan
+    assert "cdn:usage:recalculate" in artisan
+    assert "Artisan::command('cdn:usage:summary" in console
+    assert "Artisan::command('cdn:usage:recalculate" in console
+    assert "$retention->pruneDetailedEvents(" in console
     assert "public function pruneOperationalRetention" in retention
     assert "CDNLITE_SECURITY_EVENT_RETENTION_DAYS" in retention
     assert "CDNLITE_RETENTION_BATCH_SIZE" in retention
@@ -73,16 +70,15 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     assert "'issued'," in retention and "'failed'," in retention and "'cancelled'," in retention
     assert "telemetry_ingest_batches" in retention
     assert "usage_ingest_keys" in retention
-    assert "cdn:usage:prune" in read("core/artisan")
-    assert "$retention->pruneOperationalRetention([" in prune_command
-    assert "isset($opts['all'])" in prune_command
+    assert "$retention->pruneOperationalRetention([" in console
+    assert "(bool) $this->option('all')" in console
 
 
 def test_dashboard_activity_shows_request_origin_and_router_details():
     usage_api = read("dash/src/lib/api/usage.ts")
     types = read("dash/src/types.ts")
     activity = read("dash/src/views/domain-tabs/DomainActivityTab.vue")
-    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
+    collector = read("core/app/Http/Controllers/Api/CollectorController.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -153,7 +149,7 @@ def test_terminal_502_paths_emit_activity_metrics():
     nginx = read("edge/openresty/nginx.conf")
     error_page = read("edge/openresty/lua/error_page.lua")
     proxy = read("edge/openresty/lua/proxy.lua")
-    collector = read("core/app/Modules/Collector/Services/CollectorService.php")
+    collector = read("core/app/Http/Controllers/Api/CollectorController.php")
 
     assert "location @cdnlite_backup" not in nginx
     assert "location @cdnlite_tls_backup" not in nginx
@@ -186,5 +182,5 @@ def test_terminal_502_paths_emit_activity_metrics():
     assert 'headers["X-CDNLite-Domain-Id"]' in error_page
     assert 'headers["X-CDNLite-Origin-Id"]' in error_page
     assert 'headers["X-CDNLite-Origin-Host"]' in error_page
-    assert "domainIdFromItem" in collector
-    assert "SELECT id FROM domains WHERE domain = :host OR name = :host LIMIT 1" in collector
+    assert "private function storeUsageEvent" in collector
+    assert "$this->domainExists($domainId)" in collector

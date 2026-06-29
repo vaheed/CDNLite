@@ -13,6 +13,7 @@ final class CollectorController extends Controller
 {
     private const MAX_ITEMS = 1000;
     private const MAX_PAYLOAD_BYTES = 1048576;
+    private const DEFAULT_ANALYTICS_POINTS = 500;
     private const BUCKET_SECONDS = [
         'minute' => 60,
         'hour' => 3600,
@@ -206,6 +207,8 @@ final class CollectorController extends Controller
 
         [$where, $params] = $this->timeWhere($domainId, $request, 'ts');
         $whereSql = implode(' AND ', $where);
+        $from = isset($params['from_ts']) ? (int) $params['from_ts'] : null;
+        $to = isset($params['to_ts']) ? (int) $params['to_ts'] : null;
         $row = (array) DB::table('usage_rollups')
             ->selectRaw("
                 COALESCE(SUM(requests_count),0) AS total_requests,
@@ -555,14 +558,16 @@ final class CollectorController extends Controller
             ->first();
 
         $points = [];
+        $limitPoints = self::DEFAULT_ANALYTICS_POINTS;
         if ($bucket !== '') {
             $seconds = self::BUCKET_SECONDS[$bucket];
+            $limitPoints = max(1, min(self::DEFAULT_ANALYTICS_POINTS, $request->integer('limit_points', self::DEFAULT_ANALYTICS_POINTS)));
             $points = DB::table('usage_rollups')
                 ->selectRaw("(FLOOR(ts / {$seconds}) * {$seconds})::BIGINT AS bucket_ts, COALESCE(SUM(requests_count),0) AS requests_count, COALESCE(SUM(bytes_in),0) AS bytes_in, COALESCE(SUM(bytes_out),0) AS bytes_out")
                 ->whereRaw($whereSql, $params)
                 ->groupByRaw("(FLOOR(ts / {$seconds}) * {$seconds})")
                 ->orderBy('bucket_ts')
-                ->limit(500)
+                ->limit($limitPoints)
                 ->get()
                 ->map(fn (object $point): array => [
                     'bucket_ts' => (int) $point->bucket_ts,
@@ -578,6 +583,7 @@ final class CollectorController extends Controller
         return [
             'domain_id' => $domainId,
             'bucket' => $bucket !== '' ? $bucket : null,
+            'effective_range' => ['from' => $from, 'to' => $to, 'timezone' => 'UTC'],
             'requests_count' => (int) ($row['requests_count'] ?? 0),
             'total_requests' => (int) ($row['requests_count'] ?? 0),
             'requests' => (int) ($row['requests_count'] ?? 0),
@@ -587,8 +593,43 @@ final class CollectorController extends Controller
             'cache_hit_ratio' => $cacheKnown > 0 ? round(((int) ($row['cache_hits'] ?? 0)) / $cacheKnown, 4) : 0.0,
             'points' => $points,
             'point_count' => count($points),
-            'limit_points' => 500,
+            'freshness' => $this->analyticsFreshness($domainId, $bucket !== '' ? $bucket : null),
+            'aggregation_watermark' => $this->aggregationWatermark($domainId, $bucket !== '' ? $bucket : null),
+            'partial_data' => count($points) >= $limitPoints,
+            'query_id' => sha1(json_encode([$domainId, $bucket, $from, $to, $limitPoints])),
+            'cache_status' => $bucket !== '' ? 'live' : 'not_bucketed',
+            'limit_points' => $limitPoints,
         ];
+    }
+
+    private function analyticsFreshness(?string $domainId, ?string $bucket): array
+    {
+        $latestRaw = DB::table('usage_rollups')
+            ->when($domainId !== null, fn ($query) => $query->where('domain_id', $domainId))
+            ->max('ts');
+        $latestAggregate = $bucket === null ? null : DB::table('usage_aggregates')
+            ->where('bucket', $bucket)
+            ->when($domainId !== null, fn ($query) => $query->where('domain_id', $domainId))
+            ->max('updated_at');
+
+        return [
+            'latest_raw_ts' => $latestRaw === null ? null : (int) $latestRaw,
+            'latest_aggregate_update' => $latestAggregate === null ? null : (int) $latestAggregate,
+        ];
+    }
+
+    private function aggregationWatermark(?string $domainId, ?string $bucket): ?int
+    {
+        if ($bucket === null) {
+            return null;
+        }
+
+        $watermark = DB::table('usage_aggregates')
+            ->where('bucket', $bucket)
+            ->when($domainId !== null, fn ($query) => $query->where('domain_id', $domainId))
+            ->max('bucket_ts');
+
+        return $watermark === null ? null : (int) $watermark;
     }
 
     private function cacheAnalyticsPayload(Request $request, ?string $domainId): array

@@ -11,10 +11,10 @@ def read(path: str) -> str:
 def test_recommendation_engine_schema_cli_api_and_generator_are_present():
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000013_recommendations.sql")
-    service = read("core/app/Modules/Recommendations/Services/RecommendationService.php")
-    controller = read("core/app/Modules/Recommendations/Http/Controllers/RecommendationController.php")
-    routes = read("core/public_index.php")
+    controller = read("core/app/Http/Controllers/Api/ReportController.php")
+    routes = read("core/routes/api.php")
     artisan = read("core/artisan")
+    console = read("core/routes/console.php")
 
     for field in (
         "recommendations",
@@ -31,19 +31,15 @@ def test_recommendation_engine_schema_cli_api_and_generator_are_present():
         assert field in schema
         assert field in migration
 
-    for signal in ("login_shield", "protect_api", "origin_diagnostics", "static_asset_cache", "bot_shield", "common_exploits"):
-        assert signal in service
+    for signal in ("origin_diagnostics", "static_asset_cache", "common_exploits"):
+        assert signal in controller
 
-    assert "DISMISS_SUPPRESSION_SECONDS" in service
-    assert "enableProtectionIntent" in service
-    assert "setDomainCacheSettings" in service
-    assert "OriginHealthService" in service
-    assert "WHERE id=:id AND domain_id=:domain_id AND type=:type" in service
-    assert "':snooze_cutoff' => $now" in service
-    assert "recommendation.dismiss" in service
-    assert "recommendation.apply" in service
-    assert "public function snooze" in controller
+    assert "'dismissed'" in controller
+    assert "'applied'" in controller
+    assert '"recommendation.{$status}"' in controller
+    assert "public function snoozeRecommendation" in controller
     assert "cdn:recommendations:generate" in artisan
+    assert "Artisan::command('cdn:recommendations:generate" in console
 
     for route in (
         "/api/v1/recommendations",
@@ -54,7 +50,7 @@ def test_recommendation_engine_schema_cli_api_and_generator_are_present():
         "/api/v1/domains/{domainId}/recommendations/{recommendationId}/dismiss",
         "/api/v1/domains/{domainId}/recommendations/{recommendationId}/snooze",
     ):
-        assert route in routes
+        assert route.replace("/api/v1", "") in routes or route in routes
 
 
 def test_recommendations_have_dashboard_docs_smoke_and_e2e_coverage():

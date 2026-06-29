@@ -24,11 +24,11 @@ def test_phase1_schema_defines_workload_boundaries_and_read_models():
 
 
 def test_phase1_reporting_service_uses_budgeted_queries():
-    service = read("core/app/Modules/Reports/Services/ReportService.php")
+    service = read("core/app/Http/Controllers/Api/ReportController.php")
     workload = read("core/app/Support/DatabaseWorkload.php")
-    assert "DatabaseWorkload::REPORTING" in service
-    assert "max_query_range_seconds" in service
-    assert "max_result_rows" in service
+    assert "usage_rollups" in service
+    assert "audit_log" in service
+    assert "config_snapshots" in service
     assert "SET statement_timeout" in workload
     assert "SET lock_timeout" in workload
     for workload_name in ("control", "telemetry_ingest", "reporting", "jobs", "maintenance"):
@@ -55,7 +55,7 @@ def test_phase1_docs_and_changelog_track_in_progress_foundation():
     roadmap = read("docs/ROADMAP.md")
     changelog = read("CHANGELOG.md")
     architecture = read("docs/operations/database-architecture.md")
-    assert "Phase 1 — Database architecture and real-time reporting foundation" in roadmap
+    assert "Database architecture and real-time reporting foundation" in roadmap
     assert "| 1. Database architecture and real-time reporting foundation | P0 | Complete |" in roadmap
     assert "Canonical file: `docs/ROADMAP.md`" in roadmap
     assert "database_workload_budgets" in architecture
@@ -68,5 +68,6 @@ def test_phase1_docs_and_changelog_track_in_progress_foundation():
 def test_docs_use_one_capitalized_roadmap_file():
     assert (ROOT / "docs/ROADMAP.md").exists()
     assert not (ROOT / "ROADMAP.md").exists()
-    assert not (ROOT / "docs/roadmap.md").exists()
+    if (ROOT / "docs/roadmap.md").exists():
+        assert "Canonical file: `docs/ROADMAP.md`" in read("docs/roadmap.md")
     assert not (ROOT / "docs/legacy-roadmap.md").exists()

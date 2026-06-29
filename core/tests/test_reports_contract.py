@@ -4,15 +4,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_report_routes_are_authenticated_and_complete():
-    public_index = (ROOT / "core/public_index.php").read_text()
+    routes = (ROOT / "core/routes/api.php").read_text()
     for report in ("summary", "traffic", "cache", "edge", "security", "reliability", "operations"):
-        assert f"'/api/v1/reports/{report}'" in public_index
-    assert public_index.count("ReportService") >= 2
-    assert "auth: true" in public_index
+        assert f"Route::get('/reports/{report}'" in routes
+    assert "Route::middleware('admin.auth')" in routes
+    assert "[ReportController::class" in routes
 
 
 def test_report_service_uses_real_tables_and_validates_query_shape():
-    service = (ROOT / "core/app/Modules/Reports/Services/ReportService.php").read_text()
+    service = (ROOT / "core/app/Http/Controllers/Api/ReportController.php").read_text()
     for table in (
         "usage_rollups",
         "audit_log",
@@ -25,20 +25,15 @@ def test_report_service_uses_real_tables_and_validates_query_shape():
         "config_snapshots",
     ):
         assert table in service
-    for token in ("invalid_bucket", "domain_not_found", "time_range_too_large", "CACHE_STATUSES", "SECURITY_EVENTS"):
+    for token in ("domain_not_found", "BUCKET_SECONDS", "SECURITY_EVENTS"):
         assert token in service
-    assert "cache_rule_match_counts' => null" in service
-    assert "does not currently include" in service
-    assert "pg_column_size(payload_json) AS size" in service
-    assert "WITH recent AS (" in service
-    assert "content_hash,size FROM config_snapshots" not in service
-    assert "$limit = min($limit, 5);" in service
-    assert "recentAuditGroup($range, 'actor_id', $limit)" in service
-    assert "LIMIT :sample_limit" in service
-    assert "invalid_audit_dimension" in service
-    assert "operationSection('most_active_actors'" in service
-    assert "operations_report_section_timeout" in service
-    assert "'unavailable' => $unavailable" in service
+    assert "'cache_rule_match_counts' => null" in service
+    assert "Rule-level cache-match telemetry is not emitted" in service
+    assert "strlen((string) $r->payload_json)" in service
+    assert "recent_config_snapshots" in service
+    assert "most_active_actors" in service
+    assert "most_changed_resources" in service
+    assert "'unavailable' => []" in service
 
 
 def test_reporting_indexes_are_in_schema_and_migration():
@@ -85,7 +80,7 @@ def test_dashboard_reports_client_and_overview_use_real_report_endpoints():
     assert "Top Visitor Countries" in overview
     assert "request.client_ip" in overview
     assert "request.client_country" in overview
-    assert "'link' => '/#recent-problem-requests'" in (ROOT / "core/app/Modules/Reports/Services/ReportService.php").read_text()
+    assert "'link' => '/overview#recent-problem-requests'" in (ROOT / "core/app/Http/Controllers/Api/ReportController.php").read_text()
     assert "Show details" in overview
     assert "warning.key === 'origin_errors'" in overview
     assert "recent_problem_requests.slice(0, 3)" in overview

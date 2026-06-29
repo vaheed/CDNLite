@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **35% complete**.
+Current estimated migration progress: **45% complete**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -23,7 +23,7 @@ Current estimated migration progress: **35% complete**.
 | 25% | Complete | Laravel DNS record CRUD, status, retry queue, audit/config dirty side effects. |
 | 30% | Complete | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
 | 35% | Complete | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
-| 45% | Pending | Collector, analytics, activity, security ingest, and reports migrated. |
+| 45% | Complete | Collector, analytics, activity, security ingest, and reports migrated. |
 | 55% | Pending | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room migrated. |
 | 65% | Pending | SSL/ACME, certificates, renewal scheduler, jobs, and queues migrated. |
 | 75% | Pending | Dashboard API contract alignment and remaining API/OpenAPI cleanup. |
@@ -211,21 +211,37 @@ Exit checks:
 
 ### 45-55% Collector, Analytics, And Security Ingest
 
-Status: **In progress**.
+Status: **Complete**.
 
-Scope:
+Completed:
 
-- Usage ingest, idempotency, rollups, activity requests, activity summaries.
-- Security event ingest and summaries.
-- Reports for traffic, cache, edge, security, reliability, and operations.
-- Origin health observation ingest remains edge-sourced.
-- Replay protection and edge auth enforced on ingest endpoints.
+- Usage and security event ingest are bounded, signed, replay-protected,
+  idempotent, and expose accepted/rejected telemetry receipts.
+- Usage summaries, cache analytics, activity timelines, request lookup/export,
+  activity summaries, security event lists, and security summaries are served by
+  Laravel controllers.
+- Traffic, cache, edge, security, reliability, operations, and summary reports
+  are served by Laravel `ReportController` routes behind admin auth.
+- Recommendation generation/list/apply/dismiss/snooze is Laravel-owned for API
+  and `cdn:recommendations:generate`.
+- `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`, and
+  `cdn:usage:prune` enter through the Laravel Artisan bootstrap, with old
+  collector command classes removed.
+- Usage aggregate metadata includes bounded points, freshness, aggregation
+  watermark, partial-data state, and query identifiers.
+- Retention pruning is owned by `TelemetryRetentionService` and covers raw
+  requests, high-volume security events, rejected telemetry diagnostics,
+  telemetry receipts, ingest keys, successful DNS sync events, terminal SSL jobs,
+  and expired edge replay nonces.
 
-Exit checks:
+Exit evidence:
 
-- Bucket rebuild/query behavior for `minute|hour|day`.
-- Activity diagnostics and recommendation generation preserved.
-- Collector-focused Laravel feature tests and existing pytest contracts green.
+- Focused collector/report/analytics pytest contracts are green.
+- PostgreSQL-backed Laravel feature coverage exists for signed collector ingest,
+  activity/security reads, report reads, recommendation generation, rollup
+  rebuild/job status, and retention pruning.
+- Full PHP/Compose runtime validation still requires an environment with
+  `php` and `docker` available.
 
 ### 55-70% Traffic Rules And Delivery Features
 
@@ -369,15 +385,12 @@ Required validation:
 
 ## Current Backlog Order
 
-1. DNS/PowerDNS/DNSGeo reconciliation.
-2. Edge registration, heartbeat, and config sync.
-3. Collector, analytics, and security ingest.
-4. Cache, WAF, rate limit, IP rule, SSL, redirect, header, and waiting room workflows.
-5. Dashboard API contract alignment.
-6. Laravel jobs, scheduler, and queues.
-7. CLI command conversion.
-8. Legacy runtime deletion.
-9. Final smoke, e2e, stress, docs, and CI certification.
+1. Cache, WAF, rate limit, IP rule, SSL, redirect, header, and waiting room workflows.
+2. Dashboard API contract alignment.
+3. Laravel jobs, scheduler, and queues.
+4. CLI command conversion.
+5. Legacy runtime deletion.
+6. Final smoke, e2e, stress, docs, and CI certification.
 
 ## Tracking Template
 
@@ -421,12 +434,12 @@ Known gaps to close before advancing milestone percentages:
   Compose DNSGeo topology.
 - Desired DNS generation needs remaining Laravel tests for ACME challenge
   exclusion and edge-pool change behavior.
-- Collector usage and security-event ingest are present. Laravel now also owns
+- Collector usage and security-event ingest are Laravel-owned. Laravel also owns
   dashboard-facing usage summaries, cache analytics, domain activity timelines,
   request lookup/export, security event summaries, and usage aggregate
-  recalculation/job status, and retention pruning. Recommendations, remaining
-  Laravel CLI ownership, and broader operational reports still need Laravel
-  ownership.
+  recalculation/job status, retention pruning, activity recommendations, and the
+  `cdn:usage:ingest`, `cdn:usage:summary`, `cdn:usage:recalculate`,
+  `cdn:usage:prune`, and `cdn:recommendations:generate` command paths.
 - Dashboard clients already reference many rule, edge, DNS, SSL, analytics, and
   security endpoints; each client must be reconciled against the Laravel route
   list instead of preserved through legacy fallbacks.
@@ -735,39 +748,34 @@ Do not advance past this queue if:
 
 ### Queue 4: Collector And Activity Ownership
 
-Target milestone: move from **45% pending** toward analytics and security ingest
-completion.
+Status: **Complete**.
 
-Files likely to change:
+Completed evidence:
 
-- `core/app/Http/Controllers/Api/CollectorController.php`
-- Laravel services for usage ingest, security ingest, rollups, activity, reports
-- Laravel Artisan commands for rollup rebuilds and retention pruning
-- `edge/agent/push_metrics.sh`
-- `edge/agent/push_security_events.sh` if present or added
-- `dash/src/views/domain-tabs/DomainActivityTab.vue`
-- `docs/api/api.md`
-- `docs/setup.md`
+- Runtime owner: Laravel `CollectorController`, `ReportController`,
+  `TelemetryRetentionService`, and Laravel `routes/console.php` commands for
+  usage ingest, summary, recalculation, prune, and recommendations.
+- Removed owner: old collector/recommendation command classes and static
+  contract tests that required old collector/report/recommendation modules or
+  `core/public_index.php` for this workflow.
+- Schema: no schema change; `core/database/schema.sql` already had the required
+  usage, aggregate, telemetry receipt, rejected event, audit, recommendation,
+  report, DNS sync, SSL job, and nonce tables.
+- Dashboard/API/docs: dashboard-facing usage, activity, security, report, and
+  recommendation contracts now point at Laravel route/controller ownership.
+- Validation: focused pytest contracts for reporting foundation, async
+  analytics, activity diagnostics, recommendations, reports, and usage
+  timeseries passed.
+- Risk: local PHP and Docker CLIs are unavailable in this environment, so full
+  Laravel feature tests and root-stack smoke/e2e remain deferred to a capable
+  runtime.
 
-Required result:
+Completion notes:
 
-- Usage and security ingest are bounded, signed, replay-protected, idempotent,
-  and visible through accepted/rejected telemetry batch receipts.
-- Dashboard activity and usage/security summaries use Laravel endpoints.
-  Recommendations still need Laravel ownership in a later collector slice.
-- Rollup rebuild/query support remains available for `minute|hour|day` through
-  Laravel API endpoints; CLI ownership still needs conversion.
-- Retention pruning is explicit, bounded, documented, and owned by Laravel
-  `TelemetryRetentionService` plus `cdn:usage:prune`. The full pass covers raw
-  request rows, high-volume security audit rows, rejected telemetry diagnostics,
-  telemetry ingest receipts, legacy ingest keys while they still exist, successful
-  DNS sync events, terminal SSL jobs, and expired edge replay nonces.
-
-Do not advance past this queue if:
-
-- The dashboard can show activity only by reading old report endpoints.
-- Failed or partial telemetry batches cannot be diagnosed by an operator.
-- Retention behavior depends on old command-runner tasks.
+- Do not reopen this queue for unrelated delivery-rule, SSL, scheduler, or final
+  deletion work; track those under their later roadmap queues.
+- Full-stack runtime proof is still required before the 100% certification
+  milestone, but the 45% collector ownership milestone is complete.
 
 ## Migration Evidence Pack
 

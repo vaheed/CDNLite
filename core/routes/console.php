@@ -9,6 +9,7 @@ use App\Services\ControlPlane\UnixTime;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -176,6 +177,78 @@ Artisan::command('cdn:edge:sync-config', function (): int {
     return self::SUCCESS;
 })->purpose('Publish the active Laravel edge config snapshot');
 
+Artisan::command('cdn:usage:ingest {--domain_id=} {--edge_node_id=} {--requests_count=} {--bytes_in=} {--bytes_out=} {--status=} {--cache_status=UNKNOWN} {--ts=} {--idempotency_key=}', function (): int {
+    foreach (['domain_id', 'edge_node_id', 'requests_count', 'bytes_in', 'bytes_out', 'status'] as $key) {
+        if ($this->option($key) === null || $this->option($key) === '') {
+            $this->error("missing_{$key}");
+
+            return self::FAILURE;
+        }
+    }
+
+    $cacheStatus = strtoupper(trim((string) $this->option('cache_status'))) ?: 'UNKNOWN';
+    if (!in_array($cacheStatus, ['HIT', 'MISS', 'EXPIRED', 'STALE', 'BYPASS', 'UNKNOWN'], true)) {
+        $this->error('invalid_cache_status');
+
+        return self::FAILURE;
+    }
+
+    $idempotencyKey = trim((string) $this->option('idempotency_key')) ?: null;
+    if ($idempotencyKey !== null) {
+        $existing = DB::table('usage_ingest_keys')->where('idempotency_key', $idempotencyKey)->first();
+        if ($existing !== null) {
+            $this->line(json_encode([
+                'ingested' => 0,
+                'duplicate' => true,
+                'idempotency_key' => $idempotencyKey,
+                'item_count' => (int) $existing->item_count,
+            ], JSON_UNESCAPED_SLASHES));
+
+            return self::SUCCESS;
+        }
+    }
+
+    $now = UnixTime::now();
+    $domainId = trim((string) $this->option('domain_id'));
+    $ingested = 0;
+    $skippedUnknownDomains = 0;
+    DB::transaction(function () use ($domainId, $cacheStatus, $idempotencyKey, $now, &$ingested, &$skippedUnknownDomains): void {
+        if (!DB::table('domains')->where('id', $domainId)->exists()) {
+            $skippedUnknownDomains++;
+        } else {
+            DB::table('usage_rollups')->insert([
+                'id' => (string) Str::uuid(),
+                'ts' => is_numeric($this->option('ts')) ? (int) $this->option('ts') : $now,
+                'domain_id' => $domainId,
+                'edge_node_id' => trim((string) $this->option('edge_node_id')),
+                'requests_count' => max(0, (int) $this->option('requests_count')),
+                'bytes_in' => max(0, (int) $this->option('bytes_in')),
+                'bytes_out' => max(0, (int) $this->option('bytes_out')),
+                'status' => max(0, (int) $this->option('status')),
+                'cache_status' => $cacheStatus,
+            ]);
+            $ingested = 1;
+        }
+
+        if ($idempotencyKey !== null) {
+            DB::table('usage_ingest_keys')->insert([
+                'idempotency_key' => $idempotencyKey,
+                'item_count' => $ingested,
+                'created_at' => $now,
+            ]);
+        }
+    });
+
+    $this->line(json_encode([
+        'ingested' => $ingested,
+        'skipped_unknown_domains' => $skippedUnknownDomains,
+        'duplicate' => false,
+        'idempotency_key' => $idempotencyKey,
+    ], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Ingest one Laravel usage analytics row');
+
 Artisan::command('cdn:usage:summary {--domain_id=} {--bucket=}', function (): int {
     $domainId = trim((string) $this->option('domain_id')) ?: null;
     $bucket = trim((string) $this->option('bucket')) ?: null;
@@ -306,3 +379,69 @@ Artisan::command('cdn:usage:prune {--all} {--dry-run} {--days=} {--security-days
 
     return self::SUCCESS;
 })->purpose('Prune Laravel usage and telemetry retention tables');
+
+Artisan::command('cdn:recommendations:generate {--domain_id=}', function (): int {
+    $domainId = trim((string) $this->option('domain_id')) ?: null;
+    if ($domainId !== null && !DB::table('domains')->where('id', $domainId)->exists()) {
+        $this->error('domain_not_found');
+
+        return self::FAILURE;
+    }
+
+    $now = UnixTime::now();
+    $since = $now - 86400;
+    $generated = [];
+    $domains = DB::table('domains')->when($domainId !== null, fn ($query) => $query->where('id', $domainId))->get();
+    foreach ($domains as $domain) {
+        $candidates = [];
+        $errors = DB::table('usage_rollups')->where('domain_id', $domain->id)->where('ts', '>=', $since)->where(function ($query): void {
+            $query->where('status', '>=', 500)->orWhereNotNull('router_error');
+        })->sum('requests_count');
+        $total = DB::table('usage_rollups')->where('domain_id', $domain->id)->where('ts', '>=', $since)->sum('requests_count');
+        $hits = DB::table('usage_rollups')->where('domain_id', $domain->id)->where('ts', '>=', $since)->whereRaw("UPPER(cache_status)='HIT'")->sum('requests_count');
+        $security = DB::table('audit_log')->where('domain_id', $domain->id)->whereIn('event', ['waf_match', 'rate_limited', 'bot_match', 'geo_block', 'ip_block', 'challenge', 'waiting_room'])->where('created_at', '>=', $since)->count();
+
+        if ($errors >= 3) {
+            $candidates[] = ['type' => 'origin_diagnostics', 'title' => 'Run origin diagnostics', 'message' => 'The edge has seen repeated origin or routing failures.', 'why' => 'Request diagnostics include multiple 5xx responses or router errors in the last 24 hours.', 'confidence' => min(95, 70 + (int) $errors), 'risk' => 'safe', 'impact' => 'reliability', 'preview_payload' => ['origin_errors_24h' => (int) $errors], 'one_click_action' => ['kind' => 'run_origin_test']];
+        }
+        if ($total >= 10 && ($hits / max(1, $total)) < 0.4) {
+            $candidates[] = ['type' => 'static_asset_cache', 'title' => 'Enable static asset caching', 'message' => 'Cache hit ratio is low for recent traffic.', 'why' => 'Cache analytics show a low hit ratio over the last 24 hours.', 'confidence' => 78, 'risk' => 'safe', 'impact' => 'performance', 'preview_payload' => ['requests_24h' => (int) $total], 'one_click_action' => ['kind' => 'enable_static_asset_cache']];
+        }
+        if ($security >= 3) {
+            $candidates[] = ['type' => 'common_exploits', 'title' => 'Review exploit protection', 'message' => 'Security events are recurring for this domain.', 'why' => 'Security events include repeated protection decisions in the last 24 hours.', 'confidence' => min(95, 70 + (int) $security), 'risk' => 'moderate', 'impact' => 'security', 'preview_payload' => ['security_events_24h' => (int) $security], 'one_click_action' => ['kind' => 'enable_protection_intent', 'intent_key' => 'common_exploits']];
+        }
+
+        foreach ($candidates as $candidate) {
+            $existing = DB::table('recommendations')->where('domain_id', $domain->id)->where('type', $candidate['type'])->first();
+            if ($existing && in_array((string) $existing->status, ['applied', 'dismissed'], true)) {
+                continue;
+            }
+
+            $values = [
+                'domain_id' => (string) $domain->id,
+                'type' => $candidate['type'],
+                'title' => $candidate['title'],
+                'message' => $candidate['message'],
+                'why' => $candidate['why'],
+                'confidence' => $candidate['confidence'],
+                'risk' => $candidate['risk'],
+                'impact' => $candidate['impact'],
+                'preview_payload' => json_encode($candidate['preview_payload']),
+                'one_click_action' => json_encode($candidate['one_click_action']),
+                'status' => 'open',
+                'updated_at' => $now,
+            ];
+            $id = $existing ? (string) $existing->id : (string) Str::uuid();
+            if ($existing) {
+                DB::table('recommendations')->where('id', $id)->update($values);
+            } else {
+                DB::table('recommendations')->insert($values + ['id' => $id, 'created_at' => $now]);
+            }
+            $generated[] = ['id' => $id, 'domain_id' => (string) $domain->id, 'type' => $candidate['type'], 'status' => 'open'];
+        }
+    }
+
+    $this->line(json_encode(['data' => ['generated' => $generated, 'count' => count($generated)]], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Generate Laravel activity recommendations');
