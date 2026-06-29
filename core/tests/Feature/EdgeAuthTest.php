@@ -14,6 +14,12 @@ class EdgeAuthTest extends TestCase
         parent::setUp();
 
         DB::table('edge_request_nonces')->delete();
+        DB::table('telemetry_rejected_events')->delete();
+        DB::table('telemetry_ingest_batches')->delete();
+        DB::table('usage_aggregates')->delete();
+        DB::table('analytics_rollup_jobs')->delete();
+        DB::table('recommendations')->delete();
+        DB::table('usage_rollups')->delete();
     }
 
     public function test_edge_heartbeat_requires_signed_request(): void
@@ -233,16 +239,18 @@ class EdgeAuthTest extends TestCase
     {
         $edgeId = 'edge-security-events';
         $edgeToken = 'edge-security-secret';
+        $domainId = (string) Str::uuid();
 
         $this->insertEdgeToken($edgeId, $edgeToken);
         $this->insertEdgeNode($edgeId);
+        $this->insertDomain($domainId, "security-events-{$domainId}.example");
 
         $payload = [
             'idempotency_key' => 'sec-test-batch',
             'items' => [
                 [
                     'ts' => UnixTime::now(),
-                    'domain_id' => 'domain-test',
+                    'domain_id' => $domainId,
                     'type' => 'waf_match',
                     'action' => 'block',
                     'path' => '/wp-config.php',
@@ -261,6 +269,247 @@ class EdgeAuthTest extends TestCase
             'accepted_count' => 1,
             'status' => 'accepted',
         ]);
+        $this->assertDatabaseHas('audit_log', [
+            'actor_type' => 'edge',
+            'actor_id' => $edgeId,
+            'event' => 'waf_match',
+            'domain_id' => $domainId,
+        ]);
+    }
+
+    public function test_edge_usage_ingest_persists_rollups_and_rejects_unknown_domains(): void
+    {
+        $edgeId = 'edge-usage-events';
+        $edgeToken = 'edge-usage-secret';
+        $domainId = (string) Str::uuid();
+
+        $this->insertEdgeToken($edgeId, $edgeToken);
+        $this->insertEdgeNode($edgeId);
+        $this->insertDomain($domainId, "usage-events-{$domainId}.example");
+
+        $payload = [
+            'idempotency_key' => 'usage-test-batch',
+            'events' => [
+                [
+                    'ts' => UnixTime::now(),
+                    'domain_id' => $domainId,
+                    'request_id' => 'req-usage-1',
+                    'status' => 200,
+                    'cache_status' => 'hit',
+                    'bytes_in' => 91,
+                    'bytes_out' => 4096,
+                    'host' => "usage-events-{$domainId}.example",
+                    'method' => 'GET',
+                    'path' => '/index.html',
+                ],
+                [
+                    'ts' => UnixTime::now(),
+                    'domain_id' => (string) Str::uuid(),
+                    'request_id' => 'req-unknown-domain',
+                    'status' => 200,
+                ],
+            ],
+        ];
+
+        $this->signedEdgePost('/api/v1/collector/usage', $edgeId, $edgeToken, $payload)
+            ->assertOk()
+            ->assertJson(['ok' => true, 'accepted' => 1, 'rejected' => 1, 'duplicate' => false]);
+
+        $this->assertDatabaseHas('usage_rollups', [
+            'domain_id' => $domainId,
+            'edge_node_id' => $edgeId,
+            'request_id' => 'req-usage-1',
+            'status' => 200,
+            'cache_status' => 'HIT',
+        ]);
+        $this->assertDatabaseHas('telemetry_ingest_batches', [
+            'source_edge_id' => $edgeId,
+            'idempotency_key' => 'usage:usage-test-batch',
+            'event_count' => 2,
+            'accepted_count' => 1,
+            'rejected_count' => 1,
+            'status' => 'partial',
+        ]);
+        $this->assertDatabaseHas('telemetry_rejected_events', [
+            'source_edge_id' => $edgeId,
+            'event_id' => 'req-unknown-domain',
+            'reason' => 'unknown_domain',
+        ]);
+    }
+
+    public function test_collector_idempotency_replays_do_not_duplicate_events(): void
+    {
+        $edgeId = 'edge-idempotent-events';
+        $edgeToken = 'edge-idempotent-secret';
+        $domainId = (string) Str::uuid();
+
+        $this->insertEdgeToken($edgeId, $edgeToken);
+        $this->insertEdgeNode($edgeId);
+        $this->insertDomain($domainId, "idempotent-events-{$domainId}.example");
+
+        $payload = [
+            'idempotency_key' => 'same-usage-batch',
+            'events' => [[
+                'ts' => UnixTime::now(),
+                'domain_id' => $domainId,
+                'request_id' => 'req-idempotent-1',
+                'status' => 204,
+            ]],
+        ];
+
+        $this->signedEdgePost('/api/v1/collector/usage', $edgeId, $edgeToken, $payload)
+            ->assertOk()
+            ->assertJson(['accepted' => 1, 'duplicate' => false]);
+
+        $this->signedEdgePost('/api/v1/collector/usage', $edgeId, $edgeToken, $payload)
+            ->assertOk()
+            ->assertJson(['accepted' => 0, 'duplicate' => true]);
+
+        $this->assertSame(1, DB::table('usage_rollups')->where('request_id', 'req-idempotent-1')->count());
+    }
+
+    public function test_collector_rejects_malformed_batches_before_persisting_receipts(): void
+    {
+        $edgeId = 'edge-malformed-events';
+        $edgeToken = 'edge-malformed-secret';
+
+        $this->insertEdgeToken($edgeId, $edgeToken);
+        $this->insertEdgeNode($edgeId);
+
+        $this->signedEdgePost('/api/v1/collector/security-events', $edgeId, $edgeToken, [
+            'idempotency_key' => 'bad-security-batch',
+            'items' => 'not-an-array',
+        ])
+            ->assertStatus(422)
+            ->assertJson(['error' => 'items_must_be_array']);
+
+        $this->assertDatabaseMissing('telemetry_ingest_batches', [
+            'idempotency_key' => 'security:bad-security-batch',
+        ]);
+    }
+
+    public function test_admin_activity_and_security_reads_are_laravel_native(): void
+    {
+        $adminToken = $this->adminToken();
+        $domainId = (string) Str::uuid();
+        $edgeId = 'edge-admin-activity';
+        $now = UnixTime::now();
+
+        $this->insertDomain($domainId, "admin-activity-{$domainId}.example");
+        $this->insertEdgeNode($edgeId);
+
+        DB::table('usage_rollups')->insert([
+            'id' => (string) Str::uuid(),
+            'ts' => $now,
+            'domain_id' => $domainId,
+            'edge_node_id' => $edgeId,
+            'requests_count' => 3,
+            'bytes_in' => 120,
+            'bytes_out' => 900,
+            'status' => 502,
+            'cache_status' => 'MISS',
+            'request_id' => 'req-admin-activity',
+            'host' => "admin-activity-{$domainId}.example",
+            'method' => 'GET',
+            'path' => '/checkout',
+            'client_ip' => '198.51.100.24',
+            'client_country' => 'US',
+            'router_error' => 'origin_unavailable',
+        ]);
+        DB::table('audit_log')->insert([
+            'id' => (string) Str::uuid(),
+            'actor_type' => 'edge',
+            'actor_id' => $edgeId,
+            'action' => 'block',
+            'resource_type' => 'security',
+            'resource_id' => 'waf-admin-1',
+            'domain_id' => $domainId,
+            'details_json' => json_encode(['decision' => 'block', 'client_ip' => '198.51.100.24', 'request_id' => 'req-admin-activity']),
+            'event' => 'waf_match',
+            'created_at' => $now,
+        ]);
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/domains/{$domainId}/activity/summary")
+            ->assertOk()
+            ->assertJsonPath('data.total_requests', 3)
+            ->assertJsonPath('data.status_counts.5xx', 3)
+            ->assertJsonPath('data.beginner.counts.security', 1);
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/domains/{$domainId}/activity?type=security")
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.items.0.type', 'security');
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/domains/{$domainId}/activity/requests/req-admin-activity")
+            ->assertOk()
+            ->assertJsonPath('data.router_error', 'origin_unavailable');
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/domains/{$domainId}/analytics/cache")
+            ->assertOk()
+            ->assertJsonPath('data.miss', 3);
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/security/summary?domain_id={$domainId}")
+            ->assertOk()
+            ->assertJsonPath('data.total', 1)
+            ->assertJsonPath('data.by_type.waf_match', 1)
+            ->assertJsonPath('data.top_ips.0.value', '198.51.100.24');
+
+        $jobId = $this->withToken($adminToken)
+            ->postJson('/api/v1/usage/recalculate', ['domain_id' => $domainId, 'bucket' => 'hour'])
+            ->assertStatus(202)
+            ->assertJsonPath('data.job_status', 'succeeded')
+            ->json('data.job_id');
+
+        $this->assertDatabaseHas('usage_aggregates', [
+            'domain_id' => $domainId,
+            'bucket' => 'hour',
+            'edge_node_id' => $edgeId,
+            'status' => 502,
+            'cache_status' => 'MISS',
+            'requests_count' => 3,
+        ]);
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/usage/recalculate/{$jobId}")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'succeeded')
+            ->assertJsonPath('data.progress.inserted.hour', 1);
+
+        $this->withToken($adminToken)
+            ->getJson('/api/v1/reports/summary?bucket=hour')
+            ->assertOk()
+            ->assertJsonPath('data.kpis.total_requests', 3);
+
+        $this->withToken($adminToken)
+            ->getJson('/api/v1/reports/traffic?bucket=hour')
+            ->assertOk()
+            ->assertJsonPath('data.top_domains.0.domain_id', $domainId);
+
+        $this->withToken($adminToken)
+            ->getJson('/api/v1/reports/security?bucket=hour')
+            ->assertOk()
+            ->assertJsonPath('data.by_type.0.value', 'waf_match');
+
+        $recommendation = $this->withToken($adminToken)
+            ->postJson("/api/v1/domains/{$domainId}/recommendations/generate")
+            ->assertOk()
+            ->assertJsonPath('data.count', 1)
+            ->json('data.generated.0');
+
+        $this->withToken($adminToken)
+            ->getJson("/api/v1/domains/{$domainId}/recommendations")
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $recommendation['id']);
+
+        $this->withToken($adminToken)
+            ->postJson("/api/v1/domains/{$domainId}/recommendations/{$recommendation['id']}/dismiss")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'dismissed');
     }
 
     private function adminToken(): string
@@ -299,6 +548,22 @@ class EdgeAuthTest extends TestCase
             'created_at' => UnixTime::now(),
             'updated_at' => UnixTime::now(),
         ]], ['edge_id'], ['token_hash', 'updated_at']);
+    }
+
+    private function insertDomain(string $domainId, string $domain): void
+    {
+        $now = UnixTime::now();
+
+        DB::table('domains')->insert([
+            'id' => $domainId,
+            'user_id' => 'system',
+            'name' => ucfirst(str_replace('.', ' ', $domain)),
+            'domain' => $domain,
+            'status' => 'active',
+            'nameserver_status' => 'verified',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     private function insertEdgeNode(string $edgeId): void

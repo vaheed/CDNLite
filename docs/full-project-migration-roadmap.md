@@ -211,7 +211,7 @@ Exit checks:
 
 ### 45-55% Collector, Analytics, And Security Ingest
 
-Status: **Pending**.
+Status: **In progress**.
 
 Scope:
 
@@ -421,9 +421,11 @@ Known gaps to close before advancing milestone percentages:
   Compose DNSGeo topology.
 - Desired DNS generation needs remaining Laravel tests for ACME challenge
   exclusion and edge-pool change behavior.
-- Collector usage ingest is present, but security-event ingest, rollup rebuilds,
-  activity timelines, summaries, retention, and recommendations still need
-  Laravel ownership.
+- Collector usage and security-event ingest are present. Laravel now also owns
+  dashboard-facing usage summaries, cache analytics, domain activity timelines,
+  request lookup/export, security event summaries, and usage aggregate
+  recalculation/job status. Retention, recommendations, Laravel CLI ownership,
+  and broader operational reports still need Laravel ownership.
 - Dashboard clients already reference many rule, edge, DNS, SSL, analytics, and
   security endpoints; each client must be reconciled against the Laravel route
   list instead of preserved through legacy fallbacks.
@@ -689,9 +691,10 @@ Completed in the first edge-config slice:
   response headers, waiting room defaults/policies, SSL settings/material
   references, verified bot sources, page rules, purge versions, and telemetry
   defaults.
-- Edge agent security-event pushes now have a signed Laravel route at
-  `/api/v1/collector/security-events`, recorded in the telemetry batch ledger
-  until the collector phase owns full event storage and reports.
+- Edge agent usage and security-event pushes now have signed Laravel routes at
+  `/api/v1/collector/usage` and `/api/v1/collector/security-events`. Batches are
+  bounded, idempotency-aware, write accepted usage/security rows, and record
+  rejected events for partial-batch diagnostics.
 - `cdn:edge:list`, `cdn:edge:show`, `cdn:edge:register-token`,
   `cdn:edge:rotate-token`, and `cdn:edge:sync-config` are routed through
   Laravel console ownership instead of the legacy command runner.
@@ -747,9 +750,12 @@ Files likely to change:
 
 Required result:
 
-- Usage and security ingest are bounded, signed, replay-protected, and visible.
-- Dashboard activity, summaries, and recommendations use Laravel endpoints.
-- Rollup rebuild/query support remains available for `minute|hour|day`.
+- Usage and security ingest are bounded, signed, replay-protected, idempotent,
+  and visible through accepted/rejected telemetry batch receipts.
+- Dashboard activity and usage/security summaries use Laravel endpoints.
+  Recommendations still need Laravel ownership in a later collector slice.
+- Rollup rebuild/query support remains available for `minute|hour|day` through
+  Laravel API endpoints; CLI ownership still needs conversion.
 - Retention pruning is explicit, bounded, and documented.
 
 Do not advance past this queue if:

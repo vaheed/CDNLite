@@ -174,3 +174,153 @@ Artisan::command('cdn:edge:sync-config', function (): int {
 
     return self::SUCCESS;
 })->purpose('Publish the active Laravel edge config snapshot');
+
+Artisan::command('cdn:usage:summary {--domain_id=} {--bucket=}', function (): int {
+    $domainId = trim((string) $this->option('domain_id')) ?: null;
+    $bucket = trim((string) $this->option('bucket')) ?: null;
+    $bucketSeconds = ['minute' => 60, 'hour' => 3600, 'day' => 86400];
+    if ($bucket !== null && !isset($bucketSeconds[$bucket])) {
+        $this->error('bucket_must_be_one_of_minute_hour_day');
+
+        return self::FAILURE;
+    }
+
+    $query = DB::table($bucket === null ? 'usage_rollups' : 'usage_aggregates')
+        ->when($domainId !== null, fn ($q) => $q->where('domain_id', $domainId));
+    if ($bucket !== null) {
+        $query->where('bucket', $bucket);
+    }
+    $row = (array) $query->selectRaw('COALESCE(SUM(requests_count),0) AS requests_count, COALESCE(SUM(bytes_in),0) AS bytes_in, COALESCE(SUM(bytes_out),0) AS bytes_out, COUNT(*) AS records')->first();
+
+    $this->line(json_encode(['data' => [
+        'domain_id' => $domainId,
+        'bucket' => $bucket,
+        'requests_count' => (int) ($row['requests_count'] ?? 0),
+        'bytes_in' => (int) ($row['bytes_in'] ?? 0),
+        'bytes_out' => (int) ($row['bytes_out'] ?? 0),
+        'records' => (int) ($row['records'] ?? 0),
+    ]], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Summarize Laravel usage analytics');
+
+Artisan::command('cdn:usage:recalculate {--domain_id=} {--bucket=}', function (): int {
+    $domainId = trim((string) $this->option('domain_id')) ?: null;
+    $onlyBucket = trim((string) $this->option('bucket')) ?: null;
+    $bucketSeconds = ['minute' => 60, 'hour' => 3600, 'day' => 86400];
+    if ($onlyBucket !== null && !isset($bucketSeconds[$onlyBucket])) {
+        $this->error('bucket_must_be_one_of_minute_hour_day');
+
+        return self::FAILURE;
+    }
+
+    $jobId = (string) Str::uuid();
+    $now = UnixTime::now();
+    DB::table('analytics_rollup_jobs')->insert([
+        'id' => $jobId,
+        'domain_id' => $domainId,
+        'bucket' => $onlyBucket,
+        'range_start' => null,
+        'range_end' => null,
+        'status' => 'running',
+        'requested_by' => 'cli',
+        'progress_json' => json_encode([]),
+        'locked_by' => 'artisan',
+        'locked_at' => $now,
+        'started_at' => $now,
+        'created_at' => $now,
+        'updated_at' => $now,
+    ]);
+
+    $inserted = [];
+    foreach ($bucketSeconds as $bucket => $seconds) {
+        if ($onlyBucket !== null && $bucket !== $onlyBucket) {
+            continue;
+        }
+        $where = $domainId === null ? '' : 'WHERE domain_id = :domain_id_filter';
+        $params = [
+            'bucket_hash' => $bucket,
+            'bucket_value' => $bucket,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+        if ($domainId !== null) {
+            $params['domain_id_filter'] = $domainId;
+        }
+        $sql = sprintf(
+            "WITH source AS (
+                SELECT ((ts / %d) * %d) AS bucket_ts, domain_id, edge_node_id, status,
+                       COALESCE(cache_status, 'UNKNOWN') AS cache_status, requests_count, bytes_in, bytes_out
+                FROM usage_rollups %s
+            )
+            INSERT INTO usage_aggregates
+            (id, bucket, bucket_ts, domain_id, edge_node_id, status, cache_status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+            SELECT md5((:bucket_hash || ':' || bucket_ts || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || COALESCE(cache_status, 'UNKNOWN'))::text),
+                   :bucket_value, bucket_ts, domain_id, edge_node_id, status, cache_status,
+                   COALESCE(SUM(requests_count),0), COALESCE(SUM(bytes_in),0), COALESCE(SUM(bytes_out),0),
+                   :created_at, :updated_at
+            FROM source
+            GROUP BY bucket_ts, domain_id, edge_node_id, status, cache_status
+            ON CONFLICT (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status)
+            DO UPDATE SET requests_count=EXCLUDED.requests_count, bytes_in=EXCLUDED.bytes_in, bytes_out=EXCLUDED.bytes_out, updated_at=EXCLUDED.updated_at",
+            $seconds,
+            $seconds,
+            $where
+        );
+        DB::statement($sql, $params);
+        $inserted[$bucket] = DB::table('usage_aggregates')->where('bucket', $bucket)->when($domainId !== null, fn ($q) => $q->where('domain_id', $domainId))->count();
+    }
+
+    DB::table('analytics_rollup_jobs')->where('id', $jobId)->update([
+        'status' => 'succeeded',
+        'progress_json' => json_encode(['inserted' => $inserted]),
+        'finished_at' => UnixTime::now(),
+        'updated_at' => UnixTime::now(),
+    ]);
+
+    $this->line(json_encode(['data' => ['ok' => true, 'job_id' => $jobId, 'job_status' => 'succeeded', 'domain_id' => $domainId, 'bucket' => $onlyBucket, 'inserted' => $inserted]], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Recalculate Laravel usage aggregates');
+
+Artisan::command('cdn:usage:prune {--all} {--dry-run} {--days=} {--security-days=} {--idempotency-days=} {--batch-size=}', function (): int {
+    $dryRun = (bool) $this->option('dry-run');
+    $all = (bool) $this->option('all');
+    $batchSize = max(100, min(50000, (int) ($this->option('batch-size') ?: env('CDNLITE_RETENTION_BATCH_SIZE', 5000))));
+    $now = UnixTime::now();
+    $usageDays = max(1, min(3650, (int) ($this->option('days') ?: env('CDNLITE_ANALYTICS_RETENTION_DAYS', 30))));
+    $securityDays = max(1, min(3650, (int) ($this->option('security-days') ?: env('CDNLITE_SECURITY_EVENT_RETENTION_DAYS', 90))));
+    $idempotencyDays = max(1, min(3650, (int) ($this->option('idempotency-days') ?: env('CDNLITE_INGEST_KEY_RETENTION_DAYS', 7))));
+
+    $plans = [
+        'usage_rollups' => ['table' => 'usage_rollups', 'column' => 'ts', 'cutoff' => $now - ($usageDays * 86400), 'retention_days' => $usageDays],
+    ];
+    if ($all) {
+        $plans['audit_log_security'] = ['table' => 'audit_log', 'column' => 'created_at', 'cutoff' => $now - ($securityDays * 86400), 'retention_days' => $securityDays, 'security_only' => true];
+        $plans['telemetry_rejected_events'] = ['table' => 'telemetry_rejected_events', 'column' => 'created_at', 'cutoff' => $now - ($securityDays * 86400), 'retention_days' => $securityDays];
+        $plans['telemetry_ingest_batches'] = ['table' => 'telemetry_ingest_batches', 'column' => 'ingested_at', 'cutoff' => $now - ($idempotencyDays * 86400), 'retention_days' => $idempotencyDays];
+        $plans['edge_request_nonces'] = ['table' => 'edge_request_nonces', 'column' => 'expires_at', 'cutoff' => $now, 'retention_days' => 0];
+    }
+
+    $result = ['dry_run' => $dryRun, 'batch_size' => $batchSize, 'tables' => []];
+    foreach ($plans as $key => $plan) {
+        $query = DB::table($plan['table'])->where($plan['column'], '<', $plan['cutoff']);
+        if (($plan['security_only'] ?? false) === true) {
+            $query->whereIn('event', ['waf_match', 'rate_limited', 'bot_match', 'geo_block', 'ip_block', 'challenge', 'waiting_room']);
+        }
+        $count = (clone $query)->count();
+        $deleted = 0;
+        if (!$dryRun && $count > 0) {
+            $ids = (clone $query)->limit($batchSize)->pluck($plan['table'] === 'dns_sync_events' ? 'id' : ($plan['table'] === 'telemetry_ingest_batches' ? 'batch_id' : 'id'))->all();
+            if ($ids !== []) {
+                $keyColumn = $plan['table'] === 'telemetry_ingest_batches' ? 'batch_id' : 'id';
+                $deleted = DB::table($plan['table'])->whereIn($keyColumn, $ids)->delete();
+            }
+        }
+        $result['tables'][$key] = ['retention_days' => $plan['retention_days'], 'cutoff' => $plan['cutoff'], 'matched' => $count, 'deleted' => $deleted];
+    }
+
+    $this->line(json_encode(['data' => $result], JSON_UNESCAPED_SLASHES));
+
+    return self::SUCCESS;
+})->purpose('Prune Laravel usage and telemetry retention tables');

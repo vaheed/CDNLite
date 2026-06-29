@@ -660,8 +660,16 @@ heartbeats so fresh local nodes become eligible for the shared DNS edge pool.
 Register and heartbeat calls update local edge state only; run
 `cdn:dns:reconcile` or use DNS force sync when you need immediate PowerDNS
 publication.
-| `POST` | `/api/v1/collector/usage` | Edge signed | Ingest usage rows. Edge metrics include `client_ip` and `client_country` when the edge resolves a visitor country from `X-CDNLITE-Country`, `CF-IPCountry`, or the configured MMDB. |
-| `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest security events. |
+| `POST` | `/api/v1/collector/usage` | Edge signed | Ingest bounded usage rows into Laravel reporting tables. Edge metrics include `client_ip` and `client_country` when the edge resolves a visitor country from `X-CDNLITE-Country`, `CF-IPCountry`, or the configured MMDB. |
+| `POST` | `/api/v1/collector/security-events` | Edge signed | Ingest bounded security events into Laravel audit/activity tables. |
+
+Collector ingest accepts at most 1,000 items and a 1 MiB request body. Usage
+requests may send `events` or `items`; security-event requests send `items`.
+Send `idempotency_key` or `X-Idempotency-Key` to make retries safe. Duplicate
+keys return `duplicate: true` without inserting events again. Unknown-domain or
+unsupported events are recorded in `telemetry_rejected_events`; mixed batches
+return accepted and rejected counts and leave a `partial` batch receipt for
+operator diagnostics.
 
 Heartbeat request:
 
