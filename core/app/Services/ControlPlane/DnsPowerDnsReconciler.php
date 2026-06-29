@@ -12,7 +12,26 @@ final class DnsPowerDnsReconciler
     public function __construct(
         private DnsDesiredStateService $desiredState,
         private PowerDnsClient $powerDns,
+        private DnsPowerDnsSoaService $soa,
     ) {
+    }
+
+    public function preview(): array
+    {
+        $rrsets = $this->desiredState->build();
+        $zones = $this->byZone($rrsets);
+
+        return [
+            'ok' => true,
+            'mode' => 'dry_run',
+            'planned_changes' => $this->desiredState->dryRun()['planned_changes'],
+            'zones' => $this->desiredState->zoneSummaries($rrsets),
+            'rrsets' => $rrsets,
+            'soa' => $this->powerDns->enabled() && $this->powerDns->configured()
+                ? $this->soa->preview($zones)
+                : [],
+            'message' => 'Desired DNS state and SOA plans were built without writing PowerDNS.',
+        ];
     }
 
     public function forceSync(): array
@@ -81,7 +100,17 @@ final class DnsPowerDnsReconciler
 
                     $patches = $this->changes($zone, $rrsets);
                     if ($patches === []) {
-                        $this->markConverged($zone, $desiredHash, $generationId, (int) ($zoneResult['status'] ?? 200), 'verify_zone');
+                        $soaResult = $this->soa->repair($zone, $rrsets);
+                        if (($soaResult['ok'] ?? false) !== true) {
+                            $failures[] = $this->failure($zone, $zone, 'SOA', $soaResult);
+                            $this->markFailed($zone, $desiredHash, $generationId, $soaResult, 'repair_soa', ['name' => $zone, 'type' => 'SOA']);
+                            continue;
+                        }
+                        if (($soaResult['repaired'] ?? false) === true) {
+                            $changes++;
+                        }
+
+                        $this->markConverged($zone, $desiredHash, $generationId, (int) ($soaResult['status'] ?? $zoneResult['status'] ?? 200), 'verify_zone');
                         continue;
                     }
 
@@ -95,6 +124,16 @@ final class DnsPowerDnsReconciler
                         }
 
                         $changes += count($batch);
+                    }
+
+                    $soaResult = $this->soa->repair($zone, $rrsets);
+                    if (($soaResult['ok'] ?? false) !== true) {
+                        $failures[] = $this->failure($zone, $zone, 'SOA', $soaResult);
+                        $this->markFailed($zone, $desiredHash, $generationId, $soaResult, 'repair_soa', ['name' => $zone, 'type' => 'SOA']);
+                        continue;
+                    }
+                    if (($soaResult['repaired'] ?? false) === true) {
+                        $changes++;
                     }
 
                     $this->markConverged($zone, $desiredHash, $generationId, 200, 'patch_rrsets');

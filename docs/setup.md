@@ -419,7 +419,7 @@ Dashboard variables:
 | `VITE_CDNLITE_API_TOKEN` | Optional local/private API token compiled into assets. |
 | `TELEMETRY_MAX_BATCH_ITEMS` | Maximum collector items per telemetry request; default `1000`. |
 | `TELEMETRY_MAX_PAYLOAD_BYTES` | Maximum collector telemetry payload size; default `1048576`. |
-| `CDNLITE_SCHEDULER_TICK_SECONDS` | Supervisor scheduler loop sleep between `cdn:scheduler:run` passes; default `30`. |
+| `CDNLITE_SCHEDULER_TICK_SECONDS` | Supervisor scheduler loop sleep between `cdn:scheduler:run` passes; default `60`. |
 | `VITE_ENABLE_EDGE_DEV_TOOLS` | Enables signed edge request tools. |
 | `VITE_ENABLE_USAGE_SIMULATOR` | Enables usage simulation tools. |
 | `VITE_ENABLE_SSL_TOOLS` | Shows SSL tooling. |

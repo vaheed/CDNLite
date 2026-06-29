@@ -19,6 +19,11 @@ final class PowerDnsClient
         return $this->apiUrl() !== '' && $this->apiKey() !== '';
     }
 
+    public function strict(): bool
+    {
+        return $this->settingBool('platform.powerdns.strict', false);
+    }
+
     public function status(): array
     {
         if (!$this->configured()) {

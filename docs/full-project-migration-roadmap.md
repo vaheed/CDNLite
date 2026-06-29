@@ -150,14 +150,22 @@ Completed in the PowerDNS writer migration slice:
 - PostgreSQL-backed Laravel feature coverage fakes the PowerDNS API to verify
   zone creation, PATCH writes, sync-state convergence, sync events, and actual
   zone reads without calling the old DNS module.
+- Laravel-native SOA planner/repair keeps one managed apex SOA per zone,
+  persists monotonic serial state in `powerdns_zone_serials`, and reports SOA
+  repair plans in dry-run/doctor output.
+- `cdn:dns:reconcile`, `cdn:powerdns:dry-run`,
+  `cdn:powerdns:force-sync`, and `cdn:powerdns:doctor` now route through the
+  Laravel console bootstrap instead of the old command runner. The root Compose
+  scheduler default runs `php /app/artisan cdn:scheduler:run`, whose DNS task
+  shells back into the Laravel DNS reconciler command.
 
 Scope:
 
 - Continue desired-state and PowerDNS/DNSGeo reconciliation migration.
 - Migrate DNS routing settings and GeoDNS route management.
 - Migrate desired-state generation for customer zones and shared CDN records.
-- Continue hardening PowerDNS reconciliation with SOA repair, stale-zone delete
-  integration coverage, and real/local PowerDNS e2e validation.
+- Continue hardening PowerDNS reconciliation with stale-zone delete integration
+  coverage and real/local PowerDNS e2e validation.
 - Keep proxied apex records as PowerDNS `LUA` and proxied subdomains as CNAME.
 - Keep DNSGeo as the project GeoDNS implementation.
 - Keep edge pool updates shared-record based; do not rewrite every customer zone
@@ -397,11 +405,11 @@ Already Laravel-native or partially Laravel-native:
 
 Known gaps to close before advancing milestone percentages:
 
-- DNS `force-sync` must perform a real verified sync, not share the dry-run
-  implementation.
-- Desired DNS generation must be a Laravel service with tests for customer
-  zones, shared CDN records, stale ownership cleanup, SOA/NS invariants, and
-  ACME challenge exclusion.
+- DNS reconciliation needs real/local PowerDNS e2e coverage for stale ownership
+  cleanup, health-driven shared records, and failure recovery under the root
+  Compose DNSGeo topology.
+- Desired DNS generation needs remaining Laravel tests for ACME challenge
+  exclusion and edge-pool change behavior.
 - Edge config currently returns a direct database projection; the migrated
   contract needs the same published snapshot behavior, versioning, last-known
   good semantics, size limits, and OpenResty fields used by the edge runtime.
@@ -427,9 +435,9 @@ Work this phase in narrow vertical slices:
    enqueue DNS reconcile, and expose saved-but-not-published failures clearly.
 4. **Desired state**: build rrsets for customer zones, apex LUA, proxied
    subdomain CNAMEs, direct records, SOA/NS records, and shared CDN/DNSGeo edge
-   pool records from Laravel services. **Mostly complete for persisted desired
-   rows; SOA repair and full shared health-aware edge Lua records remain with
-   the PowerDNS writer slice.**
+   pool records from Laravel services. **Persisted desired rows and SOA repair
+   are Laravel-native; full shared health-aware edge Lua e2e remains with the
+   PowerDNS validation slice.**
 5. **PowerDNS client**: implement bounded retry, PATCH, verify-after-write,
    actual-state reads, error capture, and idempotent stale-record cleanup.
 6. **Sync operations**: split dry-run from force-sync, persist `dns_sync_state`,

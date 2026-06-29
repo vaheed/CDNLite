@@ -5,7 +5,13 @@ use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
 $command = $argv[1] ?? null;
-if (is_string($command) && str_starts_with($command, 'cdn:')) {
+$laravelCdnCommands = [
+    'cdn:dns:reconcile',
+    'cdn:powerdns:doctor',
+    'cdn:powerdns:dry-run',
+    'cdn:powerdns:force-sync',
+];
+if (is_string($command) && str_starts_with($command, 'cdn:') && !in_array($command, $laravelCdnCommands, true)) {
     require __DIR__ . '/artisan-legacy';
     return;
 }

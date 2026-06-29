@@ -345,16 +345,29 @@ class FreshInstallApiTest extends TestCase
         ]);
 
         $requests = [];
-        Http::fake(function ($request) use (&$requests) {
+        $zoneExists = false;
+        $rrsets = [];
+        Http::fake(function ($request) use (&$requests, &$zoneExists, &$rrsets) {
             $requests[] = ['method' => $request->method(), 'url' => (string) $request->url(), 'body' => $request->data()];
 
             if ($request->method() === 'GET' && str_contains((string) $request->url(), '/zones/')) {
-                return Http::response(['error' => 'not found'], 404);
+                return $zoneExists
+                    ? Http::response(['id' => 'pdns-sync.example.', 'name' => 'pdns-sync.example.', 'rrsets' => array_values($rrsets)], 200)
+                    : Http::response(['error' => 'not found'], 404);
             }
             if ($request->method() === 'POST' && str_ends_with((string) $request->url(), '/zones')) {
+                $zoneExists = true;
                 return Http::response(['id' => 'created'], 201);
             }
             if ($request->method() === 'PATCH') {
+                foreach ((array) ($request->data()['rrsets'] ?? []) as $rrset) {
+                    $key = strtolower((string) ($rrset['name'] ?? '')).'|'.strtoupper((string) ($rrset['type'] ?? ''));
+                    if (($rrset['changetype'] ?? 'REPLACE') === 'DELETE') {
+                        unset($rrsets[$key]);
+                        continue;
+                    }
+                    $rrsets[$key] = $rrset;
+                }
                 return Http::response(null, 204);
             }
 
@@ -392,6 +405,10 @@ class FreshInstallApiTest extends TestCase
             fn (array $request): bool => $request['method'] === 'PATCH'
                 && collect($request['body']['rrsets'] ?? [])->contains(fn (array $rrset): bool => ($rrset['type'] ?? null) === 'CNAME')
         ));
+        $this->assertTrue(collect($requests)->contains(
+            fn (array $request): bool => $request['method'] === 'PATCH'
+                && collect($request['body']['rrsets'] ?? [])->contains(fn (array $rrset): bool => ($rrset['type'] ?? null) === 'SOA')
+        ));
         $this->assertDatabaseHas('dns_sync_state', [
             'zone_name' => 'pdns-sync.example.',
             'status' => 'ok',
@@ -402,6 +419,9 @@ class FreshInstallApiTest extends TestCase
             'zone_name' => 'pdns-sync.example.',
             'action' => 'patch_rrsets',
             'status' => 'success',
+        ]);
+        $this->assertDatabaseHas('powerdns_zone_serials', [
+            'zone_name' => 'pdns-sync.example.',
         ]);
     }
 

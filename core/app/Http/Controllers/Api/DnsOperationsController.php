@@ -74,7 +74,7 @@ final class DnsOperationsController extends Controller
 
     public function dryRun(): JsonResponse
     {
-        return response()->json($this->desiredState->dryRun());
+        return response()->json($this->reconciler->preview());
     }
 
     public function forceSync(): JsonResponse

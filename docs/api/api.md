@@ -646,7 +646,7 @@ SSL tips:
 | `GET` | `/api/v1/dns/zones` | Protected | Per-zone convergence, hashes, pending changes, timestamps, and errors. |
 | `GET` | `/api/v1/dns/desired` | Protected | Desired CDNLite-owned RRsets; accepts optional `zone`. |
 | `GET` | `/api/v1/dns/zones/{zone}/actual` | Protected | Current raw PowerDNS zone response. |
-| `POST` | `/api/v1/dns/dry-run` | Protected | Build Laravel desired DNS state without persisting desired rows or writing PowerDNS. |
+| `POST` | `/api/v1/dns/dry-run` | Protected | Build Laravel desired DNS state and SOA repair plans without persisting desired rows or writing PowerDNS. |
 | `POST` | `/api/v1/dns/force-sync` | Protected | Persist the current Laravel desired DNS generation and reconcile it to PowerDNS when enabled and configured. If PowerDNS settings are incomplete, the response remains persist-only and includes `powerdns_skipped_reason`. |
 | `GET` | `/api/v1/domains/{domainId}/dns/status` | Protected | Domain-zone sync state and last error. |
 | `POST` | `/api/v1/edge/register` | Edge signed | Register edge. |
