@@ -26,7 +26,7 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
         } catch (\InvalidArgumentException $error) {
             return response()->json(['error' => $error->getMessage()], 404);
         }
-    });
+    })->where('group', '.*');
     Route::patch('/settings/{group}', static function (string $group, Request $request, PlatformSettingsController $settings) {
         try {
             $admin = $request->attributes->get('admin_user');
@@ -35,7 +35,7 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
             $status = $error->getMessage() === 'settings_group_not_found' ? 404 : 422;
             return response()->json(['error' => $error->getMessage()], $status);
         }
-    });
+    })->where('group', '.*');
     Route::post('/settings/validate', static function (Request $request, PlatformSettingsController $settings) {
         try {
             return response()->json($settings->validate($request->all()));

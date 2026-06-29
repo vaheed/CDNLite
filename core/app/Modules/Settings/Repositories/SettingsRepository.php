@@ -185,8 +185,9 @@ class SettingsRepository
         $stmt = $pdo->prepare(
             'INSERT INTO platform_settings (key, group_name, value_json, is_secret, description, updated_by, updated_at)
              VALUES (:key, :group_name, CAST(:value_json AS JSONB), :is_secret, :description, :updated_by, :updated_at)
-             ON CONFLICT (key) DO UPDATE SET value_json = EXCLUDED.value_json, is_secret = EXCLUDED.is_secret,
-             description = EXCLUDED.description, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at'
+             ON CONFLICT (key) DO UPDATE SET group_name = EXCLUDED.group_name, value_json = EXCLUDED.value_json,
+             is_secret = EXCLUDED.is_secret, description = EXCLUDED.description, updated_by = EXCLUDED.updated_by,
+             updated_at = EXCLUDED.updated_at'
         );
         $stmt->execute([
             'key' => $key, 'group_name' => $group, 'value_json' => $encoded,

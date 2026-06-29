@@ -127,38 +127,6 @@ services:
       timeout: 2s
       retries: 60
 
-  core-test:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-      target: test
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      APP_ENV: testing
-      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
-      APP_DEBUG: ${APP_DEBUG:-0}
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_DATABASE: ${DB_DATABASE:-cdnlite}
-      DB_USERNAME: ${DB_USERNAME:-cdnlite}
-      DB_PASSWORD: ${DB_PASSWORD:-cdnlite}
-      CACHE_STORE: array
-      QUEUE_CONNECTION: sync
-      SESSION_DRIVER: array
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      CDNLITE_AUTO_MIGRATE: "false"
-      CDNLITE_API_TOKEN: ${CDNLITE_API_TOKEN:-}
-      CDNLITE_CORS_ALLOWED_ORIGINS: ${CDNLITE_CORS_ALLOWED_ORIGINS:-http://localhost:8082,http://127.0.0.1:8082}
-      CDNLITE_DEV_ADMIN_USERNAME: ${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}
-      CDNLITE_DEV_ADMIN_PASSWORD: ${CDNLITE_DEV_ADMIN_PASSWORD:-cdnlite-local-admin}
-    command: ["sh", "-lc", "php artisan cdn:db:fresh --force && php artisan db:seed --force && php artisan test"]
-
   edge:
     build:
       context: ./edge

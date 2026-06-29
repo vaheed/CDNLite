@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **28% complete**.
+Current estimated migration progress: **30% complete**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ Current estimated migration progress: **28% complete**.
 | 15% | Complete | Domain lifecycle, nameserver verification, activation, audit/config dirty side effects. |
 | 20% | Complete | Domain-scoped origin CRUD, diagnostics, and edge-observed health report. |
 | 25% | Complete | Laravel DNS record CRUD, status, retry queue, audit/config dirty side effects. |
-| 30% | In progress | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
+| 30% | Complete | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
 | 35% | Pending | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
 | 45% | Pending | Collector, analytics, activity, security ingest, and reports migrated. |
 | 55% | Pending | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room migrated. |
@@ -158,14 +158,24 @@ Completed in the PowerDNS writer migration slice:
   Laravel console bootstrap instead of the old command runner. The root Compose
   scheduler default runs `php /app/artisan cdn:scheduler:run`, whose DNS task
   shells back into the Laravel DNS reconciler command.
+- Real/local PowerDNS e2e now passes through the normal root stack with
+  `docker compose up -d ; ./ci/dns_e2e.sh`. Coverage includes scheduler DNS
+  task registration, platform nameserver visibility, verified-delegation
+  gating, proxied apex `LUA`, proxied subdomain `CNAME` to stable site targets,
+  shared CDN/DNSGeo Lua answers, duplicate proxied targets becoming origins,
+  apex `LUA` plus `MX` coexistence, delegation loss/restoration, edge-health
+  shared-record updates, stale rrset deletion, visible PowerDNS failure state,
+  and recovery convergence.
+- Runtime Compose no longer defines a separate Laravel test service; raw
+  `docker compose up -d` starts the normal runtime topology, and Laravel
+  validation runs through the regular `core` service.
 
 Scope:
 
-- Continue desired-state and PowerDNS/DNSGeo reconciliation migration.
 - Migrate DNS routing settings and GeoDNS route management.
-- Migrate desired-state generation for customer zones and shared CDN records.
-- Continue hardening PowerDNS reconciliation with stale-zone delete integration
-  coverage and real/local PowerDNS e2e validation.
+- Continue hardening PowerDNS reconciliation with `ci/powerdns_dns_checks.sh`,
+  stale-zone delete integration coverage, and broader stress/full-profile
+  validation.
 - Keep proxied apex records as PowerDNS `LUA` and proxied subdomains as CNAME.
 - Keep DNSGeo as the project GeoDNS implementation.
 - Keep edge pool updates shared-record based; do not rewrite every customer zone
@@ -177,7 +187,7 @@ Exit checks:
 - Real/local PowerDNS API writes covered.
 - LUA apex records, CNAME records, Lua raw GeoDNS records, health-driven answers,
   anycast override answers, and shared-record updates tested.
-- `ci/dns_e2e.sh` and `ci/powerdns_dns_checks.sh` remain aligned.
+- `ci/dns_e2e.sh` stays green and `ci/powerdns_dns_checks.sh` remains aligned.
 
 ### 35-45% Edge Control Plane
 
@@ -267,8 +277,9 @@ Scope:
 - Update OpenAPI for every migrated endpoint.
 - Update README, setup, deployment, architecture, troubleshooting, runbooks, and
   examples.
-- Keep root `docker-compose.yml` as the normal topology without CI-only profiles
-  as a requirement.
+- Keep root `docker-compose.yml` as the normal runtime topology without Compose
+  profiles or a separate Laravel test service. Phase validation should run raw
+  Compose plus the regular `core` service.
 
 Exit checks:
 
@@ -571,10 +582,9 @@ Completed evidence:
 - Dashboard/API/docs: Laravel routes now cover dashboard list, status, create,
   update, delete, and retry-sync calls; API docs were updated for accepted fields
   and publication semantics.
-- Validation: `docker compose run --rm -v /root/cdnlite/core/app:/app/app -v
-  /root/cdnlite/core/routes:/app/routes -v /root/cdnlite/core/tests:/app/tests
-  core-test sh -lc 'php artisan cdn:db:fresh --force && php artisan test
-  --filter=FreshInstallApiTest'` passed with 10 tests and 109 assertions.
+- Validation: Laravel feature coverage runs through the normal `core` service
+  with `docker compose up -d --build core` and
+  `docker compose exec -T core php artisan test --filter=FreshInstallApiTest`.
 
 Files likely to change:
 
@@ -608,8 +618,23 @@ Do not advance past this queue if:
 
 ### Queue 2: Desired DNS State And PowerDNS Sync
 
-Target milestone: advance from **25%** toward the **30%** checkpoint by moving
-PowerDNS desired-state and sync ownership into Laravel.
+Status: **Complete for the 30% checkpoint**. Continue follow-up hardening under
+the DNS operations backlog instead of reopening old runtime ownership.
+
+Completed evidence:
+
+- Runtime owner: Laravel `DnsDesiredStateService`, `DnsPowerDnsReconciler`,
+  `PowerDnsClient`, DNS operation controllers, and Artisan DNS commands.
+- Removed owner: force-sync, dry-run, actual-zone reads, and doctor paths no
+  longer shell through the old command runner for the migrated workflow.
+- Schema: no schema change; `core/database/schema.sql` already has desired
+  generation, desired rrset, sync-state, sync-event, zone-serial, DNS record,
+  origin, and edge-node fields required by this slice.
+- Compose: the separate Laravel test service was removed; `docker compose up -d`
+  starts the raw runtime stack and cannot reset PostgreSQL through a test-only
+  service.
+- Validation: `docker compose config --quiet`, touched PHP syntax lint,
+  `bash -n ci/dns_e2e.sh`, and `docker compose up -d ; ./ci/dns_e2e.sh` passed.
 
 Files likely to change:
 
@@ -634,13 +659,13 @@ Required result:
 - Edge pool health or IP changes update shared records without rewriting every
   customer zone.
 
-Do not advance past this queue if:
+Follow-up hardening:
 
-- PowerDNS errors are visible only in logs.
-- DNS health/readiness cannot show last success, last failure, and stale sync
-  state.
-- Tests inspect only desired database rows and never verify actual PowerDNS
-  state.
+- Keep `ci/powerdns_dns_checks.sh` aligned with the live e2e model.
+- Add stale-zone delete and ownership cleanup integration coverage where gaps
+  remain.
+- Keep dashboard DNS Operations views aligned with sync-state and failure
+  visibility.
 
 ### Queue 3: Edge Config Publication
 

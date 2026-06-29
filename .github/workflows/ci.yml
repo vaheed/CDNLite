@@ -114,9 +114,11 @@ jobs:
         run: npm run build
       - name: Run core tests
         run: pytest -q core/tests
+      - name: Start Laravel core
+        run: docker compose up -d --build core
       - name: Run Laravel feature tests
-        run: docker compose run --rm core-test
-      - name: Teardown Laravel test stack
+        run: docker compose exec -T core php artisan test
+      - name: Teardown Laravel core stack
         if: always()
         run: docker compose down -v
 

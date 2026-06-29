@@ -476,7 +476,8 @@ Host-side checks:
 ```bash
 docker compose config --quiet
 find core -name '*.php' -print0 | xargs -0 -n1 php -l
-docker compose run --rm core-test
+docker compose up -d --build core
+docker compose exec -T core php artisan test
 pytest -q core/tests
 cd dash && npm ci && npm run typecheck && npm test && npm run build
 ```

@@ -24,13 +24,15 @@ final class DnsRecordService
             return null;
         }
 
-        return DB::table('dns_records')
+        $records = DB::table('dns_records')
             ->where('domain_id', $domainId)
             ->orderBy('name')
             ->orderBy('id')
             ->get()
             ->map(fn (object $row): array => $this->cast((array) $row, $domain))
             ->all();
+
+        return array_merge($this->platformNameserverRecords($domain), $records);
     }
 
     public function find(string $domainId, string $recordId): ?array
@@ -68,7 +70,7 @@ final class DnsRecordService
             'origin_content' => $record['content'],
             'public_type' => $public['type'],
             'public_content' => $public['content'],
-            'origin_host' => $record['proxied'] ? $record['content'] : null,
+            'origin_host' => $record['proxied'] ? $record['origin_host'] : null,
             'origin_tls_verify' => 'ignore',
             'origin_scheme' => $record['proxied'] ? 'http' : null,
             'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
@@ -81,6 +83,7 @@ final class DnsRecordService
         ];
 
         DB::table('dns_records')->insert($created);
+        $this->syncDnsOrigin($created);
         $stored = $this->find($domainId, $created['id']);
         $this->afterMutation('dns.record.create', null, $stored, $domainId, $created['id'], $actor);
 
@@ -121,7 +124,7 @@ final class DnsRecordService
                 'origin_content' => $record['content'],
                 'public_type' => $public['type'],
                 'public_content' => $public['content'],
-                'origin_host' => $record['proxied'] ? $record['content'] : null,
+                'origin_host' => $record['proxied'] ? $record['origin_host'] : null,
                 'origin_scheme' => $record['proxied'] ? 'http' : null,
                 'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
                 'status' => $record['status'],
@@ -129,6 +132,9 @@ final class DnsRecordService
             ]);
 
         $updated = $this->find($domainId, $recordId);
+        if ($updated !== null) {
+            $this->syncDnsOrigin($updated);
+        }
         $this->afterMutation('dns.record.update', $existing, $updated, $domainId, $recordId, $actor);
 
         return $updated;
@@ -202,6 +208,7 @@ final class DnsRecordService
             'ttl' => $ttl,
             'priority' => $priority,
             'proxied' => (bool) ($input['proxied'] ?? false),
+            'origin_host' => strtolower(trim((string) ($input['origin_host'] ?? $content))),
             'status' => $status,
         ];
     }
@@ -253,7 +260,7 @@ final class DnsRecordService
 
         return $this->isApex($record['name'], (string) $domain['domain'])
             ? ['type' => 'LUA', 'content' => 'managed edge pool']
-            : ['type' => 'CNAME', 'content' => $this->proxyHost()];
+            : ['type' => 'CNAME', 'content' => $this->siteTarget((string) $domain['id'])];
     }
 
     private function assertCompatible(string $domainId, ?string $recordId, array $record): void
@@ -305,6 +312,64 @@ final class DnsRecordService
         $this->dnsReconcile->queueForDomain($domainId);
     }
 
+    private function syncDnsOrigin(array $record): void
+    {
+        if (!$this->bool($record['proxied'] ?? false)) {
+            DB::table('domain_origins')->where('dns_record_id', $record['id'])->delete();
+            return;
+        }
+
+        $now = UnixTime::now();
+        $host = strtolower(trim((string) ($record['origin_host'] ?: $record['origin_content'] ?: $record['content'])));
+        $scheme = (string) ($record['origin_scheme'] ?: 'http');
+        $existing = DB::table('domain_origins')->where('dns_record_id', $record['id'])->first();
+        $values = [
+            'domain_id' => $record['domain_id'],
+            'dns_record_id' => $record['id'],
+            'source' => 'dns_record',
+            'role' => 'primary',
+            'weight' => 1,
+            'load_balancing_algorithm' => 'weighted_hash',
+            'scheme' => $scheme,
+            'host' => $host,
+            'port' => $scheme === 'https' ? 443 : 80,
+            'host_header' => $host,
+            'sni' => $host,
+            'tls_verify' => (string) ($record['origin_tls_verify'] ?: 'ignore'),
+            'preserve_host' => true,
+            'is_primary' => false,
+            'health_check_enabled' => false,
+            'health_check_path' => '/',
+            'health_check_interval_seconds' => 30,
+            'health_check_timeout_seconds' => 5,
+            'connection_timeout_seconds' => 5,
+            'response_timeout_seconds' => 30,
+            'retry_attempts' => 1,
+            'retry_budget_per_minute' => 60,
+            'circuit_breaker_enabled' => true,
+            'circuit_failure_threshold' => 5,
+            'circuit_recovery_seconds' => 30,
+            'max_concurrent_requests' => 0,
+            'drain' => false,
+            'shield_enabled' => false,
+            'health_status' => 'unknown',
+            'last_check_at' => null,
+            'last_error' => null,
+            'enabled' => true,
+            'updated_at' => $now,
+        ];
+
+        if ($existing === null) {
+            DB::table('domain_origins')->insert($values + [
+                'id' => (string) Str::uuid(),
+                'created_at' => $now,
+            ]);
+            return;
+        }
+
+        DB::table('domain_origins')->where('id', $existing->id)->update($values);
+    }
+
     private function domain(string $domainId): ?array
     {
         $row = DB::table('domains')->where('id', $domainId)->first();
@@ -337,6 +402,60 @@ final class DnsRecordService
         return $row;
     }
 
+    private function platformNameserverRecords(array $domain): array
+    {
+        $now = UnixTime::now();
+
+        return array_map(static function (string $nameserver) use ($domain, $now): array {
+            return [
+                'id' => 'platform-ns:'.rtrim($nameserver, '.'),
+                'domain_id' => (string) $domain['id'],
+                'type' => 'NS',
+                'name' => '@',
+                'content' => $nameserver,
+                'ttl' => 300,
+                'priority' => null,
+                'proxied' => false,
+                'geo_policy_id' => null,
+                'origin_type' => 'NS',
+                'origin_content' => $nameserver,
+                'public_type' => 'NS',
+                'public_content' => $nameserver,
+                'origin_host' => null,
+                'origin_tls_verify' => 'ignore',
+                'origin_scheme' => null,
+                'origin_status' => 'dns_only',
+                'geo_origins_json' => null,
+                'routing_policy' => 'standard',
+                'managed_by' => 'platform_nameservers',
+                'status' => 'active',
+                'publication_status' => 'queued',
+                'effective_status' => 'active',
+                'disabled_reason' => null,
+                'readonly' => true,
+                'created_at' => (int) ($domain['created_at'] ?? $now),
+                'updated_at' => (int) ($domain['updated_at'] ?? $now),
+            ];
+        }, $this->nameservers());
+    }
+
+    private function nameservers(): array
+    {
+        $raw = DB::table('platform_settings')->where('key', 'platform.nameservers')->value('value_json');
+        $value = is_string($raw) ? json_decode($raw, true) : null;
+        $hostnames = is_array($value) ? ($value['hostnames'] ?? $value) : ['ns1.cdnlite.test', 'ns2.cdnlite.test'];
+        $nameservers = [];
+
+        foreach ((array) $hostnames as $hostname) {
+            $hostname = rtrim(strtolower(trim((string) $hostname)), '.');
+            if ($hostname !== '') {
+                $nameservers[] = $hostname.'.';
+            }
+        }
+
+        return $nameservers === [] ? ['ns1.cdnlite.test.'] : array_values(array_unique($nameservers));
+    }
+
     private function isApex(string $name, string $domain): bool
     {
         $name = strtolower(rtrim(trim($name), '.'));
@@ -348,6 +467,18 @@ final class DnsRecordService
     private function proxyHost(): string
     {
         return strtolower(rtrim((string) env('CDNLITE_CDN_PROXY_HOST', 'proxy.cdn.example.net'), '.'));
+    }
+
+    private function siteTarget(string $domainId): string
+    {
+        return 'site-'.$this->label($domainId).'.'.strtolower(rtrim((string) env('CDNLITE_CDN_ZONE', 'cdn.example.net'), '.')).'.';
+    }
+
+    private function label(string $value): string
+    {
+        $value = strtolower(preg_replace('/[^a-zA-Z0-9-]/', '', $value) ?? '');
+
+        return trim($value, '-') ?: 'site';
     }
 
     private function bool(mixed $value): bool

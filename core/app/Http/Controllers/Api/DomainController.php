@@ -137,14 +137,18 @@ final class DomainController extends Controller
             return response()->json(['error' => 'domain_not_found'], 404);
         }
 
-        $state = DB::table('dns_sync_state')->where('zone_name', $domain['domain'])->first();
+        $zoneName = rtrim((string) $domain['domain'], '.') . '.';
+        $state = DB::table('dns_sync_state')
+            ->whereIn('zone_name', [(string) $domain['domain'], $zoneName])
+            ->orderByRaw('CASE WHEN zone_name = ? THEN 0 ELSE 1 END', [$zoneName])
+            ->first();
         $lastError = $state?->last_error ?? null;
         $pendingChanges = (int) ($state?->pending_changes ?? 0);
 
         return response()->json([
             'data' => [
                 'domain_id' => $domainId,
-                'zone_name' => $domain['domain'],
+                'zone_name' => $state?->zone_name ?? $zoneName,
                 'status' => $state?->status ?? 'pending',
                 'converged' => $state !== null && $pendingChanges === 0 && $lastError === null,
                 'pending_changes' => $pendingChanges,
@@ -322,6 +326,7 @@ final class DomainController extends Controller
             'ttl' => ['sometimes', 'integer', 'between:60,86400'],
             'priority' => ['sometimes', 'nullable', 'integer', 'between:0,65535'],
             'proxied' => ['sometimes', 'boolean'],
+            'origin_host' => ['sometimes', 'nullable', 'string', 'max:253'],
             'status' => ['sometimes', 'in:active,disabled'],
         ];
     }

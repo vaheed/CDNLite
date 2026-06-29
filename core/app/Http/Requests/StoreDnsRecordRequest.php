@@ -21,6 +21,7 @@ final class StoreDnsRecordRequest extends FormRequest
             'ttl' => ['nullable', 'integer', 'between:60,86400'],
             'priority' => ['nullable', 'integer', 'between:0,65535'],
             'proxied' => ['nullable', 'boolean'],
+            'origin_host' => ['nullable', 'string', 'max:253'],
         ];
     }
 }

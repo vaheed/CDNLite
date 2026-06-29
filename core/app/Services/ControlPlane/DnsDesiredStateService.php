@@ -112,6 +112,17 @@ final class DnsDesiredStateService
             }
         }
 
+        foreach ($this->proxiedSiteTargets() as $target) {
+            $rrsets[] = $this->rrset(
+                $zone,
+                'site-'.$this->label((string) $target->site_id),
+                'CNAME',
+                60,
+                [$this->fqdn($this->proxyHost())],
+                'site_target:'.(string) $target->site_id,
+            );
+        }
+
         return $rrsets;
     }
 
@@ -162,6 +173,18 @@ final class DnsDesiredStateService
                 continue;
             }
 
+            if ($this->bool($record['proxied'])) {
+                $rrsets[] = $this->rrset(
+                    (string) $record['domain'],
+                    (string) $record['name'],
+                    'CNAME',
+                    (int) $record['ttl'],
+                    [$this->siteTarget((string) $record['site_id'])],
+                    'dns_record:'.$record['id'].':site_cname',
+                );
+                continue;
+            }
+
             $geoRoutes = $this->bool($record['proxied']) ? [] : $this->geoRoutes((string) $record['id']);
             if ($geoRoutes !== [] && in_array(strtoupper((string) $record['type']), ['A', 'AAAA'], true)) {
                 $lua = $this->rawGeoDnsLuaRecord(strtoupper((string) $record['type']), $geoRoutes);
@@ -182,6 +205,22 @@ final class DnsDesiredStateService
         }
 
         return $rrsets;
+    }
+
+    private function proxiedSiteTargets(): array
+    {
+        return DB::table('dns_records as r')
+            ->join('domains as d', 'd.id', '=', 'r.domain_id')
+            ->select('d.id as site_id')
+            ->where('r.status', 'active')
+            ->where('r.proxied', true)
+            ->where('d.status', 'active')
+            ->where('d.nameserver_status', 'verified')
+            ->whereRaw("LOWER(r.name) NOT IN ('', '@', LOWER(d.domain))")
+            ->distinct()
+            ->orderBy('d.id')
+            ->get()
+            ->all();
     }
 
     public function persistGeneration(array $rrsets): int
@@ -334,14 +373,23 @@ final class DnsDesiredStateService
 
     private function healthyEdgeTargets(string $type): array
     {
-        if (!DB::getSchemaBuilder()->hasTable('edge_state')) {
+        if (!DB::getSchemaBuilder()->hasTable('edge_nodes')) {
             return [];
         }
 
-        return DB::table('edge_state')
-            ->select('ip', 'country', 'continent')
-            ->where('ip_family', $type)
-            ->where('healthy', true)
+        $ipExpression = $type === 'AAAA'
+            ? "COALESCE(NULLIF(public_ipv6, ''), CASE WHEN public_ip LIKE '%:%' THEN NULLIF(public_ip, '') END)"
+            : "COALESCE(NULLIF(public_ipv4, ''), CASE WHEN public_ip NOT LIKE '%:%' THEN NULLIF(public_ip, '') END)";
+
+        return DB::table('edge_nodes')
+            ->selectRaw($ipExpression.' as ip')
+            ->addSelect('country', 'continent')
+            ->where('is_enabled', true)
+            ->where('dns_enabled', true)
+            ->where('anycast_enabled', false)
+            ->where('status', 'online')
+            ->where('health_status', 'healthy')
+            ->whereRaw($ipExpression.' IS NOT NULL')
             ->orderBy('country')
             ->orderBy('continent')
             ->orderBy('ip')
@@ -551,6 +599,18 @@ final class DnsDesiredStateService
         $suffix = '.'.strtolower(rtrim($this->cdnZone(), '.'));
 
         return substr($host, 0, -strlen($suffix));
+    }
+
+    private function siteTarget(string $domainId): string
+    {
+        return 'site-'.$this->label($domainId).'.'.$this->fqdn($this->cdnZone());
+    }
+
+    private function label(string $value): string
+    {
+        $value = strtolower(preg_replace('/[^a-zA-Z0-9-]/', '', $value) ?? '');
+
+        return trim($value, '-') ?: 'site';
     }
 
     private function isApex(string $name, string $domain): bool

@@ -190,6 +190,10 @@ class DatabaseMigrator
 
     private function sqlForExecution(array $migration): string
     {
+        if (($migration['version'] ?? '') === '000005') {
+            return $this->sqlForOriginPoolDefaults((string) $migration['sql']);
+        }
+
         if (($migration['version'] ?? '') !== '000031') {
             return (string) $migration['sql'];
         }
@@ -235,6 +239,42 @@ END $$;";
         // Preserve the historical migration checksum while making legacy schema
         // adoption idempotent when the fresh schema already created these checks.
         return str_replace($legacyConstraintBlock, $idempotentConstraintBlock, (string) $migration['sql']);
+    }
+
+    private function sqlForOriginPoolDefaults(string $sql): string
+    {
+        $legacyRoleBlock = "DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_role_check'
+  ) THEN
+    ALTER TABLE domain_origins DROP CONSTRAINT domain_origins_role_check;
+  END IF;
+
+  ALTER TABLE domain_origins
+    ADD CONSTRAINT domain_origins_role_check
+    CHECK (role IN ('origin'));
+END
+$$;";
+
+        $currentRoleBlock = "DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'domain_origins_role_check'
+  ) THEN
+    ALTER TABLE domain_origins DROP CONSTRAINT domain_origins_role_check;
+  END IF;
+
+  ALTER TABLE domain_origins
+    ADD CONSTRAINT domain_origins_role_check
+    CHECK (role IN ('primary', 'backup', 'shield'));
+END
+$$;";
+
+        // Fresh installs use schema.sql, but long-lived local stacks may still
+        // replay older SQL slices. Do not let a superseded role check regress
+        // the current origin routing model during runtime maintenance.
+        return str_replace($legacyRoleBlock, $currentRoleBlock, $sql);
     }
 
     private function appliedMigrations(): array

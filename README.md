@@ -170,7 +170,8 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the fuller roadmap.
 ```bash
 docker compose config --quiet
 find core -name '*.php' -print0 | xargs -0 -n1 php -l
-docker compose run --rm core-test
+docker compose up -d --build core
+docker compose exec -T core php artisan test
 cd dash && npm ci && npm run typecheck && npm test && npm run build
 cd docs && npm ci && npm run docs:build
 ```

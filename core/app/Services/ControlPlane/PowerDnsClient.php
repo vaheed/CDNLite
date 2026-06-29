@@ -89,7 +89,7 @@ final class PowerDnsClient
             return $result + ['verified' => false];
         }
 
-        return $this->verifyRrsets($zone, $rrsets);
+        return $this->verifyRrsetsWithRetry($zone, $rrsets);
     }
 
     public function deleteZone(string $zone): array
@@ -131,14 +131,31 @@ final class PowerDnsClient
                 return ['ok' => false, 'verified' => false, 'error' => 'powerdns_verify_mismatch', 'status' => 200];
             }
 
-            $wanted = $this->recordContents($desired);
-            $found = $this->recordContents((array) $actual[$key]);
-            if ($wanted !== $found || (int) ($actual[$key]['ttl'] ?? 0) !== (int) ($desired['ttl'] ?? 0)) {
+            if (!$this->rrsetMatches($desired, (array) $actual[$key])) {
                 return ['ok' => false, 'verified' => false, 'error' => 'powerdns_verify_mismatch', 'status' => 200];
             }
         }
 
         return ['ok' => true, 'verified' => true, 'status' => 200];
+    }
+
+    private function verifyRrsetsWithRetry(string $zone, array $desiredRrsets): array
+    {
+        $attempts = max(1, $this->settingInt('platform.powerdns.retries', 2) + 1);
+        $sleepMs = max(0, $this->settingInt('platform.powerdns.retry_sleep_ms', 250));
+        $last = ['ok' => false, 'verified' => false, 'error' => 'powerdns_verify_mismatch', 'status' => 200];
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $last = $this->verifyRrsets($zone, $desiredRrsets);
+            if (($last['ok'] ?? false) === true || ($last['error'] ?? null) !== 'powerdns_verify_mismatch') {
+                return $last;
+            }
+            if ($attempt < $attempts && $sleepMs > 0) {
+                usleep($sleepMs * 1000);
+            }
+        }
+
+        return $last;
     }
 
     private function request(string $method, string $url, ?array $payload = null): Response|array
@@ -192,6 +209,73 @@ final class PowerDnsClient
         sort($contents);
 
         return $contents;
+    }
+
+    private function rrsetMatches(array $desired, array $actual): bool
+    {
+        if ((int) ($actual['ttl'] ?? 0) !== (int) ($desired['ttl'] ?? 0)) {
+            return false;
+        }
+
+        if (strtoupper((string) ($desired['type'] ?? '')) === 'SOA') {
+            return $this->soaContentsMatch($this->recordContents($desired), $this->recordContents($actual));
+        }
+
+        return $this->recordContents($desired) === $this->recordContents($actual);
+    }
+
+    private function soaContentsMatch(array $wanted, array $found): bool
+    {
+        if (count($wanted) !== 1 || count($found) !== 1) {
+            return false;
+        }
+
+        $expected = $this->parseSoaContent($wanted[0]);
+        $actual = $this->parseSoaContent($found[0]);
+        if ($expected === null || $actual === null) {
+            return false;
+        }
+
+        foreach (['primary_ns', 'hostmaster', 'refresh', 'retry', 'expire', 'minimum'] as $field) {
+            if ($expected[$field] !== $actual[$field]) {
+                return false;
+            }
+        }
+
+        // PowerDNS may advance the SOA serial while applying a zone update.
+        return $actual['serial'] >= $expected['serial'];
+    }
+
+    private function parseSoaContent(string $content): ?array
+    {
+        $parts = preg_split('/\s+/', trim($content)) ?: [];
+        if (count($parts) !== 7) {
+            return null;
+        }
+
+        [$primary, $hostmaster, $serial, $refresh, $retry, $expire, $minimum] = $parts;
+        foreach ([$serial, $refresh, $retry, $expire, $minimum] as $number) {
+            if (!ctype_digit((string) $number)) {
+                return null;
+            }
+        }
+
+        return [
+            'primary_ns' => $this->fqdn((string) $primary),
+            'hostmaster' => $this->fqdn((string) $hostmaster),
+            'serial' => (int) $serial,
+            'refresh' => (int) $refresh,
+            'retry' => (int) $retry,
+            'expire' => (int) $expire,
+            'minimum' => (int) $minimum,
+        ];
+    }
+
+    private function fqdn(string $value): string
+    {
+        $value = rtrim(strtolower(trim($value)), '.');
+
+        return $value === '' ? '.' : $value.'.';
     }
 
     private function serverUrl(): string

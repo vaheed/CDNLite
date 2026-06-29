@@ -22,12 +22,12 @@ class HealthController extends Controller
 
     public function cdnHealth(): JsonResponse
     {
-        return response()->json((new ReadinessService())->index());
+        return response()->json((new ReadinessService())->check());
     }
 
     public function readiness(): JsonResponse
     {
-        return response()->json((new ReadinessService())->index());
+        return response()->json((new ReadinessService())->check());
     }
 
     public function ready(): JsonResponse

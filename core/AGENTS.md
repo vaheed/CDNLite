@@ -40,8 +40,9 @@ Applies to all files under `core/`.
 - PHP syntax lint must pass.
 - Focused core contract tests must be added or updated for behavior that edge agents, CLI, or API clients depend on.
 - Laravel feature tests must use PostgreSQL, not SQLite.
-- Run the Laravel Docker test path for migrated core behavior:
-  `docker compose build core-test core` and `docker compose run --rm core-test`.
+- Run the Laravel Docker test path for migrated core behavior through the normal
+  runtime service: `docker compose up -d --build core` and
+  `docker compose exec -T core php artisan test`.
 - `pytest -q core/tests` should pass once obsolete legacy contracts for migrated
   workflows are converted, retired, or isolated. Do not make it pass by adding
   backward-compatibility shims.
