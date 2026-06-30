@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **65% complete, with SSL route ownership, renewal job processing, and scheduler ownership moved into Laravel control-plane services**.
+Current estimated migration progress: **72% complete, with SSL route ownership, renewal job processing, scheduler ownership, and delivery-rule route/CLI entrypoints plus service implementation moved into Laravel control-plane namespaces; old traffic-rule module service/controller removed**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Current estimated migration progress: **65% complete, with SSL route ownership, 
 | 45% | Complete | Collector, analytics, activity, security ingest, and reports migrated. |
 | 55% | Complete | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room, route-debug, protection catalogs, and onboarding route ownership covered by Laravel feature tests; full edge/dashboard/e2e hardening continues in later slices. |
 | 65% | Complete | SSL settings, certificates, queued request, job lookup, ACME status, validation, manual/import, renewal job processing, forced renewal, due-renewal scanning, and scheduler command ownership moved into Laravel services. |
-| 75% | Pending | Dashboard API contract alignment and remaining API/OpenAPI cleanup. |
+| 75% | In progress | Dashboard API contract alignment, delivery-rule route ownership, and remaining API/OpenAPI cleanup. |
 | 85% | In progress | Laravel CLI command conversion and scheduler ownership moving through Laravel console; legacy command runner removed. |
 | 92% | Pending | Legacy route/module isolation complete; old runtime has no write path. |
 | 97% | Pending | Old core files, custom router, old support layer, and obsolete tests removed. |
@@ -291,17 +291,28 @@ Current progress evidence:
   through the same materialized publish path used by edge config. Focused feature
   coverage verifies the dashboard-facing `/api/v1/config/snapshots*` routes
   without calling the old proxy `ConfigService`.
+- Delivery-rule HTTP routes, CLI entrypoints, onboarding/recommendation callers,
+  and remaining runtime-adjacent proxy helpers now import
+  `App\Http\Controllers\Api\TrafficRulesController` and
+  `App\Services\ControlPlane\TrafficRulesService`. The Laravel control-plane
+  service now contains the delivery-rule implementation directly instead of
+  extending the old proxy module service.
+- Deleted the old `core/app/Modules/Proxy/Services/TrafficRulesService.php` and
+  `core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php` files
+  after static delivery/protection tests were repointed to the Laravel paths.
 - The phase is not complete until dashboard contracts, config snapshot impact,
   smoke/e2e coverage, and legacy route isolation are verified for every listed
   traffic-rule family.
-- Remaining ownership gap: traffic-rule CRUD still calls
-  `App\Modules\Proxy\Services\TrafficRulesService` behind Laravel routes. The
-  next completion slice must move those database mutations into Laravel-native
-  `core/app/Services/ControlPlane` services/controllers or formally quarantine
-  the old module as reference-only after replacement.
-- Local PHP validation was not run in the current workstation because `php` is
-  not available on `PATH`; run `php -l core/routes/api.php` and
-  `php artisan test --filter=FreshInstallApiTest` in a PHP-enabled environment.
+- Remaining ownership gap: dashboard/OpenAPI parity and full edge/runtime e2e
+  still need to be verified against the Laravel delivery-rule files before the
+  75% milestone is complete.
+- Focused validation for the delivery-rule ownership move passed: touched PHP
+  syntax lint, 43 delivery/protection static tests, 21 dashboard/API focused
+  tests with 4 environment-gated skips, 28 docs/OpenAPI focused tests,
+  OpenAPI YAML parse, and `docker compose config --quiet`.
+- Remaining validation gap: full Laravel feature suite, dashboard npm checks,
+  docs build, root-stack smoke/e2e, DNS e2e, and stress are still required
+  before this slice can support final certification.
 
 ### 65-75% SSL, ACME, Jobs, Queues, Scheduler
 
@@ -392,7 +403,8 @@ Current progress evidence:
 - `core/public_index.php` has been removed; dashboard/API black-box tests now
   use Laravel's `core/public/index.php` entrypoint.
 - Focused validation passed: Laravel route/OpenAPI comparison, OpenAPI YAML
-  parse, full PHP lint, dashboard typecheck, and focused pytest contract set.
+  parse, touched PHP lint, dashboard/API static contracts, and focused pytest
+  contract sets for delivery, protection, docs, OpenAPI, and route ownership.
 - Local validation blockers remain: dashboard tests/build require Node
   `20.19+` or `22.12+` while the current environment has Node `18.19.1`; full
   pytest still includes unrelated pre-existing failures from missing Laravel
@@ -500,7 +512,8 @@ Required validation:
 
 ## Current Backlog Order
 
-1. Cache, WAF, rate limit, IP rule, SSL, redirect, header, and waiting room workflows.
+1. Run full delivery-rule edge/runtime e2e, dashboard npm checks, docs build,
+   and root-stack smoke/e2e against the Laravel delivery-rule files.
 2. Dashboard API contract alignment.
 3. Laravel jobs, scheduler, and queues.
 4. CLI command conversion.

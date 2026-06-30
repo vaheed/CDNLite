@@ -23,8 +23,8 @@ def test_ssl_jobs_migration_and_schema_are_additive():
 
 
 def test_ssl_request_endpoint_returns_job_and_status_route():
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     renewals = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
     routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
@@ -55,7 +55,7 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
 def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     renewals = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
     issuer = read("core/app/Modules/Proxy/Services/AcmeIssuerService.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     command = read("core/app/Console/Commands/CdnSslRenewDueCommand.php")
     compose = read("docker-compose.yml")
 
@@ -105,7 +105,7 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
 
 def test_wildcard_ssl_is_automatic_after_dns_verification():
     verification = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     dns_service = read("core/app/Modules/Dns/Services/DnsService.php")
     schema = read("core/database/schema.sql")
     edge_tls = read("edge/openresty/lua/tls_cert.lua")

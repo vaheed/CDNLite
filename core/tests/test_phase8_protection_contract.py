@@ -42,8 +42,8 @@ def test_phase8_schema_links_simple_protection_to_advanced_rules():
 
 
 def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
 
     assert "managedRulePayload" in service
@@ -64,8 +64,8 @@ def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
 
 
 def test_phase8_intent_workflow_generates_real_rules_without_silent_overwrite():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
     api = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")

@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\CommandIO;
 
 class CdnCacheSettingsCommand

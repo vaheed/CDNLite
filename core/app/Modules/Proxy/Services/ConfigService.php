@@ -4,6 +4,7 @@ namespace App\Modules\Proxy\Services;
 
 use App\Modules\Dns\Services\DnsService;
 use App\Modules\Domains\Services\DomainService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\AuditLog;
 use App\Support\Database;
 

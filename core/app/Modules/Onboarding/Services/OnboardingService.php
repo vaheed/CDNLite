@@ -2,7 +2,7 @@
 
 namespace App\Modules\Onboarding\Services;
 
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;

@@ -9,11 +9,11 @@ def read(path: str) -> str:
 
 
 def test_bot_shield_has_classified_policies_and_challenge_safe_search_claims():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000011_bot_protection.sql")
     verified_source_migration = read("core/database/migrations/000012_verified_bot_sources.sql")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
 
     for field in ("bot_class", "bot_score", "bot_action"):
         assert field in schema
@@ -32,7 +32,7 @@ def test_bot_events_flow_from_edge_to_collector_and_operations_ui():
     router = read("edge/openresty/lua/router.lua")
     collector = read("core/app/Modules/Collector/Services/CollectorService.php")
     operations = read("core/app/Modules/Operations/Services/OperationsLogService.php")
-    traffic_rules = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    traffic_rules = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     dashboard = read("dash/src/views/SecurityEventsView.vue")
     smoke = read("ci/smoke.sh")
     e2e = read("ci/e2e.sh")

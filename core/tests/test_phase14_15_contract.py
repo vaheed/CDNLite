@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_mutation_services_write_before_after_audit_rows():
     audit = (ROOT / "core/app/Support/AuditLog.php").read_text()
     domains = (ROOT / "core/app/Modules/Domains/Services/DomainService.php").read_text()
-    rules = (ROOT / "core/app/Modules/Proxy/Services/TrafficRulesService.php").read_text()
+    rules = (ROOT / "core/app/Services/ControlPlane/TrafficRulesService.php").read_text()
     settings = (ROOT / "core/app/Modules/Settings/Repositories/SettingsRepository.php").read_text()
 
     assert "before_json" in audit and "after_json" in audit

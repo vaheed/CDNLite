@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Proxy\Services;
+namespace App\Services\ControlPlane;
 
 use App\Support\Database;
 use App\Support\AuditLog;

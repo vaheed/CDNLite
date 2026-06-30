@@ -3,6 +3,7 @@
 namespace App\Modules\Proxy\Services;
 
 use App\Modules\Dns\Services\PowerDnsService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Secrets;

@@ -9,7 +9,7 @@ def read(path: str) -> str:
 
 
 def test_phase11_managed_waf_presets_have_group_metadata_and_schema():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     migration = read("core/database/migrations/000007_managed_waf_metadata.sql")
     schema = read("core/database/schema.sql")
 
@@ -30,7 +30,7 @@ def test_phase11_managed_waf_presets_have_group_metadata_and_schema():
 
 
 def test_phase11_generated_waf_metadata_flows_to_edge_events_and_docs():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     router = read("edge/openresty/lua/router.lua")
     collector = read("core/app/Modules/Collector/Services/CollectorService.php")
     docs = read("docs/api/api.md")
@@ -51,8 +51,8 @@ def test_phase11_generated_waf_metadata_flows_to_edge_events_and_docs():
 
 
 def test_phase11_exposes_read_only_managed_waf_preset_catalog():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")

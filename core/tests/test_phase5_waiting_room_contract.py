@@ -12,8 +12,8 @@ def test_waiting_room_schema_api_and_snapshot_contract_are_wired():
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000029_waiting_room.sql")
     routes = read("core/routes/api.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "CREATE TABLE IF NOT EXISTS waiting_room_policies" in schema

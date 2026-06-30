@@ -9,8 +9,8 @@ def read(path: str) -> str:
 
 
 def test_phase14_api_protection_discovery_route_and_dashboard_client_are_wired():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
     dashboard_api = read("dash/src/lib/api/protection.ts")
@@ -30,8 +30,8 @@ def test_phase14_api_protection_discovery_route_and_dashboard_client_are_wired()
 
 
 def test_phase14_api_shield_generates_real_advanced_method_and_token_rules():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     dashboard = read("dash/src/views/domain-tabs/DomainWafTab.vue")
     docs = read("docs/api/api.md")
     e2e = read("ci/e2e.sh")

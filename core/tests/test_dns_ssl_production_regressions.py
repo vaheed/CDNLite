@@ -18,7 +18,7 @@ def test_proxied_dns_empty_geo_routes_do_not_create_post_write_error():
 def test_initial_managed_ssl_uses_ephemeral_powerdns_challenges_without_bootstrap_rows():
     domains = read("core/app/Modules/Domains/Services/DomainService.php")
     verification = read("core/app/Modules/Domains/Services/DomainVerificationService.php")
-    traffic = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    traffic = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     renewal = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
     issuer = read("core/app/Modules/Proxy/Services/AcmeIssuerService.php")
     schema = read("core/database/schema.sql")
@@ -40,5 +40,5 @@ def test_initial_managed_ssl_uses_ephemeral_powerdns_challenges_without_bootstra
 
 
 def test_initial_ssl_reuses_existing_active_job():
-    traffic = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    traffic = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     assert "hasActiveManagedCertificate($domainId, $hostnames) || $this->hasActiveSslJob($domainId, $hostnames)" in traffic

@@ -46,7 +46,7 @@ def test_phase9_dashboard_security_center_uses_protection_intent_contract():
 
 
 def test_phase9_backend_has_real_templates_for_all_security_center_cards():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
 
     for intent_key in (
         "common_exploits",

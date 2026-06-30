@@ -1,4 +1,4 @@
 <?php
 namespace App\Console\Commands;
-use App\Modules\Proxy\Services\TrafficRulesService; use App\Support\CommandIO;
+use App\Services\ControlPlane\TrafficRulesService; use App\Support\CommandIO;
 class CdnHeaderCreateCommand { public function __invoke(array $argv): int { $o=CommandIO::parseOptions($argv); if(empty($o['domain_id'])||empty($o['operation'])||empty($o['header_name'])){fwrite(STDERR,"Missing --domain_id/--operation/--header_name\n"); return 1;} if(($o['operation']??'')!=='remove' && !isset($o['header_value'])){fwrite(STDERR,"Missing --header_value\n"); return 1;} CommandIO::printJson(['data'=>(new TrafficRulesService())->createHeaderRule((string)$o['domain_id'],['enabled'=>($o['enabled']??'1')!=='0','priority'=>(int)($o['priority']??100),'operation'=>(string)$o['operation'],'header_name'=>(string)$o['header_name'],'header_value'=>$o['header_value']??null,'path_pattern'=>(string)($o['path_pattern']??'/*')])]); return 0; } }

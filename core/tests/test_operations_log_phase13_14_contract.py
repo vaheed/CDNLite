@@ -33,7 +33,7 @@ def test_operations_log_service_supports_required_filters_and_pagination():
 
 
 def test_domain_security_events_exclude_administrative_audit_rows():
-    service = (ROOT / "core/app/Modules/Proxy/Services/TrafficRulesService.php").read_text()
+    service = (ROOT / "core/app/Services/ControlPlane/TrafficRulesService.php").read_text()
     assert "event IN ('waf_match','rate_limited','geo_block')" in service
 
 

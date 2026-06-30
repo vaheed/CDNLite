@@ -51,8 +51,8 @@ def test_edge_challenge_issues_signed_scoped_clearance_cookie():
 
 def test_waf_and_rate_limit_challenges_are_verifiable_not_static_denies():
     router = read("edge/openresty/lua/router.lua")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
 
     assert "clearance.has_clearance(domain.domain_id, 'waf', rule.id, client_ip)" in router
     assert "clearance.challenge_response(domain.domain_id, 'waf', rule.id, client_ip, 403, 'bot_challenge_required', rule.challenge_difficulty)" in router
@@ -68,7 +68,7 @@ def test_waf_and_rate_limit_challenges_are_verifiable_not_static_denies():
 
 
 def test_emergency_profile_challenges_all_visitors_before_origin():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     dashboard = read("dash/src/views/domain-tabs/DomainSecurityCenterTab.vue")
     waf_tab = read("dash/src/views/domain-tabs/DomainWafTab.vue")
     rate_tab = read("dash/src/views/domain-tabs/DomainRateLimitsTab.vue")

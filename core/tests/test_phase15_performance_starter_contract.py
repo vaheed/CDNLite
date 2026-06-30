@@ -11,8 +11,8 @@ def read(path: str) -> str:
 def test_performance_starter_persists_safe_controls_and_enforces_them_at_edge():
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000010_performance_starter.sql")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     proxy = read("edge/openresty/lua/proxy.lua")
 
     for field in (

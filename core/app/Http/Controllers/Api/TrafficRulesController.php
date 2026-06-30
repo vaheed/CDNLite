@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Modules\Proxy\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Modules\Proxy\Services\AcmeIssuerService;
 use App\Modules\Proxy\Services\CertRenewalService;
 use App\Support\Secrets;

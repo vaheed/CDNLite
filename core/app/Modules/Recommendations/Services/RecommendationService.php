@@ -3,7 +3,7 @@
 namespace App\Modules\Recommendations\Services;
 
 use App\Modules\Proxy\Services\OriginHealthService;
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;

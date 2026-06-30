@@ -141,7 +141,7 @@ def test_router_proxy_and_metrics_expose_phase3_diagnostics():
     proxy = read("edge/openresty/lua/proxy.lua")
     metrics = read("edge/openresty/lua/metrics.lua")
     edge_log = read("edge/openresty/lua/edge_log.lua")
-    rules = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    rules = read("core/app/Services/ControlPlane/TrafficRulesService.php")
 
     assert "edge_log.info('origin_selected'" in router
     assert "edge_log.warn('router_error'" in router

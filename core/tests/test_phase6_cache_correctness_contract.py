@@ -39,7 +39,7 @@ def test_migration_versions_are_unique():
 
 
 def test_phase6_api_snapshot_and_dashboard_surface_safe_cache_model():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
     dashboard = read("dash/src/views/domain-tabs/DomainCacheTab.vue")
     types = read("dash/src/types.ts")

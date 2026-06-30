@@ -9,8 +9,8 @@ def read(path: str) -> str:
 
 
 def test_phase10_backend_exposes_profile_templates_and_routes():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -39,7 +39,7 @@ def test_phase10_backend_exposes_profile_templates_and_routes():
 
 
 def test_phase10_profiles_compose_real_intents_with_profile_ownership_and_safety():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     docs = read("docs/api/api.md")
     roadmap = read("docs/ROADMAP.md")
     smoke = read("ci/smoke.sh")
@@ -75,7 +75,7 @@ def test_phase10_profiles_compose_real_intents_with_profile_ownership_and_safety
 
 
 def test_phase10_profile_templates_cover_named_product_outcomes():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     docs = read("docs/api/api.md")
     dashboard_view = read("dash/src/views/domain-tabs/DomainSecurityCenterTab.vue")
 

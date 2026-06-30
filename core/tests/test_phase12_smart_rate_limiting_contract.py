@@ -9,8 +9,8 @@ def read(path: str) -> str:
 
 
 def test_phase12_exposes_read_only_smart_rate_limit_template_catalog():
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
     routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
@@ -69,8 +69,8 @@ def test_phase12_rate_limit_events_are_enriched_for_activity():
 def test_phase12_header_based_rate_limit_keys_flow_to_schema_api_and_edge():
     migration = read("core/database/migrations/000008_rate_limit_header_keys.sql")
     schema = read("core/database/schema.sql")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     router = read("edge/openresty/lua/router.lua")
     types = read("dash/src/types.ts")
     docs = read("docs/api/api.md")
@@ -89,8 +89,8 @@ def test_phase12_header_based_rate_limit_keys_flow_to_schema_api_and_edge():
 def test_phase12_dry_run_and_challenge_are_exposed_through_api_and_dashboard():
     routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
-    controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
+    controller = read("core/app/Http/Controllers/Api/TrafficRulesController.php")
+    service = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     router = read("edge/openresty/lua/router.lua")
     dashboard = read("dash/src/views/domain-tabs/DomainRateLimitsTab.vue")
     api = read("dash/src/lib/api/rateLimit.ts")
