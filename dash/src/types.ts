@@ -57,12 +57,6 @@ export interface DnsRecord {
 }
 export type CreateDnsRecordInput = Omit<DnsRecord, 'id' | 'origin_type' | 'origin_content' | 'public_type' | 'public_content'>;
 export type UpdateDnsRecordInput = Partial<CreateDnsRecordInput>;
-export interface DomainRoutingSettings {
-  domain_id: Id; routing_mode: 'geo' | 'anycast' | 'dns_only'; geo_health_port: number;
-  geo_selector: string; anycast_ipv4?: string | null; anycast_ipv6?: string | null; anycast_cname?: string | null;
-}
-export interface DnsRoutingPreview { type: string; content: string; routing_mode: string; powerdns: string; warning?: string | null; }
-export interface EdgeCountry { country_code: string; name?: string; node_count: number; has_ipv4: boolean; has_ipv6: boolean; }
 export type GeoRouteScope = 'default' | 'country' | 'continent';
 export interface GeoRoute {
   id?: Id; route_scope?: GeoRouteScope; country_code?: string | null; continent_code?: string | null;

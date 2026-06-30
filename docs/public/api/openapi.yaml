@@ -130,13 +130,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/overview/warnings:
-    get:
-      tags: [Operations]
-      summary: Readiness and operational warnings
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
   /api/v1/reports/summary:
     get:
       tags: [Reports]
@@ -570,6 +563,17 @@ paths:
           $ref: "#/components/responses/Error"
         "422":
           $ref: "#/components/responses/Error"
+  /api/v1/domains/{domainId}/dns/status:
+    get:
+      tags: [DNS]
+      summary: Domain DNS publication status
+      parameters:
+        - $ref: "#/components/parameters/DomainId"
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/dns/records/{recordId}:
     parameters:
       - $ref: "#/components/parameters/DomainId"
@@ -616,46 +620,6 @@ paths:
           $ref: "#/components/responses/Error"
         "502":
           $ref: "#/components/responses/Error"
-  /api/v1/domains/{domainId}/routing:
-    parameters:
-      - $ref: "#/components/parameters/DomainId"
-    get:
-      tags: [DNS]
-      summary: Show domain routing settings
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-    patch:
-      tags: [DNS]
-      summary: Update domain routing settings
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RoutingSettingsRequest"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-        "422":
-          $ref: "#/components/responses/Error"
-  /api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing:
-    post:
-      tags: [DNS]
-      summary: Preview routing for a DNS record
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-        - $ref: "#/components/parameters/RecordId"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes:
     parameters:
       - $ref: "#/components/parameters/DomainId"
@@ -1214,28 +1178,6 @@ paths:
           $ref: "#/components/responses/GenericObject"
         "404":
           $ref: "#/components/responses/Error"
-  /api/v1/domains/{domainId}/ssl/acme/issue:
-    post:
-      tags: [SSL]
-      summary: Issue ACME certificate
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericObject"
-  /api/v1/domains/{domainId}/ssl/request-cert:
-    post:
-      tags: [SSL]
-      summary: Synchronously request automated certificate issuance
-      parameters:
-        - $ref: "#/components/parameters/DomainId"
-      requestBody:
-        $ref: "#/components/requestBodies/GenericObject"
-      responses:
-        "202":
-          $ref: "#/components/responses/GenericObject"
   /api/v1/domains/{domainId}/ssl/renew:
     post:
       tags: [SSL]
@@ -1283,6 +1225,22 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericArray"
+  /api/v1/edge/config/status:
+    get:
+      tags: [Edge]
+      summary: Edge config publication status
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/edge/config/publish:
+    post:
+      tags: [Edge]
+      summary: Publish active edge config snapshot
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "422":
+          $ref: "#/components/responses/Error"
   /api/v1/edges/pools:
     get:
       tags: [Edge]
@@ -1294,6 +1252,60 @@ paths:
     get:
       tags: [Edge]
       summary: Edge DNS model
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/dns/operations:
+    get:
+      tags: [DNS]
+      summary: DNS operations status
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/dns/zones:
+    get:
+      tags: [DNS]
+      summary: DNS zone convergence status
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/dns/zones/{zone}/actual:
+    get:
+      tags: [DNS]
+      summary: Raw PowerDNS actual zone state
+      parameters:
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/dns/desired:
+    get:
+      tags: [DNS]
+      summary: Desired CDNLite-owned DNS state
+      parameters:
+        - name: zone
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericArray"
+  /api/v1/dns/dry-run:
+    post:
+      tags: [DNS]
+      summary: Preview desired DNS reconciliation
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+  /api/v1/dns/force-sync:
+    post:
+      tags: [DNS]
+      summary: Persist desired DNS state and reconcile PowerDNS
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
@@ -1521,13 +1533,6 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
-  /api/v1/edge-countries:
-    get:
-      tags: [Settings, Edge]
-      summary: List edge country data
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericArray"
   /api/v1/usage/summary:
     get:
       tags: [Analytics]
@@ -1551,6 +1556,21 @@ paths:
       responses:
         "200":
           $ref: "#/components/responses/GenericObject"
+  /api/v1/usage/recalculate/{jobId}:
+    get:
+      tags: [Analytics]
+      summary: Get usage recalculation job status
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericObject"
+        "404":
+          $ref: "#/components/responses/Error"
   /api/v1/domains/{domainId}/analytics/summary:
     get:
       tags: [Analytics]

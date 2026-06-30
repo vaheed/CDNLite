@@ -325,8 +325,8 @@ Exit checks:
 Current progress evidence:
 
 - Laravel `core/routes/api.php` now registers the dashboard-facing SSL route
-  family: settings, certificate list, queued request, job lookup, ACME issue,
-  synchronous request-cert, renewal, ACME status, certificate check, and manual
+  family: settings, certificate list, queued request, job lookup, force renewal,
+  ACME status, certificate check, and manual
   certificate import.
 - `SslRenewalService` owns queued SSL job claiming, stale in-progress retry
   selection, due-renewal scanning, forced renewal, lifecycle history rows,

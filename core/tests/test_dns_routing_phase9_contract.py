@@ -23,12 +23,13 @@ def test_routing_schema_and_planner_contract():
 
 
 def test_routing_api_and_republish_contract():
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     service = read("core/app/Modules/Dns/Services/DnsService.php")
     controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
 
-    assert "/api/v1/domains/{domainId}/routing" in routes
-    assert "/dns/records/{recordId}/preview-routing" in routes
+    assert "/domains/{domainId}/dns/records/{recordId}/geo-routes" in routes
+    assert "/domains/{domainId}/routing" not in routes
+    assert "/dns/records/{recordId}/preview-routing" not in routes
     assert "$this->rebuildDomain($domainId);" in service
     assert "rebuildGeoDomains" in service
     assert "SELECT DISTINCT domain_id FROM dns_records" in service
@@ -52,4 +53,5 @@ def test_dashboard_routing_controls_contract():
     assert "Answer" in view
     assert "Geo + Anycast CDN" not in view
     assert "Anycast IPv4" not in view
-    assert "previewRouting" in api
+    assert "geoRoutes" in api
+    assert "previewRouting" not in api

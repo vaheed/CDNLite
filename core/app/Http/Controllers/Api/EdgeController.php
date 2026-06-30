@@ -21,6 +21,60 @@ final class EdgeController extends Controller
         return response()->json(['data' => DB::table('edge_nodes')->orderBy('edge_id')->get()]);
     }
 
+    public function pools(): JsonResponse
+    {
+        $rows = DB::table('edge_pools as p')
+            ->leftJoin('edge_pool_members as m', 'm.pool_id', '=', 'p.id')
+            ->leftJoin('edge_nodes as e', 'e.id', '=', 'm.edge_node_id')
+            ->orderBy('p.name')
+            ->orderBy('e.edge_id')
+            ->get([
+                'p.id',
+                'p.name',
+                'p.mode',
+                'p.description',
+                'p.created_at',
+                'p.updated_at',
+                'm.id as member_id',
+                'm.enabled as member_enabled',
+                'm.weight as member_weight',
+                'e.edge_id',
+                'e.hostname',
+                'e.status',
+                'e.public_ipv4',
+                'e.public_ipv6',
+            ]);
+
+        $pools = [];
+        foreach ($rows as $row) {
+            $id = (string) $row->id;
+            $pools[$id] ??= [
+                'id' => $id,
+                'name' => (string) $row->name,
+                'mode' => (string) $row->mode,
+                'description' => $row->description,
+                'members' => [],
+                'created_at' => (int) $row->created_at,
+                'updated_at' => (int) $row->updated_at,
+            ];
+
+            if ($row->member_id !== null) {
+                $pools[$id]['members'][] = [
+                    'id' => (string) $row->member_id,
+                    'edge_id' => (string) $row->edge_id,
+                    'hostname' => (string) $row->hostname,
+                    'status' => (string) $row->status,
+                    'public_ipv4' => (string) ($row->public_ipv4 ?? ''),
+                    'public_ipv6' => (string) ($row->public_ipv6 ?? ''),
+                    'enabled' => (bool) $row->member_enabled,
+                    'weight' => (int) $row->member_weight,
+                ];
+            }
+        }
+
+        return response()->json(['data' => array_values($pools)]);
+    }
+
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([

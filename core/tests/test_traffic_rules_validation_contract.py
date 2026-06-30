@@ -29,7 +29,6 @@ $badCachePatch = $c->updateCacheRule('domain-1', 'rule-2', ['ttl_seconds' => 0])
 $badRedirectMatchType = $c->createRedirect('domain-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
 $badRedirectPriority = $c->updateRedirect('domain-1', 'rule-9', ['priority' => 0]);
 $badPageRule = $c->createPageRule('domain-1', ['pattern' => 'admin/*', 'actions' => ['cache' => 'bypass']]);
-$badAcmeHostnames = $c->issueAcmeCertificate('domain-1', ['hostnames' => 'example.com']);
 putenv('CDNLITE_SSL_SECRET_KEY=');
 $missingSslSecret = $c->importManualSslCertificate('domain-1', ['hostname' => 'example.com', 'certificate_pem' => 'x', 'private_key_pem' => 'y']);
 
@@ -47,7 +46,6 @@ echo json_encode([
   'badRedirectMatchType' => $badRedirectMatchType,
   'badRedirectPriority' => $badRedirectPriority,
   'badPageRule' => $badPageRule,
-  'badAcmeHostnames' => $badAcmeHostnames,
   'missingSslSecret' => $missingSslSecret,
 ], JSON_UNESCAPED_SLASHES);
 '''
@@ -87,9 +85,6 @@ echo json_encode([
 
     assert out['badPageRule']['error'] == 'invalid_field'
     assert out['badPageRule']['field'] == 'pattern'
-
-    assert out['badAcmeHostnames']['error'] == 'invalid_field'
-    assert out['badAcmeHostnames']['field'] == 'hostnames'
 
     assert out['missingSslSecret']['error'] == 'invalid_field'
     assert out['missingSslSecret']['field'] == 'CDNLITE_SSL_SECRET_KEY'

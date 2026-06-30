@@ -29,7 +29,7 @@ def test_phase18_ssl_automation_contract():
     schema = (ROOT / "core/database/schema.sql").read_text()
     readiness = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
 
-    for route in ("/ssl/request-cert", "/ssl/renew", "/ssl/acme-status"):
+    for route in ("/ssl/request", "/ssl/renew", "/ssl/acme-status"):
         assert route in routes
     assert "cdn:ssl:renew-due" in artisan
     assert "ssl_renewal_history" in schema
@@ -44,6 +44,8 @@ def test_dashboard_ssl_automation_controls():
 
     for label in ("Auto-renew", "Request Certificate", "Force Renew", "ACME challenge status", "Renewal history"):
         assert label in tab
-    assert "/ssl/request-cert" in api
+    assert "/ssl/request" in api
+    assert "/ssl/request-cert" not in api
+    assert "/ssl/acme/issue" not in api
     assert "/ssl/renew" in api
     assert "/ssl/acme-status" in api

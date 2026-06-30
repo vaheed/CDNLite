@@ -26,6 +26,14 @@ final class DnsRecordService
 
         $records = DB::table('dns_records')
             ->where('domain_id', $domainId)
+            ->select('dns_records.*')
+            ->selectSub(function ($query): void {
+                $query->from('dns_record_geo_routes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('dns_record_geo_routes.dns_record_id', 'dns_records.id')
+                    ->where('enabled', true)
+                    ->where('route_scope', '<>', 'default');
+            }, 'geo_routes_count')
             ->orderBy('name')
             ->orderBy('id')
             ->get()
@@ -45,6 +53,14 @@ final class DnsRecordService
         $row = DB::table('dns_records')
             ->where('domain_id', $domainId)
             ->where('id', $recordId)
+            ->select('dns_records.*')
+            ->selectSub(function ($query): void {
+                $query->from('dns_record_geo_routes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('dns_record_geo_routes.dns_record_id', 'dns_records.id')
+                    ->where('enabled', true)
+                    ->where('route_scope', '<>', 'default');
+            }, 'geo_routes_count')
             ->first();
 
         return $row === null ? null : $this->cast((array) $row, $domain);
@@ -83,6 +99,9 @@ final class DnsRecordService
         ];
 
         DB::table('dns_records')->insert($created);
+        if (array_key_exists('geo_routes', $input)) {
+            $this->replaceGeoRoutes($domainId, $created['id'], (array) $input['geo_routes'], $actor, false);
+        }
         $this->syncDnsOrigin($created);
         $stored = $this->find($domainId, $created['id']);
         $this->afterMutation('dns.record.create', null, $stored, $domainId, $created['id'], $actor);
@@ -131,6 +150,9 @@ final class DnsRecordService
                 'updated_at' => UnixTime::now(),
             ]);
 
+        if (array_key_exists('geo_routes', $input)) {
+            $this->replaceGeoRoutes($domainId, $recordId, (array) $input['geo_routes'], $actor, false);
+        }
         $updated = $this->find($domainId, $recordId);
         if ($updated !== null) {
             $this->syncDnsOrigin($updated);
@@ -173,6 +195,59 @@ final class DnsRecordService
         $this->dnsReconcile->queueForDomain($domainId);
 
         return $this->find($domainId, $recordId);
+    }
+
+    public function geoRoutes(string $domainId, string $recordId): ?array
+    {
+        if ($this->find($domainId, $recordId) === null) {
+            return null;
+        }
+
+        return DB::table('dns_record_geo_routes')
+            ->where('dns_record_id', $recordId)
+            ->orderBy('priority')
+            ->orderBy('route_scope')
+            ->orderBy('country_code')
+            ->orderBy('continent_code')
+            ->get()
+            ->map(fn (object $row): array => $this->castGeoRoute((array) $row))
+            ->all();
+    }
+
+    public function replaceGeoRoutes(string $domainId, string $recordId, array $routes, ?array $actor, bool $markChanged = true): ?array
+    {
+        $record = $this->find($domainId, $recordId);
+        if ($record === null) {
+            return null;
+        }
+        if ($this->bool($record['proxied'] ?? false)) {
+            throw new RuntimeException('geo_routes_require_dns_only_record');
+        }
+        if (!in_array(strtoupper((string) $record['type']), ['A', 'AAAA'], true) && $routes !== []) {
+            throw new RuntimeException('geo_routes_require_address_record');
+        }
+
+        $now = UnixTime::now();
+        $normalized = $this->normalizeGeoRoutes($routes, strtoupper((string) $record['type']));
+        DB::transaction(function () use ($recordId, $normalized, $now): void {
+            DB::table('dns_record_geo_routes')->where('dns_record_id', $recordId)->delete();
+            foreach ($normalized as $index => $route) {
+                DB::table('dns_record_geo_routes')->insert($route + [
+                    'id' => (string) Str::uuid(),
+                    'dns_record_id' => $recordId,
+                    'priority' => $index,
+                    'weight' => 100,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+        });
+
+        if ($markChanged) {
+            $this->afterMutation('dns.geo_routes.update', $record, $this->find($domainId, $recordId), $domainId, $recordId, $actor);
+        }
+
+        return $this->geoRoutes($domainId, $recordId);
     }
 
     private function normalize(array $domain, array $input, bool $allowStatus = false): array
@@ -390,6 +465,7 @@ final class DnsRecordService
         $row['origin_type'] = $row['origin_type'] ?: $row['type'];
         $row['origin_content'] = $row['origin_content'] ?: $row['content'];
         $row['publication_status'] = 'queued';
+        $row['geo_routes_count'] = (int) ($row['geo_routes_count'] ?? 0);
         $row['effective_status'] = $row['status'] === 'active'
             && ($domain['status'] ?? null) === 'active'
             && ($domain['nameserver_status'] ?? null) === 'verified'
@@ -484,5 +560,62 @@ final class DnsRecordService
     private function bool(mixed $value): bool
     {
         return in_array($value, [true, 1, '1', 't', 'true'], true);
+    }
+
+    private function normalizeGeoRoutes(array $routes, string $recordType): array
+    {
+        $seen = [];
+        return array_map(function (array $route) use ($recordType, &$seen): array {
+            $scope = (string) ($route['route_scope'] ?? '');
+            $country = isset($route['country_code']) ? strtoupper((string) $route['country_code']) : null;
+            $continent = isset($route['continent_code']) ? strtoupper((string) $route['continent_code']) : null;
+            $answerType = strtoupper((string) ($route['answer_type'] ?? $recordType));
+            $answer = trim((string) ($route['answer_value'] ?? ''));
+
+            if (!in_array($scope, ['default', 'country', 'continent'], true)) {
+                throw new RuntimeException('invalid_geo_route_scope');
+            }
+            if ($answerType !== $recordType || !in_array($answerType, ['A', 'AAAA'], true)) {
+                throw new RuntimeException('invalid_geo_route_answer_type');
+            }
+            if ($answerType === 'A' && filter_var($answer, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+                throw new RuntimeException('invalid_geo_route_answer');
+            }
+            if ($answerType === 'AAAA' && filter_var($answer, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) === false) {
+                throw new RuntimeException('invalid_geo_route_answer');
+            }
+            if ($scope === 'country' && ($country === null || !preg_match('/^[A-Z]{2}$/', $country))) {
+                throw new RuntimeException('invalid_geo_route_country');
+            }
+            if ($scope === 'continent' && ($continent === null || !in_array($continent, ['AF', 'AN', 'AS', 'EU', 'NA', 'OC', 'SA'], true))) {
+                throw new RuntimeException('invalid_geo_route_continent');
+            }
+
+            $key = $scope.':'.($scope === 'country' ? $country : ($scope === 'continent' ? $continent : 'default'));
+            if (isset($seen[$key])) {
+                throw new RuntimeException('duplicate_geo_route');
+            }
+            $seen[$key] = true;
+
+            return [
+                'route_scope' => $scope,
+                'country_code' => $scope === 'country' ? $country : null,
+                'continent_code' => $scope === 'continent' ? $continent : null,
+                'edge_node_id' => null,
+                'edge_pool_id' => null,
+                'answer_type' => $answerType,
+                'answer_value' => $answer,
+                'enabled' => (bool) ($route['enabled'] ?? true),
+            ];
+        }, $routes);
+    }
+
+    private function castGeoRoute(array $row): array
+    {
+        $row['priority'] = (int) $row['priority'];
+        $row['weight'] = (int) $row['weight'];
+        $row['enabled'] = $this->bool($row['enabled']);
+
+        return $row;
     }
 }

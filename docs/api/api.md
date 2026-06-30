@@ -189,7 +189,6 @@ Useful admin login response fields:
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/v1/overview` | Aggregate operations summary. |
-| `GET` | `/api/v1/overview/warnings` | Readiness and risk warnings. |
 | `GET` | `/api/v1/reports/summary` | CDN operations KPIs, compare-mode deltas, and ranked warnings with stable `key`, `link`, `section`, and `count` fields. Accepts `domain_id`, `from`, `to`, `bucket`, `compare`, and `limit`. |
 | `GET` | `/api/v1/reports/traffic` | Request, bandwidth, cache-ratio, status, top domain/path/visitor-country/edge, and problem-request reports. |
 | `GET` | `/api/v1/reports/cache` | Cache status distribution, hit-ratio trend, cache/origin bytes, uncached paths, and purge timeline. Unsupported ingest fields are returned as `null` with an `unavailable` note. |
@@ -321,9 +320,6 @@ Tips:
 | `PATCH` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Update record. |
 | `DELETE` | `/api/v1/domains/{domainId}/dns/records/{recordId}` | Delete record. |
 | `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile` | Queue PowerDNS reconciliation for one record's domain. |
-| `GET` | `/api/v1/domains/{domainId}/routing` | Show domain routing settings. |
-| `PATCH` | `/api/v1/domains/{domainId}/routing` | Update routing mode and health options. |
-| `POST` | `/api/v1/domains/{domainId}/dns/records/{recordId}/preview-routing` | Preview routing result. |
 | `GET` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | List raw GeoDNS answer routes. |
 | `PUT` | `/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes` | Replace raw GeoDNS answer routes. |
 
@@ -387,8 +383,7 @@ DNS tips:
   target.
 - A DNS-only apex `CNAME` is rejected with `apex_cname_not_allowed`.
 - Keep TTL low during migration, then increase it after a stable cutover.
-- Use `preview-routing` before changing Geo DNS routes on a production record.
-- For apex anycast records, make sure global anycast settings exist before switching policy.
+- Use the DNS Operations view after changing GeoDNS routes to confirm the desired state and PowerDNS actual state match.
 
 ## Origins
 
@@ -614,8 +609,6 @@ Cache tips:
 | `GET` | `/api/v1/domains/{domainId}/ssl/certificates` | List certificates. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/request` | Queue managed SSL flow and return `{ job_id, status, message }`. Defaults to apex plus wildcard hostnames. |
 | `GET` | `/api/v1/domains/{domainId}/ssl/jobs/{jobId}` | Show SSL job progress. |
-| `POST` | `/api/v1/domains/{domainId}/ssl/acme/issue` | Issue ACME certificate. |
-| `POST` | `/api/v1/domains/{domainId}/ssl/request-cert` | Synchronously request automated certificate issuance. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/renew` | Force renewal. |
 | `GET` | `/api/v1/domains/{domainId}/ssl/acme-status` | Show ACME status. |
 | `POST` | `/api/v1/domains/{domainId}/ssl/check` | Check certificates. |
@@ -749,7 +742,6 @@ Snapshot safety tips:
 | `PATCH` | `/api/v1/settings/{group}` | Update settings group. |
 | `POST` | `/api/v1/settings/validate` | Validate settings payload. |
 | `POST` | `/api/v1/settings/test/powerdns` | Test PowerDNS connection. |
-| `GET` | `/api/v1/edge-countries` | List edge country data. |
 
 Settings tips:
 

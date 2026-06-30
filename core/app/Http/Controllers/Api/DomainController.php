@@ -225,6 +225,38 @@ final class DomainController extends Controller
             : response()->json(['data' => ['record' => $record, 'reconciled' => false, 'queued' => true]]);
     }
 
+    public function dnsRecordGeoRoutes(string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        $routes = $dnsRecords->geoRoutes($domainId, $recordId);
+
+        return $routes === null
+            ? response()->json(['error' => 'dns_record_not_found'], 404)
+            : response()->json(['data' => $routes]);
+    }
+
+    public function updateDnsRecordGeoRoutes(Request $request, string $domainId, string $recordId, DnsRecordService $dnsRecords): JsonResponse
+    {
+        $validated = $request->validate([
+            'routes' => ['required', 'array'],
+            'routes.*.route_scope' => ['required', 'in:default,country,continent'],
+            'routes.*.country_code' => ['nullable', 'string', 'size:2'],
+            'routes.*.continent_code' => ['nullable', 'in:AF,AN,AS,EU,NA,OC,SA'],
+            'routes.*.answer_type' => ['required', 'in:A,AAAA'],
+            'routes.*.answer_value' => ['required', 'string', 'max:255'],
+            'routes.*.enabled' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            $routes = $dnsRecords->replaceGeoRoutes($domainId, $recordId, $validated['routes'], $this->adminUser($request));
+        } catch (RuntimeException $e) {
+            return $this->dnsError($e);
+        }
+
+        return $routes === null
+            ? response()->json(['error' => 'dns_record_not_found'], 404)
+            : response()->json(['data' => $routes]);
+    }
+
     public function origins(string $domainId, OriginLifecycleService $origins): JsonResponse
     {
         $rows = $origins->list($domainId);
@@ -328,6 +360,13 @@ final class DomainController extends Controller
             'proxied' => ['sometimes', 'boolean'],
             'origin_host' => ['sometimes', 'nullable', 'string', 'max:253'],
             'status' => ['sometimes', 'in:active,disabled'],
+            'geo_routes' => ['sometimes', 'array'],
+            'geo_routes.*.route_scope' => ['required_with:geo_routes', 'in:default,country,continent'],
+            'geo_routes.*.country_code' => ['nullable', 'string', 'size:2'],
+            'geo_routes.*.continent_code' => ['nullable', 'in:AF,AN,AS,EU,NA,OC,SA'],
+            'geo_routes.*.answer_type' => ['required_with:geo_routes', 'in:A,AAAA'],
+            'geo_routes.*.answer_value' => ['required_with:geo_routes', 'string', 'max:255'],
+            'geo_routes.*.enabled' => ['nullable', 'boolean'],
         ];
     }
 

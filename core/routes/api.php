@@ -54,6 +54,8 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     });
     Route::post('/settings/test/powerdns', static fn (PlatformSettingsController $settings) => response()->json($settings->testPowerDns()));
     Route::get('/audit', [OperationsController::class, 'audit']);
+    Route::get('/events', [OperationsController::class, 'events']);
+    Route::get('/jobs', [OperationsController::class, 'jobs']);
     Route::get('/reports/summary', [ReportController::class, 'summary']);
     Route::get('/reports/traffic', [ReportController::class, 'traffic']);
     Route::get('/reports/cache', [ReportController::class, 'cache']);
@@ -86,6 +88,8 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::patch('/domains/{domainId}/dns/records/{recordId}', [DomainController::class, 'updateDnsRecord']);
     Route::delete('/domains/{domainId}/dns/records/{recordId}', [DomainController::class, 'destroyDnsRecord']);
     Route::post('/domains/{domainId}/dns/records/{recordId}/reconcile', [DomainController::class, 'reconcileDnsRecord']);
+    Route::get('/domains/{domainId}/dns/records/{recordId}/geo-routes', [DomainController::class, 'dnsRecordGeoRoutes']);
+    Route::put('/domains/{domainId}/dns/records/{recordId}/geo-routes', [DomainController::class, 'updateDnsRecordGeoRoutes']);
     Route::get('/domains/{domainId}/origins', [DomainController::class, 'origins']);
     Route::post('/domains/{domainId}/origins', [DomainController::class, 'storeOrigin']);
     Route::get('/domains/{domainId}/origins/health', [DomainController::class, 'originHealth']);
@@ -136,9 +140,9 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
 
     Route::post('/domains/{domainId}/waf-rules', static fn (string $domainId) => $trafficResponse($trafficRules()->createWaf($domainId, request()->all()), 201));
     Route::get('/domains/{domainId}/waf-rules', static fn (string $domainId) => response()->json($trafficRules()->listWaf($domainId)));
-    Route::patch('/domains/{domainId}/waf-rules/{wafId}', static fn (string $domainId, string $wafId) => $trafficResponse($trafficRules()->updateWaf($domainId, $wafId, request()->all())));
+    Route::patch('/domains/{domainId}/waf-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateWaf($domainId, $ruleId, request()->all())));
     Route::post('/domains/{domainId}/waf-rules/{ruleId}/detach-managed', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->detachManagedRule($domainId, 'waf_rule', $ruleId)));
-    Route::delete('/domains/{domainId}/waf-rules/{wafId}', static fn (string $domainId, string $wafId) => $trafficResponse($trafficRules()->deleteWaf($domainId, $wafId)));
+    Route::delete('/domains/{domainId}/waf-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteWaf($domainId, $ruleId)));
 
     Route::post('/domains/{domainId}/headers', static fn (string $domainId) => $trafficResponse($trafficRules()->createHeaderRule($domainId, request()->all()), 201));
     Route::get('/domains/{domainId}/headers', static fn (string $domainId) => response()->json($trafficRules()->listHeaderRules($domainId)));
@@ -207,34 +211,6 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
         $job = $ssl->getJob($domainId, $jobId);
         return $job === null ? response()->json(['error' => 'ssl_job_not_found'], 404) : response()->json(['data' => $job]);
     });
-    Route::post('/domains/{domainId}/ssl/acme/issue', static function (Request $request, string $domainId, SslRenewalService $renewal) {
-        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
-            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
-        }
-        try {
-            return response()->json(['data' => $renewal->request($domainId, (array) $request->input('hostnames', []))]);
-        } catch (\InvalidArgumentException $error) {
-            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
-        } catch (\DomainException $error) {
-            return response()->json(['error' => $error->getMessage(), 'detail' => $error->getMessage() === 'domain_must_be_active' ? 'Verify nameservers before requesting managed SSL.' : null], 422);
-        } catch (\OutOfBoundsException) {
-            return response()->json(['error' => 'domain_not_found'], 404);
-        }
-    });
-    Route::post('/domains/{domainId}/ssl/request-cert', static function (Request $request, string $domainId, SslRenewalService $renewal) {
-        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
-            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
-        }
-        try {
-            return response()->json(['data' => $renewal->request($domainId, (array) $request->input('hostnames', []))]);
-        } catch (\InvalidArgumentException $error) {
-            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
-        } catch (\DomainException $error) {
-            return response()->json(['error' => $error->getMessage(), 'detail' => $error->getMessage() === 'domain_must_be_active' ? 'Verify nameservers before requesting managed SSL.' : null], 422);
-        } catch (\OutOfBoundsException) {
-            return response()->json(['error' => 'domain_not_found'], 404);
-        }
-    });
     Route::post('/domains/{domainId}/ssl/renew', static function (string $domainId, SslRenewalService $renewal) {
         try {
             return response()->json(['data' => $renewal->forceRenew($domainId)]);
@@ -302,6 +278,7 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/dns/force-sync', [DnsOperationsController::class, 'forceSync']);
 
     Route::get('/edge/nodes', [EdgeController::class, 'index']);
+    Route::get('/edges/pools', [EdgeController::class, 'pools']);
     Route::get('/edge/config/status', [EdgeController::class, 'configStatus']);
     Route::post('/edge/config/publish', [EdgeController::class, 'publishConfig']);
     Route::get('/edges/dns', [EdgeController::class, 'dns']);
