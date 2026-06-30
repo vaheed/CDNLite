@@ -9,7 +9,7 @@ def read(path: str) -> str:
 
 
 def test_admin_cli_commands_exist_for_user_maintenance():
-    artisan = read("core/artisan")
+    console_routes = read("core/routes/console.php")
     service = read("core/app/Modules/Admin/Services/AdminAuthService.php")
     admin_list = read("core/app/Console/Commands/CdnAdminListCommand.php")
     admin_password = read("core/app/Console/Commands/CdnAdminPasswordCommand.php")
@@ -23,7 +23,7 @@ def test_admin_cli_commands_exist_for_user_maintenance():
         "cdn:admin:password",
         "cdn:admin:delete",
     ):
-        assert command in artisan
+        assert command in console_routes
 
     assert "public function listUsers()" in service
     assert "public function changePassword" in service

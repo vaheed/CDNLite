@@ -95,7 +95,7 @@ if [[ -n "${CDNLITE_API_TOKEN:-}" ]]; then
 fi
 
 # Initialize core DB schema explicitly before table assertions.
-retry 40 2 docker compose exec -T core php -r "require '/app/app/Support/bootstrap.php'; App\\Support\\Database::pdo(); echo 'ok';" >/dev/null
+retry 40 2 docker compose exec -T core php /app/artisan tinker --execute="DB::connection()->getPdo(); echo 'ok';" >/dev/null
 record_step PASS "core-db-init" "core schema initialization completed"
 docker compose exec -T core php artisan cdn:scheduler:run --force >/tmp/smoke-schedule-run.json
 assert_contains "$(cat /tmp/smoke-schedule-run.json)" '"dns_reconcile"' "cdn:scheduler:run should include DNS reconciliation"

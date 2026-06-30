@@ -27,6 +27,84 @@ Schedule::command('cdnlite:runtime-maintenance')
     ->everyMinute()
     ->withoutOverlapping();
 
+$bridgeOptions = implode(' ', [
+    '{--username=}', '{--password=}', '{--display_name=}', '{--force}', '{--format=}',
+    '{--domain=}', '{--domain_id=}', '{--name=}', '{--user_id=}', '{--id=}',
+    '{--record_id=}', '{--type=}', '{--content=}', '{--ttl=}', '{--priority=}',
+    '{--proxied=}', '{--origin_host=}', '{--origin_tls_verify=}', '{--geo_policy_id=}',
+    '{--geo_origins_json=}', '{--source_path=}', '{--target_url=}', '{--status_code=}',
+    '{--enabled=}', '{--pattern=}', '{--rule_id=}', '{--path_prefix=}', '{--ttl_seconds=}',
+    '{--key=}', '{--value=}', '{--group=}', '{--edge_id=}', '{--token=}', '{--hostnames=}',
+    '{--dry-run}', '{--dry_run}', '{--seed-settings}', '{--seed_settings}', '{--keep=}',
+    '{--batch=}',
+]);
+
+$bridgedCommands = [
+    'cdn:admin:create' => \App\Console\Commands\CdnAdminCreateCommand::class,
+    'cdn:admin:list' => \App\Console\Commands\CdnAdminListCommand::class,
+    'cdn:admin:password' => \App\Console\Commands\CdnAdminPasswordCommand::class,
+    'cdn:admin:delete' => \App\Console\Commands\CdnAdminDeleteCommand::class,
+    'cdn:domain:create' => \App\Console\Commands\CdnDomainCreateCommand::class,
+    'cdn:domain:list' => \App\Console\Commands\CdnDomainListCommand::class,
+    'cdn:domain:show' => \App\Console\Commands\CdnDomainShowCommand::class,
+    'cdn:domain:activate' => \App\Console\Commands\CdnDomainActivateCommand::class,
+    'cdn:domain:verify-ns' => \App\Console\Commands\CdnDomainVerifyNsCommand::class,
+    'cdn:domains:verify-all' => \App\Console\Commands\CdnDomainsVerifyAllCommand::class,
+    'cdn:domain:update' => \App\Console\Commands\CdnDomainUpdateCommand::class,
+    'cdn:domain:delete' => \App\Console\Commands\CdnDomainDeleteCommand::class,
+    'cdn:dns:add-record' => \App\Console\Commands\CdnDnsAddRecordCommand::class,
+    'cdn:dns:list-records' => \App\Console\Commands\CdnDnsListRecordsCommand::class,
+    'cdn:dns:update-record' => \App\Console\Commands\CdnDnsUpdateRecordCommand::class,
+    'cdn:dns:delete-record' => \App\Console\Commands\CdnDnsDeleteRecordCommand::class,
+    'cdn:dns:bootstrap-edge-domain' => \App\Console\Commands\CdnDnsBootstrapEdgeDomainCommand::class,
+    'cdn:dns:sync-edge-domain' => \App\Console\Commands\CdnDnsSyncEdgeDomainCommand::class,
+    'cdn:dns:rebuild-customer-zones' => \App\Console\Commands\CdnDnsRebuildCustomerZonesCommand::class,
+    'cdn:dns:validate-routing' => \App\Console\Commands\CdnDnsValidateRoutingCommand::class,
+    'cdn:edge:disable' => \App\Console\Commands\CdnEdgeDisableCommand::class,
+    'cdn:config-snapshots:prune' => \App\Console\Commands\CdnConfigSnapshotsPruneCommand::class,
+    'cdn:settings:get' => \App\Console\Commands\CdnSettingsGetCommand::class,
+    'cdn:settings:set' => \App\Console\Commands\CdnSettingsSetCommand::class,
+    'cdn:settings:test-powerdns' => \App\Console\Commands\CdnSettingsTestPowerDnsCommand::class,
+    'cdn:readiness:check' => \App\Console\Commands\CdnReadinessCheckCommand::class,
+    'cdn:redirect:create' => \App\Console\Commands\CdnRedirectCreateCommand::class,
+    'cdn:redirect:list' => \App\Console\Commands\CdnRedirectListCommand::class,
+    'cdn:redirect:update' => \App\Console\Commands\CdnRedirectUpdateCommand::class,
+    'cdn:redirect:delete' => \App\Console\Commands\CdnRedirectDeleteCommand::class,
+    'cdn:waf:create' => \App\Console\Commands\CdnWafCreateCommand::class,
+    'cdn:waf:list' => \App\Console\Commands\CdnWafListCommand::class,
+    'cdn:waf:update' => \App\Console\Commands\CdnWafUpdateCommand::class,
+    'cdn:waf:delete' => \App\Console\Commands\CdnWafDeleteCommand::class,
+    'cdn:cache-rule:create' => \App\Console\Commands\CdnCacheRuleCreateCommand::class,
+    'cdn:cache-rule:list' => \App\Console\Commands\CdnCacheRuleListCommand::class,
+    'cdn:cache-rule:update' => \App\Console\Commands\CdnCacheRuleUpdateCommand::class,
+    'cdn:cache-rule:delete' => \App\Console\Commands\CdnCacheRuleDeleteCommand::class,
+    'cdn:cache:purge' => \App\Console\Commands\CdnCachePurgeCommand::class,
+    'cdn:cache:settings' => \App\Console\Commands\CdnCacheSettingsCommand::class,
+    'cdn:header:create' => \App\Console\Commands\CdnHeaderCreateCommand::class,
+    'cdn:header:list' => \App\Console\Commands\CdnHeaderListCommand::class,
+    'cdn:header:update' => \App\Console\Commands\CdnHeaderUpdateCommand::class,
+    'cdn:header:delete' => \App\Console\Commands\CdnHeaderDeleteCommand::class,
+    'cdn:ip-rule:create' => \App\Console\Commands\CdnIpRuleCreateCommand::class,
+    'cdn:ip-rule:list' => \App\Console\Commands\CdnIpRuleListCommand::class,
+    'cdn:ip-rule:update' => \App\Console\Commands\CdnIpRuleUpdateCommand::class,
+    'cdn:ip-rule:delete' => \App\Console\Commands\CdnIpRuleDeleteCommand::class,
+    'cdn:origins:health-check' => \App\Console\Commands\CdnOriginsHealthCheckCommand::class,
+    'cdn:origins:list' => \App\Console\Commands\CdnOriginsListCommand::class,
+    'cdn:ssl:list' => \App\Console\Commands\CdnSslListCommand::class,
+    'cdn:ssl:request' => \App\Console\Commands\CdnSslRequestCommand::class,
+    'cdn:db:migrate' => \App\Console\Commands\CdnDbMigrateCommand::class,
+    'cdn:db:status' => \App\Console\Commands\CdnDbStatusCommand::class,
+    'cdn:db:fresh' => \App\Console\Commands\CdnDbFreshCommand::class,
+    'cdn:bootstrap:fresh' => \App\Console\Commands\CdnBootstrapFreshCommand::class,
+    'cdn:scheduler:run' => \App\Console\Commands\ScheduleRunCommand::class,
+];
+
+foreach ($bridgedCommands as $commandName => $handlerClass) {
+    Artisan::command("{$commandName} {$bridgeOptions}", function () use ($handlerClass): int {
+        return app($handlerClass)($_SERVER['argv'] ?? []);
+    })->purpose("Run {$commandName} through the Laravel console bootstrap");
+}
+
 Artisan::command('cdn:dns:reconcile {--force}', function (): int {
     $result = app(DnsPowerDnsReconciler::class)->forceSync();
     $this->line(json_encode(['data' => $result], JSON_UNESCAPED_SLASHES));

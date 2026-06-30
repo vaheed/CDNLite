@@ -4,29 +4,6 @@
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
-$command = $argv[1] ?? null;
-$laravelCdnCommands = [
-    'cdn:dns:reconcile',
-    'cdn:powerdns:doctor',
-    'cdn:powerdns:dry-run',
-    'cdn:powerdns:force-sync',
-    'cdn:edge:list',
-    'cdn:edge:register-token',
-    'cdn:edge:rotate-token',
-    'cdn:edge:show',
-    'cdn:edge:sync-config',
-    'cdn:usage:ingest',
-    'cdn:usage:summary',
-    'cdn:usage:recalculate',
-    'cdn:usage:prune',
-    'cdn:recommendations:generate',
-    'cdn:ssl:renew-due',
-];
-if (is_string($command) && str_starts_with($command, 'cdn:') && !in_array($command, $laravelCdnCommands, true)) {
-    require __DIR__ . '/artisan-legacy';
-    return;
-}
-
 define('LARAVEL_START', microtime(true));
 
 // Register the Composer autoloader...

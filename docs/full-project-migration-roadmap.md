@@ -27,7 +27,7 @@ Current estimated migration progress: **65% complete, with SSL route ownership, 
 | 55% | Complete | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room, route-debug, protection catalogs, and onboarding route ownership covered by Laravel feature tests; full edge/dashboard/e2e hardening continues in later slices. |
 | 65% | Complete | SSL settings, certificates, queued request, job lookup, ACME status, validation, manual/import, renewal job processing, forced renewal, due-renewal scanning, and scheduler command ownership moved into Laravel services. |
 | 75% | Pending | Dashboard API contract alignment and remaining API/OpenAPI cleanup. |
-| 85% | Pending | Laravel CLI command conversion and scheduler ownership complete. |
+| 85% | In progress | Laravel CLI command conversion and scheduler ownership moving through Laravel console; legacy command runner removed. |
 | 92% | Pending | Legacy route/module isolation complete; old runtime has no write path. |
 | 97% | Pending | Old core files, custom router, old support layer, and obsolete tests removed. |
 | 100% | Pending | Full smoke, e2e, DNS e2e, stress, docs, CI, and deployment validation green. |
@@ -386,6 +386,9 @@ Current progress evidence:
   `core/routes/api.php` for Laravel-owned rate-limit, waiting-room, and API
   protection routes instead of treating `core/public_index.php` as the runtime
   registry.
+- Smoke DB initialization now verifies the Laravel database connection through
+  `/app/artisan` instead of requiring `app/Support/bootstrap.php` and
+  `App\Support\Database`.
 - Focused validation passed: Laravel route/OpenAPI comparison, OpenAPI YAML
   parse, full PHP lint, dashboard typecheck, and focused pytest contract set.
 - Local validation blockers remain: dashboard tests/build require Node
@@ -395,7 +398,7 @@ Current progress evidence:
 
 ### 88-94% CLI Conversion
 
-Status: **Pending**.
+Status: **In progress**.
 
 Scope:
 
@@ -410,6 +413,27 @@ Exit checks:
 - Command feature/integration tests.
 - `php artisan list` is the source of truth.
 - Old command runner has no required production command left.
+
+Current progress evidence:
+
+- `core/artisan` no longer falls back to `core/artisan-legacy` for unsupported
+  `cdn:*` commands.
+- Existing CLI handlers that are still being rewritten as first-class Laravel
+  commands are registered through `core/routes/console.php`, so supported
+  commands bootstrap Laravel and appear in `php artisan list`.
+- Deleted `core/artisan-legacy` and `core/app/Console/CommandRunner.php`; no
+  first-party runtime, docs, deploy, or CI references to `artisan-legacy` remain.
+- Container validation showed the full `cdn:*` command surface in
+  `php artisan list --raw`; read-only bridged commands executed through Laravel.
+
+Remaining risks:
+
+- Some bridged handlers still instantiate older service classes directly and
+  should be converted to first-class Laravel command implementations before the
+  phase is marked complete.
+- A forced scheduler run executed through Laravel but surfaced existing local
+  PowerDNS API and ACME contact failures, so scheduler success still needs a
+  clean disposable runtime environment.
 
 ### 94-98% Legacy Runtime Removal
 
