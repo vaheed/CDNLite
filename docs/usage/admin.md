@@ -57,10 +57,10 @@ The delete command refuses to remove the last active admin unless `--force=true`
 is supplied. Create or verify another active admin before deleting production
 credentials.
 
-Turn off bootstrap after creating durable users:
+Clear the local seeded password after creating durable users:
 
 ```text
-CDNLITE_BOOTSTRAP_ADMIN_USER=0
+CDNLITE_DEV_ADMIN_PASSWORD=
 ```
 
 ## Register Edge Tokens

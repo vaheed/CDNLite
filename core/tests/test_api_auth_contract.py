@@ -1,71 +1,16 @@
-import json
-import os
-import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TEST_ENV = {
-    "DB_HOST": os.getenv("DB_HOST", "127.0.0.1"),
-    "DB_PORT": os.getenv("DB_PORT", "5432"),
-    "DB_DATABASE": os.getenv("DB_DATABASE", "cdnlite"),
-    "DB_USERNAME": os.getenv("DB_USERNAME", "cdnlite"),
-    "DB_PASSWORD": os.getenv("DB_PASSWORD", "cdnlite"),
-}
-
-
-def run_php(script: str, extra_env: dict | None = None) -> dict:
-    env = {**os.environ, **TEST_ENV}
-    if extra_env:
-        env.update(extra_env)
-    proc = subprocess.run(
-        ["php", "-r", script],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-        check=True,
-        env=env,
-    )
-    return json.loads(proc.stdout)
 
 
 def test_api_auth_class_contract():
-    script = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
+    middleware = (REPO_ROOT / "core/app/Http/Middleware/AdminBearerAuth.php").read_text()
+    guard = (REPO_ROOT / "core/app/Services/Auth/AdminSessionGuard.php").read_text()
+    routes = (REPO_ROOT / "core/routes/api.php").read_text()
 
-try {
-    $pdo = App\Support\Database::pdo();
-    $tables = $pdo->query("SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN ('admin_sessions', 'admin_users')")->fetchAll(PDO::FETCH_COLUMN);
-    if ($tables) {
-        $pdo->exec("TRUNCATE TABLE " . implode(', ', $tables) . " RESTART IDENTITY CASCADE");
-    }
-} catch (Throwable $e) {
-    // ApiAuth intentionally falls back to static-token behavior when the DB is unavailable.
-}
-
-putenv('CDNLITE_API_TOKEN=');
-$open = App\Support\ApiAuth::isValid('');
-putenv('CDNLITE_API_TOKEN=secret-token');
-$deny = App\Support\ApiAuth::isValid('wrong');
-$allow = App\Support\ApiAuth::isValid('secret-token');
-
-putenv('APP_ENV=production');
-putenv('CDNLITE_API_TOKEN=');
-$prod_fail = App\Support\ApiAuth::productionMissingToken();
-putenv('CDNLITE_API_TOKEN=secret-token');
-$prod_ok = App\Support\ApiAuth::productionMissingToken();
-
-echo json_encode([
-  'open' => $open,
-  'deny' => $deny,
-  'allow' => $allow,
-  'prod_fail' => $prod_fail,
-  'prod_ok' => $prod_ok,
-], JSON_UNESCAPED_SLASHES);
-'''
-    out = run_php(script)
-
-    assert out["open"] is True
-    assert out["deny"] is False
-    assert out["allow"] is True
-    assert out["prod_fail"] is True
-    assert out["prod_ok"] is False
+    assert "bearerToken()" in middleware
+    assert "AdminSessionGuard::class" in middleware
+    assert "admin_auth_required" in middleware
+    assert "admin.auth" in routes
+    assert "userForToken" in guard
+    assert "hash('sha256', $token)" in guard

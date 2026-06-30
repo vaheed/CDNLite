@@ -438,14 +438,14 @@ wait_for_postgres
 retry 40 2 db_query "SELECT 1;" >/dev/null
 record_step PASS "stack-ready" "core, edge, and dashboard health passed (readiness waits for config)"
 
-if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
-  bootstrap_admin_code="$(curl -sS -o /tmp/e2e-bootstrap-admin-login.json -w '%{http_code}' \
+if [[ -n "${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}" && -n "${CDNLITE_DEV_ADMIN_PASSWORD:-cdnlite-local-admin}" ]]; then
+  seeded_admin_code="$(curl -sS -o /tmp/e2e-seeded-admin-login.json -w '%{http_code}' \
     -X POST "${CORE_URL}/api/v1/admin/login" \
     -H 'Content-Type: application/json' \
-    -d '{"username":"admin","password":"admin"}')"
-  assert_eq "$bootstrap_admin_code" "200" "bootstrap admin login should return 200"
-  assert_contains "$(cat /tmp/e2e-bootstrap-admin-login.json)" '"username":"admin"' "bootstrap admin login should include admin user"
-  record_step PASS "bootstrap-admin-login" "default dashboard bootstrap admin can log in"
+    -d "{\"username\":\"${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}\",\"password\":\"${CDNLITE_DEV_ADMIN_PASSWORD:-cdnlite-local-admin}\"}")"
+  assert_eq "$seeded_admin_code" "200" "seeded admin login should return 200"
+  assert_contains "$(cat /tmp/e2e-seeded-admin-login.json)" "\"username\":\"${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}\"" "seeded admin login should include admin user"
+  record_step PASS "seeded-admin-login" "default dashboard seeded admin can log in"
 fi
 
 docker compose exec -T core php artisan cdn:admin:create --username="$ADMIN_USERNAME" --password="$ADMIN_PASSWORD" --display_name="E2E Admin" >/dev/null

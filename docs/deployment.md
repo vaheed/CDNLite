@@ -171,7 +171,7 @@ in time.
 
 - Terminate TLS before Core and dashboard; expose neither PostgreSQL nor the
   PowerDNS API to the public Internet.
-- Disable bootstrap admin and edge-token creation after provisioning.
+- Clear the seeded admin password and disable edge-token creation after provisioning.
 - Use unique long database, API, SSL, origin-shield, PowerDNS, and edge secrets.
 - Restrict dashboard CORS origins and Poweradmin access.
 - Allow inbound DNS TCP/UDP 53 only where authoritative DNS is deployed.

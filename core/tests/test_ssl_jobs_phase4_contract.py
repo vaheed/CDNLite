@@ -26,7 +26,7 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     renewals = read("core/app/Modules/Proxy/Services/CertRenewalService.php")
-    public_index = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -45,11 +45,11 @@ def test_ssl_request_endpoint_returns_job_and_status_route():
     assert "public function getSslJob(string $domainId, string $jobId)" in controller
     assert "Verify nameservers before requesting managed SSL." in controller
     assert "'error' => 'domain_must_be_active'" in controller
-    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in public_index
+    assert "/domains/{domainId}/ssl/jobs/{jobId}" in routes
     assert "'jobs' => $this->certificates->listSslJobs($domainId)" in renewals
-    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}" in docs
+    assert "/domains/{domainId}/ssl/jobs/{jobId}" in docs
     assert "scheduler_stale" in docs
-    assert "/api/v1/domains/{domainId}/ssl/jobs/{jobId}:" in openapi
+    assert "/domains/{domainId}/ssl/jobs/{jobId}:" in openapi
 
 
 def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
@@ -73,7 +73,7 @@ def test_ssl_lifecycle_events_and_job_transitions_are_recorded():
     assert "'queued_issuance'" in renewals
     assert "processQueuedJobs()" in command
     assert "renewDue()" in command
-    assert "requestSslJob($domainId, $hostnames)" in read("core/app/Console/Commands/CdnSslRequestCommand.php")
+    assert "requestJob($domainId, $hostnames)" in read("core/app/Console/Commands/CdnSslRequestCommand.php")
     assert "CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS:-30" in compose
     assert "CDNLITE_SSL_JOB_STALE_RETRY_SECONDS" in compose
     assert "ssl.dns_challenge_created" in issuer
@@ -112,7 +112,7 @@ def test_wildcard_ssl_is_automatic_after_dns_verification():
 
     assert "queueManagedWildcardSsl($domainId)" in verification
     assert "ensureManagedSslForProxiedRecord" in dns_service
-    assert "ensureManagedWildcardSslJob($domainId)" in dns_service
+    assert "ensureManagedWildcardJob($domainId)" in dns_service
     assert "ensureManagedWildcardSslJob" in service
     assert "hasActiveSslJob" in service
     assert "hasActiveManagedCertificate" in service

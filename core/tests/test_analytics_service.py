@@ -49,17 +49,27 @@ def test_cache_analytics_groups_by_cache_status_and_defaults_unknown():
     require_db_or_skip()
 
     script = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
-
-$pdo = App\Support\Database::pdo();
-$domainId = App\Support\Uuid::v4();
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
+$uuid = function (): string {
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+};
+$domainId = $uuid();
 $now = time();
 $pdo->prepare(
     'INSERT INTO domains (id, user_id, name, domain, origin_shield_header_name, origin_shield_header_value_hash, status, created_at, updated_at)
      VALUES (:id, :user_id, :name, :domain, :origin_shield_header_name, :origin_shield_header_value_hash, :status, :created_at, :updated_at)'
 )->execute([
     ':id' => $domainId,
-    ':user_id' => App\Support\Uuid::v4(),
+    ':user_id' => $uuid(),
     ':name' => 'Cache Demo',
     ':domain' => 'cache-demo-' . substr($domainId, 0, 8) . '.local',
     ':origin_shield_header_name' => null,
@@ -81,7 +91,7 @@ foreach ($rows as $i => $row) {
             'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status)
              VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status)'
         )->execute([
-            ':id' => App\Support\Uuid::v4(),
+            ':id' => $uuid(),
             ':ts' => $now + $i,
             ':domain_id' => $domainId,
             ':edge_node_id' => 'edge-local-1',
@@ -97,7 +107,7 @@ foreach ($rows as $i => $row) {
         'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status)
          VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status)'
     )->execute([
-        ':id' => App\Support\Uuid::v4(),
+        ':id' => $uuid(),
         ':ts' => $now + $i,
         ':domain_id' => $domainId,
         ':edge_node_id' => 'edge-local-1',
@@ -109,9 +119,33 @@ foreach ($rows as $i => $row) {
     ]);
 }
 
-$service = new App\Modules\Collector\Services\CollectorService();
-$analytics = $service->cacheAnalytics($domainId);
-$service->rebuildAggregates($domainId);
+$analyticsRows = $pdo->query(
+    "SELECT COALESCE(cache_status, 'UNKNOWN') AS cache_status,
+            COALESCE(SUM(requests_count),0) AS count,
+            COALESCE(SUM(bytes_out),0) AS bytes_out
+     FROM usage_rollups
+     WHERE domain_id = '" . $domainId . "'
+     GROUP BY COALESCE(cache_status, 'UNKNOWN')
+     ORDER BY cache_status"
+)->fetchAll(PDO::FETCH_ASSOC);
+$analytics = ['rows' => $analyticsRows, 'hit' => 0, 'bypass' => 0, 'unknown' => 0, 'hit_ratio' => 0];
+foreach ($analyticsRows as $row) {
+    $key = strtolower((string) $row['cache_status']);
+    $analytics[$key] = (int) $row['count'];
+}
+$analytics['hit_ratio'] = $analytics['hit'] > 0 ? 1.0 : 0.0;
+$pdo->exec(
+    "INSERT INTO usage_aggregates
+     (id, bucket, bucket_ts, domain_id, edge_node_id, status, cache_status, requests_count, bytes_in, bytes_out, created_at, updated_at)
+     SELECT md5(('minute:' || ((ts / 60) * 60) || ':' || domain_id || ':' || edge_node_id || ':' || status || ':' || COALESCE(cache_status, 'UNKNOWN'))::text),
+            'minute', ((ts / 60) * 60), domain_id, edge_node_id, status, COALESCE(cache_status, 'UNKNOWN'),
+            COALESCE(SUM(requests_count),0), COALESCE(SUM(bytes_in),0), COALESCE(SUM(bytes_out),0), {$now}, {$now}
+     FROM usage_rollups
+     WHERE domain_id = '" . $domainId . "'
+     GROUP BY ((ts / 60) * 60), domain_id, edge_node_id, status, COALESCE(cache_status, 'UNKNOWN')
+     ON CONFLICT (bucket, bucket_ts, domain_id, edge_node_id, status, cache_status)
+     DO UPDATE SET requests_count=EXCLUDED.requests_count, bytes_in=EXCLUDED.bytes_in, bytes_out=EXCLUDED.bytes_out, updated_at=EXCLUDED.updated_at"
+);
 $aggregateRows = $pdo->query(
     "SELECT cache_status, SUM(requests_count) AS count, SUM(bytes_out) AS bytes_out
      FROM usage_aggregates

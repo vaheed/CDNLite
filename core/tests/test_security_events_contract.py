@@ -79,7 +79,7 @@ def test_security_events_endpoint_contract():
     env = {**os.environ, **TEST_ENV, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage9-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -100,13 +100,24 @@ def test_security_events_endpoint_contract():
         domain_id = domain["data"]["id"]
 
         insert = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
-$pdo = App\Support\Database::pdo();
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
 $now = time();
 $domainId = $argv[1];
+$uuid = function (): string {
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+};
 $q = $pdo->prepare('INSERT INTO audit_log (id, actor_type, actor_id, action, resource_type, resource_id, domain_id, details_json, event, created_at) VALUES (:id,:actor_type,:actor_id,:action,:resource_type,:resource_id,:domain_id,:details_json,:event,:created_at)');
-$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'r1',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'waf_match',':created_at'=>$now-1]);
-$q->execute([':id'=>App\Support\Uuid::v4(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'rate_limit',':resource_id'=>'r2',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'rate_limited',':created_at'=>$now]);
+$q->execute([':id'=>$uuid(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'waf',':resource_id'=>'r1',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'waf_match',':created_at'=>$now-1]);
+$q->execute([':id'=>$uuid(),':actor_type'=>'system',':actor_id'=>'edge-1',':action'=>'inspect',':resource_type'=>'rate_limit',':resource_id'=>'r2',':domain_id'=>$domainId,':details_json'=>'{"decision":"block"}',':event'=>'rate_limited',':created_at'=>$now]);
 echo "ok";
 '''
         subprocess.run(["php", "-r", insert, domain_id], cwd=str(REPO_ROOT), check=True, capture_output=True, text=True, env=env)

@@ -11,7 +11,7 @@ def read(path: str) -> str:
 def test_waiting_room_schema_api_and_snapshot_contract_are_wired():
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000029_waiting_room.sql")
-    public_index = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
@@ -34,9 +34,9 @@ def test_waiting_room_schema_api_and_snapshot_contract_are_wired():
         assert field in migration
         assert field in service
 
-    assert "/api/v1/domains/{domainId}/waiting-room" in public_index
-    assert "waiting-room/emergency/activate" in public_index
-    assert "waiting-room/emergency/deactivate" in public_index
+    assert "/domains/{domainId}/waiting-room" in routes
+    assert "waiting-room/emergency/activate" in routes
+    assert "waiting-room/emergency/deactivate" in routes
     assert "getWaitingRoom" in controller
     assert "updateWaitingRoom" in controller
     assert "activateWaitingRoomEmergency" in controller
@@ -111,5 +111,5 @@ def test_dashboard_docs_smoke_and_phase_gate_cover_waiting_room():
     assert "Waiting room" in docs_api
     assert "Waiting Room Admission" in docs_security
     assert "CDNLITE_EDGE_WAITING_ROOM_SECRET" in docs_setup
-    assert "/api/v1/domains/{domainId}/waiting-room" in openapi
+    assert "/domains/{domainId}/waiting-room" in openapi
     assert "Phase 5 waiting room" in changelog

@@ -112,7 +112,7 @@ def test_api_token_enforced_on_admin_routes_but_not_edge_auth_contract():
     }
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -174,7 +174,7 @@ def test_ready_fails_in_production_without_api_token():
     }
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

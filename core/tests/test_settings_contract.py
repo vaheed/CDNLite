@@ -9,14 +9,14 @@ def read(path: str) -> str:
 
 def test_settings_schema_and_routes_are_present():
     schema = read("core/database/schema.sql")
-    public = read("core/public_index.php")
+    public = read("core/routes/api.php")
     assert "CREATE TABLE IF NOT EXISTS platform_settings" in schema
     assert "CREATE TABLE IF NOT EXISTS platform_settings_audit" in schema
     for route in [
-        "/api/v1/settings",
-        "/api/v1/settings/{group}",
-        "/api/v1/settings/validate",
-        "/api/v1/settings/test/powerdns",
+        "/settings",
+        "/settings/{group}",
+        "/settings/validate",
+        "/settings/test/powerdns",
     ]:
         assert route in public
 

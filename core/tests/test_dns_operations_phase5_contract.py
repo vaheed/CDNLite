@@ -9,16 +9,16 @@ def read(path: str) -> str:
 
 
 def test_dns_operations_api_exposes_setup_sync_and_operator_actions():
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     service = read("core/app/Modules/Dns/Services/DnsOperationsService.php")
 
     for endpoint in [
-        "/api/v1/dns/operations",
-        "/api/v1/dns/zones",
-        "/api/v1/dns/desired",
-        "/api/v1/dns/dry-run",
-        "/api/v1/dns/force-sync",
-        "/api/v1/domains/{domainId}/dns/status",
+        "/dns/operations",
+        "/dns/zones",
+        "/dns/desired",
+        "/dns/dry-run",
+        "/dns/force-sync",
+        "/domains/{domainId}/dns/status",
     ]:
         assert endpoint in routes
     for capability in [

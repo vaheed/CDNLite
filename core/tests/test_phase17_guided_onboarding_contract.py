@@ -13,7 +13,7 @@ def test_phase17_guided_onboarding_backend_schema_and_routes_exist():
     migration = read("core/database/migrations/000014_domain_onboarding.sql")
     service = read("core/app/Modules/Onboarding/Services/OnboardingService.php")
     controller = read("core/app/Modules/Onboarding/Http/Controllers/OnboardingController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
 
     for field in (
         "domain_onboarding",
@@ -43,12 +43,12 @@ def test_phase17_guided_onboarding_backend_schema_and_routes_exist():
     assert "public function answers" in controller
 
     for route in (
-        "/api/v1/domains/{domainId}/onboarding",
-        "/api/v1/domains/{domainId}/onboarding/answers",
-        "/api/v1/domains/{domainId}/onboarding/preview",
-        "/api/v1/domains/{domainId}/onboarding/apply",
-        "/api/v1/domains/{domainId}/onboarding/skip",
-        "/api/v1/domains/{domainId}/onboarding/resume",
+        "/domains/{domainId}/onboarding",
+        "/domains/{domainId}/onboarding/answers",
+        "/domains/{domainId}/onboarding/preview",
+        "/domains/{domainId}/onboarding/apply",
+        "/domains/{domainId}/onboarding/skip",
+        "/domains/{domainId}/onboarding/resume",
     ):
         assert route in routes
 
@@ -84,7 +84,7 @@ def test_phase17_dashboard_docs_smoke_and_e2e_are_wired():
     assert "/onboarding/answers" in api
     assert "OnboardingState" in types
     assert "Guided Onboarding" in docs
-    assert "/api/v1/domains/{domainId}/onboarding/answers" in openapi
+    assert "/domains/{domainId}/onboarding/answers" in openapi
     assert "schema-onboarding" in smoke
     assert "dashboard-onboarding-bundle" in smoke
     assert "guided-onboarding-flow" in e2e

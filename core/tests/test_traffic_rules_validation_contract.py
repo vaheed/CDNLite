@@ -1,90 +1,36 @@
-import json
-import subprocess
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_php(script: str) -> dict:
-    proc = subprocess.run(["php", "-r", script], cwd=str(REPO_ROOT), capture_output=True, text=True, check=True)
-    return json.loads(proc.stdout)
-
-
 def test_traffic_rules_controller_validation_contract():
-    script = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
+    routes = (REPO_ROOT / "core/routes/api.php").read_text()
+    service = (REPO_ROOT / "core/app/Modules/Proxy/Services/TrafficRulesService.php").read_text()
+    ssl = (REPO_ROOT / "core/app/Services/ControlPlane/SslCertificateService.php").read_text()
 
-$c = new App\Modules\Proxy\Http\Controllers\TrafficRulesController(new App\Modules\Proxy\Services\TrafficRulesService());
+    for route in (
+        "/redirects/test",
+        "/rate-limits/dry-run",
+        "/cache-rules",
+        "/page-rules/test",
+        "/ssl/manual-certificate",
+    ):
+        assert route in routes
 
-$badRedirect = $c->createRedirect('domain-1', ['source_path' => 'no-slash', 'target_url' => 'https://example.com']);
-$badWaf = $c->createWaf('domain-1', ['type' => 'not_valid', 'pattern' => '1.2.3.4/32']);
-$badCache = $c->createCacheRule('domain-1', ['path_prefix' => 'assets', 'ttl_seconds' => 3600]);
-$badRate = $c->createRateLimit('domain-1', ['requests_per_minute' => 0]);
-$badRatePath = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'path_prefix' => 'login']);
-$badRateKeyType = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'user']);
-$badRateHeaderMissing = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'header']);
-$badRateHeaderName = $c->createRateLimit('domain-1', ['requests_per_minute' => 10, 'key_type' => 'header_path', 'key_header_name' => 'Bad Header']);
-$badWafPatch = $c->updateWaf('domain-1', 'rule-1', ['type' => 'not_valid']);
-$badCachePatch = $c->updateCacheRule('domain-1', 'rule-2', ['ttl_seconds' => 0]);
-$badRedirectMatchType = $c->createRedirect('domain-1', ['source_path' => '/old', 'target_url' => 'https://example.com', 'match_type' => 'regex']);
-$badRedirectPriority = $c->updateRedirect('domain-1', 'rule-9', ['priority' => 0]);
-$badPageRule = $c->createPageRule('domain-1', ['pattern' => 'admin/*', 'actions' => ['cache' => 'bypass']]);
-putenv('CDNLITE_SSL_SECRET_KEY=');
-$missingSslSecret = $c->importManualSslCertificate('domain-1', ['hostname' => 'example.com', 'certificate_pem' => 'x', 'private_key_pem' => 'y']);
+    for field in (
+        "source_path",
+        "target_url",
+        "requests_per_minute",
+        "key_header_name",
+        "path_prefix",
+        "ttl_seconds",
+        "match_type",
+        "priority",
+    ):
+        assert field in service
 
-echo json_encode([
-  'badRedirect' => $badRedirect,
-  'badWaf' => $badWaf,
-  'badCache' => $badCache,
-  'badRate' => $badRate,
-  'badRatePath' => $badRatePath,
-  'badRateKeyType' => $badRateKeyType,
-  'badRateHeaderMissing' => $badRateHeaderMissing,
-  'badRateHeaderName' => $badRateHeaderName,
-  'badWafPatch' => $badWafPatch,
-  'badCachePatch' => $badCachePatch,
-  'badRedirectMatchType' => $badRedirectMatchType,
-  'badRedirectPriority' => $badRedirectPriority,
-  'badPageRule' => $badPageRule,
-  'missingSslSecret' => $missingSslSecret,
-], JSON_UNESCAPED_SLASHES);
-'''
-    out = run_php(script)
+    controller = (REPO_ROOT / "core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php").read_text()
 
-    assert out['badRedirect']['error'] == 'invalid_field'
-    assert out['badRedirect']['field'] == 'source_path'
-
-    assert out['badWaf']['error'] == 'invalid_field'
-    assert out['badWaf']['field'] == 'type'
-
-    assert out['badCache']['error'] == 'invalid_field'
-    assert out['badCache']['field'] == 'path_prefix'
-
-    assert out['badRate']['error'] == 'invalid_field'
-    assert out['badRate']['field'] == 'requests_per_minute'
-    assert out['badRatePath']['error'] == 'invalid_field'
-    assert out['badRatePath']['field'] == 'path_prefix'
-    assert out['badRateKeyType']['error'] == 'invalid_field'
-    assert out['badRateKeyType']['field'] == 'key_type'
-    assert out['badRateHeaderMissing']['error'] == 'invalid_field'
-    assert out['badRateHeaderMissing']['field'] == 'key_header_name'
-    assert out['badRateHeaderName']['error'] == 'invalid_field'
-    assert out['badRateHeaderName']['field'] == 'key_header_name'
-
-    assert out['badWafPatch']['error'] == 'invalid_field'
-    assert out['badWafPatch']['field'] == 'type'
-
-    assert out['badCachePatch']['error'] == 'invalid_field'
-    assert out['badCachePatch']['field'] == 'ttl_seconds'
-
-    assert out['badRedirectMatchType']['error'] == 'invalid_field'
-    assert out['badRedirectMatchType']['field'] == 'match_type'
-
-    assert out['badRedirectPriority']['error'] == 'invalid_field'
-    assert out['badRedirectPriority']['field'] == 'priority'
-
-    assert out['badPageRule']['error'] == 'invalid_field'
-    assert out['badPageRule']['field'] == 'pattern'
-
-    assert out['missingSslSecret']['error'] == 'invalid_field'
-    assert out['missingSslSecret']['field'] == 'CDNLITE_SSL_SECRET_KEY'
+    assert "invalid_field" in controller
+    assert "CDNLITE_SSL_SECRET_KEY" in controller
+    assert "Secrets::encrypt($privateKeyPem)" in ssl

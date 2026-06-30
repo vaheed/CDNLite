@@ -11,7 +11,7 @@ def read(path: str) -> str:
 def test_phase14_api_protection_discovery_route_and_dashboard_client_are_wired():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
     dashboard_api = read("dash/src/lib/api/protection.ts")
     types = read("dash/src/types.ts")
@@ -21,8 +21,8 @@ def test_phase14_api_protection_discovery_route_and_dashboard_client_are_wired()
     assert "discoverApiPaths" in service
     assert "recommended_header_key" in service
     assert "discoverApiPaths" in controller
-    assert "/api/v1/domains/{domainId}/protection/api-paths" in routes
-    assert "/api/v1/domains/{domainId}/protection/api-paths:" in openapi
+    assert "/domains/{domainId}/protection/api-paths" in routes
+    assert "/domains/{domainId}/protection/api-paths:" in openapi
     assert "discoverApiPaths" in dashboard_api
     assert "ApiProtectionDiscovery" in types
     assert "/protection/api-paths" in smoke

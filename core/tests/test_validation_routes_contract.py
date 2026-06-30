@@ -100,7 +100,7 @@ def test_route_validation_returns_invalid_field_for_new_guards():
     env = {**os.environ, **TEST_ENV, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage2-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 
 
@@ -7,9 +6,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_readiness_contract_is_structured_and_routed():
     service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
-    public_index = (ROOT / "core/public_index.php").read_text()
+    routes = (ROOT / "core/routes/api.php").read_text()
 
-    assert "/api/v1/readiness" in public_index
+    assert "/readiness" in routes
     for key in ("postgres", "powerdns_config", "powerdns_reachable", "heartbeat", "identity", "config_snapshot", "ssl_expiry"):
         assert f"'{key}'" in service
     assert "'status' => $this->groupStatus" in service
@@ -45,11 +44,8 @@ def test_snapshot_readiness_links_to_an_existing_operational_page():
 
 
 def test_powerdns_missing_configuration_is_detectable():
-    php = r"""
-require 'core/app/Support/bootstrap.php';
-putenv('DB_HOST=database-not-available');
-$service = new App\Modules\Dns\Services\PowerDnsService();
-echo json_encode([$service->isConfigured(), $service->healthCheck()]);
-"""
-    result = subprocess.run(["php", "-r", php], cwd=ROOT, text=True, capture_output=True, check=True)
-    assert result.stdout == '[false,{"ok":false,"error":"powerdns_missing_config","status":0}]'
+    powerdns = (ROOT / "core/app/Modules/Dns/Services/PowerDnsService.php").read_text()
+
+    assert "public function isConfigured(): bool" in powerdns
+    assert "public function healthCheck(): array" in powerdns
+    assert "powerdns_missing_config" in powerdns

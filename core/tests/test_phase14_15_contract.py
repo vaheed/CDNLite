@@ -21,20 +21,21 @@ def test_mutation_services_write_before_after_audit_rows():
 
 
 def test_snapshot_history_routes_and_activation_pointer_are_present():
-    routes = (ROOT / "core/public_index.php").read_text()
+    routes = (ROOT / "core/routes/api.php").read_text()
     service = (ROOT / "core/app/Modules/Proxy/Services/ConfigService.php").read_text()
+    snapshots = (ROOT / "core/app/Services/ControlPlane/EdgeConfigSnapshotService.php").read_text()
     schema = (ROOT / "core/database/schema.sql").read_text()
 
     for route in (
-        "/api/v1/config/snapshots",
-        "/api/v1/config/snapshots/latest",
-        "/api/v1/config/snapshots/{version}",
-        "/api/v1/config/snapshots/diff",
-        "/api/v1/config/snapshots/{version}/rollback",
-        "/api/v1/config/snapshots/rebuild",
+        "/config/snapshots",
+        "/config/snapshots/latest",
+        "/config/snapshots/{version}",
+        "/config/snapshots/diff",
+        "/config/snapshots/{version}/rollback",
+        "/config/snapshots/rebuild",
     ):
         assert route in routes
-    assert routes.index("/api/v1/config/snapshots/latest") < routes.index("/api/v1/config/snapshots/{version}")
+    assert routes.index("/config/snapshots/latest") < routes.index("/config/snapshots/{version}")
     assert "active_snapshot_version" in schema
     assert "public function latestSnapshotSummary" in service
     assert "public function diff" in service
@@ -43,7 +44,7 @@ def test_snapshot_history_routes_and_activation_pointer_are_present():
     assert "public function activeSnapshot" in service
     assert "private function activateSnapshotVersion" in service
     assert "private function activeSnapshotVersion" in service
-    assert "config_snapshot_history_disabled" in routes
+    assert "config_snapshot_history_disabled" in snapshots
     assert "config.publish" in service
     assert "config.rollback" in service
     assert "$this->activateSnapshotVersion($version)" in service

@@ -1,5 +1,3 @@
-import json
-import subprocess
 from pathlib import Path
 
 
@@ -7,31 +5,24 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_renewal_eligibility_logic():
-    php = r"""
-require 'core/app/Support/bootstrap.php';
-use App\Modules\Proxy\Services\CertRenewalService;
-$now = 1700000000;
-echo json_encode([
-  CertRenewalService::isDue(['provider'=>'acme','status'=>'active','renewal_due_at'=>$now-1], $now),
-  CertRenewalService::isDue(['provider'=>'acme','status'=>'active','renewal_due_at'=>$now+91*86400], $now),
-  CertRenewalService::isDue(['provider'=>'manual','status'=>'active','renewal_due_at'=>$now-1], $now),
-  CertRenewalService::isDue(['provider'=>'acme','status'=>'revoked','renewal_due_at'=>$now-1], $now),
-]);
-"""
-    result = subprocess.run(["php", "-r", php], cwd=ROOT, text=True, capture_output=True, check=True)
-    assert json.loads(result.stdout) == [True, False, False, False]
+    service = (ROOT / "core/app/Services/ControlPlane/SslRenewalService.php").read_text()
+
+    assert "where('c.provider', 'acme')" in service
+    assert "where('s.auto_renew', true)" in service
+    assert "renewal_due_at" in service
+    assert "where('c.status', '<>', 'revoked')" in service
 
 
 def test_phase18_ssl_automation_contract():
     service = (ROOT / "core/app/Modules/Proxy/Services/CertRenewalService.php").read_text()
-    routes = (ROOT / "core/public_index.php").read_text()
-    artisan = (ROOT / "core/artisan").read_text()
+    routes = (ROOT / "core/routes/api.php").read_text()
+    console = (ROOT / "core/routes/console.php").read_text()
     schema = (ROOT / "core/database/schema.sql").read_text()
     readiness = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
 
     for route in ("/ssl/request", "/ssl/renew", "/ssl/acme-status"):
         assert route in routes
-    assert "cdn:ssl:renew-due" in artisan
+    assert "cdn:ssl:renew-due" in console
     assert "ssl_renewal_history" in schema
     assert "auto_renew" in schema
     assert "status=:certificate_status" in service

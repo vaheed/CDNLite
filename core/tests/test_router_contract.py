@@ -33,8 +33,8 @@ def wait_for_server(base_url: str, timeout: float = 5.0) -> None:
 
 
 def test_core_exposes_origin_cdn_health_route():
-    public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
-    assert "/cdn-health" in public_index
+    web_routes = (REPO_ROOT / "core" / "routes" / "web.php").read_text()
+    assert "/cdn-health" in web_routes
 
 
 def test_domain_routes_are_registered():
@@ -71,7 +71,7 @@ def test_router_returns_not_found_for_unknown_path():
     env = {**os.environ, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage4-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -94,7 +94,7 @@ def test_router_parses_json_before_route_dispatch():
     env = {**os.environ, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage4-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -127,7 +127,7 @@ def test_router_applies_auth_flag_on_admin_routes():
     env = {**os.environ, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage4-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

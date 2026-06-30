@@ -72,10 +72,21 @@ def request_json(base_url: str, method: str, path: str, body: dict | None = None
 
 def insert_usage_rows(domain_id: str) -> None:
     script = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
-$pdo = App\Support\Database::pdo();
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
 $now = time();
 $domainId = getenv('DOMAIN_ID');
+$uuid = function (): string {
+    $data = random_bytes(16);
+    $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+    $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+    return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+};
 foreach ([
     ['cache_status' => 'HIT', 'requests_count' => 7, 'bytes_out' => 70],
     ['cache_status' => 'BYPASS', 'requests_count' => 3, 'bytes_out' => 30],
@@ -84,7 +95,7 @@ foreach ([
         'INSERT INTO usage_rollups (id, ts, domain_id, edge_node_id, requests_count, bytes_in, bytes_out, status, cache_status)
          VALUES (:id, :ts, :domain_id, :edge_node_id, :requests_count, :bytes_in, :bytes_out, :status, :cache_status)'
     )->execute([
-        ':id' => App\Support\Uuid::v4(),
+        ':id' => $uuid(),
         ':ts' => $now + $index,
         ':domain_id' => $domainId,
         ':edge_node_id' => 'edge-local-1',
@@ -114,7 +125,7 @@ def test_cache_analytics_api_returns_cache_status_rows():
     env = {**os.environ, **TEST_ENV, "APP_ENV": "development", "CDNLITE_API_TOKEN": "stage2-token"}
 
     server = subprocess.Popen(
-        ["php", "-S", f"127.0.0.1:{port}", "core/public_index.php"],
+        ["php", "-S", f"127.0.0.1:{port}", "-t", "core/public", "core/public/index.php"],
         cwd=str(REPO_ROOT),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

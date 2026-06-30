@@ -10,12 +10,12 @@ def read(path: str) -> str:
 
 def test_ssl_settings_are_domain_scoped_and_published():
     schema = read("core/database/schema.sql")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     snapshot = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "CREATE TABLE IF NOT EXISTS domain_ssl_settings" in schema
-    assert "/api/v1/domains/{domainId}/ssl/settings" in routes
+    assert "/domains/{domainId}/ssl/settings" in routes
     assert "setSslSettings" in service
     assert "'ssl' => $this->rules->getSslSettings" in snapshot
     assert "valid_ssl_certificate_required" in service

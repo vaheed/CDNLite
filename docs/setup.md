@@ -259,7 +259,7 @@ Core settings:
 | `CDNLITE_ACME_*` | ACME directory, contact email, DNS propagation delay, optional public DNS TXT precheck, and polling for automatic apex and wildcard certificates. |
 | `CDNLITE_SSL_JOB_STALE_RETRY_SECONDS` | Age after which an in-progress SSL job can be reclaimed by the scheduler and retried. |
 | `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS` | Seconds between SSL scheduler loops for queued issuance and renewals; default `30`. |
-| `CDNLITE_BOOTSTRAP_ADMIN_*` | Local/admin bootstrap behavior. |
+| `CDNLITE_DEV_ADMIN_USERNAME`, `CDNLITE_DEV_ADMIN_PASSWORD` | Local seeded admin credentials for fresh Laravel installs. |
 | `CDNLITE_BOOTSTRAP_EDGE_*`, `CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS`, `EDGE_ID`, `EDGE_TOKEN`, `EDGE_2_*` | Local edge token bootstrap and the bundled two-edge test topology. |
 | `CDNLITE_EDGE_*`, `CDNLITE_GEO_*`, `CDNLITE_NS*` | Edge DNS, health, anycast, and Geo DNS defaults. |
 | `PDNS_REPLICATION_PASSWORD` | Password for the TLS-protected PowerDNS PostgreSQL streaming-replication role. |
@@ -554,7 +554,7 @@ upgrade, rollback, and release qualification, use the
 [Production Deployment](deployment.md) guide.
 
 1. Copy `.env.example` to `.env` and replace every local secret.
-2. Set `CDNLITE_BOOTSTRAP_ADMIN_USER=0` after creating durable admin credentials.
+2. Clear `CDNLITE_DEV_ADMIN_PASSWORD` after creating durable admin credentials.
 3. Set `CDNLITE_BOOTSTRAP_EDGE_TOKEN=0` after registering production edge tokens.
 4. Set `CDNLITE_API_TOKEN` for control-plane API protection.
 5. Set dashboard `VITE_*` URLs to public browser-reachable hosts and rebuild the dashboard image.

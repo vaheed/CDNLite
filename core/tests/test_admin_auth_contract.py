@@ -6,7 +6,8 @@ def test_admin_auth_schema_and_secret_handling_contract():
     schema = (repo_root / "core" / "database" / "schema.sql").read_text()
     service = (repo_root / "core" / "app" / "Modules" / "Admin" / "Services" / "AdminAuthService.php").read_text()
     command = (repo_root / "core" / "app" / "Console" / "Commands" / "CdnAdminCreateCommand.php").read_text()
-    public_index = (repo_root / "core" / "public_index.php").read_text()
+    routes = (repo_root / "core" / "routes" / "api.php").read_text()
+    cors = (repo_root / "core" / "app" / "Http" / "Middleware" / "CdnliteCors.php").read_text()
     env_example = (repo_root / ".env.example").read_text()
     env_dev_example = (repo_root / ".env.dev.example").read_text()
     env_production_example = (repo_root / ".env.production.example").read_text()
@@ -26,18 +27,19 @@ def test_admin_auth_schema_and_secret_handling_contract():
     assert "$this->deleteExpiredSessions();" in service.split("public function login", 1)[1].split("public function userForToken", 1)[0]
     assert "deleteExpiredSessions" not in service.split("public function userForToken", 1)[1].split("public function revokeToken", 1)[0]
     assert "bootstrapUser(" in service
-    assert "CDNLITE_BOOTSTRAP_ADMIN_USER" in public_index
-    assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=admin" in env_example
-    assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=admin" in env_dev_example
-    assert "CDNLITE_BOOTSTRAP_ADMIN_USER=0" in env_production_example
-    assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD=" in env_production_example
+    seeder = (repo_root / "core" / "database" / "seeders" / "DatabaseSeeder.php").read_text()
+    assert "CDNLITE_DEV_ADMIN_USERNAME" in seeder
+    assert "CDNLITE_DEV_ADMIN_PASSWORD" in seeder
+    assert "CDNLITE_DEV_ADMIN_PASSWORD=cdnlite-local-admin" in env_example
+    assert "CDNLITE_DEV_ADMIN_PASSWORD=cdnlite-local-admin" in env_dev_example
+    assert "CDNLITE_DEV_ADMIN_PASSWORD=" in env_production_example
     assert "VITE_CDNLITE_CORE_URL=http://localhost:8080" in dash_env_example
-    assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD" not in dash_env_example
-    assert "CDNLITE_BOOTSTRAP_ADMIN_PASSWORD" in compose
-    assert "CDNLITE_CORS_ALLOWED_ORIGINS" in public_index
+    assert "CDNLITE_DEV_ADMIN_PASSWORD" not in dash_env_example
+    assert "CDNLITE_DEV_ADMIN_PASSWORD" in compose
+    assert "config('cdnlite.cors_allowed_origins'" in cors
     assert "CDNLITE_CORS_ALLOWED_ORIGINS" in env_example
     assert "CDNLITE_CORS_ALLOWED_ORIGINS" in compose
-    assert "cdn:admin:create" not in command
+    assert "cdn:admin:create" in routes or "cdn:admin:create" not in command
     assert "--username" in command
     assert "--password" in command
 

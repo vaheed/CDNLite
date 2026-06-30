@@ -11,7 +11,7 @@ def read(path: str) -> str:
 def test_phase10_backend_exposes_profile_templates_and_routes():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
 
     for method in (
@@ -29,10 +29,10 @@ def test_phase10_backend_exposes_profile_templates_and_routes():
         assert f"'{profile_key}' => [" in service
 
     for route in (
-        "/api/v1/domains/{domainId}/protection/profiles",
-        "/api/v1/domains/{domainId}/protection/profiles/{profileKey}/preview",
-        "/api/v1/domains/{domainId}/protection/profiles/{profileKey}/apply",
-        "/api/v1/domains/{domainId}/protection/profiles/{profileId}/disable",
+        "/domains/{domainId}/protection/profiles",
+        "/domains/{domainId}/protection/profiles/{profileKey}/preview",
+        "/domains/{domainId}/protection/profiles/{profileKey}/apply",
+        "/domains/{domainId}/protection/profiles/{profileId}/disable",
     ):
         assert route in routes
         assert route in openapi

@@ -22,7 +22,7 @@ CDNLite uses per-edge tokens, signed edge requests, timestamp and nonce replay p
 
 ## Production Hardening
 
-1. Set `CDNLITE_BOOTSTRAP_ADMIN_USER=0`.
+1. Clear `CDNLITE_DEV_ADMIN_PASSWORD` after creating durable admin credentials.
 2. Set `CDNLITE_BOOTSTRAP_EDGE_TOKEN=0`.
 3. Replace `CDNLITE_SSL_SECRET_KEY`, `CDNLITE_ORIGIN_SHIELD_SECRET`, `EDGE_TOKEN`, and all default passwords.
 4. Set `CDNLITE_API_TOKEN`.
@@ -189,7 +189,9 @@ Use a long random token for real edges, store it only in the agent environment o
 
 The Vue admin dashboard in `dash/` is a client-only SPA served by Nginx. The old server-rendered backend dashboard routes are removed.
 
-Local quickstart can bootstrap `admin` / `admin` from `.env.example` when `CDNLITE_BOOTSTRAP_ADMIN_USER=1`. Keep bootstrap disabled outside local development and create admin users with:
+Local quickstart seeds the Laravel admin from `CDNLITE_DEV_ADMIN_USERNAME` and
+`CDNLITE_DEV_ADMIN_PASSWORD`. Clear the seeded password outside local
+development and create admin users with:
 
 ```bash
 php core/artisan cdn:admin:create --username=admin --password='replace-with-a-long-password'

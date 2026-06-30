@@ -44,7 +44,7 @@ def test_phase8_schema_links_simple_protection_to_advanced_rules():
 def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
 
     assert "managedRulePayload" in service
     assert "markUserModifiedForManagedRule" in service
@@ -59,14 +59,14 @@ def test_phase8_rule_service_preserves_and_detaches_managed_metadata():
     assert "'redirect_rules'" not in service.split("private function tableTracksUserModified", 1)[1].split("private function auditResource", 1)[0]
 
     assert "detachManagedRule" in controller
-    assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed" in routes
-    assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed" in routes
+    assert "/domains/{domainId}/waf-rules/{ruleId}/detach-managed" in routes
+    assert "/domains/{domainId}/rate-limits/{ruleId}/detach-managed" in routes
 
 
 def test_phase8_intent_workflow_generates_real_rules_without_silent_overwrite():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     api = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -105,11 +105,11 @@ def test_phase8_intent_workflow_generates_real_rules_without_silent_overwrite():
         assert method in controller
 
     for route in (
-        "/api/v1/domains/{domainId}/protection/intents",
-        "/api/v1/domains/{domainId}/protection/intents/{intentKey}/preview",
-        "/api/v1/domains/{domainId}/protection/intents/{intentKey}/enable",
-        "/api/v1/domains/{domainId}/protection/intents/{intentId}/disable",
-        "/api/v1/domains/{domainId}/protection/intents/{intentId}/undo",
+        "/domains/{domainId}/protection/intents",
+        "/domains/{domainId}/protection/intents/{intentKey}/preview",
+        "/domains/{domainId}/protection/intents/{intentKey}/enable",
+        "/domains/{domainId}/protection/intents/{intentId}/disable",
+        "/domains/{domainId}/protection/intents/{intentId}/undo",
     ):
         assert route in routes
         assert route in openapi
@@ -136,8 +136,8 @@ def test_phase8_advanced_dashboard_and_docs_expose_managed_state():
     assert "detachManaged" in rate_limits
 
     assert "detach-managed" in api
-    assert "/api/v1/domains/{domainId}/waf-rules/{ruleId}/detach-managed:" in openapi
-    assert "/api/v1/domains/{domainId}/rate-limits/{ruleId}/detach-managed:" in openapi
+    assert "/domains/{domainId}/waf-rules/{ruleId}/detach-managed:" in openapi
+    assert "/domains/{domainId}/rate-limits/{ruleId}/detach-managed:" in openapi
 
 
 def test_phase8_roadmap_smoke_and_e2e_track_managed_contract():

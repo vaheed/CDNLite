@@ -11,7 +11,7 @@ def read(path: str) -> str:
 def test_phase12_exposes_read_only_smart_rate_limit_template_catalog():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
     roadmap = read("docs/ROADMAP.md")
@@ -19,8 +19,8 @@ def test_phase12_exposes_read_only_smart_rate_limit_template_catalog():
     assert "smartRateLimitTemplates" in service
     assert "smartRateLimitImpact" in service
     assert "listSmartRateLimitTemplates" in controller
-    assert "/api/v1/domains/{domainId}/protection/rate-limit-templates" in routes
-    assert "/api/v1/domains/{domainId}/protection/rate-limit-templates:" in openapi
+    assert "/domains/{domainId}/protection/rate-limit-templates" in routes
+    assert "/domains/{domainId}/protection/rate-limit-templates:" in openapi
 
     for intent_key in (
         "login_protection",
@@ -87,7 +87,7 @@ def test_phase12_header_based_rate_limit_keys_flow_to_schema_api_and_edge():
 
 
 def test_phase12_dry_run_and_challenge_are_exposed_through_api_and_dashboard():
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     openapi = read("docs/public/api/openapi.yaml")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
@@ -96,8 +96,8 @@ def test_phase12_dry_run_and_challenge_are_exposed_through_api_and_dashboard():
     api = read("dash/src/lib/api/rateLimit.ts")
     docs = read("docs/api/api.md")
 
-    assert "/api/v1/domains/{domainId}/rate-limits/dry-run" in routes
-    assert "/api/v1/domains/{domainId}/rate-limits/dry-run:" in openapi
+    assert "/domains/{domainId}/rate-limits/dry-run" in routes
+    assert "/domains/{domainId}/rate-limits/dry-run:" in openapi
     assert "dryRunRateLimit" in controller
     assert "dryRunRateLimit" in service
     assert "action' => 'challenge'" in service or "'challenge'" in service

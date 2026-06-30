@@ -53,7 +53,7 @@ def test_phase11_generated_waf_metadata_flows_to_edge_events_and_docs():
 def test_phase11_exposes_read_only_managed_waf_preset_catalog():
     service = read("core/app/Modules/Proxy/Services/TrafficRulesService.php")
     controller = read("core/app/Modules/Proxy/Http/Controllers/TrafficRulesController.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -61,8 +61,8 @@ def test_phase11_exposes_read_only_managed_waf_preset_catalog():
     assert "managedWafGroups" in service
     assert "managedWafModes" in service
     assert "listManagedWafPresets" in controller
-    assert "/api/v1/domains/{domainId}/protection/waf-presets" in routes
-    assert "/api/v1/domains/{domainId}/protection/waf-presets:" in openapi
+    assert "/domains/{domainId}/protection/waf-presets" in routes
+    assert "/domains/{domainId}/protection/waf-presets:" in openapi
 
     for group_id in (
         "sql_injection",

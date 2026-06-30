@@ -25,7 +25,7 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     dns_service = read("core/app/Modules/Dns/Services/DnsService.php")
     geo_service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
     dns_controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
-    public_index = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     api_docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
 
@@ -45,7 +45,7 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     assert "'error' => 'dns_publish_failed'" in dns_controller
     assert "'local_state_saved' => true" in dns_controller
     assert "'retry' => 'cdn:dns:reconcile'" in dns_controller
-    assert "/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile" in public_index
+    assert "/domains/{domainId}/dns/records/{recordId}/reconcile" in routes
     assert "reconcileRecord(string $domainId, string $recordId)" in dns_controller
-    assert "/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile" in api_docs
-    assert "/api/v1/domains/{domainId}/dns/records/{recordId}/reconcile:" in openapi
+    assert "/domains/{domainId}/dns/records/{recordId}/reconcile" in api_docs
+    assert "/domains/{domainId}/dns/records/{recordId}/reconcile:" in openapi

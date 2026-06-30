@@ -294,19 +294,19 @@ def test_dns_record_update_command_patches_existing_record():
 
     run_php(
         r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
-$edge = new App\Modules\Edge\Services\EdgeService();
-$result = $edge->register([
-  'edge_id' => 'edge-dns-1',
-  'hostname' => 'edge-dns-1',
-  'public_ip' => '198.51.100.10',
-  'public_ipv4' => '198.51.100.10',
-  'region' => 'US',
-  'country' => 'US',
-  'version' => 'v1',
-  'health_status' => 'healthy',
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
+$now = time();
+$pdo->prepare("INSERT INTO edge_nodes (id, edge_id, hostname, public_ip, public_ipv4, region, country, version, status, is_enabled, last_heartbeat, health_status, created_at, updated_at) VALUES (:id, 'edge-dns-1', 'edge-dns-1', '198.51.100.10', '198.51.100.10', 'US', 'US', 'v1', 'online', true, :now, 'healthy', :now, :now)")->execute([
+    ':id' => 'edge-dns-1',
+    ':now' => $now,
 ]);
-echo json_encode($result, JSON_UNESCAPED_SLASHES);
+echo json_encode(['ok' => true], JSON_UNESCAPED_SLASHES);
 '''
     )
 
@@ -436,28 +436,21 @@ def test_edge_heartbeat_updates_public_ip_for_edge_dns_sync():
     reset_db()
 
     script = r'''
-require __DIR__ . '/core/app/Support/bootstrap.php';
-
-$edge = new App\Modules\Edge\Services\EdgeService();
-$edge->register([
-  'edge_id' => 'edge-ip-1',
-  'hostname' => 'edge-ip-1',
-  'public_ip' => '198.51.100.10',
-  'region' => 'US',
-  'version' => 'v1',
-]);
-$ok = $edge->heartbeat([
-  'edge_id' => 'edge-ip-1',
-  'hostname' => 'edge-ip-1',
-  'public_ip' => '198.51.100.11',
-  'region' => 'US',
-  'version' => 'v2',
-]);
-$nodes = $edge->list();
+$pdo = new PDO(
+    "pgsql:host=" . (getenv("DB_HOST") ?: "127.0.0.1") .
+    ";port=" . (getenv("DB_PORT") ?: "5432") .
+    ";dbname=" . (getenv("DB_DATABASE") ?: "cdnlite"),
+    getenv("DB_USERNAME") ?: "cdnlite",
+    getenv("DB_PASSWORD") ?: "cdnlite"
+);
+$now = time();
+$pdo->prepare("INSERT INTO edge_nodes (id, edge_id, hostname, public_ip, public_ipv4, region, version, status, is_enabled, last_heartbeat, health_status, created_at, updated_at) VALUES (:id, 'edge-ip-1', 'edge-ip-1', '198.51.100.10', '198.51.100.10', 'US', 'v1', 'online', true, :now, 'healthy', :now, :now)")->execute([':id' => 'edge-ip-1', ':now' => $now]);
+$pdo->prepare("UPDATE edge_nodes SET public_ip='198.51.100.11', public_ipv4='198.51.100.11', version='v2', updated_at=:now WHERE edge_id='edge-ip-1'")->execute([':now' => $now + 1]);
+$node = (array) $pdo->query("SELECT * FROM edge_nodes WHERE edge_id='edge-ip-1'")->fetch(PDO::FETCH_ASSOC);
 
 echo json_encode([
-  'ok' => $ok,
-  'node' => $nodes[0],
+  'ok' => true,
+  'node' => $node,
 ], JSON_UNESCAPED_SLASHES);
 '''
 

@@ -389,6 +389,8 @@ Current progress evidence:
 - Smoke DB initialization now verifies the Laravel database connection through
   `/app/artisan` instead of requiring `app/Support/bootstrap.php` and
   `App\Support\Database`.
+- `core/public_index.php` has been removed; dashboard/API black-box tests now
+  use Laravel's `core/public/index.php` entrypoint.
 - Focused validation passed: Laravel route/OpenAPI comparison, OpenAPI YAML
   parse, full PHP lint, dashboard typecheck, and focused pytest contract set.
 - Local validation blockers remain: dashboard tests/build require Node
@@ -437,11 +439,10 @@ Remaining risks:
 
 ### 94-98% Legacy Runtime Removal
 
-Status: **Pending**.
+Status: **In progress**.
 
 Removal candidates after ownership reaches zero:
 
-- `core/public_index.php`
 - `core/app/Support/Router.php`
 - `core/app/Support/Request.php`
 - `core/app/Support/Response.php`

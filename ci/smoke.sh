@@ -102,14 +102,14 @@ assert_contains "$(cat /tmp/smoke-schedule-run.json)" '"dns_reconcile"' "cdn:sch
 assert_contains "$(cat /tmp/smoke-schedule-run.json)" '"nameserver_verify_all"' "cdn:scheduler:run should include nameserver verification"
 record_step PASS "core-scheduler-run" "scheduler registered DNS and nameserver jobs"
 
-if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
-  bootstrap_admin_code="$(curl -sS -o /tmp/smoke-bootstrap-admin.json -w '%{http_code}' \
+if [[ -n "${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}" && -n "${CDNLITE_DEV_ADMIN_PASSWORD:-cdnlite-local-admin}" ]]; then
+  seeded_admin_code="$(curl -sS -o /tmp/smoke-seeded-admin.json -w '%{http_code}' \
     -X POST "${CORE_URL}/api/v1/admin/login" \
     -H 'Content-Type: application/json' \
-    -d '{"username":"admin@example.test","password":"cdnlite-local-admin"}')"
-  assert_eq "$bootstrap_admin_code" "200" "bootstrap admin login should return 200"
-  assert_contains "$(cat /tmp/smoke-bootstrap-admin.json)" '"username":"admin@example.test"' "bootstrap admin login should include admin user"
-  record_step PASS "bootstrap-admin-login" "default dashboard bootstrap admin can log in"
+    -d "{\"username\":\"${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}\",\"password\":\"${CDNLITE_DEV_ADMIN_PASSWORD:-cdnlite-local-admin}\"}")"
+  assert_eq "$seeded_admin_code" "200" "seeded admin login should return 200"
+  assert_contains "$(cat /tmp/smoke-seeded-admin.json)" "\"username\":\"${CDNLITE_DEV_ADMIN_USERNAME:-admin@example.test}\"" "seeded admin login should include admin user"
+  record_step PASS "seeded-admin-login" "default dashboard seeded admin can log in"
 fi
 
 required_tables=(
@@ -196,8 +196,8 @@ retry 30 1 docker compose exec -T origin-tls wget -qO- --no-check-certificate ht
 retry 30 1 docker compose exec -T origin-http wget -qO- http://127.0.0.1/ >/dev/null
 record_step PASS "origin-fixtures-health" "HTTPS and HTTP origin fixtures are reachable"
 
-if [[ "${CDNLITE_BOOTSTRAP_ADMIN_USER:-1}" == "1" ]]; then
-  admin_token="$(json_get "$(cat /tmp/smoke-bootstrap-admin.json)" '.data.token')"
+if [[ -f /tmp/smoke-seeded-admin.json ]]; then
+  admin_token="$(json_get "$(cat /tmp/smoke-seeded-admin.json)" '.data.token')"
   settings_code="$(curl -sS -o /tmp/smoke-settings.json -w '%{http_code}' \
     -H "Authorization: Bearer ${admin_token}" \
     "${CORE_URL}/api/v1/settings/platform.powerdns")"

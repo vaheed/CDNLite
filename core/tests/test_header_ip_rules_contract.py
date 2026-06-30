@@ -19,17 +19,17 @@ def test_header_and_ip_rule_schema_contract():
 
 
 def test_header_and_ip_rule_api_and_cli_contract():
-    public_index = read("core/public_index.php")
-    artisan = read("core/artisan")
+    routes = read("core/routes/api.php")
+    console = read("core/routes/console.php")
 
-    assert "/api/v1/domains/{domainId}/headers" in public_index
-    assert "/api/v1/domains/{domainId}/headers/{ruleId}" in public_index
-    assert "/api/v1/domains/{domainId}/ip-rules" in public_index
-    assert "/api/v1/domains/{domainId}/ip-rules/{ruleId}" in public_index
-    assert "cdn:header:create" in artisan
-    assert "cdn:header:list" in artisan
-    assert "cdn:ip-rule:create" in artisan
-    assert "cdn:ip-rule:list" in artisan
+    assert "/domains/{domainId}/headers" in routes
+    assert "/domains/{domainId}/headers/{ruleId}" in routes
+    assert "/domains/{domainId}/ip-rules" in routes
+    assert "/domains/{domainId}/ip-rules/{ruleId}" in routes
+    assert "cdn:header:create" in console
+    assert "cdn:header:list" in console
+    assert "cdn:ip-rule:create" in console
+    assert "cdn:ip-rule:list" in console
 
 
 def test_header_and_ip_rule_config_snapshot_contract():
