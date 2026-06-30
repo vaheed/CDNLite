@@ -150,18 +150,18 @@ verified_bot_source_columns="$(db_query "SELECT COUNT(*) FROM information_schema
 assert_eq "$verified_bot_source_columns" "6" "verified bot source schema is incomplete"
 record_step PASS "schema-verified-bot-sources" "verified bot source table is present"
 
-rate_limit_dry_run_route_count="$(grep -c '/api/v1/domains/{domainId}/rate-limits/dry-run' core/public_index.php)"
+rate_limit_dry_run_route_count="$(grep -c "/domains/{domainId}/rate-limits/dry-run" core/routes/api.php)"
 assert_eq "$rate_limit_dry_run_route_count" "1" "rate-limit dry-run route missing"
 record_step PASS "schema-rate-limit-dry-run-route" "rate-limit dry-run route is registered"
 
-waiting_room_route_count="$(grep -c '/api/v1/domains/{domainId}/waiting-room' core/public_index.php)"
+waiting_room_route_count="$(grep -c "/domains/{domainId}/waiting-room" core/routes/api.php)"
 if [[ "$waiting_room_route_count" -lt "4" ]]; then
   fail "waiting-room API routes are incomplete"
 fi
 grep -Fq "cdnlite_waiting_room" edge/openresty/nginx.conf || fail "waiting-room shared dictionary missing"
 record_step PASS "schema-waiting-room" "waiting-room API routes and edge state are registered"
 
-api_protection_route_count="$(grep -c '/api/v1/domains/{domainId}/protection/api-paths' core/public_index.php)"
+api_protection_route_count="$(grep -c "/domains/{domainId}/protection/api-paths" core/routes/api.php)"
 assert_eq "$api_protection_route_count" "1" "API Protection path discovery route missing"
 grep -Fq "path_method_not_allowed" edge/openresty/lua/router.lua || fail "API method restriction WAF matcher missing"
 record_step PASS "schema-api-protection-route" "API Protection discovery route and method restriction matcher are registered"

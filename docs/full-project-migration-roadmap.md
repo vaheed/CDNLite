@@ -382,6 +382,10 @@ Current progress evidence:
 - Static migration contract tests for edge network, operations feeds, and domain
   route registration now use Laravel route/controller ownership instead of
   legacy `core/public_index.php` ownership.
+- Smoke and platform stress route-presence probes now inspect
+  `core/routes/api.php` for Laravel-owned rate-limit, waiting-room, and API
+  protection routes instead of treating `core/public_index.php` as the runtime
+  registry.
 - Focused validation passed: Laravel route/OpenAPI comparison, OpenAPI YAML
   parse, full PHP lint, dashboard typecheck, and focused pytest contract set.
 - Local validation blockers remain: dashboard tests/build require Node

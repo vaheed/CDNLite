@@ -102,7 +102,7 @@ if [[ "$SCENARIO" == "phase5-waiting-room" ]]; then
   assert_eq "$waiting_room_columns" "21" "waiting-room policy columns are incomplete"
   record_step PASS "phase5-waiting-room-columns" "waiting-room policy columns are present"
 
-  route_count="$(grep -c '/api/v1/domains/{domainId}/waiting-room' core/public_index.php)"
+  route_count="$(grep -c "/domains/{domainId}/waiting-room" core/routes/api.php)"
   if [[ "$route_count" -lt "4" ]]; then
     fail "waiting-room API routes are incomplete"
   fi
