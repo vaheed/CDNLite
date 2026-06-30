@@ -20,6 +20,7 @@ $laravelCdnCommands = [
     'cdn:usage:recalculate',
     'cdn:usage:prune',
     'cdn:recommendations:generate',
+    'cdn:ssl:renew-due',
 ];
 if (is_string($command) && str_starts_with($command, 'cdn:') && !in_array($command, $laravelCdnCommands, true)) {
     require __DIR__ . '/artisan-legacy';

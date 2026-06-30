@@ -5,8 +5,8 @@ namespace App\Modules\Dns\Services;
 use App\Modules\Domains\Services\DomainService;
 use App\Modules\Proxy\Services\ConfigService;
 use App\Modules\Proxy\Services\OriginHealthService;
-use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
+use App\Services\ControlPlane\SslCertificateService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -527,7 +527,7 @@ class DnsService
         }
 
         try {
-            (new TrafficRulesService())->ensureManagedWildcardSslJob($domainId);
+            (new SslCertificateService())->ensureManagedWildcardJob($domainId);
         } catch (\Throwable $e) {
             AuditLog::write('ssl.auto_request_failed', 'ssl', null, $domainId, null, [
                 'domain_id' => $domainId,

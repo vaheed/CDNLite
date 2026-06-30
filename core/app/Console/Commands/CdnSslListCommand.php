@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\SslCertificateService;
 use App\Support\CommandIO;
 
 class CdnSslListCommand
@@ -16,7 +16,7 @@ class CdnSslListCommand
             return 1;
         }
 
-        CommandIO::printJson(['data' => (new TrafficRulesService())->listSslCertificates($domainId)]);
+        CommandIO::printJson(['data' => (new SslCertificateService())->listCertificates($domainId)]);
         return 0;
     }
 }

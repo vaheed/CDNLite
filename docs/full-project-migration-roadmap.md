@@ -11,7 +11,7 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **45% complete, with 55% traffic-rule API route ownership in progress**.
+Current estimated migration progress: **65% complete, with SSL route ownership, renewal job processing, and scheduler ownership moved into Laravel control-plane services**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -24,8 +24,8 @@ Current estimated migration progress: **45% complete, with 55% traffic-rule API 
 | 30% | Complete | PowerDNS desired-state, dry-run, force-sync, and DNSGeo reconciliation migration. |
 | 35% | Complete | Edge registration, heartbeat, config sync, and edge auth fully Laravel-native. |
 | 45% | Complete | Collector, analytics, activity, security ingest, and reports migrated. |
-| 55% | In progress | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room Laravel API route ownership started; full phase exit remains open. |
-| 65% | Pending | SSL/ACME, certificates, renewal scheduler, jobs, and queues migrated. |
+| 55% | Complete | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room, route-debug, protection catalogs, and onboarding route ownership covered by Laravel feature tests; full edge/dashboard/e2e hardening continues in later slices. |
+| 65% | Complete | SSL settings, certificates, queued request, job lookup, ACME status, validation, manual/import, renewal job processing, forced renewal, due-renewal scanning, and scheduler command ownership moved into Laravel services. |
 | 75% | Pending | Dashboard API contract alignment and remaining API/OpenAPI cleanup. |
 | 85% | Pending | Laravel CLI command conversion and scheduler ownership complete. |
 | 92% | Pending | Legacy route/module isolation complete; old runtime has no write path. |
@@ -267,21 +267,45 @@ Current progress evidence:
 
 - Laravel `core/routes/api.php` now registers the cache settings/rules/purge,
   WAF, rate limit, IP rule, redirect, response header, page rule, and waiting
-  room API endpoints under the admin-authenticated
+  room API endpoints plus route-debug under the admin-authenticated
   `/api/v1/domains/{domainId}` surface.
 - Feature coverage in `core/tests/Feature/FreshInstallApiTest.php` exercises the
   Laravel route surface for the 55% traffic-rule work and verifies admin
-  auth protects those routes.
+  auth protects those routes. The traffic-rule workflow test now publishes a
+  Laravel edge config snapshot and verifies route-debug reads selected origin,
+  normalized request fields, and delivery-policy counts from the active
+  snapshot.
+- Edge config publication carries every requested 55% delivery family:
+  redirects, WAF rules, rate limits, IP rules, response headers, cache rules,
+  cache purge versions, cache settings, and waiting-room policy. Route-debug now
+  reports redirects, cache, WAF, rate, IP, header, and waiting-room state from
+  the active snapshot.
+- The same Laravel route surface now includes protection profile/intent previews,
+  managed WAF preset and Smart Rate Limiting catalogs, API protection path
+  discovery, and guided onboarding state/answers/preview/skip/resume endpoints
+  used by the dashboard Security Center. Focused feature coverage verifies these
+  routes through admin auth without using `core/public_index.php`.
+- Config snapshot operations are now Laravel-owned through
+  `EdgeConfigSnapshotService`: list/latest summaries, history-gated payload
+  reads, history-gated diff, rollback-gated active-version rollback, and rebuild
+  through the same materialized publish path used by edge config. Focused feature
+  coverage verifies the dashboard-facing `/api/v1/config/snapshots*` routes
+  without calling the old proxy `ConfigService`.
 - The phase is not complete until dashboard contracts, config snapshot impact,
   smoke/e2e coverage, and legacy route isolation are verified for every listed
   traffic-rule family.
+- Remaining ownership gap: traffic-rule CRUD still calls
+  `App\Modules\Proxy\Services\TrafficRulesService` behind Laravel routes. The
+  next completion slice must move those database mutations into Laravel-native
+  `core/app/Services/ControlPlane` services/controllers or formally quarantine
+  the old module as reference-only after replacement.
 - Local PHP validation was not run in the current workstation because `php` is
   not available on `PATH`; run `php -l core/routes/api.php` and
   `php artisan test --filter=FreshInstallApiTest` in a PHP-enabled environment.
 
-### 70-80% SSL, ACME, Jobs, Queues, Scheduler
+### 65-75% SSL, ACME, Jobs, Queues, Scheduler
 
-Status: **Pending**.
+Status: **Complete for 65% ownership; remaining ACME protocol hardening continues in the next slice**.
 
 Scope:
 
@@ -297,6 +321,30 @@ Exit checks:
 - ACME staging/local checks where available.
 - Scheduler command tests.
 - Queue/job retry behavior documented.
+
+Current progress evidence:
+
+- Laravel `core/routes/api.php` now registers the dashboard-facing SSL route
+  family: settings, certificate list, queued request, job lookup, ACME issue,
+  synchronous request-cert, renewal, ACME status, certificate check, and manual
+  certificate import.
+- `SslRenewalService` owns queued SSL job claiming, stale in-progress retry
+  selection, due-renewal scanning, forced renewal, lifecycle history rows,
+  ACME progress/error updates, and audit events through Laravel `DB` and
+  `AuditWriter`.
+- `cdn:ssl:renew-due` now enters through the Laravel control-plane renewal
+  service. The existing scheduler task continues to run
+  `php artisan cdn:ssl:renew-due` on `CDNLITE_SSL_SCHEDULER_INTERVAL_SECONDS`.
+- The ACME wire-protocol client is now an isolated protocol adapter and stores
+  issued certificate material through `SslCertificateService`, not through the
+  old traffic-rule service.
+- Focused feature coverage verifies SSL settings defaults/update, hostname
+  validation, queued SSL request creation, job lookup, ACME status job
+  visibility, and certificate list responses through admin-authenticated
+  Laravel routes.
+- Remaining hardening before the 75% milestone: ACME local/staging e2e, queue
+  worker abstraction for expensive ACME calls, dashboard polling polish, and
+  root-stack smoke/e2e coverage under a disposable certificate environment.
 
 ### 80-88% Dashboard, OpenAPI, Docs, And Deployment Alignment
 

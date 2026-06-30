@@ -4,6 +4,7 @@ use Illuminate\Foundation\Inspiring;
 use App\Services\ControlPlane\DnsPowerDnsReconciler;
 use App\Services\ControlPlane\EdgeConfigSnapshotService;
 use App\Services\ControlPlane\PowerDnsClient;
+use App\Services\ControlPlane\SslRenewalService;
 use App\Services\ControlPlane\TelemetryRetentionService;
 use App\Services\ControlPlane\UnixTime;
 use Illuminate\Support\Facades\Artisan;
@@ -90,6 +91,22 @@ Artisan::command('cdn:powerdns:doctor', function (): int {
 
     return ($powerDns->enabled() && (($health['ok'] ?? false) !== true || $invalidSoa !== [])) ? self::FAILURE : self::SUCCESS;
 })->purpose('Report PowerDNS API, sync, and managed SOA health');
+
+Artisan::command('cdn:ssl:renew-due {--limit=}', function (): int {
+    $limit = $this->option('limit');
+    $service = app(SslRenewalService::class);
+    $queued = $service->processQueuedJobs($limit === null || $limit === '' ? null : (int) $limit);
+    $renewals = $service->renewDue();
+    $result = ['queued' => $queued, 'renewals' => $renewals];
+    $this->line(json_encode($result, JSON_UNESCAPED_SLASHES));
+    foreach (array_merge($queued['results'], $renewals['results']) as $item) {
+        if (($item['status'] ?? null) === 'error') {
+            return self::FAILURE;
+        }
+    }
+
+    return self::SUCCESS;
+})->purpose('Process queued SSL jobs and renew ACME certificates that are due');
 
 Artisan::command('cdn:edge:register-token {--edge_id=} {--token=}', function (): int {
     $edgeId = trim((string) $this->option('edge_id'));

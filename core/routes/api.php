@@ -8,9 +8,14 @@ use App\Http\Controllers\Api\EdgeController;
 use App\Http\Controllers\Api\OperationsController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\HealthController;
+use App\Modules\Onboarding\Http\Controllers\OnboardingController;
+use App\Modules\Onboarding\Services\OnboardingService;
 use App\Modules\Proxy\Http\Controllers\TrafficRulesController;
 use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Http\Controllers\SettingsController as PlatformSettingsController;
+use App\Services\ControlPlane\EdgeConfigSnapshotService;
+use App\Services\ControlPlane\SslCertificateService;
+use App\Services\ControlPlane\SslRenewalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +101,9 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::get('/domains/{domainId}/activity/requests/{requestId}', [CollectorController::class, 'findRequest']);
     Route::get('/domains/{domainId}/activity/export', [CollectorController::class, 'activityExport']);
     Route::get('/domains/{domainId}/security/events', [CollectorController::class, 'domainSecurityEvents']);
+    Route::post('/domains/{domainId}/route-debug', static function (string $domainId, Request $request, EdgeConfigSnapshotService $config) {
+        return response()->json(['data' => $config->debugRoute($domainId, $request->all())]);
+    });
     Route::get('/domains/{domainId}/recommendations', [ReportController::class, 'listRecommendations']);
     Route::post('/domains/{domainId}/recommendations/generate', [ReportController::class, 'generateRecommendations']);
     Route::post('/domains/{domainId}/recommendations/{recommendationId}/apply', [ReportController::class, 'applyRecommendation']);
@@ -103,6 +111,7 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::post('/domains/{domainId}/recommendations/{recommendationId}/snooze', [ReportController::class, 'snoozeRecommendation']);
 
     $trafficRules = static fn (): TrafficRulesController => new TrafficRulesController(new TrafficRulesService());
+    $onboarding = static fn (): OnboardingController => new OnboardingController(new OnboardingService());
     $trafficResponse = static fn (array $payload, int $defaultStatus = 200) => response()->json($payload, (int) ($payload['status'] ?? $defaultStatus));
 
     Route::post('/domains/{domainId}/redirects', static fn (string $domainId) => $trafficResponse($trafficRules()->createRedirect($domainId, request()->all()), 201));
@@ -157,6 +166,134 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::delete('/domains/{domainId}/page-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deletePageRule($domainId, $ruleId)));
     Route::post('/domains/{domainId}/page-rules/test', static fn (string $domainId) => $trafficResponse($trafficRules()->testPageRule($domainId, request()->all())));
 
+    Route::get('/domains/{domainId}/ssl', static function (string $domainId, SslCertificateService $ssl) {
+        try {
+            return response()->json(['data' => $ssl->settings($domainId)]);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::patch('/domains/{domainId}/ssl/settings', static function (Request $request, string $domainId, SslCertificateService $ssl) {
+        try {
+            return response()->json(['data' => $ssl->updateSettings($domainId, $request->all(), (string) (($request->attributes->get('admin_user')['id'] ?? null) ?: 'system'))]);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'min_tls_version', 'detail' => $error->getMessage()], 422);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage()], 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::get('/domains/{domainId}/ssl/certificates', static fn (string $domainId, SslCertificateService $ssl) => response()->json(['data' => $ssl->listCertificates($domainId)]));
+    Route::post('/domains/{domainId}/ssl/request', static function (Request $request, string $domainId, SslCertificateService $ssl) {
+        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
+        }
+        try {
+            return response()->json(['data' => $ssl->requestJob($domainId, (array) $request->input('hostnames', []), (string) (($request->attributes->get('admin_user')['id'] ?? null) ?: 'system'))], 202);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
+        } catch (\DomainException $error) {
+            $body = ['error' => $error->getMessage()];
+            if ($error->getMessage() === 'domain_must_be_active') {
+                $body['detail'] = 'Verify nameservers before requesting managed SSL.';
+            }
+            return response()->json($body, 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::get('/domains/{domainId}/ssl/jobs/{jobId}', static function (string $domainId, string $jobId, SslCertificateService $ssl) {
+        $job = $ssl->getJob($domainId, $jobId);
+        return $job === null ? response()->json(['error' => 'ssl_job_not_found'], 404) : response()->json(['data' => $job]);
+    });
+    Route::post('/domains/{domainId}/ssl/acme/issue', static function (Request $request, string $domainId, SslRenewalService $renewal) {
+        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
+        }
+        try {
+            return response()->json(['data' => $renewal->request($domainId, (array) $request->input('hostnames', []))]);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage(), 'detail' => $error->getMessage() === 'domain_must_be_active' ? 'Verify nameservers before requesting managed SSL.' : null], 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::post('/domains/{domainId}/ssl/request-cert', static function (Request $request, string $domainId, SslRenewalService $renewal) {
+        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
+        }
+        try {
+            return response()->json(['data' => $renewal->request($domainId, (array) $request->input('hostnames', []))]);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage(), 'detail' => $error->getMessage() === 'domain_must_be_active' ? 'Verify nameservers before requesting managed SSL.' : null], 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::post('/domains/{domainId}/ssl/renew', static function (string $domainId, SslRenewalService $renewal) {
+        try {
+            return response()->json(['data' => $renewal->forceRenew($domainId)]);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage()], 422);
+        } catch (\OutOfBoundsException $error) {
+            return response()->json(['error' => $error->getMessage() ?: 'domain_not_found'], 404);
+        }
+    });
+    Route::get('/domains/{domainId}/ssl/acme-status', static fn (string $domainId, SslCertificateService $ssl) => response()->json(['data' => $ssl->status($domainId)]));
+    Route::post('/domains/{domainId}/ssl/check', static function (Request $request, string $domainId, SslCertificateService $ssl) {
+        if ($request->exists('hostnames') && !is_array($request->input('hostnames'))) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => 'must_be_array'], 422);
+        }
+        try {
+            return response()->json(['data' => $ssl->checkCertificates($domainId, (array) $request->input('hostnames', []))]);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'hostnames', 'detail' => $error->getMessage()], 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+    Route::post('/domains/{domainId}/ssl/manual-certificate', static function (Request $request, string $domainId, SslCertificateService $ssl) {
+        $validated = $request->validate([
+            'hostname' => ['required', 'string', 'max:255'],
+            'certificate_pem' => ['required', 'string', 'max:65535'],
+            'private_key_pem' => ['required', 'string', 'max:65535'],
+        ]);
+        try {
+            return response()->json(['data' => $ssl->importManualCertificate($domainId, $validated['hostname'], $validated['certificate_pem'], $validated['private_key_pem'], (string) (($request->attributes->get('admin_user')['id'] ?? null) ?: 'system'))]);
+        } catch (\InvalidArgumentException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'certificate', 'detail' => $error->getMessage()], 422);
+        } catch (\RuntimeException $error) {
+            return response()->json(['error' => 'invalid_field', 'field' => 'CDNLITE_SSL_SECRET_KEY', 'detail' => $error->getMessage()], 422);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'domain_not_found'], 404);
+        }
+    });
+
+    Route::get('/domains/{domainId}/protection/profiles', static fn (string $domainId) => response()->json($trafficRules()->listProtectionProfiles($domainId)));
+    Route::get('/domains/{domainId}/protection/waf-presets', static fn (string $domainId) => response()->json($trafficRules()->listManagedWafPresets($domainId)));
+    Route::get('/domains/{domainId}/protection/rate-limit-templates', static fn (string $domainId) => response()->json($trafficRules()->listSmartRateLimitTemplates($domainId)));
+    Route::get('/domains/{domainId}/protection/api-paths', static fn (string $domainId) => response()->json($trafficRules()->discoverApiPaths($domainId)));
+    Route::post('/domains/{domainId}/protection/profiles/{profileKey}/preview', static fn (string $domainId, string $profileKey) => $trafficResponse($trafficRules()->previewProtectionProfile($domainId, $profileKey, request()->all())));
+    Route::post('/domains/{domainId}/protection/profiles/{profileKey}/apply', static fn (string $domainId, string $profileKey) => $trafficResponse($trafficRules()->applyProtectionProfile($domainId, $profileKey, request()->all())));
+    Route::post('/domains/{domainId}/protection/profiles/{profileId}/disable', static fn (string $domainId, string $profileId) => $trafficResponse($trafficRules()->disableProtectionProfile($domainId, $profileId, request()->all())));
+    Route::get('/domains/{domainId}/protection/intents', static fn (string $domainId) => response()->json($trafficRules()->listProtectionIntents($domainId)));
+    Route::post('/domains/{domainId}/protection/intents/{intentKey}/preview', static fn (string $domainId, string $intentKey) => $trafficResponse($trafficRules()->previewProtectionIntent($domainId, $intentKey, request()->all())));
+    Route::post('/domains/{domainId}/protection/intents/{intentKey}/enable', static fn (string $domainId, string $intentKey) => $trafficResponse($trafficRules()->enableProtectionIntent($domainId, $intentKey, request()->all())));
+    Route::post('/domains/{domainId}/protection/intents/{intentId}/disable', static fn (string $domainId, string $intentId) => $trafficResponse($trafficRules()->disableProtectionIntent($domainId, $intentId, request()->all())));
+    Route::post('/domains/{domainId}/protection/intents/{intentId}/undo', static fn (string $domainId, string $intentId) => $trafficResponse($trafficRules()->undoProtectionIntent($domainId, $intentId)));
+
+    Route::get('/domains/{domainId}/onboarding', static fn (string $domainId) => $trafficResponse($onboarding()->show($domainId)));
+    Route::post('/domains/{domainId}/onboarding/answers', static fn (string $domainId) => $trafficResponse($onboarding()->answers($domainId, request()->all())));
+    Route::post('/domains/{domainId}/onboarding/preview', static fn (string $domainId) => $trafficResponse($onboarding()->preview($domainId)));
+    Route::post('/domains/{domainId}/onboarding/apply', static fn (string $domainId) => $trafficResponse($onboarding()->apply($domainId, request()->all())));
+    Route::post('/domains/{domainId}/onboarding/skip', static fn (string $domainId) => $trafficResponse($onboarding()->skip($domainId)));
+    Route::post('/domains/{domainId}/onboarding/resume', static fn (string $domainId) => $trafficResponse($onboarding()->resume($domainId)));
+
     Route::get('/dns/operations', [DnsOperationsController::class, 'status']);
     Route::get('/dns/zones', [DnsOperationsController::class, 'zones']);
     Route::get('/dns/zones/{zone}/actual', [DnsOperationsController::class, 'actual']);
@@ -168,6 +305,45 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
     Route::get('/edge/config/status', [EdgeController::class, 'configStatus']);
     Route::post('/edge/config/publish', [EdgeController::class, 'publishConfig']);
     Route::get('/edges/dns', [EdgeController::class, 'dns']);
+
+    Route::get('/config/snapshots', static function (Request $request, EdgeConfigSnapshotService $config) {
+        return response()->json(['data' => $config->snapshots((int) $request->query('limit', 20), (int) $request->query('offset', 0))]);
+    });
+    Route::get('/config/snapshots/latest', static fn (EdgeConfigSnapshotService $config) => response()->json(['data' => $config->latestSnapshotSummary()]));
+    Route::get('/config/snapshots/{version}', static function (int $version, EdgeConfigSnapshotService $config) {
+        try {
+            $snapshot = $config->snapshot($version);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage()], 403);
+        }
+
+        return $snapshot === null
+            ? response()->json(['error' => 'config_snapshot_not_found'], 404)
+            : response()->json(['data' => $snapshot]);
+    })->whereNumber('version');
+    Route::post('/config/snapshots/diff', static function (Request $request, EdgeConfigSnapshotService $config) {
+        $validated = $request->validate([
+            'from_version' => ['required', 'integer', 'min:1'],
+            'to_version' => ['required', 'integer', 'min:1'],
+        ]);
+        try {
+            return response()->json(['data' => $config->diff((int) $validated['from_version'], (int) $validated['to_version'])]);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage()], 403);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'config_snapshot_not_found'], 404);
+        }
+    });
+    Route::post('/config/snapshots/{version}/rollback', static function (Request $request, int $version, EdgeConfigSnapshotService $config) {
+        try {
+            return response()->json(['data' => $config->rollback($version, (string) (($request->attributes->get('admin_user')['id'] ?? null) ?: 'system'))]);
+        } catch (\DomainException $error) {
+            return response()->json(['error' => $error->getMessage()], 403);
+        } catch (\OutOfBoundsException) {
+            return response()->json(['error' => 'config_snapshot_not_found'], 404);
+        }
+    })->whereNumber('version');
+    Route::post('/config/snapshots/rebuild', static fn (EdgeConfigSnapshotService $config) => response()->json(['data' => $config->publish()]));
 });
 
 Route::middleware('edge.auth')->prefix('/v1')->group(function (): void {

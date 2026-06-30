@@ -720,7 +720,27 @@ class FreshInstallApiTest extends TestCase
     public function test_laravel_owns_traffic_rule_workflows(): void
     {
         $token = $this->adminToken();
-        $domainId = $this->insertDomain('traffic-rules.example');
+        $hostname = 'traffic-rules-' . Str::lower(Str::random(8)) . '.example';
+        $originHost = 'origin.' . $hostname;
+        $domainId = $this->insertDomain($hostname);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/origins", [
+                'host' => $originHost,
+                'scheme' => 'https',
+            ])
+            ->assertCreated();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/dns/records", [
+                'type' => 'A',
+                'name' => '@',
+                'content' => '192.0.2.25',
+                'proxied' => true,
+                'origin_host' => $originHost,
+                'origin_scheme' => 'https',
+            ])
+            ->assertCreated();
 
         $this->withToken($token)
             ->postJson("/api/v1/domains/{$domainId}/cache-rules", [
@@ -788,7 +808,7 @@ class FreshInstallApiTest extends TestCase
             ->postJson("/api/v1/domains/{$domainId}/redirects", [
                 'enabled' => true,
                 'source_path' => '/old',
-                'target_url' => 'https://traffic-rules.example/new',
+                'target_url' => "https://{$hostname}/new",
                 'status_code' => 308,
                 'match_type' => 'exact_path',
             ])
@@ -836,6 +856,43 @@ class FreshInstallApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.state', 'manual_emergency');
+
+        $snapshot = $this->withToken($token)
+            ->postJson('/api/v1/edge/config/publish')
+            ->assertOk()
+            ->assertJsonPath('data.snapshot.schema', 'edge-config.v1')
+            ->json('data.snapshot');
+
+        $this->assertSame($domainId, $snapshot['hosts'][$hostname]['domain_id']);
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['redirects'], $domainId));
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['waf_rules'], $domainId));
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['rate_limits'], $domainId));
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['ip_rules'], $domainId));
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['header_rules'], $domainId));
+        $this->assertSame(1, $this->countSnapshotRowsForDomain($snapshot['cache_rules'], $domainId));
+        $this->assertSame('manual_emergency', $snapshot['hosts'][$hostname]['waiting_room']['state']);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/route-debug", [
+                'host' => $hostname,
+                'path' => 'assets/app.css',
+                'country' => 'us',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.configured', true)
+            ->assertJsonPath('data.host', $hostname)
+            ->assertJsonPath('data.path', '/assets/app.css')
+            ->assertJsonPath('data.country', 'US')
+            ->assertJsonPath('data.origin_pool_size', 1)
+            ->assertJsonPath('data.redirects_count', 1)
+            ->assertJsonPath('data.cache_rules_count', 1)
+            ->assertJsonPath('data.waf_rules_count', 1)
+            ->assertJsonPath('data.rate_limits_count', 1)
+            ->assertJsonPath('data.ip_rules_count', 1)
+            ->assertJsonPath('data.header_rules_count', 1)
+            ->assertJsonPath('data.waiting_room_enabled', true)
+            ->assertJsonPath('data.waiting_room_state', 'manual_emergency')
+            ->assertJsonPath('data.router_error', null);
     }
 
     public function test_admin_auth_is_required_for_traffic_rule_routes(): void
@@ -843,6 +900,205 @@ class FreshInstallApiTest extends TestCase
         $this->getJson('/api/v1/domains/domain-test/cache-rules')
             ->assertUnauthorized()
             ->assertJson(['error' => 'admin_auth_required']);
+    }
+
+    public function test_laravel_owns_protection_catalog_and_onboarding_routes(): void
+    {
+        $token = $this->adminToken();
+        $hostname = 'protection-' . Str::lower(Str::random(8)) . '.example';
+        $domainId = $this->insertDomain($hostname);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/protection/waf-presets")
+            ->assertOk()
+            ->assertJsonPath('data.mutates', false)
+            ->assertJsonPath('data.groups.0.group_id', 'sql_injection');
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/protection/rate-limit-templates")
+            ->assertOk()
+            ->assertJsonPath('data.mutates', false)
+            ->assertJsonPath('data.window_seconds', 60);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/protection/api-paths")
+            ->assertOk()
+            ->assertJsonPath('data.recommended_header_key', 'Authorization')
+            ->assertJsonPath('data.paths.0.path_prefix', '/api/');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/protection/profiles/api/preview")
+            ->assertOk()
+            ->assertJsonPath('data.profile_key', 'api')
+            ->assertJsonPath('data.mutates', false);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/protection/intents/protect_api/preview")
+            ->assertOk()
+            ->assertJsonPath('data.intent_key', 'protect_api')
+            ->assertJsonPath('data.mutates', false);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/onboarding")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'not_started');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/onboarding/answers", [
+                'answers' => [
+                    'site_type' => 'api',
+                    'has_api' => true,
+                    'framework' => 'other',
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'in_progress')
+            ->assertJsonPath('data.recommended_profile_key', 'api');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/onboarding/preview")
+            ->assertOk()
+            ->assertJsonPath('data.mutates', false)
+            ->assertJsonPath('data.profile_preview.profile_key', 'api');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/onboarding/skip")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'skipped');
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/onboarding/resume")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'in_progress');
+    }
+
+    public function test_laravel_owns_ssl_settings_and_queued_job_routes(): void
+    {
+        $token = $this->adminToken();
+        $hostname = 'ssl-' . Str::lower(Str::random(8)) . '.example';
+        $domainId = $this->insertDomain($hostname);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/ssl")
+            ->assertOk()
+            ->assertJsonPath('data.domain_id', $domainId)
+            ->assertJsonPath('data.force_https', false)
+            ->assertJsonPath('data.auto_renew', true);
+
+        $this->withToken($token)
+            ->patchJson("/api/v1/domains/{$domainId}/ssl/settings", [
+                'min_tls_version' => '1.3',
+                'auto_renew' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.min_tls_version', '1.3')
+            ->assertJsonPath('data.auto_renew', false);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/ssl/request", [
+                'hostnames' => 'not-an-array',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('field', 'hostnames');
+
+        $request = $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/ssl/request", [
+                'hostnames' => [$hostname, '*.'.$hostname],
+            ])
+            ->assertStatus(202)
+            ->assertJsonPath('data.status', 'queued')
+            ->assertJsonPath('data.job.status', 'queued')
+            ->json('data');
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/ssl/jobs/{$request['job_id']}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $request['job_id'])
+            ->assertJsonPath('data.status', 'queued');
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/ssl/acme-status")
+            ->assertOk()
+            ->assertJsonPath('data.jobs.0.id', $request['job_id']);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/domains/{$domainId}/ssl/certificates")
+            ->assertOk()
+            ->assertJsonFragment(['hostname' => $hostname]);
+    }
+
+    public function test_laravel_owns_config_snapshot_operations(): void
+    {
+        $token = $this->adminToken();
+        $hostname = 'snapshot-' . Str::lower(Str::random(8)) . '.example';
+
+        $first = $this->withToken($token)
+            ->postJson('/api/v1/config/snapshots/rebuild')
+            ->assertOk()
+            ->assertJsonPath('data.snapshot.schema', 'edge-config.v1')
+            ->json('data.version');
+
+        $domainId = $this->insertDomain($hostname);
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/origins", [
+                'host' => 'origin.'.$hostname,
+                'scheme' => 'https',
+            ])
+            ->assertCreated();
+        $this->withToken($token)
+            ->postJson("/api/v1/domains/{$domainId}/dns/records", [
+                'type' => 'A',
+                'name' => '@',
+                'content' => '192.0.2.41',
+                'proxied' => true,
+                'origin_host' => 'origin.'.$hostname,
+                'origin_scheme' => 'https',
+            ])
+            ->assertCreated();
+
+        $secondResponse = $this->withToken($token)
+            ->postJson('/api/v1/config/snapshots/rebuild')
+            ->assertOk()
+            ->json('data');
+        $second = $secondResponse['version'];
+        $this->assertSame($domainId, $secondResponse['snapshot']['hosts'][$hostname]['domain_id']);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/config/snapshots?limit=5')
+            ->assertOk()
+            ->assertJsonFragment(['version' => $second, 'active' => true]);
+
+        $this->withToken($token)
+            ->getJson('/api/v1/config/snapshots/latest')
+            ->assertOk()
+            ->assertJsonPath('data.version', $second);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/config/snapshots/{$second}")
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'config_snapshot_history_disabled');
+
+        config()->set('cdnlite.edge.snapshot_history_enabled', true);
+
+        $snapshot = $this->withToken($token)
+            ->getJson("/api/v1/config/snapshots/{$second}")
+            ->assertOk()
+            ->json('data');
+        $this->assertSame($domainId, $snapshot['hosts'][$hostname]['domain_id']);
+
+        $this->withToken($token)
+            ->postJson('/api/v1/config/snapshots/diff', [
+                'from_version' => $first,
+                'to_version' => $second,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.from_version', $first)
+            ->assertJsonPath('data.to_version', $second);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/config/snapshots/{$first}/rollback")
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'config_snapshot_rollback_disabled');
     }
 
     private function adminToken(): string
@@ -871,6 +1127,11 @@ class FreshInstallApiTest extends TestCase
         ]);
 
         return $token;
+    }
+
+    private function countSnapshotRowsForDomain(array $rows, string $domainId): int
+    {
+        return count(array_filter($rows, static fn (array $row): bool => (string) ($row['domain_id'] ?? '') === $domainId));
     }
 
     private function insertDomain(string $hostname): string

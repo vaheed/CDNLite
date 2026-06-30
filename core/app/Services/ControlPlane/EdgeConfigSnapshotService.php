@@ -111,6 +111,188 @@ final class EdgeConfigSnapshotService
         ];
     }
 
+    public function snapshots(int $limit = 20, int $offset = 0): array
+    {
+        $limit = max(1, min(100, $limit));
+        $offset = max(0, $offset);
+        DB::table('config_state')->insertOrIgnore(['id' => 1, 'version' => 0]);
+
+        return DB::table('config_snapshots as s')
+            ->crossJoin('config_state as cs')
+            ->where('cs.id', 1)
+            ->orderByDesc('s.version')
+            ->offset($offset)
+            ->limit($limit)
+            ->get([
+                's.version',
+                's.generated_at',
+                's.content_hash',
+                DB::raw('pg_column_size(s.payload_json) as size'),
+                DB::raw('(s.version = cs.active_snapshot_version) as active'),
+            ])
+            ->map(fn (object $row): array => $this->snapshotSummary($row))
+            ->all();
+    }
+
+    public function latestSnapshotSummary(): ?array
+    {
+        DB::table('config_state')->insertOrIgnore(['id' => 1, 'version' => 0]);
+        $row = DB::table('config_snapshots as s')
+            ->crossJoin('config_state as cs')
+            ->where('cs.id', 1)
+            ->orderByDesc('s.version')
+            ->limit(1)
+            ->first([
+                's.version',
+                's.generated_at',
+                's.content_hash',
+                DB::raw('pg_column_size(s.payload_json) as size'),
+                DB::raw('(s.version = cs.active_snapshot_version) as active'),
+            ]);
+
+        return $row === null ? null : $this->snapshotSummary($row);
+    }
+
+    public function snapshot(int $version): ?array
+    {
+        if (!$this->snapshotHistoryEnabled()) {
+            throw new \DomainException('config_snapshot_history_disabled');
+        }
+
+        return $this->snapshotPayload($version);
+    }
+
+    public function diff(int $fromVersion, int $toVersion): array
+    {
+        if (!$this->snapshotHistoryEnabled()) {
+            throw new \DomainException('config_snapshot_history_disabled');
+        }
+
+        $from = $this->snapshotPayload($fromVersion);
+        $to = $this->snapshotPayload($toVersion);
+        if ($from === null || $to === null) {
+            throw new \OutOfBoundsException('config_snapshot_not_found');
+        }
+
+        return [
+            'from_version' => $fromVersion,
+            'to_version' => $toVersion,
+            'changes' => $this->diffValues($from, $to),
+        ];
+    }
+
+    public function rollback(int $version, string $actor = 'system'): array
+    {
+        if (!$this->snapshotHistoryEnabled() || !$this->snapshotRollbackEnabled()) {
+            throw new \DomainException('config_snapshot_rollback_disabled');
+        }
+
+        $payload = $this->snapshotPayload($version);
+        if ($payload === null) {
+            throw new \OutOfBoundsException('config_snapshot_not_found');
+        }
+
+        $previousActiveVersion = DB::table('config_state')->where('id', 1)->value('active_snapshot_version');
+        DB::table('config_state')->insertOrIgnore(['id' => 1, 'version' => 0]);
+        DB::table('config_state')->where('id', 1)->update([
+            'active_snapshot_version' => $version,
+            'dirty' => true,
+            'dirty_at' => UnixTime::now(),
+            'last_publish_error' => null,
+        ]);
+
+        (new AuditWriter())->write(
+            'config.rollback',
+            'config_snapshot',
+            (string) $version,
+            ['active_version' => $previousActiveVersion === null ? null : (int) $previousActiveVersion],
+            ['active_version' => $version],
+            'admin',
+            $actor,
+            null,
+            ['warning' => 'snapshot_rollback_does_not_change_source_tables']
+        );
+
+        return $payload;
+    }
+
+    public function debugRoute(string $domainId, array $input): array
+    {
+        $snapshot = $this->activeSnapshot();
+        $host = strtolower(trim((string) ($input['host'] ?? '')));
+        $path = (string) ($input['path'] ?? '/');
+        $country = strtoupper(trim((string) ($input['country'] ?? '')));
+        if ($path === '' || $path[0] !== '/') {
+            $path = '/' . ltrim($path, '/');
+        }
+
+        $matchedHost = null;
+        $domainConfig = null;
+        foreach ((array) ($snapshot['hosts'] ?? []) as $configuredHost => $config) {
+            if (!is_array($config) || (string) ($config['domain_id'] ?? '') !== $domainId) {
+                continue;
+            }
+            if ($host === '' || $host === strtolower((string) $configuredHost)) {
+                $matchedHost = (string) $configuredHost;
+                $domainConfig = $config;
+                break;
+            }
+        }
+
+        if ($domainConfig === null) {
+            return [
+                'configured' => false,
+                'domain_id' => $domainId,
+                'host' => $host,
+                'path' => $path,
+                'country' => $country === '' ? null : $country,
+                'snapshot_version' => (int) ($snapshot['version'] ?? 0),
+                'router_error' => 'domain_not_configured',
+            ];
+        }
+
+        $origins = array_values(array_filter(
+            is_array($domainConfig['origins'] ?? null) ? $domainConfig['origins'] : [],
+            static fn (mixed $origin): bool => is_array($origin) && (bool) ($origin['enabled'] ?? true)
+        ));
+        $origin = null;
+        $originSource = 'origins';
+        $geoOrigins = is_array($domainConfig['geo_origins'] ?? null) ? $domainConfig['geo_origins'] : [];
+        if ($country !== '' && isset($geoOrigins[$country]) && is_array($geoOrigins[$country])) {
+            $origin = $geoOrigins[$country];
+            $originSource = 'geo_origins.' . $country;
+        }
+        if ($origin === null) {
+            $origin = $this->selectOriginFromPool($origins, ($host === '' ? (string) $matchedHost : $host) . '|' . $path);
+        }
+
+        return [
+            'configured' => true,
+            'domain_id' => $domainId,
+            'host' => $matchedHost,
+            'request_host' => $host === '' ? $matchedHost : $host,
+            'path' => $path,
+            'country' => $country === '' ? null : $country,
+            'snapshot_version' => (int) ($snapshot['version'] ?? 0),
+            'selected_origin' => $origin,
+            'selected_origin_source' => $origin === null ? null : $originSource,
+            'origin_pool_size' => count($origins),
+            'redirects_count' => $this->countRulesForDomain($snapshot['redirects'] ?? [], $domainId),
+            'cache_rules_count' => $this->countRulesForDomain($snapshot['cache_rules'] ?? [], $domainId),
+            'waf_rules_count' => $this->countRulesForDomain($snapshot['waf_rules'] ?? [], $domainId),
+            'rate_limits_count' => $this->countRulesForDomain($snapshot['rate_limits'] ?? [], $domainId),
+            'ip_rules_count' => count(is_array($domainConfig['ip_rules'] ?? null) ? $domainConfig['ip_rules'] : []),
+            'header_rules_count' => count(is_array($domainConfig['header_rules'] ?? null) ? $domainConfig['header_rules'] : []),
+            'waiting_room_enabled' => (bool) ($domainConfig['waiting_room']['enabled'] ?? false),
+            'waiting_room_state' => $domainConfig['waiting_room']['state'] ?? null,
+            'ssl' => [
+                'enabled' => (bool) ($domainConfig['ssl']['enabled'] ?? false),
+                'certificate_status' => (string) ($domainConfig['ssl']['certificate_status'] ?? 'unknown'),
+            ],
+            'router_error' => $origin === null ? 'missing_origin' : null,
+        ];
+    }
+
     private function activeSnapshot(): array
     {
         $activeVersion = DB::table('config_state')->where('id', 1)->value('active_snapshot_version');
@@ -125,6 +307,28 @@ final class EdgeConfigSnapshotService
         }
 
         return $this->emptySnapshot();
+    }
+
+    private function snapshotSummary(object $row): array
+    {
+        return [
+            'version' => (int) $row->version,
+            'generated_at' => (int) $row->generated_at,
+            'content_hash' => (string) $row->content_hash,
+            'size' => (int) $row->size,
+            'active' => (bool) $row->active,
+        ];
+    }
+
+    private function snapshotPayload(int $version): ?array
+    {
+        $payload = DB::table('config_snapshots')->where('version', $version)->value('payload_json');
+        if (!is_string($payload)) {
+            return null;
+        }
+        $decoded = json_decode($payload, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     private function buildPayload(int $version): array
@@ -387,6 +591,15 @@ final class EdgeConfigSnapshotService
         return $origins;
     }
 
+    private function selectOriginFromPool(array $origins, string $key): ?array
+    {
+        if ($origins === []) {
+            return null;
+        }
+
+        return $origins[crc32($key) % count($origins)];
+    }
+
     private function recordHost(string $domainName, string $name): ?string
     {
         $domainName = strtolower(rtrim(trim($domainName), '.'));
@@ -590,6 +803,38 @@ final class EdgeConfigSnapshotService
         return json_last_error() === JSON_ERROR_NONE ? $decoded : $fallback;
     }
 
+    private function diffValues(mixed $from, mixed $to, string $path = ''): array
+    {
+        if (!is_array($from) || !is_array($to)) {
+            return $from === $to ? [] : [['path' => $path === '' ? '/' : $path, 'before' => $from, 'after' => $to]];
+        }
+
+        $changes = [];
+        foreach (array_unique(array_merge(array_keys($from), array_keys($to))) as $key) {
+            $child = $path . '/' . str_replace(['~', '/'], ['~0', '~1'], (string) $key);
+            if (!array_key_exists($key, $from)) {
+                $changes[] = ['path' => $child, 'before' => null, 'after' => $to[$key]];
+                continue;
+            }
+            if (!array_key_exists($key, $to)) {
+                $changes[] = ['path' => $child, 'before' => $from[$key], 'after' => null];
+                continue;
+            }
+            array_push($changes, ...$this->diffValues($from[$key], $to[$key], $child));
+        }
+
+        return $changes;
+    }
+
+    private function countRulesForDomain(mixed $rules, string $domainId): int
+    {
+        if (!is_array($rules)) {
+            return 0;
+        }
+
+        return count(array_filter($rules, static fn (mixed $rule): bool => is_array($rule) && (string) ($rule['domain_id'] ?? '') === $domainId));
+    }
+
     private function nextVersion(): int
     {
         $current = (int) DB::table('config_state')->where('id', 1)->value('version');
@@ -609,6 +854,16 @@ final class EdgeConfigSnapshotService
     private function maxSnapshotBytes(): int
     {
         return max(0, (int) config('cdnlite.edge.config_max_bytes', 1048576));
+    }
+
+    private function snapshotHistoryEnabled(): bool
+    {
+        return filter_var(config('cdnlite.edge.snapshot_history_enabled', false), FILTER_VALIDATE_BOOL);
+    }
+
+    private function snapshotRollbackEnabled(): bool
+    {
+        return filter_var(config('cdnlite.edge.snapshot_rollback_enabled', false), FILTER_VALIDATE_BOOL);
     }
 
     private function stableContent(array $payload): string

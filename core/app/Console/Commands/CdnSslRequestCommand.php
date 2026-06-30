@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Proxy\Services\TrafficRulesService;
+use App\Services\ControlPlane\SslCertificateService;
 use App\Support\CommandIO;
 
 class CdnSslRequestCommand
@@ -18,7 +18,7 @@ class CdnSslRequestCommand
         $hostnames = array_values(array_filter(array_map('trim', explode(',', (string) ($opts['hostnames'] ?? '')))));
 
         try {
-            $rows = (new TrafficRulesService())->requestSslJob($domainId, $hostnames);
+            $rows = (new SslCertificateService())->requestJob($domainId, $hostnames);
         } catch (\Throwable $e) {
             fwrite(STDERR, $e->getMessage() . PHP_EOL);
             return 1;

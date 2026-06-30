@@ -14,7 +14,7 @@ class AcmeIssuerService
     private ?array $directory = null;
     private ?string $nonce = null;
 
-    public function __construct(private TrafficRulesService $certificates = new TrafficRulesService())
+    public function __construct(private object $certificates = new TrafficRulesService())
     {
         $this->powerDns = new PowerDnsService();
     }

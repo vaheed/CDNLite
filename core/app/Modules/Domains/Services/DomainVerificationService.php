@@ -4,8 +4,8 @@ namespace App\Modules\Domains\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Proxy\Services\ConfigService;
-use App\Modules\Proxy\Services\TrafficRulesService;
 use App\Modules\Settings\Repositories\SettingsRepository;
+use App\Services\ControlPlane\SslCertificateService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
@@ -272,7 +272,7 @@ class DomainVerificationService
     private function queueManagedWildcardSsl(string $domainId): void
     {
         try {
-            (new TrafficRulesService())->ensureManagedWildcardSslJob($domainId);
+            (new SslCertificateService())->ensureManagedWildcardJob($domainId);
         } catch (\Throwable $e) {
             AuditLog::write('ssl.auto_request_failed', 'ssl', null, $domainId, null, [
                 'domain_id' => $domainId,

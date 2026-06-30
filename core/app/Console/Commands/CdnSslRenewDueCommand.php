@@ -2,14 +2,14 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Proxy\Services\CertRenewalService;
+use App\Services\ControlPlane\SslRenewalService;
 use App\Support\CommandIO;
 
 class CdnSslRenewDueCommand
 {
     public function __invoke(array $argv): int
     {
-        $service = new CertRenewalService();
+        $service = new SslRenewalService();
         $queued = $service->processQueuedJobs();
         $renewals = $service->renewDue();
         $result = ['queued' => $queued, 'renewals' => $renewals];
