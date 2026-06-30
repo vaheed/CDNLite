@@ -38,10 +38,10 @@ def test_core_exposes_origin_cdn_health_route():
 
 
 def test_domain_routes_are_registered():
-    public_index = (REPO_ROOT / "core" / "public_index.php").read_text()
-    assert "'/api/v1/domains'" in public_index
-    assert "'/api/v1/domains/{domainId}'" in public_index
-    assert "/api/v1/domains/{domainId}/dns/records/{recordId}/geo-routes" in public_index
+    routes = (REPO_ROOT / "core" / "routes" / "api.php").read_text()
+    assert "Route::get('/domains'" in routes
+    assert "Route::get('/domains/{domainId}'" in routes
+    assert "/domains/{domainId}/dns/records/{recordId}/geo-routes" in routes
 
 
 def test_router_placeholders_accept_dotted_setting_group_names():

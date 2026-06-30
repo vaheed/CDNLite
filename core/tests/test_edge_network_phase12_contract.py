@@ -10,15 +10,15 @@ def read(path: str) -> str:
 
 def test_edge_pool_schema_and_api_contract():
     schema = read("core/database/schema.sql")
-    routes = read("core/public_index.php")
-    service = read("core/app/Modules/Edge/Services/EdgeService.php")
+    routes = read("core/routes/api.php")
+    controller = read("core/app/Http/Controllers/Api/EdgeController.php")
 
     assert "CREATE TABLE IF NOT EXISTS edge_pools" in schema
     assert "CREATE TABLE IF NOT EXISTS edge_pool_members" in schema
     assert "geo_enabled BOOLEAN NOT NULL DEFAULT true" in schema
     assert "anycast_enabled BOOLEAN NOT NULL DEFAULT false" in schema
-    assert "/api/v1/edges/pools" in routes
-    assert "public function pools(): array" in service
+    assert "Route::get('/edges/pools'" in routes
+    assert "public function pools(): JsonResponse" in controller
 
 
 def test_compose_runs_two_test_edges_with_public_ip_metadata():
@@ -36,7 +36,7 @@ def test_compose_runs_two_test_edges_with_public_ip_metadata():
 def test_platform_dns_plan_contract():
     dns = read("core/app/Modules/Dns/Services/EdgeDnsService.php")
     renderer = read("core/app/Modules/Dns/Services/EdgeDnsPoolRenderer.php")
-    routes = read("core/public_index.php")
+    routes = read("core/routes/api.php")
     settings = read("core/app/Modules/Settings/Repositories/SettingsRepository.php")
 
     assert "SELECT * FROM edge_state" in renderer
@@ -45,7 +45,7 @@ def test_platform_dns_plan_contract():
     assert "luaRecord(string $type)" in renderer
     assert "edge_state_generations" in dns
     assert "desiredRrsets(bool $persistGeneration = false)" in dns
-    assert "/api/v1/edges/dns" in routes
+    assert "Route::get('/edges/dns'" in routes
     assert "'cdn_zone'" in settings
     assert "'proxy_host'" in settings
 

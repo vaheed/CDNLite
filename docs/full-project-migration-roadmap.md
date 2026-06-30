@@ -348,7 +348,7 @@ Current progress evidence:
 
 ### 80-88% Dashboard, OpenAPI, Docs, And Deployment Alignment
 
-Status: **Pending**.
+Status: **In progress**.
 
 Scope:
 
@@ -366,6 +366,28 @@ Exit checks:
 - Dashboard typecheck, tests, and build.
 - Docs build.
 - OpenAPI reviewed against route list.
+
+Current progress evidence:
+
+- Dashboard-facing Laravel routes now own the Event Viewer, Job Queue, edge
+  pools, DNS GeoDNS route read/replace, and current DNS/edge/usage operational
+  contracts without relying on old dashboard aliases.
+- Dashboard API clients/types no longer advertise retired SSL request-cert,
+  direct ACME issue, overview warnings, edge-countries, routing, or
+  preview-routing endpoints.
+- OpenAPI `/api/v1` paths were reviewed against the Laravel route list; the only
+  extra paths are public health endpoints (`/health`, `/ready`, and
+  `/cdn-health`) that intentionally live outside the Laravel `/api/v1` route
+  scrape.
+- Static migration contract tests for edge network, operations feeds, and domain
+  route registration now use Laravel route/controller ownership instead of
+  legacy `core/public_index.php` ownership.
+- Focused validation passed: Laravel route/OpenAPI comparison, OpenAPI YAML
+  parse, full PHP lint, dashboard typecheck, and focused pytest contract set.
+- Local validation blockers remain: dashboard tests/build require Node
+  `20.19+` or `22.12+` while the current environment has Node `18.19.1`; full
+  pytest still includes unrelated pre-existing failures from missing Laravel
+  vendor, no local PostgreSQL, and older CLI/Compose assertions.
 
 ### 88-94% CLI Conversion
 

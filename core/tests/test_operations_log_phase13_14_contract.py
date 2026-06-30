@@ -5,13 +5,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_global_security_and_audit_routes_are_registered():
-    public_index = (ROOT / "core/public_index.php").read_text()
-    assert "'/api/v1/security/events'" in public_index
-    assert "'/api/v1/security/summary'" in public_index
-    assert "'/api/v1/audit'" in public_index
-    assert "'/api/v1/events'" in public_index
-    assert "'/api/v1/jobs'" in public_index
-    assert "auth: true" in public_index
+    routes = (ROOT / "core/routes/api.php").read_text()
+    controller = (ROOT / "core/app/Http/Controllers/Api/OperationsController.php").read_text()
+    assert "Route::get('/security/events'" in routes
+    assert "Route::get('/security/summary'" in routes
+    assert "Route::get('/audit'" in routes
+    assert "Route::get('/events'" in routes
+    assert "Route::get('/jobs'" in routes
+    assert "public function events" in controller
+    assert "public function jobs" in controller
 
 
 def test_operations_log_service_supports_required_filters_and_pagination():
