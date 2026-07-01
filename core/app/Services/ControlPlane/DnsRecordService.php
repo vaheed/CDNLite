@@ -90,7 +90,7 @@ final class DnsRecordService
             'origin_tls_verify' => $record['origin_tls_verify'],
             'origin_scheme' => $record['proxied'] ? $record['origin_scheme'] : null,
             'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
-            'geo_origins_json' => null,
+            'geo_origins_json' => $record['geo_origins_json'],
             'routing_policy' => 'standard',
             'managed_by' => null,
             'status' => 'active',
@@ -125,6 +125,7 @@ final class DnsRecordService
             'priority' => $existing['priority'],
             'proxied' => $existing['proxied'],
             'status' => $existing['status'],
+            'geo_origins_json' => $existing['geo_origins_json'],
         ], true);
         $this->assertCompatible($domainId, $recordId, $record);
         $public = $this->publicRecordFor($domain, $record);
@@ -147,6 +148,7 @@ final class DnsRecordService
                 'origin_tls_verify' => $record['origin_tls_verify'],
                 'origin_scheme' => $record['proxied'] ? $record['origin_scheme'] : null,
                 'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
+                'geo_origins_json' => $record['geo_origins_json'],
                 'status' => $record['status'],
                 'updated_at' => UnixTime::now(),
             ]);
@@ -297,8 +299,28 @@ final class DnsRecordService
             'origin_host' => strtolower(trim((string) ($input['origin_host'] ?? $content))),
             'origin_scheme' => $originScheme,
             'origin_tls_verify' => $originTlsVerify,
+            'geo_origins_json' => array_key_exists('geo_origins', $input)
+                ? $this->encodeGeoOrigins($input['geo_origins'])
+                : ($input['geo_origins_json'] ?? null),
             'status' => $status,
         ];
+    }
+
+    private function encodeGeoOrigins(mixed $value): ?string
+    {
+        if ($value === null || $value === []) {
+            return null;
+        }
+        if (!is_array($value)) {
+            throw new RuntimeException('invalid_geo_origins');
+        }
+
+        $encoded = json_encode($value, JSON_UNESCAPED_SLASHES);
+        if (!is_string($encoded)) {
+            throw new RuntimeException('invalid_geo_origins');
+        }
+
+        return $encoded;
     }
 
     private function normalizeName(string $name, string $domain): string

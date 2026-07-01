@@ -361,6 +361,7 @@ final class DomainController extends Controller
             'origin_host' => ['sometimes', 'nullable', 'string', 'max:253'],
             'origin_scheme' => ['sometimes', 'nullable', 'in:http,https'],
             'origin_tls_verify' => ['sometimes', 'nullable', 'in:ignore,verify'],
+            'geo_origins' => ['sometimes', 'nullable', 'array'],
             'status' => ['sometimes', 'in:active,disabled'],
             'geo_routes' => ['sometimes', 'array'],
             'geo_routes.*.route_scope' => ['required_with:geo_routes', 'in:default,country,continent'],
