@@ -21,7 +21,16 @@ class CdnEdgeSyncConfigCommand
             throw $error;
         }
 
-        CommandIO::printJson(['data' => $snapshot]);
+        $payload = is_array($snapshot['snapshot'] ?? null) ? $snapshot['snapshot'] : $snapshot;
+        $version = (int) ($payload['version'] ?? $snapshot['version'] ?? 0);
+        $options = CommandIO::parseOptions($argv);
+        if (($options['if_version'] ?? null) !== null && (int) $options['if_version'] === $version) {
+            CommandIO::printJson(['not_modified' => true, 'version' => $version]);
+
+            return 0;
+        }
+
+        CommandIO::printJson($payload);
 
         return 0;
     }

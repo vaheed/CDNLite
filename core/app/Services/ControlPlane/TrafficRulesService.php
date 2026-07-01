@@ -1223,7 +1223,7 @@ class TrafficRulesService
         return false;
     }
     private function invalidateConfigSnapshot(): void {
-        ConfigService::markDirty('traffic_rules.changed');
+        app(ConfigStateWriter::class)->markDirty('traffic_rules.changed');
     }
     private function managedWafModes(): array {
         return [

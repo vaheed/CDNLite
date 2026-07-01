@@ -7,7 +7,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def test_rate_limit_crud_routes_and_snapshot_collection_contract():
     routes = (REPO_ROOT / "core" / "routes" / "api.php").read_text()
     service = (REPO_ROOT / "core" / "app" / "Services" / "ControlPlane" / "TrafficRulesService.php").read_text()
-    config = (REPO_ROOT / "core" / "app" / "Modules" / "Proxy" / "Services" / "ConfigService.php").read_text()
 
     assert "/domains/{domainId}/rate-limits" in routes
     assert "/domains/{domainId}/rate-limits/{ruleId}" in routes
@@ -15,8 +14,8 @@ def test_rate_limit_crud_routes_and_snapshot_collection_contract():
     assert "updateRateLimit" in service
     assert "deleteRateLimit" in service
     assert "invalidateConfigSnapshot" in service
-    assert "ConfigService::markDirty('traffic_rules.changed')" in service
-    assert "listRateLimits($domainId)" in config
+    assert "ConfigStateWriter::class" in service
+    assert "traffic_rules.changed" in service
 
 
 def test_dashboard_rate_limit_crud_contract():

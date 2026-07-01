@@ -50,7 +50,11 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "origin_status TEXT NOT NULL DEFAULT 'pending'" in schema
     assert "geo_origins_json TEXT NULL" in schema
     assert "'origin_host' => ['nullable', 'string', 'max:253']" in request
-    assert "'origin_scheme' => $record['proxied'] ? 'http' : null" in laravel_service
+    assert "'origin_scheme' => $record['proxied'] ? $record['origin_scheme'] : null" in laravel_service
+    assert "'origin_tls_verify' => $record['origin_tls_verify']" in laravel_service
+    assert "$requestedHost = $this->requestedHostForDnsRecord($record)" in laravel_service
+    assert "'host_header' => $requestedHost" in laravel_service
+    assert "'sni' => $requestedHost" in laravel_service
     assert "'origin_scheme' => (string) ($input['origin_scheme'] ?? 'http')" in service
     assert ":origin_scheme, :origin_status" in service
     assert "origin_scheme = :origin_scheme" in service

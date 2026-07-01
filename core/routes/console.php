@@ -254,7 +254,7 @@ Artisan::command('cdn:edge:show {--edge_id=}', function (): int {
     return self::SUCCESS;
 })->purpose('Show one edge node');
 
-Artisan::command('cdn:edge:sync-config', function (): int {
+Artisan::command('cdn:edge:sync-config {--if_version=}', function (): int {
     try {
         $result = app(EdgeConfigSnapshotService::class)->publish();
     } catch (\RuntimeException $error) {
@@ -267,7 +267,16 @@ Artisan::command('cdn:edge:sync-config', function (): int {
         throw $error;
     }
 
-    $this->line(json_encode(['data' => $result], JSON_UNESCAPED_SLASHES));
+    $payload = is_array($result['snapshot'] ?? null) ? $result['snapshot'] : $result;
+    $version = (int) ($payload['version'] ?? $result['version'] ?? 0);
+    $ifVersion = $this->option('if_version');
+    if ($ifVersion !== null && $ifVersion !== '' && (int) $ifVersion === $version) {
+        $this->line(json_encode(['not_modified' => true, 'version' => $version], JSON_UNESCAPED_SLASHES));
+
+        return self::SUCCESS;
+    }
+
+    $this->line(json_encode($payload, JSON_UNESCAPED_SLASHES));
 
     return self::SUCCESS;
 })->purpose('Publish the active Laravel edge config snapshot');

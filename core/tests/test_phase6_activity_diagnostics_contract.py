@@ -40,7 +40,9 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
 
     assert "'host' => $this->nullableString($event['host'] ?? null)" in collector
     assert "'query_redacted' => isset($event['query_redacted'])" in collector
-    assert "'upstream_response_time_ms' => $this->durationMs($event['upstream_response_time_ms']" in collector
+    assert "$upstreamResponseTimeMs = $this->durationMs($event['upstream_response_time_ms']" in collector
+    assert "'upstream_response_time_ms' => $upstreamResponseTimeMs" in collector
+    assert "recordOriginObservation($domainId, $event, $edgeNodeId, $upstreamResponseTimeMs, $ts)" in collector
     assert "public function recentRequests(Request $request, string $domainId)" in collector
     assert "public function activityTimeline(Request $request, string $domainId)" in collector
     assert "$type === '' || $type === 'audit' || $type === 'security'" in collector

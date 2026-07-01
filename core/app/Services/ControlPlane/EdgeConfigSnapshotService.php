@@ -7,15 +7,32 @@ use Illuminate\Support\Facades\DB;
 final class EdgeConfigSnapshotService
 {
     private const EMPTY_CONTENT_HASH = 'empty';
+    private bool $publishLockHeld = false;
 
     public function publish(): array
     {
         DB::table('config_state')->insertOrIgnore(['id' => 1, 'version' => 0]);
 
+        $state = (array) DB::table('config_state')->where('id', 1)->first();
+        $dirty = in_array($state['dirty'] ?? true, [true, 1, '1', 't', 'true'], true);
+        if (!$dirty && ($state['active_snapshot_version'] ?? null) !== null) {
+            return $this->publishResultFromSnapshot($this->activeSnapshot(), false, false);
+        }
+
+        if (!$this->tryPublishLock()) {
+            $active = $this->activeSnapshot();
+            if ((int) ($active['version'] ?? 0) > 0) {
+                return $this->publishResultFromSnapshot($active, false, true, true);
+            }
+
+            throw new \RuntimeException('config_publish_in_progress');
+        }
+
+        $previousActiveVersion = $state['active_snapshot_version'] ?? null;
         DB::table('config_state')->where('id', 1)->update(['publishing_started_at' => UnixTime::now()]);
 
         try {
-            return DB::transaction(function (): array {
+            return DB::transaction(function () use ($previousActiveVersion): array {
                 $payload = $this->buildPayload($this->nextVersion());
                 $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
                 if (!is_string($encoded)) {
@@ -53,13 +70,9 @@ final class EdgeConfigSnapshotService
                     'publishing_started_at' => null,
                 ]);
 
-                return [
-                    'changed' => true,
-                    'version' => $version,
-                    'content_hash' => $contentHash,
-                    'reused' => $existingVersion !== null,
-                    'snapshot' => $payload,
-                ];
+                $this->auditSnapshotPublish($version, $previousActiveVersion === null ? null : (int) $previousActiveVersion, $existingVersion !== null);
+
+                return $this->publishResultFromSnapshot($payload, true, $existingVersion !== null);
             });
         } catch (\Throwable $error) {
             DB::table('config_state')->where('id', 1)->update([
@@ -68,15 +81,17 @@ final class EdgeConfigSnapshotService
             ]);
 
             throw $error;
+        } finally {
+            $this->unlockPublish();
         }
     }
 
     public function edgeResponse(?int $ifVersion, string $edgeId): array
     {
-        $snapshot = $this->activeSnapshot();
+        $snapshot = $this->edgeSnapshotForPull();
         $version = (int) $snapshot['version'];
 
-        if ($ifVersion !== null && $ifVersion > 0 && $ifVersion === $version) {
+        if ($ifVersion !== null && $ifVersion > 0 && $ifVersion === $version && empty($snapshot['stale_while_rebuilding'])) {
             $this->recordConfigPull($edgeId, $version);
 
             return ['not_modified' => true, 'version' => $version];
@@ -85,6 +100,22 @@ final class EdgeConfigSnapshotService
         $this->recordConfigPull($edgeId, $version);
 
         return $snapshot;
+    }
+
+    private function edgeSnapshotForPull(): array
+    {
+        DB::table('config_state')->insertOrIgnore(['id' => 1, 'version' => 0]);
+
+        $state = (array) DB::table('config_state')->where('id', 1)->first();
+        $dirty = in_array($state['dirty'] ?? true, [true, 1, '1', 't', 'true'], true);
+        if (!$dirty && ($state['active_snapshot_version'] ?? null) !== null) {
+            return $this->activeSnapshot();
+        }
+
+        $result = $this->publish();
+        $snapshot = $result['snapshot'] ?? null;
+
+        return is_array($snapshot) ? $snapshot : $this->activeSnapshot();
     }
 
     public function status(): array
@@ -838,8 +869,59 @@ final class EdgeConfigSnapshotService
     private function nextVersion(): int
     {
         $current = (int) DB::table('config_state')->where('id', 1)->value('version');
+        $latestSnapshot = (int) (DB::table('config_snapshots')->max('version') ?? 0);
 
-        return max(1, $current + 1);
+        return max(1, $current, $latestSnapshot) + 1;
+    }
+
+    private function publishResultFromSnapshot(array $snapshot, bool $changed, bool $reused, bool $stale = false): array
+    {
+        if ($stale) {
+            $snapshot['stale_while_rebuilding'] = true;
+        }
+
+        $result = [
+            'changed' => $changed,
+            'version' => (int) ($snapshot['version'] ?? 0),
+            'content_hash' => (string) ($snapshot['content_hash'] ?? self::EMPTY_CONTENT_HASH),
+            'reused' => $reused,
+            'snapshot' => $snapshot,
+        ];
+
+        if ($stale) {
+            $result['stale_while_rebuilding'] = true;
+        }
+
+        return $result;
+    }
+
+    private function auditSnapshotPublish(int $version, ?int $beforeVersion, bool $reused): void
+    {
+        (new AuditWriter())->write(
+            $reused ? 'config.publish.reused' : 'config.publish',
+            'config_snapshot',
+            (string) $version,
+            ['active_version' => $beforeVersion],
+            ['active_version' => $version, 'snapshot_version' => $version],
+        );
+    }
+
+    private function tryPublishLock(): bool
+    {
+        $locked = DB::selectOne("SELECT pg_try_advisory_lock(hashtext('cdnlite_config_publish')) AS locked");
+        $this->publishLockHeld = in_array($locked?->locked ?? false, [true, 1, '1', 't', 'true'], true);
+
+        return $this->publishLockHeld;
+    }
+
+    private function unlockPublish(): void
+    {
+        if (!$this->publishLockHeld) {
+            return;
+        }
+
+        DB::select("SELECT pg_advisory_unlock(hashtext('cdnlite_config_publish'))");
+        $this->publishLockHeld = false;
     }
 
     private function assertWithinSizeLimit(string $encoded): void

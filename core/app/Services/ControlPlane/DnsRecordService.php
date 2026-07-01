@@ -87,8 +87,8 @@ final class DnsRecordService
             'public_type' => $public['type'],
             'public_content' => $public['content'],
             'origin_host' => $record['proxied'] ? $record['origin_host'] : null,
-            'origin_tls_verify' => 'ignore',
-            'origin_scheme' => $record['proxied'] ? 'http' : null,
+            'origin_tls_verify' => $record['origin_tls_verify'],
+            'origin_scheme' => $record['proxied'] ? $record['origin_scheme'] : null,
             'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
             'geo_origins_json' => null,
             'routing_policy' => 'standard',
@@ -144,7 +144,8 @@ final class DnsRecordService
                 'public_type' => $public['type'],
                 'public_content' => $public['content'],
                 'origin_host' => $record['proxied'] ? $record['origin_host'] : null,
-                'origin_scheme' => $record['proxied'] ? 'http' : null,
+                'origin_tls_verify' => $record['origin_tls_verify'],
+                'origin_scheme' => $record['proxied'] ? $record['origin_scheme'] : null,
                 'origin_status' => $record['proxied'] ? 'pending' : 'dns_only',
                 'status' => $record['status'],
                 'updated_at' => UnixTime::now(),
@@ -276,6 +277,16 @@ final class DnsRecordService
             throw new RuntimeException('invalid_dns_record_status');
         }
 
+        $originScheme = strtolower(trim((string) ($input['origin_scheme'] ?? 'http')));
+        if (!in_array($originScheme, ['http', 'https'], true)) {
+            throw new RuntimeException('invalid_origin_scheme');
+        }
+
+        $originTlsVerify = strtolower(trim((string) ($input['origin_tls_verify'] ?? 'ignore')));
+        if (!in_array($originTlsVerify, ['ignore', 'verify'], true)) {
+            throw new RuntimeException('invalid_origin_tls_verify');
+        }
+
         return [
             'type' => $type,
             'name' => $name,
@@ -284,6 +295,8 @@ final class DnsRecordService
             'priority' => $priority,
             'proxied' => (bool) ($input['proxied'] ?? false),
             'origin_host' => strtolower(trim((string) ($input['origin_host'] ?? $content))),
+            'origin_scheme' => $originScheme,
+            'origin_tls_verify' => $originTlsVerify,
             'status' => $status,
         ];
     }
@@ -397,6 +410,7 @@ final class DnsRecordService
         $now = UnixTime::now();
         $host = strtolower(trim((string) ($record['origin_host'] ?: $record['origin_content'] ?: $record['content'])));
         $scheme = (string) ($record['origin_scheme'] ?: 'http');
+        $requestedHost = $this->requestedHostForDnsRecord($record);
         $existing = DB::table('domain_origins')->where('dns_record_id', $record['id'])->first();
         $values = [
             'domain_id' => $record['domain_id'],
@@ -408,8 +422,8 @@ final class DnsRecordService
             'scheme' => $scheme,
             'host' => $host,
             'port' => $scheme === 'https' ? 443 : 80,
-            'host_header' => $host,
-            'sni' => $host,
+            'host_header' => $requestedHost,
+            'sni' => $requestedHost,
             'tls_verify' => (string) ($record['origin_tls_verify'] ?: 'ignore'),
             'preserve_host' => true,
             'is_primary' => false,
@@ -443,6 +457,23 @@ final class DnsRecordService
         }
 
         DB::table('domain_origins')->where('id', $existing->id)->update($values);
+    }
+
+    private function requestedHostForDnsRecord(array $record): string
+    {
+        $domain = $this->domain((string) $record['domain_id']);
+        $zone = strtolower(trim((string) ($domain['domain'] ?? '')));
+        $name = strtolower(trim((string) ($record['name'] ?? '@')));
+
+        if ($name === '' || $name === '@') {
+            return $zone;
+        }
+
+        if ($zone !== '' && str_ends_with($name, '.'.$zone)) {
+            return $name;
+        }
+
+        return $zone === '' ? $name : $name.'.'.$zone;
     }
 
     private function domain(string $domainId): ?array

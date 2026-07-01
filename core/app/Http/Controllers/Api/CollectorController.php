@@ -430,11 +430,13 @@ final class CollectorController extends Controller
             return 'unknown_domain';
         }
 
+        $edgeNodeId = trim((string) ($event['edge_node_id'] ?? $sourceEdgeId));
+        $upstreamResponseTimeMs = $this->durationMs($event['upstream_response_time_ms'] ?? $event['upstream_response_time'] ?? null);
         DB::table('usage_rollups')->insert([
             'id' => (string) Str::uuid(),
             'ts' => $ts,
             'domain_id' => $domainId,
-            'edge_node_id' => trim((string) ($event['edge_node_id'] ?? $sourceEdgeId)),
+            'edge_node_id' => $edgeNodeId,
             'requests_count' => max(1, (int) ($event['requests_count'] ?? 1)),
             'bytes_in' => max(0, (int) ($event['bytes_in'] ?? 0)),
             'bytes_out' => max(0, (int) ($event['bytes_out'] ?? 0)),
@@ -455,14 +457,132 @@ final class CollectorController extends Controller
             'origin_id' => $this->nullableString($event['origin_id'] ?? null),
             'origin_host' => $this->nullableString($event['origin_host'] ?? null),
             'upstream_status' => $this->nullableString($event['upstream_status'] ?? null),
-            'upstream_response_time_ms' => $this->durationMs($event['upstream_response_time_ms'] ?? $event['upstream_response_time'] ?? null),
+            'upstream_response_time_ms' => $upstreamResponseTimeMs,
             'upstream_addr' => $this->nullableString($event['upstream_addr'] ?? null),
             'request_time_ms' => $this->durationMs($event['request_time_ms'] ?? $event['request_time'] ?? null),
             'router_error' => $this->nullableString($event['router_error'] ?? null),
             'security_event_type' => $this->nullableString($event['security_event_type'] ?? null),
         ]);
+        $this->recordOriginObservation($domainId, $event, $edgeNodeId, $upstreamResponseTimeMs, $ts);
 
         return null;
+    }
+
+    /** @param array<string,mixed> $event */
+    private function recordOriginObservation(string $domainId, array $event, string $edgeNodeId, ?int $latencyMs, int $observedAt): void
+    {
+        $originId = trim((string) ($event['origin_id'] ?? ''));
+        if ($originId === '' || $edgeNodeId === '') {
+            return;
+        }
+
+        $origin = DB::table('domain_origins')
+            ->where('domain_id', $domainId)
+            ->where('id', $originId)
+            ->first(['id', 'health_check_enabled']);
+        if ($origin === null) {
+            return;
+        }
+
+        $upstreamStatus = trim((string) ($event['upstream_status'] ?? ''));
+        $routerError = trim((string) ($event['router_error'] ?? ''));
+        [$status, $reason] = $this->originObservationStatus($upstreamStatus, $latencyMs, $routerError);
+
+        $previousLatency = DB::table('origin_health_observations')
+            ->where('domain_id', $domainId)
+            ->where('origin_id', $originId)
+            ->where('edge_node_id', $edgeNodeId)
+            ->value('latency_ms');
+        $jitterMs = $latencyMs !== null && $previousLatency !== null ? abs($latencyMs - (int) $previousLatency) : null;
+        if ($status === 'healthy' && $jitterMs !== null && $jitterMs >= 1000) {
+            $status = 'slow';
+            $reason = 'origin_jitter';
+        }
+
+        DB::statement(
+            'INSERT INTO origin_health_observations
+             (id,domain_id,origin_id,edge_node_id,status,reason,upstream_status,latency_ms,jitter_ms,sample_count,first_observed_at,last_observed_at,last_success_at,last_failure_at)
+             VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)
+             ON CONFLICT (domain_id, origin_id, edge_node_id) DO UPDATE SET
+               status=EXCLUDED.status,
+               reason=EXCLUDED.reason,
+               upstream_status=EXCLUDED.upstream_status,
+               latency_ms=EXCLUDED.latency_ms,
+               jitter_ms=EXCLUDED.jitter_ms,
+               sample_count=LEAST(origin_health_observations.sample_count + 1, 1000000000),
+               last_observed_at=EXCLUDED.last_observed_at,
+               last_success_at=COALESCE(EXCLUDED.last_success_at, origin_health_observations.last_success_at),
+               last_failure_at=COALESCE(EXCLUDED.last_failure_at, origin_health_observations.last_failure_at)',
+            [
+                (string) Str::uuid(),
+                $domainId,
+                $originId,
+                $edgeNodeId,
+                $status,
+                $reason,
+                $upstreamStatus !== '' ? $upstreamStatus : null,
+                $latencyMs,
+                $jitterMs,
+                $observedAt,
+                $observedAt,
+                in_array($status, ['healthy', 'slow'], true) ? $observedAt : null,
+                $status === 'unhealthy' ? $observedAt : null,
+            ]
+        );
+
+        if (in_array($origin->health_check_enabled ?? false, [true, 1, '1', 't', 'true'], true)) {
+            $this->refreshOriginStatusFromEdge($domainId, $originId, $observedAt);
+        }
+    }
+
+    private function originObservationStatus(string $upstreamStatus, ?int $latencyMs, string $routerError): array
+    {
+        if ($routerError !== '') {
+            return ['unhealthy', $routerError];
+        }
+        if ($upstreamStatus === '' || $upstreamStatus === '-') {
+            return ['unknown', 'no_upstream_status'];
+        }
+        $firstStatus = (int) strtok($upstreamStatus, ', ');
+        if ($firstStatus >= 500 || $firstStatus === 0) {
+            return ['unhealthy', 'http_'.$firstStatus];
+        }
+        if ($latencyMs !== null && $latencyMs >= 3000) {
+            return ['slow', 'slow_origin'];
+        }
+
+        return ['healthy', 'edge_request_ok'];
+    }
+
+    private function refreshOriginStatusFromEdge(string $domainId, string $originId, int $now): void
+    {
+        $row = DB::table('origin_health_observations')
+            ->where('domain_id', $domainId)
+            ->where('origin_id', $originId)
+            ->selectRaw("COUNT(*) FILTER (WHERE status='unhealthy') unhealthy")
+            ->selectRaw("COUNT(*) FILTER (WHERE status='slow') slow")
+            ->selectRaw("COUNT(*) FILTER (WHERE status='healthy') healthy")
+            ->selectRaw('MAX(last_observed_at) last_observed_at')
+            ->first();
+
+        $status = 'unknown';
+        $error = null;
+        if ((int) ($row->unhealthy ?? 0) > 0) {
+            $status = 'unhealthy';
+            $error = 'edge_reported_unhealthy';
+        } elseif ((int) ($row->slow ?? 0) > 0) {
+            $status = 'healthy';
+            $error = 'edge_reported_slow';
+        } elseif ((int) ($row->healthy ?? 0) > 0) {
+            $status = 'healthy';
+        }
+
+        DB::table('domain_origins')->where('domain_id', $domainId)->where('id', $originId)->update([
+            'health_status' => $status,
+            'last_check_at' => $row?->last_observed_at === null ? $now : (int) $row->last_observed_at,
+            'last_error' => $error,
+            'updated_at' => $now,
+        ]);
     }
 
     /** @param array<string,mixed> $event */

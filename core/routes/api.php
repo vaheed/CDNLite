@@ -116,56 +116,57 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
 
     $trafficRules = static fn (): TrafficRulesController => new TrafficRulesController(new TrafficRulesService());
     $onboarding = static fn (): OnboardingController => new OnboardingController(new OnboardingService());
-    $trafficResponse = static fn (array $payload, int $defaultStatus = 200) => response()->json($payload, (int) ($payload['status'] ?? $defaultStatus));
+    $trafficJson = static fn (array $payload, int $status = 200) => response()->json($payload, $status, [], JSON_UNESCAPED_SLASHES);
+    $trafficResponse = static fn (array $payload, int $defaultStatus = 200) => $trafficJson($payload, (int) ($payload['status'] ?? $defaultStatus));
 
     Route::post('/domains/{domainId}/redirects', static fn (string $domainId) => $trafficResponse($trafficRules()->createRedirect($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/redirects', static fn (string $domainId) => response()->json($trafficRules()->listRedirects($domainId)));
+    Route::get('/domains/{domainId}/redirects', static fn (string $domainId) => $trafficJson($trafficRules()->listRedirects($domainId)));
     Route::patch('/domains/{domainId}/redirects/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateRedirect($domainId, $ruleId, request()->all())));
     Route::delete('/domains/{domainId}/redirects/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteRedirect($domainId, $ruleId)));
     Route::post('/domains/{domainId}/redirects/import', static fn (string $domainId) => $trafficResponse($trafficRules()->importRedirects($domainId, request()->all())));
-    Route::get('/domains/{domainId}/redirects/export', static fn (string $domainId) => response()->json($trafficRules()->exportRedirects($domainId)));
+    Route::get('/domains/{domainId}/redirects/export', static fn (string $domainId) => $trafficJson($trafficRules()->exportRedirects($domainId)));
     Route::post('/domains/{domainId}/redirects/test', static fn (string $domainId) => $trafficResponse($trafficRules()->testRedirect($domainId, request()->all())));
 
     Route::post('/domains/{domainId}/rate-limits', static fn (string $domainId) => $trafficResponse($trafficRules()->createRateLimit($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/rate-limits', static fn (string $domainId) => response()->json($trafficRules()->listRateLimits($domainId)));
+    Route::get('/domains/{domainId}/rate-limits', static fn (string $domainId) => $trafficJson($trafficRules()->listRateLimits($domainId)));
     Route::post('/domains/{domainId}/rate-limits/dry-run', static fn (string $domainId) => $trafficResponse($trafficRules()->dryRunRateLimit($domainId, request()->all())));
     Route::patch('/domains/{domainId}/rate-limits/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateRateLimit($domainId, $ruleId, request()->all())));
     Route::post('/domains/{domainId}/rate-limits/{ruleId}/detach-managed', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->detachManagedRule($domainId, 'rate_limit', $ruleId)));
     Route::delete('/domains/{domainId}/rate-limits/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteRateLimit($domainId, $ruleId)));
 
-    Route::get('/domains/{domainId}/waiting-room', static fn (string $domainId) => response()->json($trafficRules()->getWaitingRoom($domainId)));
+    Route::get('/domains/{domainId}/waiting-room', static fn (string $domainId) => $trafficJson($trafficRules()->getWaitingRoom($domainId)));
     Route::patch('/domains/{domainId}/waiting-room', static fn (string $domainId) => $trafficResponse($trafficRules()->updateWaitingRoom($domainId, request()->all())));
     Route::post('/domains/{domainId}/waiting-room/emergency/activate', static fn (string $domainId) => $trafficResponse($trafficRules()->activateWaitingRoomEmergency($domainId, request()->all())));
     Route::post('/domains/{domainId}/waiting-room/emergency/deactivate', static fn (string $domainId) => $trafficResponse($trafficRules()->deactivateWaitingRoomEmergency($domainId)));
 
     Route::post('/domains/{domainId}/waf-rules', static fn (string $domainId) => $trafficResponse($trafficRules()->createWaf($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/waf-rules', static fn (string $domainId) => response()->json($trafficRules()->listWaf($domainId)));
+    Route::get('/domains/{domainId}/waf-rules', static fn (string $domainId) => $trafficJson($trafficRules()->listWaf($domainId)));
     Route::patch('/domains/{domainId}/waf-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateWaf($domainId, $ruleId, request()->all())));
     Route::post('/domains/{domainId}/waf-rules/{ruleId}/detach-managed', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->detachManagedRule($domainId, 'waf_rule', $ruleId)));
     Route::delete('/domains/{domainId}/waf-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteWaf($domainId, $ruleId)));
 
     Route::post('/domains/{domainId}/headers', static fn (string $domainId) => $trafficResponse($trafficRules()->createHeaderRule($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/headers', static fn (string $domainId) => response()->json($trafficRules()->listHeaderRules($domainId)));
+    Route::get('/domains/{domainId}/headers', static fn (string $domainId) => $trafficJson($trafficRules()->listHeaderRules($domainId)));
     Route::patch('/domains/{domainId}/headers/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateHeaderRule($domainId, $ruleId, request()->all())));
     Route::delete('/domains/{domainId}/headers/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteHeaderRule($domainId, $ruleId)));
 
     Route::post('/domains/{domainId}/ip-rules', static fn (string $domainId) => $trafficResponse($trafficRules()->createIpRule($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/ip-rules', static fn (string $domainId) => response()->json($trafficRules()->listIpRules($domainId)));
+    Route::get('/domains/{domainId}/ip-rules', static fn (string $domainId) => $trafficJson($trafficRules()->listIpRules($domainId)));
     Route::patch('/domains/{domainId}/ip-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateIpRule($domainId, $ruleId, request()->all())));
     Route::delete('/domains/{domainId}/ip-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteIpRule($domainId, $ruleId)));
 
     Route::post('/domains/{domainId}/cache-rules', static fn (string $domainId) => $trafficResponse($trafficRules()->createCacheRule($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/cache-rules', static fn (string $domainId) => response()->json($trafficRules()->listCacheRules($domainId)));
+    Route::get('/domains/{domainId}/cache-rules', static fn (string $domainId) => $trafficJson($trafficRules()->listCacheRules($domainId)));
     Route::patch('/domains/{domainId}/cache-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updateCacheRule($domainId, $ruleId, request()->all())));
     Route::delete('/domains/{domainId}/cache-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deleteCacheRule($domainId, $ruleId)));
-    Route::get('/domains/{domainId}/cache/settings', static fn (string $domainId) => response()->json($trafficRules()->getDomainCacheSettings($domainId)));
+    Route::get('/domains/{domainId}/cache/settings', static fn (string $domainId) => $trafficJson($trafficRules()->getDomainCacheSettings($domainId)));
     Route::put('/domains/{domainId}/cache/settings', static fn (string $domainId) => $trafficResponse($trafficRules()->setDomainCacheSettings($domainId, request()->all())));
     Route::post('/domains/{domainId}/cache/purge', static fn (string $domainId) => $trafficResponse($trafficRules()->createCachePurgeRequest($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/cache/purge-requests', static fn (string $domainId) => response()->json($trafficRules()->listCachePurgeRequests($domainId)));
+    Route::get('/domains/{domainId}/cache/purge-requests', static fn (string $domainId) => $trafficJson($trafficRules()->listCachePurgeRequests($domainId)));
     Route::get('/domains/{domainId}/cache/purge-requests/{requestId}', static fn (string $domainId, string $requestId) => $trafficResponse($trafficRules()->getCachePurgeRequest($domainId, $requestId)));
 
     Route::post('/domains/{domainId}/page-rules', static fn (string $domainId) => $trafficResponse($trafficRules()->createPageRule($domainId, request()->all()), 201));
-    Route::get('/domains/{domainId}/page-rules', static fn (string $domainId) => response()->json($trafficRules()->listPageRules($domainId)));
+    Route::get('/domains/{domainId}/page-rules', static fn (string $domainId) => $trafficJson($trafficRules()->listPageRules($domainId)));
     Route::patch('/domains/{domainId}/page-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->updatePageRule($domainId, $ruleId, request()->all())));
     Route::delete('/domains/{domainId}/page-rules/{ruleId}', static fn (string $domainId, string $ruleId) => $trafficResponse($trafficRules()->deletePageRule($domainId, $ruleId)));
     Route::post('/domains/{domainId}/page-rules/test', static fn (string $domainId) => $trafficResponse($trafficRules()->testPageRule($domainId, request()->all())));
@@ -250,14 +251,14 @@ Route::middleware('admin.auth')->prefix('/v1')->group(function (): void {
         }
     });
 
-    Route::get('/domains/{domainId}/protection/profiles', static fn (string $domainId) => response()->json($trafficRules()->listProtectionProfiles($domainId)));
-    Route::get('/domains/{domainId}/protection/waf-presets', static fn (string $domainId) => response()->json($trafficRules()->listManagedWafPresets($domainId)));
-    Route::get('/domains/{domainId}/protection/rate-limit-templates', static fn (string $domainId) => response()->json($trafficRules()->listSmartRateLimitTemplates($domainId)));
-    Route::get('/domains/{domainId}/protection/api-paths', static fn (string $domainId) => response()->json($trafficRules()->discoverApiPaths($domainId)));
+    Route::get('/domains/{domainId}/protection/profiles', static fn (string $domainId) => $trafficJson($trafficRules()->listProtectionProfiles($domainId)));
+    Route::get('/domains/{domainId}/protection/waf-presets', static fn (string $domainId) => $trafficJson($trafficRules()->listManagedWafPresets($domainId)));
+    Route::get('/domains/{domainId}/protection/rate-limit-templates', static fn (string $domainId) => $trafficJson($trafficRules()->listSmartRateLimitTemplates($domainId)));
+    Route::get('/domains/{domainId}/protection/api-paths', static fn (string $domainId) => $trafficJson($trafficRules()->discoverApiPaths($domainId)));
     Route::post('/domains/{domainId}/protection/profiles/{profileKey}/preview', static fn (string $domainId, string $profileKey) => $trafficResponse($trafficRules()->previewProtectionProfile($domainId, $profileKey, request()->all())));
     Route::post('/domains/{domainId}/protection/profiles/{profileKey}/apply', static fn (string $domainId, string $profileKey) => $trafficResponse($trafficRules()->applyProtectionProfile($domainId, $profileKey, request()->all())));
     Route::post('/domains/{domainId}/protection/profiles/{profileId}/disable', static fn (string $domainId, string $profileId) => $trafficResponse($trafficRules()->disableProtectionProfile($domainId, $profileId, request()->all())));
-    Route::get('/domains/{domainId}/protection/intents', static fn (string $domainId) => response()->json($trafficRules()->listProtectionIntents($domainId)));
+    Route::get('/domains/{domainId}/protection/intents', static fn (string $domainId) => $trafficJson($trafficRules()->listProtectionIntents($domainId)));
     Route::post('/domains/{domainId}/protection/intents/{intentKey}/preview', static fn (string $domainId, string $intentKey) => $trafficResponse($trafficRules()->previewProtectionIntent($domainId, $intentKey, request()->all())));
     Route::post('/domains/{domainId}/protection/intents/{intentKey}/enable', static fn (string $domainId, string $intentKey) => $trafficResponse($trafficRules()->enableProtectionIntent($domainId, $intentKey, request()->all())));
     Route::post('/domains/{domainId}/protection/intents/{intentId}/disable', static fn (string $domainId, string $intentId) => $trafficResponse($trafficRules()->disableProtectionIntent($domainId, $intentId, request()->all())));
