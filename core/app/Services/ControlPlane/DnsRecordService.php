@@ -333,7 +333,7 @@ final class DnsRecordService
         if (str_ends_with($name, '.' . $domain)) {
             $name = substr($name, 0, -strlen('.' . $domain));
         }
-        if (!preg_match('/^(?:\*|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:\*|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/', $name)) {
+        if (!preg_match('/^(?:\*|[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)(?:\.(?:\*|[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?))*$/', $name)) {
             throw new RuntimeException('invalid_dns_record_name');
         }
 

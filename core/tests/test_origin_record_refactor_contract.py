@@ -59,6 +59,7 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert ":origin_scheme, :origin_status" in service
     assert "origin_scheme = :origin_scheme" in service
     assert "origin_scheme = NULL" not in service
+    assert "[a-z0-9_]" in laravel_service
     assert "'proxied' => (bool)" in service
     assert "selectOriginFromPool" in config
     assert "buildGeoOrigins($this->dnsRecordsGeoOrigins($records))" in config
