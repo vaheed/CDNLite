@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Recommendations\Services\RecommendationService;
 use App\Services\ControlPlane\UnixTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -208,18 +209,7 @@ final class ReportController extends Controller
             return response()->json(['error' => 'domain_not_found'], 404);
         }
 
-        $generated = [];
-        $domains = DB::table('domains')->when($domainId !== null, fn ($query) => $query->where('id', $domainId))->get();
-        foreach ($domains as $domain) {
-            foreach ($this->recommendationCandidates((string) $domain->id) as $candidate) {
-                $row = $this->upsertRecommendation((string) $domain->id, $candidate);
-                if ($row !== null) {
-                    $generated[] = $row;
-                }
-            }
-        }
-
-        return response()->json(['data' => ['generated' => $generated, 'count' => count($generated)]]);
+        return response()->json(['data' => (new RecommendationService())->generate($domainId)]);
     }
 
     public function dismissRecommendation(string $domainId, string $recommendationId): JsonResponse

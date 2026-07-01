@@ -88,6 +88,7 @@ final class DomainNameserverVerifier
             'forced_verified' => true,
         ]);
         $this->domains->afterDomainMutation($domainId, 'domain.verification.changed');
+        $this->queueManagedWildcardSsl($domainId);
 
         return ['domain' => $updated, 'verification' => $verification];
     }
@@ -154,6 +155,9 @@ final class DomainNameserverVerifier
             'previous_nameservers' => $previous,
         ]);
         $this->domains->afterDomainMutation($domainId, 'domain.verification.changed');
+        if ($status === 'verified') {
+            $this->queueManagedWildcardSsl($domainId);
+        }
 
         return ['domain' => $updated, 'verification' => $verification];
     }
@@ -190,6 +194,9 @@ final class DomainNameserverVerifier
 
         $updated = $this->domains->find($domainId);
         $this->domains->afterDomainMutation($domainId, 'domain.verification.changed');
+        if ($status === 'verified') {
+            $this->queueManagedWildcardSsl($domainId);
+        }
 
         return [
             'domain' => $updated,
@@ -225,5 +232,17 @@ final class DomainNameserverVerifier
             $hostnames
         ))));
     }
-}
 
+    private function queueManagedWildcardSsl(string $domainId): void
+    {
+        try {
+            (new SslCertificateService())->ensureManagedWildcardJob($domainId);
+        } catch (\Throwable $e) {
+            $this->audit->write('ssl.auto_request_failed', 'ssl', null, null, null, 'system', 'system', $domainId, [
+                'domain_id' => $domainId,
+                'error' => $e->getMessage(),
+                'created_at' => UnixTime::now(),
+            ]);
+        }
+    }
+}

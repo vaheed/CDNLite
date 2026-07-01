@@ -101,6 +101,23 @@ json_get() {
   jq -er "$expr" <<<"$input"
 }
 
+json_get_file() {
+  local path="$1"
+  local expr="$2"
+  jq -er "$expr" "$path"
+}
+
+truncate_detail() {
+  local max="${CI_REPORT_DETAIL_LIMIT:-4000}"
+  local input
+  input="$(cat)"
+  if ((${#input} > max)); then
+    printf '%s... [truncated %d bytes]' "${input:0:max}" "$((${#input} - max))"
+  else
+    printf '%s' "$input"
+  fi
+}
+
 db_query() {
   local sql="$1"
   docker compose exec -T postgres psql -h 127.0.0.1 -p 5432 -U cdnlite -d cdnlite -t -A -c "$sql"
@@ -120,6 +137,7 @@ record_step() {
   local status="$1"
   local name="$2"
   local details="${3:-}"
+  details="$(printf '%s' "$details" | truncate_detail)"
   TOTAL_STEPS=$((TOTAL_STEPS + 1))
   if [[ "$status" != "PASS" ]]; then
     FAILED_STEPS=$((FAILED_STEPS + 1))

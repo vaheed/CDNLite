@@ -20,8 +20,7 @@ on_error() {
   local cmd="${2:-unknown}"
   echo "smoke: error rc=$rc at line=$line cmd=$cmd, printing diagnostics"
   docker compose ps || true
-  docker compose logs --no-color || true
-for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
+  for svc in core edge edge-agent dashboard postgres origin-tls origin-http; do
     echo "----- ${svc} (tail 200) -----"
     docker compose logs --no-color --tail=200 "$svc" || true
   done
@@ -197,7 +196,7 @@ retry 30 1 docker compose exec -T origin-http wget -qO- http://127.0.0.1/ >/dev/
 record_step PASS "origin-fixtures-health" "HTTPS and HTTP origin fixtures are reachable"
 
 if [[ -f /tmp/smoke-seeded-admin.json ]]; then
-  admin_token="$(json_get "$(cat /tmp/smoke-seeded-admin.json)" '.data.token')"
+  admin_token="$(json_get_file /tmp/smoke-seeded-admin.json '.data.token // .token')"
   settings_code="$(curl -sS -o /tmp/smoke-settings.json -w '%{http_code}' \
     -H "Authorization: Bearer ${admin_token}" \
     "${CORE_URL}/api/v1/settings/platform.powerdns")"
@@ -209,7 +208,7 @@ if [[ -f /tmp/smoke-seeded-admin.json ]]; then
   export ADMIN_SESSION_TOKEN
   api_get "${CORE_URL}/api/v1/audit?limit=1"
   assert_http_status "$HTTP_CODE" "200" "global audit query failed against live schema"
-  assert_contains "$HTTP_BODY" '"items":' "global audit response should include items"
+  assert_contains "$HTTP_BODY" '"data":' "global audit response should include data"
   api_get "${CORE_URL}/api/v1/security/events?limit=1"
   assert_http_status "$HTTP_CODE" "200" "global security events query failed against live schema"
   assert_contains "$HTTP_BODY" '"items":' "global security events response should include items"

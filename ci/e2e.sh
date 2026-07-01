@@ -44,7 +44,6 @@ on_error() {
     cat "$REPORT_MD" || true
   fi
   docker compose ps || true
-  docker compose logs --no-color || true
   for svc in core edge edge-agent dashboard postgres origin-tls origin-http pdns-postgres pdns-recursor pdns-auth poweradmin; do
     if compose_has_service "$svc"; then
       echo "----- ${svc} (tail 200) -----"
@@ -179,7 +178,7 @@ login_admin() {
     -H 'Content-Type: application/json' \
     -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
   assert_eq "$login_code" "200" "admin login should return 200"
-  ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/e2e-admin-login.json)" '.data.token')"
+  ADMIN_SESSION_TOKEN="$(json_get_file /tmp/e2e-admin-login.json '.data.token // .token')"
   export ADMIN_SESSION_TOKEN
 }
 

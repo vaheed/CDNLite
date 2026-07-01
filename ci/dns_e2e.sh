@@ -64,7 +64,7 @@ login() {
     -H 'Content-Type: application/json' \
     -d "{\"username\":\"${ADMIN_USERNAME}\",\"password\":\"${ADMIN_PASSWORD}\"}")"
   assert_eq "$code" "200" "admin login should succeed"
-  ADMIN_SESSION_TOKEN="$(json_get "$(cat /tmp/dns-e2e-login.json)" '.data.token // .token')"
+  ADMIN_SESSION_TOKEN="$(json_get_file /tmp/dns-e2e-login.json '.data.token // .token')"
   export ADMIN_SESSION_TOKEN
 }
 
@@ -159,13 +159,13 @@ ON CONFLICT (edge_id) DO UPDATE SET
 record_step PASS "edge-state-seed" "two healthy regional edges seeded"
 
 if ! retry 20 2 docker compose exec -T core php artisan cdn:powerdns:doctor >/tmp/dns-e2e-doctor.json 2>/tmp/dns-e2e-doctor.err; then
-  doctor_detail="stdout=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  doctor_detail="$(jq -r '"api_ok=\(.data.api.ok // false) sync_status=\(.data.sync.status // "unknown") failed_zones=\([.data.sync.zones[]? | select(.status != "ok")] | length)"' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'doctor output was not valid JSON')"
   record_step FAIL "powerdns-doctor" "$doctor_detail"
   fail "PowerDNS doctor command failed ${doctor_detail}"
 fi
 doctor_api_ok="$(jq -r '.data.api.ok // false' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'false')"
 if [[ "$doctor_api_ok" != "true" ]]; then
-  doctor_detail="body=$(cat /tmp/dns-e2e-doctor.json 2>/dev/null) stderr=$(cat /tmp/dns-e2e-doctor.err 2>/dev/null)"
+  doctor_detail="$(jq -r '"api_ok=\(.data.api.ok // false) api_error=\(.data.api.error // "none") sync_status=\(.data.sync.status // "unknown") failed_zones=\([.data.sync.zones[]? | select(.status != "ok")] | length)"' /tmp/dns-e2e-doctor.json 2>/dev/null || printf 'doctor output was not valid JSON')"
   record_step FAIL "powerdns-doctor" "$doctor_detail"
   fail "PowerDNS doctor should pass ${doctor_detail}"
 fi
