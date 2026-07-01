@@ -13,7 +13,7 @@ def test_recommendation_engine_schema_cli_api_and_generator_are_present():
     migration = read("core/database/migrations/000013_recommendations.sql")
     controller = read("core/app/Http/Controllers/Api/ReportController.php")
     routes = read("core/routes/api.php")
-    artisan = read("core/artisan")
+    console = read("core/routes/console.php")
     console = read("core/routes/console.php")
 
     for field in (
@@ -38,7 +38,6 @@ def test_recommendation_engine_schema_cli_api_and_generator_are_present():
     assert "'applied'" in controller
     assert '"recommendation.{$status}"' in controller
     assert "public function snoozeRecommendation" in controller
-    assert "cdn:recommendations:generate" in artisan
     assert "Artisan::command('cdn:recommendations:generate" in console
 
     for route in (

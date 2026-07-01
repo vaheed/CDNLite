@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Modules\Health\Services\ReadinessService;
+use App\Services\ControlPlane\ReadinessService;
 use App\Support\ApiAuth;
 use App\Support\Database;
 use Illuminate\Http\JsonResponse;

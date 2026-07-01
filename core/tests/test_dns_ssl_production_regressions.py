@@ -9,10 +9,10 @@ def read(path: str) -> str:
 
 
 def test_proxied_dns_empty_geo_routes_do_not_create_post_write_error():
-    controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
-    assert "private function hasExplicitGeoRoutes" in controller
-    assert "&& $this->hasExplicitGeoRoutes($geoRoutes)" in controller
-    assert "if (!empty($record['proxied'])) {\n                    return ['error' => 'proxy_and_geodns_are_mutually_exclusive'" not in controller
+    service = read("core/app/Services/ControlPlane/DnsRecordService.php")
+    assert "array_key_exists('geo_routes', $input)" in service
+    assert "geo_routes_require_dns_only_record" in service
+    assert "proxy_and_geodns_are_mutually_exclusive" not in service
 
 
 def test_initial_managed_ssl_uses_ephemeral_powerdns_challenges_without_bootstrap_rows():

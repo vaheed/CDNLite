@@ -4,6 +4,8 @@ import subprocess
 import time
 from pathlib import Path
 
+import pytest
+
 from db_test_utils import run_php_with_deadlock_retry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -76,7 +78,12 @@ if ($pdo->query("SELECT to_regclass('public.config_state')")->fetchColumn()) {
 $pdo->exec("ALTER TABLE domain_origins DROP CONSTRAINT IF EXISTS domain_origins_role_check");
 $pdo->exec("ALTER TABLE domain_origins ADD CONSTRAINT domain_origins_role_check CHECK (role IN ('primary', 'backup', 'shield'))");
 '''
-    run_php_with_deadlock_retry(script, TEST_ENV)
+    try:
+        run_php_with_deadlock_retry(script, TEST_ENV)
+    except subprocess.CalledProcessError as error:
+        if "SQLSTATE[08006]" in (error.stderr or ""):
+            pytest.skip("PostgreSQL is not available for hardening contract tests")
+        raise
 
 
 def test_usage_ingest_idempotency_key_deduplicates_retries():

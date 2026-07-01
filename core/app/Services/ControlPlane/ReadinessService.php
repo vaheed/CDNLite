@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Modules\Health\Services;
+namespace App\Services\ControlPlane;
 
 use App\Modules\Dns\Services\PowerDnsService;
 use App\Modules\Dns\Services\DnsSyncStateService;
-use App\Modules\Edge\Services\EdgeHealthService;
 use App\Support\Database;
 
 class ReadinessService

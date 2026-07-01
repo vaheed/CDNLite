@@ -18,7 +18,7 @@ def test_phase18_ssl_automation_contract():
     routes = (ROOT / "core/routes/api.php").read_text()
     console = (ROOT / "core/routes/console.php").read_text()
     schema = (ROOT / "core/database/schema.sql").read_text()
-    readiness = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    readiness = (ROOT / "core/app/Services/ControlPlane/ReadinessService.php").read_text()
 
     for route in ("/ssl/request", "/ssl/renew", "/ssl/acme-status"):
         assert route in routes

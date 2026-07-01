@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Modules\Onboarding\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
-use App\Modules\Onboarding\Services\OnboardingService;
+use App\Services\ControlPlane\OnboardingService;
 
 class OnboardingController
 {

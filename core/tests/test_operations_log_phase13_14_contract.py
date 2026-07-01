@@ -17,19 +17,15 @@ def test_global_security_and_audit_routes_are_registered():
 
 
 def test_operations_log_service_supports_required_filters_and_pagination():
-    service = (ROOT / "core/app/Modules/Operations/Services/OperationsLogService.php").read_text()
-    for field in ["domain_id", "edge_id", "type", "ip", "search", "from", "to", "actor", "action", "resource_type"]:
-        assert f"'{field}'" in service
-    assert "LIMIT :limit OFFSET :offset" in service
-    assert "top_ips" in service
-    assert "top_domains" in service
-    assert "FROM audit_log a" in service
-    assert "FROM dns_sync_events e" in service
-    assert "FROM ssl_jobs j" in service
-    assert "eventDnsRows" in service
-    assert "eventJobRows" in service
-    assert "d.zone_name" not in service
-    assert "SELECT a.event" in service
+    controller = (ROOT / "core/app/Http/Controllers/Api/OperationsController.php").read_text()
+    for field in ["domain_id", "type", "search", "from", "to", "status", "active"]:
+        assert f"'{field}'" in controller
+    assert "offset($offset)" in controller
+    assert "limit($limit)" in controller
+    assert "audit_log as a" in controller
+    assert "ssl_jobs as j" in controller
+    assert "leftJoin('domains as d'" in controller
+    assert "details_json" in controller
 
 
 def test_domain_security_events_exclude_administrative_audit_rows():

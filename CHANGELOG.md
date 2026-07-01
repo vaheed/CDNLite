@@ -20,6 +20,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Removed unreferenced legacy module HTTP controllers, moved the remaining
+  onboarding and settings route adapters into `App\Http\Controllers\Api`, moved
+  guided onboarding, edge-health, and readiness service ownership into
+  `App\Services\ControlPlane`, and
+  deleted stale operations/overview module services plus the old custom
+  `App\Support\Router`, `Request`, and `Response` classes after verifying no
+  runtime references remain.
 - Closed Phase 1 after PR gate, clean-stack smoke, and end-to-end validation; updated the e2e config-version check to compare against the active config-state version.
 - Documentation information architecture is being organized around new users, operators, developers, and private deployment teams.
 

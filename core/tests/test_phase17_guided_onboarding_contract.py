@@ -11,8 +11,8 @@ def read(path: str) -> str:
 def test_phase17_guided_onboarding_backend_schema_and_routes_exist():
     schema = read("core/database/schema.sql")
     migration = read("core/database/migrations/000014_domain_onboarding.sql")
-    service = read("core/app/Modules/Onboarding/Services/OnboardingService.php")
-    controller = read("core/app/Modules/Onboarding/Http/Controllers/OnboardingController.php")
+    service = read("core/app/Services/ControlPlane/OnboardingService.php")
+    controller = read("core/app/Http/Controllers/Api/OnboardingController.php")
     routes = read("core/routes/api.php")
 
     for field in (

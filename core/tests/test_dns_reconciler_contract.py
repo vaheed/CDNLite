@@ -52,14 +52,19 @@ def test_dns_e2e_filters_readonly_nameservers_from_user_record_status_checks():
 
 
 def test_dns_crud_validates_partial_edits_and_rejects_exact_duplicates():
-    controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+    controller = read("core/app/Http/Controllers/Api/DomainController.php")
+    request = read("core/app/Http/Requests/StoreDnsRecordRequest.php")
+    laravel_service = read("core/app/Services/ControlPlane/DnsRecordService.php")
     service = read("core/app/Modules/Dns/Services/DnsService.php")
     validator = read("core/app/Support/Validator.php")
     schema = read("core/database/schema.sql")
-    assert "$input['type'] ?? $current['type']" in controller
-    assert "$input['content'] ?? $current['content']" in controller
-    assert "'dns_record_duplicate'" in controller
-    assert "'dns_record_name_conflict'" in controller
+    assert "'type' => ['sometimes', 'in:A,AAAA,CNAME,TXT,MX,CAA,NS,SRV']" in controller
+    assert "'content' => ['sometimes', 'string', 'max:2048']" in controller
+    assert "Rule::in(['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'CAA', 'NS', 'SRV'])" in request
+    assert "dns_record_duplicate" in controller
+    assert "dns_record_name_conflict" in controller
+    assert "throw new RuntimeException('dns_record_duplicate')" in laravel_service
+    assert "throw new RuntimeException('dns_record_name_conflict')" in laravel_service
     assert "assertNotDuplicate(" in service
     assert "assertCompatiblePublicRecord(" in service
     assert "normalizeAndValidate(" in service
@@ -96,7 +101,7 @@ def test_all_durable_dns_triggers_use_the_reconciler():
         read("core/app/Modules/Domains/Services/DomainService.php"),
         read("core/app/Console/Commands/CdnPowerDnsForceSyncCommand.php"),
     ]
-    edge_controller = read("core/app/Modules/Edge/Http/Controllers/EdgeController.php")
+    edge_controller = read("core/app/Http/Controllers/Api/EdgeController.php")
     assert all("DnsReconciler" in source for source in sources)
     assert "DnsReconciler" not in edge_controller
     assert "syncReplace(" not in sources[0]
@@ -105,12 +110,12 @@ def test_all_durable_dns_triggers_use_the_reconciler():
 
 def test_scheduled_and_operator_sync_share_the_same_command_path():
     compose = read("docker-compose.yml")
-    artisan = read("core/artisan")
+    console = read("core/routes/console.php")
     scheduler = read("core/app/Console/Commands/ScheduleRunCommand.php")
     assert "cdn:scheduler:run" in compose
     assert "'cdn:dns:reconcile'" in scheduler
     assert "CDNLITE_SYNC_INTERVAL_SECONDS" in compose
-    assert "cdn:dns:reconcile" in artisan
+    assert "cdn:dns:reconcile" in console
 
 
 def test_main_e2e_does_not_publish_address_rrsets_beside_apex_alias():

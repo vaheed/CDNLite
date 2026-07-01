@@ -4,6 +4,7 @@ namespace App\Modules\Edge\Services;
 
 use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\EdgeDnsPoolRenderer;
+use App\Services\ControlPlane\EdgeHealthService;
 use App\Support\Database;
 use App\Support\Uuid;
 

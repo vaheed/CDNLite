@@ -45,8 +45,8 @@ def test_domain_routes_are_registered():
 
 
 def test_router_placeholders_accept_dotted_setting_group_names():
-    router = (REPO_ROOT / "core" / "app" / "Support" / "Router.php").read_text()
-    assert "[^\\/]+" in router
+    routes = (REPO_ROOT / "core" / "routes" / "api.php").read_text()
+    assert "where('group', '.*')" in routes
 
 
 def request_json(base_url: str, method: str, path: str, body: dict | None = None, headers: dict | None = None) -> tuple[int, dict]:

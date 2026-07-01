@@ -31,7 +31,7 @@ def test_bot_shield_has_classified_policies_and_challenge_safe_search_claims():
 def test_bot_events_flow_from_edge_to_collector_and_operations_ui():
     router = read("edge/openresty/lua/router.lua")
     collector = read("core/app/Modules/Collector/Services/CollectorService.php")
-    operations = read("core/app/Modules/Operations/Services/OperationsLogService.php")
+    operations = read("core/app/Http/Controllers/Api/CollectorController.php")
     traffic_rules = read("core/app/Services/ControlPlane/TrafficRulesService.php")
     dashboard = read("dash/src/views/SecurityEventsView.vue")
     smoke = read("ci/smoke.sh")
@@ -47,7 +47,7 @@ def test_bot_events_flow_from_edge_to_collector_and_operations_ui():
     for field in ("bot_class", "bot_score", "bot_action"):
         assert field in router
         assert field in collector
-    assert "'bot_match'" in operations
+    assert "'bot_match' => true" in operations
     assert "event IN ('waf_match','rate_limited','bot_match','geo_block')" in traffic_rules
     assert 'value="bot_match"' in dashboard
     assert "schema-bot-protection" in smoke

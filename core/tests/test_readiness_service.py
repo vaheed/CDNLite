@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_readiness_contract_is_structured_and_routed():
-    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    service = (ROOT / "core/app/Services/ControlPlane/ReadinessService.php").read_text()
     routes = (ROOT / "core/routes/api.php").read_text()
 
     assert "/readiness" in routes
@@ -16,7 +16,7 @@ def test_readiness_contract_is_structured_and_routed():
 
 
 def test_snapshot_readiness_belongs_to_core_group_not_edge_nodes():
-    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    service = (ROOT / "core/app/Services/ControlPlane/ReadinessService.php").read_text()
     core_checks = service.split("$coreChecks = [", 1)[1].split("];", 1)[0]
     domain_checks = service.split("$domainChecks = [", 1)[1].split("];", 1)[0]
     edge_checks = service.split("$edgeChecks = [", 1)[1].split("];", 1)[0]
@@ -32,7 +32,7 @@ def test_snapshot_readiness_belongs_to_core_group_not_edge_nodes():
 
 
 def test_snapshot_readiness_links_to_an_existing_operational_page():
-    service = (ROOT / "core/app/Modules/Health/Services/ReadinessService.php").read_text()
+    service = (ROOT / "core/app/Services/ControlPlane/ReadinessService.php").read_text()
     router = (ROOT / "dash/src/router/index.ts").read_text()
     snapshot_check = service.split("private function snapshotCheck(): array", 1)[1].split(
         "private function certificateExpiryCheck(): array", 1

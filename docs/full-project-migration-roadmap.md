@@ -11,7 +11,12 @@ then remove the old PHP runtime once it has no remaining production ownership.
 
 ## Progress Summary
 
-Current estimated migration progress: **72% complete, with SSL route ownership, renewal job processing, scheduler ownership, and delivery-rule route/CLI entrypoints plus service implementation moved into Laravel control-plane namespaces; old traffic-rule module service/controller removed**.
+Current estimated migration progress: **90% complete, with Laravel HTTP
+entrypoints, delivery-rule and SSL ownership, scheduler/CLI bootstrap, public
+index removal, legacy command-runner removal, and dead custom-router/module HTTP
+adapters removed. Remaining work is concentrated in dashboard/build validation,
+first-class command/service conversion, remaining old service/database adapter
+retirement, and final full-platform certification**.
 
 | Percent | Status | Milestone |
 | --- | --- | --- |
@@ -26,10 +31,10 @@ Current estimated migration progress: **72% complete, with SSL route ownership, 
 | 45% | Complete | Collector, analytics, activity, security ingest, and reports migrated. |
 | 55% | Complete | Cache, WAF, rate-limit, IP rules, redirects, headers, waiting room, route-debug, protection catalogs, and onboarding route ownership covered by Laravel feature tests; full edge/dashboard/e2e hardening continues in later slices. |
 | 65% | Complete | SSL settings, certificates, queued request, job lookup, ACME status, validation, manual/import, renewal job processing, forced renewal, due-renewal scanning, and scheduler command ownership moved into Laravel services. |
-| 75% | In progress | Dashboard API contract alignment, delivery-rule route ownership, and remaining API/OpenAPI cleanup. |
-| 85% | In progress | Laravel CLI command conversion and scheduler ownership moving through Laravel console; legacy command runner removed. |
-| 92% | Pending | Legacy route/module isolation complete; old runtime has no write path. |
-| 97% | Pending | Old core files, custom router, old support layer, and obsolete tests removed. |
+| 75% | Complete | Dashboard API contract alignment, delivery-rule route ownership, and remaining API/OpenAPI cleanup. |
+| 85% | Complete | Laravel CLI command conversion and scheduler ownership moving through Laravel console; legacy command runner removed. |
+| 92% | In progress | Legacy route/module isolation complete; old runtime has no write path. |
+| 97% | In progress | Old core files, custom router, old support layer, and obsolete tests removed. |
 | 100% | Pending | Full smoke, e2e, DNS e2e, stress, docs, CI, and deployment validation green. |
 
 Percentages are product milestones, not line-count estimates. A phase is only
@@ -453,14 +458,35 @@ Remaining risks:
 
 Status: **In progress**.
 
+Current progress evidence:
+
+- `core/public_index.php`, `core/artisan-legacy`, and
+  `core/app/Console/CommandRunner.php` have been removed.
+- Deleted unreferenced old module HTTP controllers for admin, collector, DNS,
+  domains, edge, health, operations, overview, origins, and recommendations
+  after proving no first-party runtime reference remained.
+- Moved the remaining onboarding and settings HTTP adapters into
+  `App\Http\Controllers\Api`; no module `Http/Controllers` files remain.
+- Moved the guided onboarding service from `App\Modules\Onboarding\Services`
+  into `App\Services\ControlPlane`.
+- Moved readiness checks from `App\Modules\Health\Services` into
+  `App\Services\ControlPlane`.
+- Moved edge identity health helper from `App\Modules\Edge\Services` into
+  `App\Services\ControlPlane`.
+- Deleted stale operations and overview module services after their workflows
+  were verified against Laravel API controllers and reporting routes.
+- Deleted the unused custom `App\Support\Router`, `App\Support\Request`, and
+  `App\Support\Response` classes. `rg` shows no remaining first-party runtime
+  references to those classes.
+- `App\Support\Database` and `App\Support\DatabaseMigrator` remain live because
+  Laravel commands and several migrated control-plane services still use them.
+
 Removal candidates after ownership reaches zero:
 
-- `core/app/Support/Router.php`
-- `core/app/Support/Request.php`
-- `core/app/Support/Response.php`
 - `core/app/Support/DatabaseMigrator.php` if Laravel migration/fresh schema flow
   fully replaces it
-- Old module HTTP controllers whose workflows have Laravel controllers
+- Old module HTTP controllers if any are reintroduced before route ownership is
+  completed
 - Old services whose workflows have Laravel services
 - Obsolete SQL migration history if no longer used by fresh installs
 - Pytest assertions that only protect old routing internals instead of product
@@ -476,8 +502,10 @@ Rules for deletion:
 
 Exit checks:
 
-- `rg "public_index|App\\Support\\Router|App\\Support\\Database"` shows no
-  runtime dependency.
+- `rg "public_index|App\\Support\\Router|App\\Support\\Request|App\\Support\\Response"`
+  shows no runtime dependency.
+- `rg "App\\Support\\Database"` is reduced to the intentionally retained
+  database adapter or eliminated after services move fully to Laravel DB access.
 - Laravel routes own all API endpoints.
 - Laravel commands own all supported CLI tasks.
 - Old modules are either deleted or explicitly quarantined as non-runtime
@@ -512,13 +540,14 @@ Required validation:
 
 ## Current Backlog Order
 
-1. Run full delivery-rule edge/runtime e2e, dashboard npm checks, docs build,
+1. Convert remaining `App\Support\Database` and `DatabaseMigrator` users to the
+   Laravel DB/migration surface where practical, then remove the adapter.
+2. Run full delivery-rule edge/runtime e2e, dashboard npm checks, docs build,
    and root-stack smoke/e2e against the Laravel delivery-rule files.
-2. Dashboard API contract alignment.
 3. Laravel jobs, scheduler, and queues.
-4. CLI command conversion.
-5. Legacy runtime deletion.
-6. Final smoke, e2e, stress, docs, and CI certification.
+4. Finish first-class CLI command conversion for any bridged handlers that still
+   instantiate old services directly.
+5. Final smoke, e2e, stress, docs, and CI certification.
 
 ## Tracking Template
 

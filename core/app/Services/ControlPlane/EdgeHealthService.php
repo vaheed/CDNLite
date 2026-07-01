@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Edge\Services;
+namespace App\Services\ControlPlane;
 
 class EdgeHealthService
 {

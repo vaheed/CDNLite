@@ -40,9 +40,9 @@ def test_schema_application_is_explicit_and_serialized_at_container_start():
 
 
 def test_schema_upgrade_commands_are_shipped():
-    artisan = (ROOT / "core/artisan").read_text()
-    assert "cdn:db:migrate" in artisan
-    assert "cdn:db:status" in artisan
+    console = (ROOT / "core/routes/console.php").read_text()
+    assert "cdn:db:migrate" in console
+    assert "cdn:db:status" in console
     assert (ROOT / "core/app/Console/Commands/CdnDbMigrateCommand.php").exists()
     assert (ROOT / "core/app/Console/Commands/CdnDbStatusCommand.php").exists()
 

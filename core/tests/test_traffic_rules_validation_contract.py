@@ -46,12 +46,15 @@ def test_traffic_rules_controller_validation_contract():
         "core/app/Modules/Proxy/Services/ConfigService.php",
         "core/app/Modules/Proxy/Services/CertRenewalService.php",
         "core/app/Modules/Proxy/Services/AcmeIssuerService.php",
-        "core/app/Modules/Onboarding/Services/OnboardingService.php",
         "core/app/Modules/Recommendations/Services/RecommendationService.php",
     ):
         runtime_source = (REPO_ROOT / runtime_path).read_text()
         assert "use App\\Services\\ControlPlane\\TrafficRulesService;" in runtime_source
         assert "App\\Modules\\Proxy\\Services\\TrafficRulesService" not in runtime_source
+    onboarding_source = (REPO_ROOT / "core/app/Services/ControlPlane/OnboardingService.php").read_text()
+    assert "namespace App\\Services\\ControlPlane;" in onboarding_source
+    assert "new TrafficRulesService()" in onboarding_source
+    assert "App\\Modules\\Proxy\\Services\\TrafficRulesService" not in onboarding_source
     assert "namespace App\\Http\\Controllers\\Api;" in laravel_controller
     assert "namespace App\\Services\\ControlPlane;" in laravel_service
     assert "extends \\App\\Modules\\Proxy" not in laravel_controller

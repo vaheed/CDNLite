@@ -24,7 +24,8 @@ def test_domain_mutations_invalidate_config_before_reconcile():
 def test_dns_and_geo_route_mutations_invalidate_config():
     dns_service = read("core/app/Modules/Dns/Services/DnsService.php")
     geo_service = read("core/app/Modules/Dns/Services/GeoRoutingService.php")
-    dns_controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+    dns_controller = read("core/app/Http/Controllers/Api/DomainController.php")
+    laravel_dns_service = read("core/app/Services/ControlPlane/DnsRecordService.php")
     routes = read("core/routes/api.php")
     api_docs = read("docs/api/api.md")
     openapi = read("docs/public/api/openapi.yaml")
@@ -41,11 +42,10 @@ def test_dns_and_geo_route_mutations_invalidate_config():
     assert "ConfigService::markDirty('dns.geo_routes.changed')" in geo_service
     assert "AuditLog::write('dns.geo_routes.update'" in geo_service
     assert "$this->invalidateConfigSnapshot();\n        (new DnsReconciler())->reconcile();" in geo_service
-    assert "private function dnsPublishFailure" in dns_controller
-    assert "'error' => 'dns_publish_failed'" in dns_controller
-    assert "'local_state_saved' => true" in dns_controller
-    assert "'retry' => 'cdn:dns:reconcile'" in dns_controller
+    assert "private function dnsError" in dns_controller
+    assert "$this->dnsReconcile->queueForDomain($domainId)" in laravel_dns_service
+    assert "$this->config->markDirty('dns.record.changed')" in laravel_dns_service
     assert "/domains/{domainId}/dns/records/{recordId}/reconcile" in routes
-    assert "reconcileRecord(string $domainId, string $recordId)" in dns_controller
+    assert "reconcileDnsRecord(Request $request, string $domainId, string $recordId" in dns_controller
     assert "/domains/{domainId}/dns/records/{recordId}/reconcile" in api_docs
     assert "/domains/{domainId}/dns/records/{recordId}/reconcile:" in openapi

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\Settings\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
 use App\Modules\Dns\Services\DnsReconciler;
 use App\Modules\Dns\Services\PowerDnsService;

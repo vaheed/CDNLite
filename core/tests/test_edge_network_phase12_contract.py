@@ -26,7 +26,8 @@ def test_compose_runs_two_test_edges_with_public_ip_metadata():
 
     assert "edge-2:" in compose
     assert "edge-agent-2:" in compose
-    assert "CDNLITE_BOOTSTRAP_EDGE_EXTRA_TOKENS" in compose
+    assert "EDGE_TOKEN: ${EDGE_TOKEN:-edge-dev-token}" in compose
+    assert "EDGE_TOKEN: ${EDGE_2_TOKEN:-edge-dev-token-2}" in compose
     assert "EDGE_PUBLIC_IP: ${EDGE_PUBLIC_IP:-203.0.113.10}" in compose
     assert "EDGE_COUNTRY: ${EDGE_COUNTRY:-US}" in compose
     assert "EDGE_PUBLIC_IP: ${EDGE_2_PUBLIC_IP:-198.51.100.20}" in compose
@@ -51,7 +52,7 @@ def test_platform_dns_plan_contract():
 
 
 def test_edge_agent_writes_do_not_block_on_powerdns():
-    controller = read("core/app/Modules/Edge/Http/Controllers/EdgeController.php")
+    controller = read("core/app/Http/Controllers/Api/EdgeController.php")
     edge = read("core/app/Modules/Edge/Services/EdgeService.php")
     builder = read("core/app/Modules/Dns/Services/DnsDesiredStateBuilder.php")
 

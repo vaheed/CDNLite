@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Modules\Health\Services\ReadinessService;
+use App\Services\ControlPlane\ReadinessService;
 use App\Support\CommandIO;
 
 class CdnReadinessCheckCommand

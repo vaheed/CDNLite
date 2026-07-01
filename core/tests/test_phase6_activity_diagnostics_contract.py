@@ -36,7 +36,7 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
     collector = read("core/app/Http/Controllers/Api/CollectorController.php")
     routes = read("core/routes/api.php")
     console = read("core/routes/console.php")
-    artisan = read("core/artisan")
+    console = read("core/routes/console.php")
 
     assert "'host' => $this->nullableString($event['host'] ?? null)" in collector
     assert "'query_redacted' => isset($event['query_redacted'])" in collector
@@ -56,9 +56,9 @@ def test_collector_persists_enriched_edge_metrics_and_exposes_recent_requests():
 
     assert "public function pruneDetailedEvents" in retention
     assert "CDNLITE_ANALYTICS_RETENTION_DAYS" in retention
-    assert "cdn:usage:prune" in artisan
-    assert "cdn:usage:summary" in artisan
-    assert "cdn:usage:recalculate" in artisan
+    assert "cdn:usage:prune" in console
+    assert "cdn:usage:summary" in console
+    assert "cdn:usage:recalculate" in console
     assert "Artisan::command('cdn:usage:summary" in console
     assert "Artisan::command('cdn:usage:recalculate" in console
     assert "$retention->pruneDetailedEvents(" in console

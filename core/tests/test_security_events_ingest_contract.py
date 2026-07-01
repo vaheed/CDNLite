@@ -4,7 +4,7 @@ from pathlib import Path
 def test_security_events_ingest_route_contract():
     repo_root = Path(__file__).resolve().parents[2]
     routes = (repo_root / "core" / "routes" / "api.php").read_text()
-    collector_controller = (repo_root / "core" / "app" / "Modules" / "Collector" / "Http" / "Controllers" / "CollectorController.php").read_text()
+    collector_controller = (repo_root / "core" / "app" / "Http" / "Controllers" / "Api" / "CollectorController.php").read_text()
     collector_service = (repo_root / "core" / "app" / "Modules" / "Collector" / "Services" / "CollectorService.php").read_text()
     agent_run = (repo_root / "edge" / "agent" / "run.sh").read_text()
     agent_push = (repo_root / "edge" / "agent" / "push_security_events.sh").read_text()
@@ -12,7 +12,7 @@ def test_security_events_ingest_route_contract():
     telemetry_queue = (repo_root / "edge" / "openresty" / "lua" / "telemetry_queue.lua").read_text()
 
     assert "/collector/security-events" in routes
-    assert "ingestSecurityEvents" in collector_controller
+    assert "public function securityEvents" in collector_controller
     assert "ingestSecurityEvents" in collector_service
     assert "push_security_events.sh" in agent_run
     assert "chmod 666" in agent_push

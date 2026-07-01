@@ -35,7 +35,7 @@ def test_origin_api_and_cli_contract():
 
 def test_origin_health_service_and_readiness_contract():
     service = read("core/app/Services/ControlPlane/OriginLifecycleService.php")
-    readiness = read("core/app/Modules/Health/Services/ReadinessService.php")
+    readiness = read("core/app/Services/ControlPlane/ReadinessService.php")
     compose = read("docker-compose.yml")
 
     assert "function healthReport" in service
@@ -46,7 +46,7 @@ def test_origin_health_service_and_readiness_contract():
     assert "origin_health" in readiness
     assert "health_check_enabled=true AND health_status='unhealthy'" in readiness
     assert "Check the origin or review the origin pool" in readiness
-    assert "php /app/artisan schedule:run" in compose
+    assert "php /app/artisan cdn:scheduler:run" in compose
     assert "CDNLITE_ORIGIN_HEALTH_INTERVAL_SECONDS" in compose
     assert "CDNLITE_SCHEDULER_IDLE" in compose
     assert "CDNLITE_SCHEDULER_TICK_SECONDS" in compose

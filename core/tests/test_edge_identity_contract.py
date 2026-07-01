@@ -42,8 +42,8 @@ def test_edge_agent_rejects_empty_identity_outside_dev_mode(tmp_path):
 
 def test_health_service_flags_suspicious_identity():
     php = r"""
-require 'core/app/Modules/Edge/Services/EdgeHealthService.php';
-$health = new App\Modules\Edge\Services\EdgeHealthService();
+require 'core/app/Services/ControlPlane/EdgeHealthService.php';
+$health = new App\Services\ControlPlane\EdgeHealthService();
 echo json_encode([
   $health->identityStatus('unknown'),
   $health->identityStatus('openresty'),

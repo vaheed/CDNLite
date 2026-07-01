@@ -32,7 +32,7 @@ def test_secrets_are_masked_and_powerdns_uses_repository():
 
 
 def test_edge_dns_settings_trigger_dns_reconciliation():
-    controller = read("core/app/Modules/Settings/Http/Controllers/SettingsController.php")
+    controller = read("core/app/Http/Controllers/Api/SettingsController.php")
 
     assert "use App\\Modules\\Dns\\Services\\DnsReconciler;" in controller
     assert "$group === 'platform.edge_dns'" in controller

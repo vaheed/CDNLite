@@ -25,7 +25,9 @@ def test_routing_schema_and_planner_contract():
 def test_routing_api_and_republish_contract():
     routes = read("core/routes/api.php")
     service = read("core/app/Modules/Dns/Services/DnsService.php")
-    controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+    controller = read("core/app/Http/Controllers/Api/DomainController.php")
+    request = read("core/app/Http/Requests/StoreDnsRecordRequest.php")
+    laravel_service = read("core/app/Services/ControlPlane/DnsRecordService.php")
 
     assert "/domains/{domainId}/dns/records/{recordId}/geo-routes" in routes
     assert "/domains/{domainId}/routing" not in routes
@@ -33,10 +35,10 @@ def test_routing_api_and_republish_contract():
     assert "$this->rebuildDomain($domainId);" in service
     assert "rebuildGeoDomains" in service
     assert "SELECT DISTINCT domain_id FROM dns_records" in service
-    assert "['geo', 'anycast', 'dns_only']" in controller
-    assert "apex_cname_not_allowed" in controller
-    assert "Validator::originHost($content, 'content')" in controller
-    assert "['A', 'AAAA']" in controller
+    assert "geo_routes.*.route_scope" in request
+    assert "geo_routes_require_dns_only_record" in laravel_service
+    assert "geo_routes_require_address_record" in laravel_service
+    assert "Rule::in(['A', 'AAAA'])" in request
 
     edge = read("core/app/Modules/Edge/Services/EdgeService.php")
     assert "(new DnsService())->rebuildGeoDomains();" not in edge

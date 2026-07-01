@@ -115,7 +115,7 @@ def test_powerdns_doctor_and_dry_run_report_soa_state():
 def test_powerdns_sync_state_is_persisted_and_exposed():
     schema = read("core/database/schema.sql")
     state = read("core/app/Modules/Dns/Services/DnsSyncStateService.php")
-    readiness = read("core/app/Modules/Health/Services/ReadinessService.php")
+    readiness = read("core/app/Services/ControlPlane/ReadinessService.php")
     routes = read("core/routes/api.php")
 
     assert "CREATE TABLE IF NOT EXISTS dns_sync_state" in schema

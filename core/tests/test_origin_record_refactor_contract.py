@@ -40,7 +40,8 @@ def test_dns_origin_link_migration_is_additive():
 def test_record_level_origin_proxy_and_geo_contract():
     schema = read("core/database/schema.sql")
     service = read("core/app/Modules/Dns/Services/DnsService.php")
-    controller = read("core/app/Modules/Dns/Http/Controllers/DnsController.php")
+    request = read("core/app/Http/Requests/StoreDnsRecordRequest.php")
+    laravel_service = read("core/app/Services/ControlPlane/DnsRecordService.php")
     config = read("core/app/Modules/Proxy/Services/ConfigService.php")
 
     assert "origin_host TEXT NULL" in schema
@@ -48,7 +49,8 @@ def test_record_level_origin_proxy_and_geo_contract():
     assert "origin_scheme TEXT NULL" in schema
     assert "origin_status TEXT NOT NULL DEFAULT 'pending'" in schema
     assert "geo_origins_json TEXT NULL" in schema
-    assert "Validator::enum($input, 'origin_scheme', ['http', 'https'])" in controller
+    assert "'origin_host' => ['nullable', 'string', 'max:253']" in request
+    assert "'origin_scheme' => $record['proxied'] ? 'http' : null" in laravel_service
     assert "'origin_scheme' => (string) ($input['origin_scheme'] ?? 'http')" in service
     assert ":origin_scheme, :origin_status" in service
     assert "origin_scheme = :origin_scheme" in service

@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Modules\Onboarding\Services;
+namespace App\Services\ControlPlane;
 
-use App\Services\ControlPlane\TrafficRulesService;
 use App\Support\AuditLog;
 use App\Support\Database;
 use App\Support\Uuid;
